@@ -1,0 +1,89 @@
+# WildDetect Configuration
+
+# Model Settings
+model:
+  type: "yolo"  # yolo, faster_rcnn, etc.
+  weights: "models/yolo_wildlife.pt"
+  confidence_threshold: 0.5
+  nms_threshold: 0.4
+  input_size: [640, 640]
+  device: "auto"  # auto, cpu, cuda
+
+# Detection Settings
+detection:
+  min_confidence: 0.3
+  max_detections: 100
+  enable_tracking: false
+  species_classes:
+    - "elephant"
+    - "giraffe"
+    - "zebra"
+    - "lion"
+    - "rhino"
+    - "buffalo"
+    - "antelope"
+    - "deer"
+    - "bear"
+    - "wolf"
+    - "fox"
+    - "rabbit"
+    - "bird"
+    - "other"
+
+# File Paths
+paths:
+  data_dir: "data"
+  images_dir: "data/images"
+  annotations_dir: "data/annotations"
+  models_dir: "models"
+  datasets_dir: "data/datasets"
+  logs_dir: "logs"
+
+# FiftyOne Settings
+fiftyone:
+  dataset_name: "wildlife_detection"
+  max_samples: 10000
+  enable_brain: true
+  brain_methods:
+    - "similarity"
+    - "hardest"
+    - "mistakenness"
+
+# LabelStudio Settings
+labelstudio:
+  url: "http://localhost:8080"
+  api_key: null  # Set your API key here
+  default_project_prefix: "wildlife_annotation"
+  auto_sync: true
+  pre_annotation: true
+
+# Database Settings
+database:
+  url: "sqlite:///data/annotations.db"
+  echo: false
+
+# API Settings
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+  reload: true
+
+# UI Settings
+ui:
+  title: "WildDetect - Wildlife Detection System"
+  theme: "light"
+  page_icon: "🦁"
+
+# Processing Settings
+processing:
+  batch_size: 4
+  num_workers: 2
+  enable_augmentation: true
+  resize_method: "letterbox"
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/wildetect.log" 

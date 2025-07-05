@@ -1,0 +1,61 @@
+# Inference Engine Configuration
+# This file contains all parameters needed to create an InferenceEngine
+
+# Prediction Configuration
+prediction:
+  imgsz: 960
+  tilesize: 960
+  overlap_ratio: 0.2
+  confidence_threshold: 0.25
+  min_area: 100
+  max_area: null
+  use_sliding_window: true
+  nms_iou: 0.5
+  device: "cuda"  # or "cpu"
+  batch_size: 8
+  roi_weights: null
+  cls_imgsz: 96
+  verbose: false
+  inference_service_url: null
+
+# Flight Specifications
+flight_specs:
+  sensor_height: 24.0  # in mm
+  focal_length: 35.0   # in mm
+  flight_height: 180.0  # in meters
+
+# ROI Classifier Configuration
+roi_classifier:
+  path: "D:/datalabeling/base_models_weights/roi_classifier.ckpt"  # Path to ROI classifier checkpoint
+  is_features: true
+  label_map:
+    0: "gt"
+    1: "tn"
+  keep_classes: ["gt"]
+
+# Detection Model Configuration
+detection:
+  label_map:
+    0: "wildlife"
+  model_path: "D:/datalabeling/base_models_weights/best.pt"  # Path to detection model weights
+  model_type: "ultralytics"  # "ultralytics", "groundingdino", etc.
+  text_instruction: "detect wildlife species"
+
+# Feature Extractor Configuration
+feature_extractor:
+  path: "facebook/dinov2-with-registers-small"
+
+# MLflow Configuration
+mlflow:
+  model_alias: "demo"
+  model_name: "labeler"
+
+# Label Studio Configuration
+label_studio:
+  set_client: false
+  dot_env_path: null
+
+# System Configuration
+system:
+  buffer_size: 24
+  timeout: 60
