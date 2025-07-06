@@ -1,0 +1,362 @@
+"""
+Campaign Manager for orchestrating complete wildlife detection campaigns.
+
+This module provides a high-level interface that integrates data management,
+detection processing, flight analysis, and reporting into a unified pipeline.
+"""
+
+import logging
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+from .config import LoaderConfig, PredictionConfig
+from .data.census import CensusDataManager, DetectionResults
+from .data.drone_image import DroneImage
+from .detection_pipeline import DetectionPipeline
+from .flight.flight_analyzer import FlightEfficiency, FlightPath
+from .visualization.fiftyone_manager import FiftyOneManager
+from .visualization.geographic import GeographicVisualizer, VisualizationConfig
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CampaignConfig:
+    """Configuration for a complete campaign."""
+
+    # Campaign identification
+    campaign_id: str
+
+    # Data loading configuration
+    loader_config: LoaderConfig
+
+    # Detection configuration
+    prediction_config: PredictionConfig
+
+    # Optional configurations
+    metadata: Optional[Dict[str, Any]] = None
+    visualization_config: Optional[VisualizationConfig] = None
+    fiftyone_dataset_name: Optional[str] = None
+
+
+class CampaignManager:
+    """High-level campaign manager that orchestrates the complete detection pipeline."""
+
+    def __init__(self, config: CampaignConfig):
+        """Initialize the campaign manager.
+
+        Args:
+            config: Campaign configuration
+        """
+        self.config = config
+        self.campaign_id = config.campaign_id
+
+        # Initialize components
+        self.census_manager = CensusDataManager(
+            campaign_id=config.campaign_id,
+            loading_config=config.loader_config,
+            metadata=config.metadata or {},
+        )
+
+        self.detection_pipeline = DetectionPipeline(
+            config=config.prediction_config, loader_config=config.loader_config
+        )
+
+        # Optional components
+        self.fiftyone_manager = None
+        if config.fiftyone_dataset_name:
+            self.fiftyone_manager = FiftyOneManager(config.fiftyone_dataset_name)
+
+        self.geographic_visualizer = GeographicVisualizer(
+            config=config.visualization_config
+        )
+
+        logger.info(f"Initialized CampaignManager for campaign: {self.campaign_id}")
+
+    def add_images_from_paths(self, image_paths: List[str]) -> None:
+        """Add images from file paths.
+
+        Args:
+            image_paths: List of image file paths
+        """
+        self.census_manager.add_images_from_paths(image_paths)
+
+    def add_images_from_directory(self, directory_path: str) -> None:
+        """Add all images from a directory.
+
+        Args:
+            directory_path: Path to directory containing images
+        """
+        self.census_manager.add_images_from_directory(directory_path)
+
+    def prepare_data(
+        self, tile_size: Optional[int] = None, overlap: Optional[float] = None
+    ) -> None:
+        """Prepare data for detection by creating DroneImage instances.
+
+        Args:
+            tile_size: Optional tile size override
+            overlap: Optional overlap ratio override
+        """
+        self.census_manager.create_drone_images(tile_size=tile_size, overlap=overlap)
+        logger.info(
+            f"Prepared {len(self.census_manager.drone_images)} drone images for detection"
+        )
+
+    def run_detection(
+        self, save_results: bool = True, output_dir: Optional[str] = None
+    ) -> DetectionResults:
+        """Run detection on all images in the campaign.
+
+        Args:
+            save_results: Whether to save results to files
+            output_dir: Optional output directory for results
+
+        Returns:
+            DetectionResults: Results from the detection campaign
+        """
+        if not self.census_manager.drone_images:
+            raise ValueError("No drone images available. Call prepare_data() first.")
+
+        logger.info(
+            f"Starting detection campaign for {len(self.census_manager.drone_images)} images"
+        )
+        start_time = time.time()
+
+        # Run detection using the pipeline
+        image_paths = [img.image_path for img in self.census_manager.drone_images]
+        processed_drone_images = self.detection_pipeline.run_detection(
+            image_paths=image_paths,
+            save_path=output_dir + "/detection_results.json"
+            if save_results and output_dir
+            else None,
+        )
+
+        # Update census manager with processed images
+        self.census_manager.drone_images = processed_drone_images
+
+        # Calculate detection statistics
+        total_detections = 0
+        detection_by_class = {}
+        confidence_scores = []
+
+        for drone_image in processed_drone_images:
+            detections = drone_image.get_all_predictions()
+            total_detections += len(detections)
+
+            for detection in detections:
+                if not detection.is_empty:
+                    class_name = detection.class_name
+                    detection_by_class[class_name] = (
+                        detection_by_class.get(class_name, 0) + 1
+                    )
+                    confidence_scores.append(detection.confidence)
+
+        # Create detection results
+        processing_time = time.time() - start_time
+        confidence_stats = {
+            "mean": sum(confidence_scores) / len(confidence_scores)
+            if confidence_scores
+            else 0.0,
+            "min": min(confidence_scores) if confidence_scores else 0.0,
+            "max": max(confidence_scores) if confidence_scores else 0.0,
+            "count": len(confidence_scores),
+        }
+
+        detection_results = DetectionResults(
+            total_images=len(processed_drone_images),
+            total_detections=total_detections,
+            detection_by_class=detection_by_class,
+            processing_time=processing_time,
+            detection_confidence_stats=confidence_stats,
+            geographic_coverage=self.census_manager._calculate_geographic_coverage(),
+            campaign_id=self.campaign_id,
+            metadata=self.config.metadata or {},
+        )
+
+        # Store results in census manager
+        self.census_manager.set_detection_results(detection_results)
+
+        logger.info(
+            f"Detection completed: {total_detections} detections in {processing_time:.2f}s"
+        )
+        return detection_results
+
+    def analyze_flight_path(self) -> Optional[FlightPath]:
+        """Analyze the flight path from GPS data.
+
+        Returns:
+            Optional[FlightPath]: Analyzed flight path or None if no GPS data
+        """
+        return self.census_manager.analyze_flight_path()
+
+    def calculate_flight_efficiency(self) -> Optional[FlightEfficiency]:
+        """Calculate flight efficiency metrics.
+
+        Returns:
+            Optional[FlightEfficiency]: Flight efficiency metrics or None if no flight path
+        """
+        return self.census_manager.calculate_flight_efficiency()
+
+    def merge_detections_geographically(
+        self, iou_threshold: float = 0.8
+    ) -> List[DroneImage]:
+        """Merge detections across overlapping geographic regions.
+
+        Args:
+            iou_threshold: IoU threshold for merging detections
+
+        Returns:
+            List[DroneImage]: List of merged drone images
+        """
+        return self.census_manager.merge_detections_geographically(iou_threshold)
+
+    def create_geographic_visualization(self, output_path: Optional[str] = None) -> str:
+        """Create geographic visualization of the campaign.
+
+        Args:
+            output_path: Optional path to save the visualization
+
+        Returns:
+            str: Path to the saved visualization file
+        """
+        if not self.census_manager.drone_images:
+            raise ValueError("No drone images available for visualization")
+
+        if output_path is None:
+            output_path = f"campaign_{self.campaign_id}_visualization.html"
+
+        self.geographic_visualizer.save_map(
+            self.census_manager.drone_images, output_path
+        )
+
+        logger.info(f"Geographic visualization saved to: {output_path}")
+        return output_path
+
+    def export_to_fiftyone(self) -> None:
+        """Export campaign data to FiftyOne for visualization and analysis."""
+        if self.fiftyone_manager is None:
+            logger.warning("FiftyOne manager not initialized. Skipping export.")
+            return
+
+        if not self.census_manager.drone_images:
+            logger.warning("No drone images available for FiftyOne export.")
+            return
+
+        self.fiftyone_manager.add_drone_images(self.census_manager.drone_images)
+        logger.info(
+            f"Exported {len(self.census_manager.drone_images)} images to FiftyOne"
+        )
+
+    def export_detection_report(self, output_path: str) -> None:
+        """Export a comprehensive detection report.
+
+        Args:
+            output_path: Path to save the report
+        """
+        self.census_manager.export_detection_report(output_path)
+
+    def get_campaign_statistics(self) -> Dict[str, Any]:
+        """Get comprehensive campaign statistics.
+
+        Returns:
+            Dict[str, Any]: Complete campaign statistics
+        """
+        return self.census_manager.get_enhanced_campaign_statistics()
+
+    def get_all_detections(self, force_compute: bool = False) -> List:
+        """Get all detections from the campaign.
+
+        Args:
+            force_compute: Whether to force recomputation of detections
+
+        Returns:
+            List: All detections across the campaign
+        """
+        return self.census_manager.get_all_detections(force_compute=force_compute)
+
+    def run_complete_campaign(
+        self,
+        image_paths: List[str],
+        output_dir: Optional[str] = None,
+        tile_size: Optional[int] = None,
+        overlap: Optional[float] = None,
+        run_flight_analysis: bool = True,
+        run_geographic_merging: bool = True,
+        create_visualization: bool = True,
+        export_to_fiftyone: bool = False,
+    ) -> Dict[str, Any]:
+        """Run a complete campaign from start to finish.
+
+        Args:
+            image_paths: List of image paths to process
+            output_dir: Optional output directory for results
+            tile_size: Optional tile size override
+            overlap: Optional overlap ratio override
+            run_flight_analysis: Whether to run flight path analysis
+            run_geographic_merging: Whether to run geographic merging
+            create_visualization: Whether to create geographic visualization
+            export_to_fiftyone: Whether to export to FiftyOne
+
+        Returns:
+            Dict[str, Any]: Complete campaign results
+        """
+        logger.info(f"Starting complete campaign: {self.campaign_id}")
+
+        # Step 1: Add images
+        self.add_images_from_paths(image_paths)
+
+        # Step 2: Prepare data
+        self.prepare_data(tile_size=tile_size, overlap=overlap)
+
+        # Step 3: Run detection
+        detection_results = self.run_detection(save_results=True, output_dir=output_dir)
+
+        # Step 4: Flight analysis (optional)
+        flight_path = None
+        flight_efficiency = None
+        if run_flight_analysis:
+            flight_path = self.analyze_flight_path()
+            if flight_path:
+                flight_efficiency = self.calculate_flight_efficiency()
+
+        # Step 5: Geographic merging (optional)
+        merged_images = None
+        if run_geographic_merging:
+            merged_images = self.merge_detections_geographically()
+
+        # Step 6: Create visualization (optional)
+        visualization_path = None
+        if create_visualization:
+            if output_dir:
+                visualization_path = f"{output_dir}/geographic_visualization.html"
+            visualization_path = self.create_geographic_visualization(
+                visualization_path
+            )
+
+        # Step 7: Export to FiftyOne (optional)
+        if export_to_fiftyone:
+            self.export_to_fiftyone()
+
+        # Step 8: Export final report
+        if output_dir:
+            report_path = f"{output_dir}/campaign_report.json"
+            self.export_detection_report(report_path)
+
+        # Compile results
+        results = {
+            "campaign_id": self.campaign_id,
+            "detection_results": detection_results,
+            "flight_path": flight_path,
+            "flight_efficiency": flight_efficiency,
+            "merged_images": merged_images,
+            "visualization_path": visualization_path,
+            "statistics": self.get_campaign_statistics(),
+        }
+
+        logger.info(
+            f"Campaign completed successfully: {detection_results.total_detections} detections found"
+        )
+        return results

@@ -116,7 +116,7 @@ class FlightPathAnalyzer:
             FlightEfficiency: Flight efficiency metrics
         """
         if not flight_path.coordinates:
-            return FlightEfficiency(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            return FlightEfficiency(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
         # Calculate total distance
         total_distance_km = self._calculate_total_distance(flight_path.coordinates)
@@ -153,7 +153,6 @@ class FlightPathAnalyzer:
             total_area_covered_sqkm=total_area_covered_sqkm,
             coverage_efficiency=coverage_efficiency,
             overlap_percentage=overlap_percentage,
-            flight_duration_hours=flight_duration_hours,
             average_altitude_m=average_altitude_m,
             image_density_per_sqkm=image_density_per_sqkm,
         )
@@ -213,6 +212,9 @@ class FlightPathAnalyzer:
         """Estimate overlap between two images based on distance and size."""
         img1_footprint = img1.geographic_footprint
         img2_footprint = img2.geographic_footprint
+
+        if img1_footprint is None or img2_footprint is None:
+            return 0.0
 
         overlap_ratio = img1_footprint.overlap_ratio(img2_footprint)
 

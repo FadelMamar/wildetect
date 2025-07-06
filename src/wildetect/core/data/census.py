@@ -32,6 +32,20 @@ class CampaignMetadata:
     equipment_info: Dict  # camera, drone model
 
 
+@dataclass
+class DetectionResults:
+    """Results from a detection campaign."""
+
+    total_images: int
+    total_detections: int
+    detection_by_class: Dict[str, int]
+    processing_time: float
+    detection_confidence_stats: Dict[str, Any]
+    geographic_coverage: Dict[str, Any]
+    campaign_id: str
+    metadata: Dict[str, Any]
+
+
 class CensusDataManager:
     """High-level data management for drone flight campaigns."""
 
@@ -57,9 +71,14 @@ class CensusDataManager:
 
         # Processing configuration
         self.loading_config = loading_config
+        self.tile_size: Optional[int] = None
+        self.overlap: Optional[float] = None
 
         # Campaign metadata
         self.campaign_metadata: Optional[CampaignMetadata] = None
+
+        # Detection results
+        self.detection_results: Optional[DetectionResults] = None
 
         # Phase 2: Flight analysis and geographic merging
         self.flight_analyzer = FlightPathAnalyzer()
@@ -189,20 +208,43 @@ class CensusDataManager:
         """Merge detections across overlapping geographic regions.
 
         Args:
-            merge_distance_threshold_m (float): Distance threshold for merging detections
+            iou_threshold (float): IoU threshold for merging detections
 
         Returns:
-            Optional[GeographicDataset]: Unified geographic dataset or None if no detections
+            List[DroneImage]: List of merged drone images
         """
         if not self.drone_images:
             logger.warning("No drone images available for geographic merging")
-            return None
+            return []
 
         merged_drone_images = self.geographic_merger.run(
             self.drone_images, iou_threshold=iou_threshold
         )
 
         return merged_drone_images
+
+    def set_detection_results(self, results: DetectionResults) -> None:
+        """Set detection results from a detection campaign.
+
+        Args:
+            results: Detection results to store
+        """
+        self.detection_results = results
+        logger.info(f"Set detection results for campaign {self.campaign_id}")
+
+    def get_drone_image_by_path(self, image_path: str) -> Optional[DroneImage]:
+        """Get a drone image by its path.
+
+        Args:
+            image_path: Path to the image
+
+        Returns:
+            Optional[DroneImage]: The drone image if found, None otherwise
+        """
+        for drone_image in self.drone_images:
+            if drone_image.image_path == image_path:
+                return drone_image
+        return None
 
     # TODO: Add enhanced campaign statistics
     def get_enhanced_campaign_statistics(self) -> Dict[str, Any]:
