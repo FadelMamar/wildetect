@@ -6,10 +6,12 @@ readme = "README.md"
 requires-python = "~=3.11"
 dependencies = [
     "fiftyone>=1.7.0",
+    "folium>=0.20.0",
     "geopy>=2.4.1",
     "huggingface>=0.0.1",
     "pillow>=11.3.0",
     "pre-commit>=4.2.0",
+    "pyproj>=3.7.1",
     "pytest>=8.4.1",
     "ruff>=0.1.6",
     "spyder-kernels==3.0.*",

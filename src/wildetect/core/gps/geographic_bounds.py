@@ -3,8 +3,10 @@ Geographic bounds utilities for wildlife detection.
 """
 
 import logging
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple, Union
+
+import numpy as np
 
 from wildetect.utils.utils import compute_iou
 
@@ -20,16 +22,35 @@ class GeographicBounds:
     east: float  # Max longitude
     west: float  # Min longitude
 
+    # Additional metadata for polygon computation
+    lat_center: Optional[float] = None  # Center latitude of the image
+    lon_center: Optional[float] = None  # Center longitude of the image
+    width_px: Optional[int] = None  # Image width in pixels
+    height_px: Optional[int] = None  # Image height in pixels
+    gsd: Optional[float] = None  # Ground sample distance in cm/px
+
+    # Cached polygon points
+    _polygon_points: Optional[List[Tuple[float, float]]] = field(
+        default=None, repr=False
+    )
+
+    def __post_init__(self):
+        self._polygon_points = self.get_polygon_points()
+
     @property
     def area(self) -> float:
         """Calculate area in square degrees covered by the bounding box."""
         return (self.east - self.west) * (self.north - self.south)
 
     @property
-    def box(
-        self,
-    ) -> List[float]:
+    def box(self) -> List[float]:
+        """Get bounding box as [west, south, east, north]."""
         return [self.west, self.south, self.east, self.north]
+
+    @property
+    def center(self) -> Tuple[float, float]:
+        """Get center coordinates of the bounding box."""
+        return ((self.north + self.south) / 2, (self.east + self.west) / 2)
 
     def overlap_ratio(self, other: "GeographicBounds") -> float:
         """Calculate overlap ratio (IoU) with another bounds using torchmetrics IntersectionOverUnion.
@@ -57,4 +78,182 @@ class GeographicBounds:
             south=self.south - margin,
             east=self.east + margin,
             west=self.west - margin,
+            lat_center=self.lat_center,
+            lon_center=self.lon_center,
+            width_px=self.width_px,
+            height_px=self.height_px,
+            gsd=self.gsd,
         )
+
+    def get_polygon_points(
+        self, num_points_per_edge: int = 10
+    ) -> Optional[List[Tuple[float, float]]]:
+        """Get polygon points representing the image footprint."""
+        if self._polygon_points is not None:
+            return self._polygon_points
+
+        if not self._can_compute_polygon():
+            logger.warning("Cannot compute polygon: missing required metadata")
+            return None
+
+        try:
+            from ..gps.gps_utils import get_pixel_gps_coordinates
+
+            # Generate polygon boundary coordinates
+            width, height = self.width_px or 0, self.height_px or 0
+
+            # Create edge coordinates efficiently
+            edges = [
+                (
+                    np.linspace(0, width, num_points_per_edge + 1),
+                    np.zeros(num_points_per_edge + 1),
+                ),  # Top
+                (
+                    np.full(num_points_per_edge, width),
+                    np.linspace(0, height, num_points_per_edge + 1)[1:],
+                ),  # Right
+                (
+                    np.linspace(width, 0, num_points_per_edge + 1)[1:],
+                    np.full(num_points_per_edge, height),
+                ),  # Bottom
+                (
+                    np.zeros(num_points_per_edge - 1),
+                    np.linspace(height, 0, num_points_per_edge)[1:-1],
+                ),  # Left
+            ]
+
+            x_coords = np.concatenate([edge[0] for edge in edges])
+            y_coords = np.concatenate([edge[1] for edge in edges])
+
+            # Compute GPS coordinates
+            result = get_pixel_gps_coordinates(
+                x=x_coords,
+                y=y_coords,
+                lat_center=self.lat_center or 0.0,
+                lon_center=self.lon_center or 0.0,
+                W=width,
+                H=height,
+                gsd=self.gsd or 0.0,
+                return_as_utm=False,
+            )
+
+            # Convert result to polygon points
+            if isinstance(result, tuple) and len(result) == 2:
+                lats, lons = result
+                if isinstance(lats, np.ndarray) and isinstance(lons, np.ndarray):
+                    polygon_points = [
+                        (float(lats[i]), float(lons[i])) for i in range(lats.size)
+                    ]
+                elif isinstance(lats, (list, np.ndarray)) and isinstance(
+                    lons, (list, np.ndarray)
+                ):
+                    # Handle list/array inputs
+                    lats_list = lats if isinstance(lats, list) else lats.tolist()
+                    lons_list = lons if isinstance(lons, list) else lons.tolist()
+                    polygon_points = [
+                        (float(lats_list[i]), float(lons_list[i]))
+                        for i in range(len(lats_list))
+                    ]
+                else:
+                    # Handle single values
+                    polygon_points = [(float(lats), float(lons))]
+            else:
+                # Fallback for unexpected result format
+                logger.warning(
+                    f"Unexpected result format from get_pixel_gps_coordinates: {type(result)}"
+                )
+                return None
+
+            self._polygon_points = polygon_points
+            return polygon_points
+
+        except Exception as e:
+            logger.warning(f"Failed to create polygon from GPS: {e}")
+            return None
+
+    def _can_compute_polygon(self) -> bool:
+        """Check if we have the necessary metadata to compute polygon."""
+        return all(
+            [
+                self.lat_center is not None,
+                self.lon_center is not None,
+                self.width_px is not None,
+                self.height_px is not None,
+                self.gsd is not None,
+            ]
+        )
+
+    def clear_polygon_cache(self) -> None:
+        """Clear the cached polygon points."""
+        self._polygon_points = None
+
+    @classmethod
+    def from_image_metadata(
+        cls,
+        lat_center: float,
+        lon_center: float,
+        width_px: int,
+        height_px: int,
+        gsd: float,
+    ) -> Optional["GeographicBounds"]:
+        """Create GeographicBounds from image metadata with polygon computation.
+
+        Args:
+            lat_center: Center latitude of the image
+            lon_center: Center longitude of the image
+            width_px: Image width in pixels
+            height_px: Image height in pixels
+            gsd: Ground sample distance in cm/px
+            num_points_per_edge: Number of points to sample along each edge
+
+        Returns:
+            GeographicBounds instance or None if creation fails
+        """
+        try:
+            from ..gps.gps_utils import get_pixel_gps_coordinates
+
+            # Calculate the four corner coordinates
+            corners_x = np.array([0, width_px, width_px, 0])
+            corners_y = np.array([0, 0, height_px, height_px])
+
+            # Get GPS coordinates for corners
+            lats, lons = get_pixel_gps_coordinates(
+                x=corners_x,
+                y=corners_y,
+                lat_center=lat_center,
+                lon_center=lon_center,
+                W=width_px,
+                H=height_px,
+                gsd=gsd,
+            )
+
+            # Convert to float values
+            lats = (
+                [float(lat) for lat in lats]
+                if isinstance(lats, (list, np.ndarray))
+                else [float(lats)]
+            )
+            lons = (
+                [float(lon) for lon in lons]
+                if isinstance(lons, (list, np.ndarray))
+                else [float(lons)]
+            )
+
+            # Create bounds
+            bounds = cls(
+                north=max(lats),
+                south=min(lats),
+                east=max(lons),
+                west=min(lons),
+                lat_center=lat_center,
+                lon_center=lon_center,
+                width_px=width_px,
+                height_px=height_px,
+                gsd=gsd,
+            )
+
+            return bounds
+
+        except Exception as e:
+            logger.error(f"Failed to create GeographicBounds from metadata: {e}")
+            return None

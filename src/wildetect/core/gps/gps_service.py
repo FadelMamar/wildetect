@@ -35,40 +35,58 @@ def create_geographic_footprint(
         return None
 
     try:
-        # Calculate bounding box corners in GPS coordinates
-        xs = np.array([x1, x2])
-        ys = np.array([y1, y2])
-
-        xs_utm, ys_utm = get_pixel_gps_coordinates(
-            x=xs,
-            y=ys,
+        # Use the new GeographicBounds.from_image_metadata method for better polygon support
+        bounds = GeographicBounds.from_image_metadata(
             lat_center=lat_center_roi,
             lon_center=long_center_roi,
-            W=width_roi,
-            H=height_roi,
+            width_px=width_roi,
+            height_px=height_roi,
             gsd=gsd,
-            return_as_utm=True,
         )
 
-        # Handle both single values and arrays
-        if isinstance(xs_utm, (list, np.ndarray)):
-            east_max = float(np.max(xs_utm))
-            east_min = float(np.min(xs_utm))
-        else:
-            east_max = east_min = float(xs_utm)
+        if bounds is None:
+            # Fallback to original method if the new method fails
+            # Calculate bounding box corners in GPS coordinates
+            xs = np.array([x1, x2])
+            ys = np.array([y1, y2])
 
-        if isinstance(ys_utm, (list, np.ndarray)):
-            north_max = float(np.max(ys_utm))
-            north_min = float(np.min(ys_utm))
-        else:
-            north_max = north_min = float(ys_utm)
+            xs_utm, ys_utm = get_pixel_gps_coordinates(
+                x=xs,
+                y=ys,
+                lat_center=lat_center_roi,
+                lon_center=long_center_roi,
+                W=width_roi,
+                H=height_roi,
+                gsd=gsd,
+                return_as_utm=True,
+            )
 
-        return GeographicBounds(
-            north=north_max,
-            south=north_min,
-            east=east_max,
-            west=east_min,
-        )
+            # Handle both single values and arrays
+            if isinstance(xs_utm, (list, np.ndarray)):
+                east_max = float(np.max(xs_utm))
+                east_min = float(np.min(xs_utm))
+            else:
+                east_max = east_min = float(xs_utm)
+
+            if isinstance(ys_utm, (list, np.ndarray)):
+                north_max = float(np.max(ys_utm))
+                north_min = float(np.min(ys_utm))
+            else:
+                north_max = north_min = float(ys_utm)
+
+            bounds = GeographicBounds(
+                north=north_max,
+                south=north_min,
+                east=east_max,
+                west=east_min,
+                lat_center=lat_center_roi,
+                lon_center=long_center_roi,
+                width_px=width_roi,
+                height_px=height_roi,
+                gsd=gsd,
+            )
+
+        return bounds
     except Exception as e:
         traceback.print_exc()
         raise Exception

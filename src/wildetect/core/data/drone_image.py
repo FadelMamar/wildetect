@@ -39,6 +39,15 @@ class DroneImage(Tile):
             # If no tiles provided, create a single tile from this image
             self._create_initial_tile()
 
+    @property
+    def geo_polygon_points(self) -> List[Tuple[float, float]]:
+        """Get the polygon points for the geographic footprint."""
+        if self.geographic_footprint is not None:
+            return self.geographic_footprint.get_polygon_points()
+        else:
+            logger.warning(f"No geographic footprint for {self.image_path}")
+            return None
+
     def _create_initial_tile(self):
         """Create initial tile from the drone image itself."""
         # Create a tile representing the full image

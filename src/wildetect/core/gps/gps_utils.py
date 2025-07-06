@@ -4,7 +4,9 @@ GPS utilities for wildlife detection with optional dependencies.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
+
+import numpy as np
 
 from ..config import FlightSpecs
 
@@ -39,15 +41,15 @@ except ImportError:
 
 
 def get_pixel_gps_coordinates(
-    x,
-    y,
-    lat_center,
-    lon_center,
-    W,
-    H,
+    x: Union[int, np.ndarray],
+    y: Union[int, np.ndarray],
+    lat_center: float,
+    lon_center: float,
+    W: int,
+    H: int,
     gsd: float,
     return_as_utm: bool = False,
-) -> tuple[float, float]:
+) -> Union[tuple[float, float], tuple[np.ndarray, np.ndarray]]:
     """computes (x,y) pixel gps coordinates
 
     Args:

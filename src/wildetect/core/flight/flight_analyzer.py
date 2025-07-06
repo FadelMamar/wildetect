@@ -44,6 +44,7 @@ class FlightEfficiency:
     image_density_per_sqkm: float
 
 
+# TODO
 class FlightPathAnalyzer:
     """Analyzes flight paths and calculates efficiency metrics."""
 
