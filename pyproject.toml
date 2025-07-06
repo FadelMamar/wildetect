@@ -26,6 +26,7 @@ dependencies = [
     "torchvision>=0.15.0",
     "python-dotenv>=1.0.0",
     "transformers>=4.53.1",
+    "accelerate>=1.8.1",
 ]
 
 [tool.ruff]

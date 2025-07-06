@@ -89,6 +89,7 @@ class FeatureExtractor(Processor):
         Args:
             hf_model_path (str): Path or name of the HuggingFace model.
         """
+        super().__init__()
 
         try:
             self.processor = AutoImageProcessor.from_pretrained(hf_model_path)
@@ -161,6 +162,7 @@ class Classifier(Processor):
             imgsz (int): Image size for preprocessing.
             transform (Optional[A.Compose]): Albumentations transform for preprocessing.
         """
+        super().__init__()
 
         if not isinstance(label_map, dict):
             raise ValueError("label_map must be a dictionary")
@@ -269,7 +271,7 @@ class RoIPostProcessor(Processor):
         model_path: str,
         label_map: Dict[int, str],
         feature_extractor_path: Optional[str] = None,
-        imgsz: int = 128,
+        roi_size: int = 96,
         transform: Optional[A.Compose] = None,
         device: str = "cpu",
         classifier: Optional[Classifier] = None,
@@ -282,7 +284,7 @@ class RoIPostProcessor(Processor):
             config (Optional[ProcessorConfig]): Processor configuration.
         """
         super().__init__()
-        self.box_size = imgsz
+        self.box_size = roi_size
 
         if classifier:
             self.classifier = classifier
