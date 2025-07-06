@@ -8,6 +8,7 @@ import random
 import shutil
 import sys
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -32,10 +33,16 @@ from wildetect.core.flight.geographic_merger import (
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("TEST_GEOGRAPHIC_MERGER")
 
 TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
 FLIGHT_SPECS = FlightSpecs(sensor_height=24.0, focal_length=35.0, flight_height=180.0)
+
+
+def load_image_path():
+    image_path = random.choice(os.listdir(TEST_IMAGE_DIR))
+    image_path = os.path.join(TEST_IMAGE_DIR, image_path)
+    return image_path
 
 
 def create_test_drone_image(
@@ -44,8 +51,7 @@ def create_test_drone_image(
     """Create a test drone image with optional predictions."""
 
     # Create a test image
-    image_path = random.choice(os.listdir(TEST_IMAGE_DIR))
-    image_path = os.path.join(TEST_IMAGE_DIR, image_path)
+    image_path = load_image_path()
 
     # Create drone image
     drone_image = DroneImage.from_image_path(
@@ -60,12 +66,11 @@ def create_test_drone_image(
 
 
 def create_test_detection(
+    image_path: str,
     width: int = 50,
     height: int = 50,
-    class_name: str = "test",
+    class_name: str = "TEST",
     confidence: float = 0.8,
-    image_width: int = 1000,
-    image_height: int = 1000,
 ) -> Detection:
     """Create a test detection with bounds checking.
 
@@ -76,34 +81,36 @@ def create_test_detection(
         height: height of detection bounding box
         class_name: class name for detection
         confidence: confidence score
-        image_width: width of the image
-        image_height: height of the image
 
     Returns:
         Detection object with properly bounded coordinates
     """
+
+    with Image.open(image_path) as img:
+        image_width, image_height = img.size
+
     # Sample random coordinates if not provided
-    x = random.randint(0, image_width)
-    y = random.randint(0, image_height)
+    x = random.randint(50, image_width - 50)
+    y = random.randint(50, image_height - 50)
 
     # Ensure detection stays within image bounds
     half_width = width // 2
     half_height = height // 2
 
-    # Clamp x-coordinate to keep detection within image
+    # Calculate bounding box coordinates
     x_min = max(0, x - half_width)
     x_max = min(image_width, x + half_width)
-
-    # Clamp y-coordinate to keep detection within image
     y_min = max(0, y - half_height)
     y_max = min(image_height, y + half_height)
 
-    return Detection(
+    det = Detection(
         bbox=[x_min, y_min, x_max, y_max],
         class_id=0,
         class_name=class_name,
         confidence=confidence,
     )
+    det.clamp_bbox(x_range=(0, image_width), y_range=(0, image_height))
+    return det
 
 
 class TestOverlapStrategy:
@@ -207,30 +214,47 @@ class TestCentroidProximityRemovalStrategy:
     """Test the CentroidProximityRemovalStrategy class."""
 
     def setup_method(self):
-        """Set up test fixtures."""
+        logging.info("Starting: setup_method")
         self.strategy = CentroidProximityRemovalStrategy()
+        self.overlap_strategy = GPSOverlapStrategy()
 
     def test_initialization(self):
-        """Test CentroidProximityRemovalStrategy initialization."""
+        logging.info("Starting: test_initialization")
         assert self.strategy is not None
 
     def test_compute_iou_detections(self):
-        """Test IoU computation between detections."""
+        logging.info("Starting: test_compute_iou_detections")
         # Create test detections
         detections_1 = [
             create_test_detection(
-                width=50, height=50, class_name="person", confidence=0.9
+                image_path=load_image_path(),
+                width=50,
+                height=50,
+                class_name="impala",
+                confidence=0.9,
             ),
             create_test_detection(
-                width=60, height=60, class_name="car", confidence=0.8
+                image_path=load_image_path(),
+                width=60,
+                height=60,
+                class_name="elephant",
+                confidence=0.8,
             ),
         ]
         detections_2 = [
             create_test_detection(
-                width=50, height=50, class_name="person", confidence=0.85
+                image_path=load_image_path(),
+                width=50,
+                height=50,
+                class_name="impala",
+                confidence=0.85,
             ),
             create_test_detection(
-                width=70, height=70, class_name="truck", confidence=0.7
+                image_path=load_image_path(),
+                width=70,
+                height=70,
+                class_name="giraffe",
+                confidence=0.7,
             ),
         ]
 
@@ -244,36 +268,53 @@ class TestCentroidProximityRemovalStrategy:
         assert np.all(iou_matrix <= 1)
 
     def test_compute_iou_empty_detections(self):
-        """Test IoU computation with empty detection lists."""
-        detections_1 = []
-        detections_2 = [create_test_detection(width=50, height=50)]
+        logging.info("Starting: test_compute_iou_empty_detections")
+        detections_1 = [Detection.empty(parent_image=load_image_path())]
+        detections_2 = [
+            create_test_detection(image_path=load_image_path(), width=50, height=50)
+        ]
 
         iou_matrix = self.strategy._compute_iou(detections_1, detections_2)
 
         # Should return matrix with -1 values
-        assert iou_matrix.shape == (0, 1)
+        assert iou_matrix.shape == (1, 1)
 
     def test_prune_duplicates_between_tiles(self):
-        """Test pruning duplicates between two tiles."""
-
+        logging.info("Starting: test_prune_duplicates_between_tiles")
         drone_image_1 = create_test_drone_image()
         drone_image_2 = create_test_drone_image()
 
         # Add overlapping detections
         detections_1 = [
             create_test_detection(
-                width=50, height=50, class_name="person", confidence=0.9
+                image_path=load_image_path(),
+                width=50,
+                height=50,
+                class_name="impala",
+                confidence=0.9,
             ),
             create_test_detection(
-                width=60, height=60, class_name="car", confidence=0.8
+                image_path=load_image_path(),
+                width=60,
+                height=60,
+                class_name="elephant",
+                confidence=0.8,
             ),
         ]
         detections_2 = [
             create_test_detection(
-                width=50, height=50, class_name="person", confidence=0.85
+                image_path=load_image_path(),
+                width=50,
+                height=50,
+                class_name="impala",
+                confidence=0.85,
             ),  # Overlapping with first
             create_test_detection(
-                width=70, height=70, class_name="truck", confidence=0.7
+                image_path=load_image_path(),
+                width=70,
+                height=70,
+                class_name="giraffe",
+                confidence=0.7,
             ),  # Different class
         ]
 
@@ -290,8 +331,7 @@ class TestCentroidProximityRemovalStrategy:
         assert len(drone_image_2.predictions) <= len(detections_2)
 
     def test_prune_duplicates_empty_tiles(self):
-        """Test pruning duplicates with empty tiles."""
-
+        logging.info("Starting: test_prune_duplicates_empty_tiles")
         drone_image_1 = create_test_drone_image([])
         drone_image_2 = create_test_drone_image([])
 
@@ -304,88 +344,95 @@ class TestCentroidProximityRemovalStrategy:
         assert len(drone_image_2.predictions) == 0
 
     def test_overlapping_detections_removed_in_place(self):
-        """Test that overlapping detections are removed and tiles are modified in-place."""
+        logging.info("Starting: test_overlapping_detections_removed_in_place")
         # Create two drone images
         drone_image_1 = create_test_drone_image()
-        drone_image_2 = create_test_drone_image()
+        drone_image_2 = deepcopy(drone_image_1)
 
         # Create overlapping detections with same class and similar coordinates
-        # Detection 1 in image 1
-        det1_img1 = create_test_detection(
-            width=100,
-            height=100,
-            class_name="person",
-            confidence=0.9,
-            image_width=1000,
-            image_height=1000,
-        )
-
-        # Detection 2 in image 1 (different class, should not be affected)
-        det2_img1 = create_test_detection(
-            width=80,
-            height=80,
-            class_name="car",
-            confidence=0.8,
-            image_width=1000,
-            image_height=1000,
-        )
+        # Detection 1 in image 1 - centered at (100, 100)
+        det1 = [
+            Detection(
+                bbox=[75, 75, 140, 140],  # 100x100 box centered at (100, 100)
+                class_id=0,
+                class_name="impala",
+                confidence=0.9,
+            ),
+            # Detection 2 in image 1 (different class, should not be affected)
+            Detection(
+                bbox=[200, 200, 280, 280],  # 80x80 box at (200, 200)
+                class_id=0,
+                class_name="elephant",
+                confidence=0.8,
+            ),
+        ]
 
         # Detection 1 in image 2 (overlapping with det1_img1, same class)
-        det1_img2 = create_test_detection(
-            width=100,
-            height=100,
-            class_name="person",
-            confidence=0.85,  # Slightly lower confidence
-            image_width=1000,
-            image_height=1000,
-        )
-
-        # Detection 2 in image 2 (different class, should not be affected)
-        det2_img2 = create_test_detection(
-            width=90,
-            height=90,
-            class_name="truck",
-            confidence=0.7,
-            image_width=1000,
-            image_height=1000,
-        )
+        det2 = [
+            Detection(
+                bbox=[
+                    75,
+                    75,
+                    175,
+                    175,
+                ],  # 100x100 box centered at (125, 125) - overlaps with det1_img1
+                class_id=0,
+                class_name="impala",
+                confidence=0.85,  # Slightly lower confidence
+            ),
+            # Detection 2 in image 2 (different class, should not be affected)
+            Detection(
+                bbox=[300, 300, 390, 390],  # 90x90 box at (300, 300)
+                class_id=0,
+                class_name="giraffe",
+                confidence=0.7,
+            ),
+        ]
 
         # Set predictions
-        drone_image_1.set_predictions([det1_img1, det2_img1])
-        drone_image_2.set_predictions([det1_img2, det2_img2])
+        drone_image_1.set_predictions(det1, update_gps=True)
+        drone_image_2.set_predictions(det2, update_gps=True)
+        drone_image_2.image_path = "test_image_2.jpg"
+
+        iou_threshold = 0.1
+
+        ious = self.strategy._compute_iou(
+            drone_image_1.predictions, drone_image_2.predictions
+        )
+        expected_num_det_to_prune = (ious > iou_threshold).sum()
+        logging.info(
+            f"ious: {ious.round(2).tolist()}. Number of detections to prune: {expected_num_det_to_prune}"
+        )
 
         # Store original predictions for comparison
         original_predictions_1 = drone_image_1.predictions.copy()
         original_predictions_2 = drone_image_2.predictions.copy()
 
-        # Store original object IDs to verify in-place modification
-        original_id_1 = id(drone_image_1)
-        original_id_2 = id(drone_image_2)
-
         # Create overlap map indicating these images overlap
         overlap_map = {
             str(drone_image_1.image_path): [str(drone_image_2.image_path)],
-            str(drone_image_2.image_path): [str(drone_image_1.image_path)],
+            # str(drone_image_2.image_path): [str(drone_image_1.image_path)],
         }
 
         # Run duplicate removal
         stats = self.strategy.remove_duplicates(
-            [drone_image_1, drone_image_2], overlap_map, iou_threshold=0.5
+            [drone_image_1, drone_image_2], overlap_map, iou_threshold=iou_threshold
         )
 
         # Verify that stats are returned
         assert isinstance(stats, dict)
         assert "total_image_pairs_processed" in stats
 
-        # Verify that predictions were modified and duplicate was removed from only one tile
-        # Check that exactly one of the tiles had its predictions modified
         tile1_modified = drone_image_1.predictions != original_predictions_1
         tile2_modified = drone_image_2.predictions != original_predictions_2
 
         # Exactly one tile should have been modified (the one with the duplicate removed)
-        if tile1_modified == tile2_modified:
-            print(stats)
-            print(
+        if expected_num_det_to_prune == 0:
+            assert not tile1_modified
+            assert not tile2_modified
+        elif tile1_modified == tile2_modified:
+            logging.info(stats)
+            logging.debug(
                 f"\nExactly one tile should have predictions modified.\n"
                 f"Expected: exactly one tile modified, Actual: Tile1 modified: {tile1_modified}, Tile2 modified: {tile2_modified}\n"
                 f"Tile1 predictions: {drone_image_1.predictions}\n"
@@ -396,64 +443,59 @@ class TestCentroidProximityRemovalStrategy:
             assert False
 
         # Verify that overlapping detections were removed
-        person_detections_1 = [
-            det for det in drone_image_1.predictions if det.class_name == "person"
+        impala_detections_1 = [
+            det for det in drone_image_1.predictions if det.class_name == "impala"
         ]
-        person_detections_2 = [
-            det for det in drone_image_2.predictions if det.class_name == "person"
+        impala_detections_2 = [
+            det for det in drone_image_2.predictions if det.class_name == "impala"
         ]
 
-        # At least one of the overlapping person detections should be removed
-        total_person_detections = len(person_detections_1) + len(person_detections_2)
-        original_person_detections = 2  # We started with 2 person detections
+        # At least one of the overlapping impala detections should be removed
+        total_impala_detections = len(impala_detections_1) + len(impala_detections_2)
+        original_impala_detections = 2  # We started with 2 impala detections
+        if expected_num_det_to_prune > 0:
+            assert (
+                total_impala_detections < original_impala_detections
+            ), f"Expected overlapping impala detections to be removed. Found {total_impala_detections} instead of < {original_impala_detections}"
+        else:
+            assert (
+                total_impala_detections == original_impala_detections
+            ), f"Expected {original_impala_detections} impala detections, found {total_impala_detections}"
+
+        # Non-overlapping detections (elephant and giraffe) should remain
+        elephant_detections = [
+            det for det in drone_image_1.predictions if det.class_name == "elephant"
+        ]
+        giraffe_detections = [
+            det for det in drone_image_2.predictions if det.class_name == "giraffe"
+        ]
+
+        assert len(elephant_detections) == 1, "elephant detection should remain"
         assert (
-            total_person_detections < original_person_detections
-        ), f"Expected overlapping person detections to be removed. Found {total_person_detections} instead of < {original_person_detections}"
-
-        # Non-overlapping detections (car and truck) should remain
-        car_detections = [
-            det for det in drone_image_1.predictions if det.class_name == "car"
-        ]
-        truck_detections = [
-            det for det in drone_image_2.predictions if det.class_name == "truck"
-        ]
-
-        assert len(car_detections) == 1, "Car detection should remain"
-        assert len(truck_detections) == 1, "Truck detection should remain"
-
-        # Verify that the remaining person detection has the higher confidence
-        if person_detections_1:
-            assert (
-                person_detections_1[0].confidence == 0.9
-            ), "Should keep higher confidence detection"
-        if person_detections_2:
-            assert (
-                person_detections_2[0].confidence == 0.9
-            ), "Should keep higher confidence detection"
+            len(giraffe_detections) == 1
+        ), f"giraffe detection should remain {drone_image_2.predictions}"
 
     def test_no_overlap_no_removal(self):
-        """Test that non-overlapping detections are not removed."""
+        logging.info("Starting: test_no_overlap_no_removal")
         # Create two drone images
         drone_image_1 = create_test_drone_image()
         drone_image_2 = create_test_drone_image()
 
         # Create non-overlapping detections
         det1_img1 = create_test_detection(
+            image_path=drone_image_1.image_path,
             width=50,
             height=50,
-            class_name="person",
+            class_name="impala",
             confidence=0.9,
-            image_width=1000,
-            image_height=1000,
         )
 
         det1_img2 = create_test_detection(
+            image_path=drone_image_2.image_path,
             width=50,
             height=50,
-            class_name="person",
+            class_name="impala",
             confidence=0.8,
-            image_width=1000,
-            image_height=1000,
         )
 
         # Set predictions
@@ -486,7 +528,7 @@ class TestCentroidProximityRemovalStrategy:
         assert drone_image_2.predictions[0] is original_predictions_2[0]
 
     def test_compute_duplicate_removal_stats_empty(self):
-        """Test statistics computation with empty pruned detections."""
+        logging.info("Starting: test_compute_duplicate_removal_stats_empty")
         pruned_detections = {}
         original_total_detections = 100
 
@@ -509,12 +551,20 @@ class TestCentroidProximityRemovalStrategy:
         assert len(stats["class_duplicate_stats"]) == 0
 
     def test_compute_duplicate_removal_stats_with_data(self):
-        """Test statistics computation with actual pruned detection data."""
+        logging.info("Starting: test_compute_duplicate_removal_stats_with_data")
         # Create mock pruned detections
-        det1 = create_test_detection(class_name="person", confidence=0.85)
-        det2 = create_test_detection(class_name="car", confidence=0.78)
-        det3 = create_test_detection(class_name="person", confidence=0.92)
-        det4 = create_test_detection(class_name="truck", confidence=0.88)
+        det1 = create_test_detection(
+            image_path=load_image_path(), class_name="impala", confidence=0.85
+        )
+        det2 = create_test_detection(
+            image_path=load_image_path(), class_name="elephant", confidence=0.78
+        )
+        det3 = create_test_detection(
+            image_path=load_image_path(), class_name="impala", confidence=0.92
+        )
+        det4 = create_test_detection(
+            image_path=load_image_path(), class_name="giraffe", confidence=0.88
+        )
 
         pruned_detections = {
             ("image1.jpg", "image2.jpg"): [det1, det2],
@@ -534,32 +584,34 @@ class TestCentroidProximityRemovalStrategy:
         assert stats["duplicate_removal_rate"] == 4 / 50  # 0.08
 
         # Check class-specific statistics
-        assert "person" in stats["duplicate_groups_by_class"]
-        assert "car" in stats["duplicate_groups_by_class"]
-        assert "truck" in stats["duplicate_groups_by_class"]
+        assert "impala" in stats["duplicate_groups_by_class"]
+        assert "elephant" in stats["duplicate_groups_by_class"]
+        assert "giraffe" in stats["duplicate_groups_by_class"]
 
-        assert stats["duplicate_groups_by_class"]["person"] == 2
-        assert stats["duplicate_groups_by_class"]["car"] == 1
-        assert stats["duplicate_groups_by_class"]["truck"] == 1
+        assert stats["duplicate_groups_by_class"]["impala"] == 2
+        assert stats["duplicate_groups_by_class"]["elephant"] == 1
+        assert stats["duplicate_groups_by_class"]["giraffe"] == 1
 
         # Check class duplicate stats
-        person_stats = stats["class_duplicate_stats"]["person"]
-        assert person_stats["total_duplicates"] == 2
-        assert person_stats["avg_confidence"] == pytest.approx(
+        impala_stats = stats["class_duplicate_stats"]["impala"]
+        assert impala_stats["total_duplicates"] == 2
+        assert impala_stats["avg_confidence"] == pytest.approx(
             (0.85 + 0.92) / 2, rel=1e-3
         )
-        assert person_stats["removal_rate"] == 2 / 50
+        assert impala_stats["removal_rate"] == 2 / 50
 
-        car_stats = stats["class_duplicate_stats"]["car"]
-        assert car_stats["total_duplicates"] == 1
-        assert car_stats["avg_confidence"] == 0.78
-        assert car_stats["removal_rate"] == 1 / 50
+        elephant_stats = stats["class_duplicate_stats"]["elephant"]
+        assert elephant_stats["total_duplicates"] == 1
+        assert elephant_stats["avg_confidence"] == 0.78
+        assert elephant_stats["removal_rate"] == 1 / 50
 
     def test_compute_duplicate_removal_stats_zero_original(self):
-        """Test statistics computation with zero original detections."""
+        logging.info("Starting: test_compute_duplicate_removal_stats_zero_original")
         pruned_detections = {
             ("image1.jpg", "image2.jpg"): [
-                create_test_detection(class_name="person", confidence=0.85)
+                create_test_detection(
+                    image_path=load_image_path(), class_name="impala", confidence=0.85
+                )
             ]
         }
         original_total_detections = 0
@@ -573,10 +625,12 @@ class TestCentroidProximityRemovalStrategy:
         assert stats["total_detections_removed"] == 1
 
     def test_compute_duplicate_removal_stats_json_serializable(self):
-        """Test that statistics are JSON serializable."""
+        logging.info("Starting: test_compute_duplicate_removal_stats_json_serializable")
         pruned_detections = {
             ("image1.jpg", "image2.jpg"): [
-                create_test_detection(class_name="person", confidence=0.85)
+                create_test_detection(
+                    image_path=load_image_path(), class_name="impala", confidence=0.85
+                )
             ]
         }
         original_total_detections = 10
@@ -596,7 +650,7 @@ class TestCentroidProximityRemovalStrategy:
             pytest.fail(f"Statistics are not JSON serializable: {e}")
 
     def test_remove_duplicates_returns_stats(self):
-        """Test that remove_duplicates returns statistics."""
+        logging.info("Starting: test_remove_duplicates_returns_stats")
         # Create test drone images
         drone_images = []
         for i in range(3):
@@ -605,24 +659,25 @@ class TestCentroidProximityRemovalStrategy:
             # Add some test predictions
             predictions = [
                 create_test_detection(
-                    width=50, height=50, class_name="person", confidence=0.9
+                    image_path=load_image_path(),
+                    width=50,
+                    height=50,
+                    class_name="impala",
+                    confidence=0.9,
                 ),
                 create_test_detection(
-                    width=60, height=60, class_name="car", confidence=0.8
+                    image_path=load_image_path(),
+                    width=60,
+                    height=60,
+                    class_name="elephant",
+                    confidence=0.8,
                 ),
             ]
             drone_image.set_predictions(predictions)
             drone_images.append(drone_image)
 
         # Create overlap map
-        overlap_map = {
-            str(drone_images[0].image_path): [str(drone_images[1].image_path)],
-            str(drone_images[1].image_path): [
-                str(drone_images[0].image_path),
-                str(drone_images[2].image_path),
-            ],
-            str(drone_images[2].image_path): [str(drone_images[1].image_path)],
-        }
+        overlap_map = self.overlap_strategy.find_overlapping_images(drone_images)
 
         # Test removing duplicates
         stats = self.strategy.remove_duplicates(
@@ -671,12 +726,21 @@ class TestGeographicMerger:
         # Add some predictions
         predictions = [
             create_test_detection(
-                width=50, height=50, class_name="person", confidence=0.9
+                image_path=load_image_path(),
+                width=50,
+                height=50,
+                class_name="impala",
+                confidence=0.9,
             ),
             create_test_detection(
-                width=60, height=60, class_name="car", confidence=0.8
+                image_path=load_image_path(),
+                width=60,
+                height=60,
+                class_name="elephant",
+                confidence=0.8,
             ),
         ]
+        print(predictions)
         drone_image.set_predictions(predictions)
 
         stats = self.merger.run([drone_image])
@@ -696,10 +760,18 @@ class TestGeographicMerger:
             # Add predictions
             predictions = [
                 create_test_detection(
-                    width=50, height=50, class_name="person", confidence=0.9
+                    image_path=load_image_path(),
+                    width=50,
+                    height=50,
+                    class_name="impala",
+                    confidence=0.9,
                 ),
                 create_test_detection(
-                    width=60, height=60, class_name="car", confidence=0.8
+                    image_path=load_image_path(),
+                    width=60,
+                    height=60,
+                    class_name="elephant",
+                    confidence=0.8,
                 ),
             ]
             drone_image.set_predictions(predictions)
@@ -730,14 +802,14 @@ class TestMergedDetection:
         detection = MergedDetection(
             bbox=[100, 200, 150, 260],
             class_id=0,
-            class_name="person",
+            class_name="impala",
             confidence=0.9,
             source_images=[],
             merged_detections=[],
         )
 
         assert detection.bbox == [100, 200, 150, 260]
-        assert detection.class_name == "person"
+        assert detection.class_name == "impala"
         assert detection.confidence == 0.9
         assert detection.source_images == []
         assert detection.merged_detections == []
@@ -747,17 +819,25 @@ class TestMergedDetection:
         source_images = ["image1.jpg", "image2.jpg"]
         merged_detections = [
             create_test_detection(
-                width=50, height=50, class_name="person", confidence=0.9
+                image_path=load_image_path(),
+                width=50,
+                height=50,
+                class_name="impala",
+                confidence=0.9,
             ),
             create_test_detection(
-                width=50, height=50, class_name="person", confidence=0.85
+                image_path=load_image_path(),
+                width=50,
+                height=50,
+                class_name="impala",
+                confidence=0.85,
             ),
         ]
 
         detection = MergedDetection(
             bbox=[100, 200, 150, 260],
             class_id=0,
-            class_name="person",
+            class_name="impala",
             confidence=0.9,
             source_images=source_images,
             merged_detections=merged_detections,

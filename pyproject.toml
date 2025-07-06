@@ -12,6 +12,7 @@ dependencies = [
     "pre-commit>=4.2.0",
     "pytest>=8.4.1",
     "ruff>=0.1.6",
+    "spyder-kernels==3.0.*",
     "torch==2.6.0",
     "torchmetrics>=1.7.4",
     "ultralytics>=8.3.162",

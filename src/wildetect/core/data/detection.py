@@ -57,17 +57,27 @@ class Detection:
                 f"but got x1={x1}, y1={y1}, x2={x2}, y2={y2}"
             )
 
-        # if self.area is None:
-        self.area = (x2 - x1) * (y2 - y1)
-
-        # if self.x_center is None or self.y_center is None:
-        self.x_center = int((x1 + x2) / 2)
-        self.y_center = int((y1 + y2) / 2)
-
-        self.width = x2 - x1
-        self.height = y2 - y1
-
         self.distance_to_centroid = self._get_distance_to_centroid()
+
+    @property
+    def area(self) -> int:
+        return (self.bbox[2] - self.bbox[0]) * (self.bbox[3] - self.bbox[1])
+
+    @property
+    def x_center(self) -> int:
+        return int((self.bbox[0] + self.bbox[2]) / 2)
+
+    @property
+    def y_center(self) -> int:
+        return int((self.bbox[1] + self.bbox[3]) / 2)
+
+    @property
+    def width(self) -> int:
+        return self.bbox[2] - self.bbox[0]
+
+    @property
+    def height(self) -> int:
+        return self.bbox[3] - self.bbox[1]
 
     @property
     def is_empty(self) -> bool:
@@ -110,7 +120,6 @@ class Detection:
         """Update detection with tile context."""
         self.parent_image = tile.image_path
         self.image_gps_loc = tile.tile_gps_loc
-        self.distance_to_centroid = self._get_distance_to_centroid()
 
     def clamp_bbox(self, x_range: Tuple[int, int], y_range: Tuple[int, int]) -> None:
         """Clamp bbox coordinates to image bounds."""
@@ -120,9 +129,6 @@ class Detection:
         x2 = max(x_range[0], min(x_range[1], x2))
         y2 = max(y_range[0], min(y_range[1], y2))
         self.bbox = [x1, y1, x2, y2]
-        # Update center coordinates
-        self.x_center = int((x1 + x2) / 2)
-        self.y_center = int((y1 + y2) / 2)
 
     @classmethod
     def empty(cls, parent_image: str) -> "Detection":
@@ -131,7 +137,7 @@ class Detection:
             bbox=[0, 0, 0, 0],
             confidence=0.0,
             class_id=0,
-            class_name="",
+            class_name="EMPTY",
             parent_image=parent_image,
         )
 
@@ -205,9 +211,6 @@ class Detection:
             # Extract metadata
             metadata = fo_detection.metadata or {}
             original_bbox = metadata.get("original_bbox", bbox)
-            area = metadata.get("area")
-            x_center = metadata.get("x_center")
-            y_center = metadata.get("y_center")
             gps_loc = metadata.get("gps_loc")
             image_gps_loc = metadata.get("image_gps_loc")
             parent_image = metadata.get("parent_image")
@@ -221,9 +224,6 @@ class Detection:
                 confidence=fo_detection.confidence,
                 class_id=class_id or 0,
                 class_name=fo_detection.label,
-                area=area,
-                x_center=x_center,
-                y_center=y_center,
                 gps_loc=gps_loc,
                 image_gps_loc=image_gps_loc,
                 parent_image=parent_image,
@@ -314,7 +314,3 @@ class Detection:
         self.bbox[1] += y_offset
         self.bbox[2] += x_offset
         self.bbox[3] += y_offset
-
-        # Update center coordinates
-        self.x_center = int((self.bbox[0] + self.bbox[2]) / 2)
-        self.y_center = int((self.bbox[1] + self.bbox[3]) / 2)

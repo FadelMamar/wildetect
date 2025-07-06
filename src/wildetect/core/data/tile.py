@@ -284,7 +284,7 @@ class Tile:
 
         return df
 
-    def set_predictions(self, data: List[Detection]) -> None:
+    def set_predictions(self, data: List[Detection], update_gps: bool = True) -> None:
         """Set predictions with proper validation."""
         if not isinstance(data, list):
             raise TypeError(f"Expected 'list' but received {type(data)}")
@@ -299,7 +299,8 @@ class Tile:
             self.predictions = [Detection.empty(parent_image=self.image_path)]
 
         self.validate_detections(predictions=True, annotations=False)
-        self.update_detection_gps(detection_type="predictions")
+        if update_gps:
+            self.update_detection_gps(detection_type="predictions")
 
     def set_annotations(self, data: List[Detection]) -> None:
         """Set annotations with proper validation."""
@@ -317,6 +318,11 @@ class Tile:
 
         self.validate_detections(predictions=False, annotations=True)
         self.update_detection_gps(detection_type="annotations")
+
+    def remove_predictions(self, indices: List[int]) -> None:
+        """Remove predictions at specified indices."""
+        for i in indices:
+            self.predictions.pop(i)
 
     def add_detection(self, detection: Detection, is_annotation: bool = False) -> None:
         """Add a single detection to the tile."""
@@ -356,16 +362,24 @@ class Tile:
         for i, det in enumerate(preds if predictions else []):
             if not det.is_empty:
                 if det.x_center < 0 or det.x_center >= self.width:
-                    errors.append(f"Detection {i}: x_center out of bounds")
+                    errors.append(
+                        f"Detection {i}: x_center {det.x_center} out of bounds{(0, self.width)}"
+                    )
                 if det.y_center < 0 or det.y_center >= self.height:
-                    errors.append(f"Detection {i}: y_center out of bounds")
+                    errors.append(
+                        f"Detection {i}: y_center {det.y_center} out of bounds{(0, self.height)}"
+                    )
 
         for i, det in enumerate(anns if annotations else []):
             if not det.is_empty:
                 if det.x_center < 0 or det.x_center >= self.width:
-                    errors.append(f"Annotation {i}: x_center out of bounds")
+                    errors.append(
+                        f"Annotation {i}: x_center {det.x_center} out of bounds{(0, self.width)}"
+                    )
                 if det.y_center < 0 or det.y_center >= self.height:
-                    errors.append(f"Annotation {i}: y_center out of bounds")
+                    errors.append(
+                        f"Annotation {i}: y_center {det.y_center} out of bounds{(0, self.height)}"
+                    )
 
         if len(errors) > 0:
             raise ValueError(f"Validation errors: {errors}")
