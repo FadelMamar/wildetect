@@ -3125,6 +3125,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fiftyone" },
+    { name = "fiftyone-brain" },
     { name = "folium" },
     { name = "geopy" },
     { name = "huggingface" },
@@ -3144,6 +3145,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fiftyone", specifier = ">=1.7.0" },
+    { name = "fiftyone-brain", specifier = ">=0.21.2" },
     { name = "folium", specifier = ">=0.20.0" },
     { name = "geopy", specifier = ">=2.4.1" },
     { name = "huggingface", specifier = ">=0.0.1" },

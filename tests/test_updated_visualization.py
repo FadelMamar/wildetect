@@ -5,6 +5,7 @@ Test script for the updated GeographicVisualizer with GPSOverlapStrategy.
 
 import logging
 import os
+import random
 import sys
 
 from wildetect.core.config import FlightSpecs
@@ -21,20 +22,24 @@ from wildetect.core.visualization.geographic import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TEST_DATA_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
+TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
 FLIGHT_SPECS = FlightSpecs(sensor_height=24.0, focal_length=35.0, flight_height=180.0)
+NUM_IMAGES = 100
+
+
+def load_image_path():
+    image_path = random.choice(os.listdir(TEST_IMAGE_DIR))
+    image_path = os.path.join(TEST_IMAGE_DIR, image_path)
+    return image_path
 
 
 def create_test_drone_images() -> list[DroneImage]:
     """Create test DroneImage instances with geographic footprints."""
-    drone_images = []
-
-    for image_path in get_images_paths(TEST_DATA_DIR):
-        drone_image = DroneImage.from_image_path(image_path, flight_specs=FLIGHT_SPECS)
-
-        drone_images.append(drone_image)
-
-    return drone_images
+    drone_image = [
+        DroneImage.from_image_path(load_image_path(), flight_specs=FLIGHT_SPECS)
+        for _ in range(NUM_IMAGES)
+    ]
+    return drone_image
 
 
 def test_geographic_visualizer():

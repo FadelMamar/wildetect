@@ -141,9 +141,9 @@ class LoaderConfig:
     cache_dir: Optional[str] = None
 
 
-def get_config() -> Dict[str, Any]:
+def get_config(config_path: str = "config/settings.yaml") -> Dict[str, Any]:
     """Load configuration from YAML file."""
-    config_path = Path(__file__).parent.parent.parent / "config" / "settings.yaml"
+    config_path = Path(config_path)
 
     if not config_path.exists():
         # Return default config if file doesn't exist

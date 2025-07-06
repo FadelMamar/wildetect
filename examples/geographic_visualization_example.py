@@ -91,11 +91,10 @@ def demonstrate_custom_configuration():
         image_center_color="orange",
         overlap_color="red",
         show_image_path=False,
+        show_image_bounds=True,
         show_detection_count=True,
         show_gps_info=True,
-        show_bounding_boxes=True,
         show_image_centers=True,
-        show_overlaps=True,
         show_statistics=True,
     )
 
