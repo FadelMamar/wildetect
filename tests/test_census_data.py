@@ -15,7 +15,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.wildetect.core.config import FlightSpecs, LoaderConfig
-from src.wildetect.core.data import CensusData
+from src.wildetect.core.data.census import CensusDataManager as CensusData
 
 # Configure logging
 logging.basicConfig(

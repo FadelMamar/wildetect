@@ -381,8 +381,9 @@ class DataLoader:
                 drone_images[parent_image] = drone_image
 
             # Add tile to drone image with its offset
-            offset = (tile.x_offset or 0, tile.y_offset or 0)
-            drone_images[parent_image].add_tile(tile, offset)
+            x_offset = tile.x_offset or 0
+            y_offset = tile.y_offset or 0
+            drone_images[parent_image].add_tile(tile, x_offset, y_offset)
 
         return list(drone_images.values())
 
@@ -436,8 +437,9 @@ def load_images_as_drone_images(
             drone_images[parent_image] = drone_image
 
         # Add tile to drone image with its offset
-        offset = (tile.x_offset or 0, tile.y_offset or 0)
-        drone_images[parent_image].add_tile(tile, offset)
+        x_offset = tile.x_offset or 0
+        y_offset = tile.y_offset or 0
+        drone_images[parent_image].add_tile(tile, x_offset, y_offset)
 
     drone_image_list = list(drone_images.values())
 
