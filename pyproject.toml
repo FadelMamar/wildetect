@@ -3,13 +3,29 @@ name = "wildetect"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = "~=3.10"
+requires-python = "~=3.11"
 dependencies = [
     "fiftyone>=1.7.0",
     "geopy>=2.4.1",
     "huggingface>=0.0.1",
     "pillow>=11.3.0",
-    "torch==2.0.0",
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
+    "ruff>=0.1.6",
+    "torch==2.6.0",
+    "torchmetrics>=1.7.4",
     "ultralytics>=8.3.162",
     "utm>=0.8.1",
 ]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+select = ["I", "E", "F", "W", "C90"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

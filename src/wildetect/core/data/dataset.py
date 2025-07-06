@@ -1,0 +1,356 @@
+"""
+Dataset management for drone image analysis campaigns.
+"""
+
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+from ..config import LoaderConfig
+from ..flight.flight_analyzer import FlightEfficiency, FlightPath, FlightPathAnalyzer
+from ..flight.geographic_merger import GeographicMerger
+from .drone_image import DroneImage
+from .loader import load_images_as_drone_images
+from .utils import get_images_paths
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CampaignMetadata:
+    """Metadata for a drone flight campaign."""
+
+    campaign_id: str
+    flight_date: datetime
+    pilot_info: Dict
+    weather_conditions: Dict
+    mission_objectives: List[str]
+    target_species: List[str]
+    flight_parameters: Dict  # altitude, speed, overlap settings
+    equipment_info: Dict  # camera, drone model
+
+
+class CensusDataManager:
+    """High-level data management for drone flight campaigns."""
+
+    def __init__(
+        self,
+        campaign_id: str,
+        loading_config: LoaderConfig,
+        metadata: Optional[Dict] = None,
+    ):
+        """Initialize CensusData for a campaign.
+
+        Args:
+            campaign_id (str): Unique identifier for the campaign
+            loading_config (LoaderConfig): Configuration for data loading
+            metadata (Optional[Dict]): Campaign metadata
+        """
+        self.campaign_id = campaign_id
+        self.metadata = metadata or {}
+
+        # Core data structures
+        self.drone_images: List[DroneImage] = []
+        self.image_paths: List[str] = []
+
+        # Processing configuration
+        self.loading_config = loading_config
+
+        # Campaign metadata
+        self.campaign_metadata: Optional[CampaignMetadata] = None
+
+        # Phase 2: Flight analysis and geographic merging
+        self.flight_analyzer = FlightPathAnalyzer()
+        self.geographic_merger = GeographicMerger()
+        self.flight_path: Optional[FlightPath] = None
+        self.flight_efficiency: Optional[FlightEfficiency] = None
+
+        logger.info(f"Initialized CensusData for campaign: {campaign_id}")
+
+    def add_images_from_paths(self, image_paths: List[str]) -> None:
+        """Add images from a list of file paths.
+
+        Args:
+            image_paths (List[str]): List of image file paths
+        """
+        # Validate paths
+        valid_paths = []
+        for path in image_paths:
+            if Path(path).exists():
+                valid_paths.append(path)
+            else:
+                logger.warning(f"Image path does not exist: {path}")
+
+        self.image_paths.extend(valid_paths)
+        logger.info(
+            f"Added {len(valid_paths)} valid image paths to campaign {self.campaign_id}"
+        )
+
+    def add_images_from_directory(self, directory_path: str) -> None:
+        """Add all images from a directory."""
+        image_paths = get_images_paths(directory_path)
+        image_paths = [str(path) for path in image_paths]
+        self.add_images_from_paths(image_paths)
+        logger.info(f"Added {len(image_paths)} images from directory: {directory_path}")
+
+    def create_drone_images(
+        self, tile_size: Optional[int] = None, overlap: Optional[float] = None
+    ) -> None:
+        """Create DroneImage instances from the loaded image paths.
+
+        Args:
+            tile_size (Optional[int]): Size of tiles to extract
+            overlap (Optional[float]): Overlap ratio between tiles
+        """
+        if not self.image_paths:
+            logger.warning(
+                "No image paths available for DroneImage creation. Please add images first."
+            )
+            return
+
+        # Update configuration if provided
+        if tile_size is not None:
+            self.tile_size = tile_size
+        if overlap is not None:
+            self.overlap = overlap
+
+        logger.info(f"Creating DroneImages for {len(self.image_paths)} images...")
+
+        self.drone_images = load_images_as_drone_images(
+            config=self.loading_config,
+            image_paths=self.image_paths,
+            image_dir=None,
+            max_images=None,
+            shuffle=False,
+        )
+
+        logger.info(f"Successfully created {len(self.drone_images)} DroneImages")
+
+    def analyze_flight_path(self) -> Optional[FlightPath]:
+        """Analyze the flight path from drone images.
+
+        Returns:
+            Optional[FlightPath]: Analyzed flight path or None if no GPS data
+        """
+        if not self.drone_images:
+            logger.warning("No drone images available for flight path analysis")
+            return None
+
+        logger.info(f"Analyzing flight path for {len(self.drone_images)} drone images")
+
+        self.flight_path = self.flight_analyzer.analyze_flight_path(self.drone_images)
+
+        if self.flight_path.coordinates:
+            logger.info(
+                f"Flight path analysis completed: {len(self.flight_path.coordinates)} waypoints"
+            )
+        else:
+            logger.warning("No GPS coordinates found for flight path analysis")
+
+        return self.flight_path
+
+    def calculate_flight_efficiency(self) -> Optional[FlightEfficiency]:
+        """Calculate flight efficiency metrics.
+
+        Returns:
+            Optional[FlightEfficiency]: Flight efficiency metrics or None if no flight path
+        """
+        if not self.flight_path:
+            logger.warning("No flight path available. Run analyze_flight_path() first.")
+            return None
+
+        logger.info("Calculating flight efficiency metrics")
+
+        self.flight_efficiency = self.flight_analyzer.calculate_flight_efficiency(
+            self.flight_path, self.drone_images
+        )
+
+        logger.info(f"Flight efficiency calculated:")
+        logger.info(
+            f"  Total distance: {self.flight_efficiency.total_distance_km:.2f} km"
+        )
+        logger.info(
+            f"  Area covered: {self.flight_efficiency.total_area_covered_sqkm:.2f} sq km"
+        )
+        logger.info(
+            f"  Coverage efficiency: {self.flight_efficiency.coverage_efficiency:.2f}"
+        )
+        logger.info(
+            f"  Overlap percentage: {self.flight_efficiency.overlap_percentage:.1%}"
+        )
+
+        return self.flight_efficiency
+
+    def merge_detections_geographically(
+        self, iou_threshold: float = 0.8
+    ) -> List[DroneImage]:
+        """Merge detections across overlapping geographic regions.
+
+        Args:
+            merge_distance_threshold_m (float): Distance threshold for merging detections
+
+        Returns:
+            Optional[GeographicDataset]: Unified geographic dataset or None if no detections
+        """
+        if not self.drone_images:
+            logger.warning("No drone images available for geographic merging")
+            return None
+
+        merged_drone_images = self.geographic_merger.run(
+            self.drone_images, iou_threshold=iou_threshold
+        )
+
+        return merged_drone_images
+
+    # TODO: Add enhanced campaign statistics
+    def get_enhanced_campaign_statistics(self) -> Dict[str, Any]:
+        """Get comprehensive statistics including Phase 2 features.
+
+        Returns:
+            Dict[str, Any]: Enhanced campaign statistics
+        """
+        stats = self.get_campaign_statistics()
+
+        # Add flight analysis statistics
+        if self.flight_path:
+            stats["flight_analysis"] = {
+                "total_waypoints": len(self.flight_path.coordinates),
+                "total_distance_km": self.flight_path.metadata.get(
+                    "total_distance_km", 0.0
+                ),
+                "average_altitude_m": self.flight_path.metadata.get(
+                    "average_altitude_m", 0.0
+                ),
+                "num_images_with_gps": len(
+                    [img for img in self.drone_images if img.latitude and img.longitude]
+                ),
+            }
+
+        # Add flight efficiency statistics
+        if self.flight_efficiency:
+            stats["flight_efficiency"] = {
+                "total_distance_km": self.flight_efficiency.total_distance_km,
+                "total_area_covered_sqkm": self.flight_efficiency.total_area_covered_sqkm,
+                "coverage_efficiency": self.flight_efficiency.coverage_efficiency,
+                "overlap_percentage": self.flight_efficiency.overlap_percentage,
+                "flight_duration_hours": self.flight_efficiency.flight_duration_hours,
+                "average_altitude_m": self.flight_efficiency.average_altitude_m,
+                "image_density_per_sqkm": self.flight_efficiency.image_density_per_sqkm,
+            }
+
+        # Add geographic merging statistics
+        if self.geographic_dataset:
+            stats["geographic_merging"] = {
+                "total_merged_detections": len(
+                    self.geographic_dataset.merged_detections
+                ),
+                "total_area_covered_sqkm": self.geographic_dataset.total_area_covered_sqkm,
+                "detection_density_per_sqkm": self.geographic_dataset.detection_density_per_sqkm,
+                "geographic_bounds": self.geographic_dataset.geographic_bounds,
+            }
+
+        return stats
+
+    # TODO: Add enhanced campaign statistics
+    def _calculate_geographic_coverage(self) -> Dict[str, Any]:
+        """Calculate geographic coverage statistics."""
+        coverage = {
+            "total_area_covered": 0.0,
+            "images_with_gps": 0,
+            "geographic_bounds": None,
+        }
+
+        gps_images = [
+            img for img in self.drone_images if img.latitude and img.longitude
+        ]
+        coverage["images_with_gps"] = len(gps_images)
+
+        if gps_images:
+            # Calculate bounding box - filter out None values
+            lats = [img.latitude for img in gps_images if img.latitude is not None]
+            lons = [img.longitude for img in gps_images if img.longitude is not None]
+
+            if lats and lons:  # Check that we have valid coordinates
+                coverage["geographic_bounds"] = {
+                    "min_lat": min(lats),
+                    "max_lat": max(lats),
+                    "min_lon": min(lons),
+                    "max_lon": max(lons),
+                }
+
+        return coverage
+
+    # TODO: Add enhanced campaign statistics
+    def get_campaign_statistics(self) -> Dict[str, Any]:
+        """Get comprehensive statistics about the campaign.
+
+        Returns:
+            Dict[str, Any]: Campaign statistics
+        """
+        stats = {
+            "campaign_id": self.campaign_id,
+            "total_images": len(self.drone_images),
+            "total_image_paths": len(self.image_paths),
+            "tile_configuration": {
+                "tile_size": self.tile_size,
+                "overlap": self.overlap,
+            },
+            "metadata": self.metadata,
+        }
+
+        if self.detection_results:
+            stats["detection_results"] = {
+                "total_detections": self.detection_results.total_detections,
+                "detection_by_class": self.detection_results.detection_by_class,
+                "processing_time": self.detection_results.processing_time,
+                "confidence_stats": self.detection_results.detection_confidence_stats,
+            }
+
+        return stats
+
+    # TODO: Add detection report export
+    def export_detection_report(self, output_path: str) -> None:
+        """Export detection results to a file.
+
+        Args:
+            output_path (str): Path to save the report
+        """
+        if not self.detection_results:
+            logger.warning("No detection results to export")
+            return
+
+        import json
+
+        report = {
+            "campaign_id": self.campaign_id,
+            "metadata": self.metadata,
+            "detection_results": {
+                "total_images": self.detection_results.total_images,
+                "total_detections": self.detection_results.total_detections,
+                "detection_by_class": self.detection_results.detection_by_class,
+                "processing_time": self.detection_results.processing_time,
+                "confidence_stats": self.detection_results.detection_confidence_stats,
+                "geographic_coverage": self.detection_results.geographic_coverage,
+            },
+        }
+
+        with open(output_path, "w") as f:
+            json.dump(report, f, indent=2, default=str)
+
+        logger.info(f"Detection report exported to: {output_path}")
+
+    # TODO: Add all detections retrieval
+    def get_all_detections(self, force_compute: bool = False) -> List:
+        """Get all detections from all DroneImages.
+
+        Returns:
+            List: All detections across the campaign
+        """
+        all_detections = []
+        for drone_image in self.drone_images:
+            all_detections.extend(
+                drone_image.get_all_predictions(force_compute=force_compute)
+            )
+        return all_detections

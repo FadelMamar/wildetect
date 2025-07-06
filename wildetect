@@ -6,38 +6,45 @@ Modern command-line interface for WildDetect operations using Typer.
 """
 
 import sys
-import typer
 from pathlib import Path
 
+import typer
+
 app = typer.Typer(help="WildDetect - Wildlife Detection CLI")
+
 
 # Import main functions from scripts
 def import_script_main(script_name):
     import importlib.util
-    script_path = Path(__file__).parent / 'scripts' / script_name
+
+    script_path = Path(__file__).parent / "scripts" / script_name
     spec = importlib.util.spec_from_file_location("script_module", script_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.main
 
+
 @app.command()
 def init():
     """Initialize WildDetect (setup directories and models)."""
-    main = import_script_main('init.py')
+    main = import_script_main("init.py")
     main()
+
 
 @app.command()
 def detect(
-    images: list[str] = typer.Option(..., help="Image paths (can use wildcards)", show_default=False),
+    images: list[str] = typer.Option(
+        ..., help="Image paths (can use wildcards)", show_default=False
+    ),
     confidence: float = typer.Option(0.5, help="Confidence threshold"),
     output: str = typer.Option(None, help="Output directory for visualizations"),
     results: str = typer.Option(None, help="Output file for detection results (JSON)"),
-    model: str = typer.Option(None, help="Model path (optional)")
+    model: str = typer.Option(None, help="Model path (optional)"),
 ):
     """Run wildlife detection on images."""
-    main = import_script_main('detect.py')
+    main = import_script_main("detect.py")
     # Typer passes lists as tuples, so convert
-    sys.argv = ['detect.py']
+    sys.argv = ["detect.py"]
     sys.argv += sum([["--images", img] for img in images], [])
     if confidence is not None:
         sys.argv += ["--confidence", str(confidence)]
@@ -49,18 +56,23 @@ def detect(
         sys.argv += ["--model", model]
     main()
 
+
 @app.command()
 def fiftyone(
     command: str = typer.Argument(..., help="Subcommand: add, launch, export, stats"),
     images: list[str] = typer.Option(None, help="Image paths for 'add'"),
-    detections: str = typer.Option(None, help="Detection results file (JSON) for 'add'"),
+    detections: str = typer.Option(
+        None, help="Detection results file (JSON) for 'add'"
+    ),
     output: str = typer.Option(None, help="Output directory for 'export'"),
-    format: str = typer.Option("coco", help="Export format (coco, yolo, pascal) for 'export'"),
-    dataset: str = typer.Option(None, help="Dataset name (optional)")
+    format: str = typer.Option(
+        "coco", help="Export format (coco, yolo, pascal) for 'export'"
+    ),
+    dataset: str = typer.Option(None, help="Dataset name (optional)"),
 ):
     """Manage FiftyOne datasets."""
-    main = import_script_main('fiftyone.py')
-    sys.argv = ['fiftyone.py', command]
+    main = import_script_main("fiftyone.py")
+    sys.argv = ["fiftyone.py", command]
     if images:
         sys.argv += sum([["--images", img] for img in images], [])
     if detections:
@@ -73,20 +85,27 @@ def fiftyone(
         sys.argv += ["--dataset", dataset]
     main()
 
+
 @app.command()
 def train(
-    command: str = typer.Argument(..., help="Subcommand: prepare-data, train, evaluate"),
+    command: str = typer.Argument(
+        ..., help="Subcommand: prepare-data, train, evaluate"
+    ),
     dataset: str = typer.Option(None, help="FiftyOne dataset name for 'prepare-data'"),
-    output: str = typer.Option(None, help="Output directory for 'prepare-data' or 'train'"),
-    data: str = typer.Option(None, help="Dataset configuration path for 'train' or 'evaluate'"),
+    output: str = typer.Option(
+        None, help="Output directory for 'prepare-data' or 'train'"
+    ),
+    data: str = typer.Option(
+        None, help="Dataset configuration path for 'train' or 'evaluate'"
+    ),
     epochs: int = typer.Option(100, help="Number of epochs for 'train'"),
     batch_size: int = typer.Option(16, help="Batch size for 'train'"),
     imgsz: int = typer.Option(640, help="Input image size for 'train'"),
     model: str = typer.Option(None, help="Base model path for 'train' or 'evaluate'"),
 ):
     """Train and evaluate detection models."""
-    main = import_script_main('train.py')
-    sys.argv = ['train.py', command]
+    main = import_script_main("train.py")
+    sys.argv = ["train.py", command]
     if dataset:
         sys.argv += ["--dataset", dataset]
     if output:
@@ -103,11 +122,13 @@ def train(
         sys.argv += ["--model", model]
     main()
 
+
 @app.command()
 def labelstudio():
     """Start LabelStudio server for annotation management."""
-    main = import_script_main('start_labelstudio.py')
+    main = import_script_main("start_labelstudio.py")
     main()
 
+
 if __name__ == "__main__":
-    app() 
+    app()

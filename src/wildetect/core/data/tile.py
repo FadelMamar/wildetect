@@ -1,23 +1,22 @@
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Any, Tuple
-import uuid
 import logging
-import numpy as np
-import torch
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Literal, Optional, Tuple
+
 import cv2
+import geopy
+import numpy as np
+import pandas as pd
+import torch
+from PIL import Image
 from torchvision.ops import nms
 from torchvision.transforms import PILToTensor
-from PIL import Image
-import pandas as pd
-import geopy
 
-from .detection import Detection
-from ..gps.gps_service import GPSDetectionService,create_geographic_footprint
-from ..gps.geographic_bounds import GeographicBounds
-
-from ..gps.gps_utils import GPSUtils,get_gsd  
 from ..config import FlightSpecs
-
+from ..gps.geographic_bounds import GeographicBounds
+from ..gps.gps_service import GPSDetectionService, create_geographic_footprint
+from ..gps.gps_utils import GPSUtils, get_gsd
+from .detection import Detection
 
 logger = logging.getLogger(__name__)
 
@@ -38,20 +37,19 @@ class Tile:
     y_offset: Optional[int] = None
 
     parent_image: Optional[str] = None
-    date: Optional[str] = None
-    parent_image_date: Optional[str] = None
+    timestamp: Optional[str] = None
 
     tile_gps_loc: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     altitude: Optional[float] = None
-    flight_specs: Optional['FlightSpecs'] = None
+    flight_specs: Optional["FlightSpecs"] = None
 
-    geographic_footprint: Optional['GeographicBounds'] = None
+    geographic_footprint: Optional["GeographicBounds"] = None
     gsd: Optional[float] = None  # cm/px
 
-    predictions: Optional[List[Detection]] = None
-    annotations: Optional[List[Detection]] = None
+    predictions: List[Detection] = field(default_factory=list)
+    annotations: List[Detection] = field(default_factory=list)
 
     _pred_is_original: bool = False
     _annot_is_original: bool = False
@@ -62,13 +60,13 @@ class Tile:
 
         if self.parent_image:
             try:
-                self.parent_image_date = Image.open(self.parent_image)._getexif()[36867]
+                self.timestamp = Image.open(self.parent_image)._getexif()[36867]
             except:
                 pass
 
         if self.image_path:
             try:
-                self.date = Image.open(self.image_path)._getexif()[36867]
+                self.timestamp = Image.open(self.image_path)._getexif()[36867]
             except:
                 pass
 
@@ -102,18 +100,15 @@ class Tile:
             self.gsd = get_gsd(
                 image_path=self.image_path,
                 image=self.image_data,
-                flight_specs=self.flight_specs
+                flight_specs=self.flight_specs,
+            )
+        try:
+            self._set_geographic_footprint()
+        except Exception as e:
+            logger.warning(
+                f"Failed to set geographic footprint for {self.image_path}: {e}"
             )
 
-        self.geographic_footprint = create_geographic_footprint(
-            x1=0,x2=self.width,
-            y1=0,y2=self.height,
-            lat_center_roi=self.latitude,
-            long_center_roi=self.longitude,
-            width_roi=self.width,
-            height_roi=self.height,
-            gsd=self.gsd
-        )
         return None
 
     def load_image_data(self) -> Image.Image:
@@ -133,7 +128,19 @@ class Tile:
         exif = GPSUtils.get_exif(file_name=self.image_path, image=self.image_data)
         return exif
 
-    
+    def _set_geographic_footprint(self):
+        self.geographic_footprint = create_geographic_footprint(
+            x1=0,
+            x2=self.width,
+            y1=0,
+            y2=self.height,
+            lat_center_roi=self.latitude,
+            long_center_roi=self.longitude,
+            width_roi=self.width,
+            height_roi=self.height,
+            gsd=self.gsd,
+        )
+
     def _extract_gps_coords(
         self,
     ) -> None:
@@ -153,7 +160,7 @@ class Tile:
                 geopy.Point(self.latitude, self.longitude, self.altitude / 1e3)
             )
         else:
-            self.latitude, self.longitude, self.altitude = None,None,None
+            self.latitude, self.longitude, self.altitude = None, None, None
             logger.debug(f"Failed to extract GPS coordinates from {self.image_path}.")
 
         return None
@@ -191,7 +198,7 @@ class Tile:
             return self.predictions
 
         bboxs = torch.Tensor([det.get_bbox() for det in self.predictions])
-        scores = torch.Tensor([det.score for det in self.predictions])
+        scores = torch.Tensor([det.confidence for det in self.predictions])
 
         # get indices of examples to keep
         indx = nms(boxes=bboxs, scores=scores, iou_threshold=threshold)
@@ -212,7 +219,9 @@ class Tile:
 
         if confidence_threshold > 0.0:
             self.predictions = [
-                det for det in self.predictions if det.confidence >= confidence_threshold
+                det
+                for det in self.predictions
+                if det.confidence >= confidence_threshold
             ]
 
         if clamp:
@@ -223,9 +232,11 @@ class Tile:
 
         return None
 
-    def update_detection_gps(self):
+    def update_detection_gps(
+        self, detection_type: Literal["predictions", "annotations"]
+    ):
         """Update GPS information for all detections in this tile."""
-        GPSDetectionService.update_all_detections_gps(self)
+        GPSDetectionService.update_detections_by_type(self, detection_type)
 
     def detections_to_df(
         self,
@@ -257,7 +268,7 @@ class Tile:
         df["image_width"] = self.width
         df["image_height"] = self.height
         df["parent_image"] = self.image_path
-        df["original_date"] = self.parent_image_date
+        df["original_timestamp"] = self.timestamp
 
         # YOLO format
         if len(out) > 0:
@@ -277,7 +288,7 @@ class Tile:
         """Set predictions with proper validation."""
         if not isinstance(data, list):
             raise TypeError(f"Expected 'list' but received {type(data)}")
-        
+
         if data:
             for det in data:
                 if not isinstance(det, Detection):
@@ -286,33 +297,36 @@ class Tile:
             self.predictions = data
         else:
             self.predictions = [Detection.empty(parent_image=self.image_path)]
-        
-        self.validate_detections(predictions=True,annotations=False)
+
+        self.validate_detections(predictions=True, annotations=False)
+        self.update_detection_gps(detection_type="predictions")
 
     def set_annotations(self, data: List[Detection]) -> None:
         """Set annotations with proper validation."""
         if not isinstance(data, list):
             raise TypeError(f"Expected 'list' but received {type(data)}")
-        
+
         if data:
             for det in data:
                 if not isinstance(det, Detection):
                     raise TypeError(f"Expected Detection object, got {type(det)}")
+                det.update_values_from_tile(self)
             self.annotations = data
         else:
             self.annotations = [Detection.empty(parent_image=self.image_path)]
-        
-        self.validate_detections(predictions=False,annotations=True)
+
+        self.validate_detections(predictions=False, annotations=True)
+        self.update_detection_gps(detection_type="annotations")
 
     def add_detection(self, detection: Detection, is_annotation: bool = False) -> None:
         """Add a single detection to the tile."""
         if not isinstance(detection, Detection):
             raise TypeError(f"Expected Detection object, got {type(detection)}")
-        
+
         self.validate_detection(detection)
 
         detection.update_values_from_tile(self)
-        
+
         if is_annotation:
             if self.annotations is None:
                 self.annotations = []
@@ -321,8 +335,8 @@ class Tile:
             if self.predictions is None:
                 self.predictions = []
             self.predictions.append(detection)
-        
-    def validate_detection(self,detection:Detection) -> None:
+
+    def validate_detection(self, detection: Detection) -> None:
         """Validate a single detection."""
         if not detection.is_empty:
             if detection.x_center < 0 or detection.x_center >= self.width:
@@ -330,12 +344,14 @@ class Tile:
             if detection.y_center < 0 or detection.y_center >= self.height:
                 raise ValueError(f"Detection {i}: y_center out of bounds")
 
-    def validate_detections(self,predictions:bool=True,annotations:bool=True) -> None:
+    def validate_detections(
+        self, predictions: bool = True, annotations: bool = True
+    ) -> None:
         """Validate all detections in this tile."""
         errors = []
-        
-        preds = getattr(self, 'predictions', [])
-        anns = getattr(self, 'annotations', [])
+
+        preds = getattr(self, "predictions", [])
+        anns = getattr(self, "annotations", [])
 
         for i, det in enumerate(preds if predictions else []):
             if not det.is_empty:
@@ -343,28 +359,28 @@ class Tile:
                     errors.append(f"Detection {i}: x_center out of bounds")
                 if det.y_center < 0 or det.y_center >= self.height:
                     errors.append(f"Detection {i}: y_center out of bounds")
-        
+
         for i, det in enumerate(anns if annotations else []):
             if not det.is_empty:
                 if det.x_center < 0 or det.x_center >= self.width:
                     errors.append(f"Annotation {i}: x_center out of bounds")
                 if det.y_center < 0 or det.y_center >= self.height:
                     errors.append(f"Annotation {i}: y_center out of bounds")
-        
+
         if len(errors) > 0:
             raise ValueError(f"Validation errors: {errors}")
 
         return None
 
     @classmethod
-    def from_image_path(cls, image_path: str, **kwargs) -> 'Tile':
+    def from_image_path(cls, image_path: str, **kwargs) -> "Tile":
         """Create tile from image path."""
         return cls(image_path=image_path, **kwargs)
 
     @classmethod
-    def from_image_data(cls, image_data: Image.Image, **kwargs) -> 'Tile':
+    def from_image_data(cls, image_data: Image.Image, **kwargs) -> "Tile":
         """Create tile from image data."""
-        return cls(image_data=image_data, **kwargs)
+        return cls(image_data=image_data, image_path=None, **kwargs)
 
     def check_detections(self, df: pd.DataFrame) -> None:
         df = df[["x_min", "x_max", "y_min", "y_max"]].dropna().copy()
@@ -373,27 +389,29 @@ class Tile:
             return None
 
         assert df.to_numpy().min() >= 0
-        assert df[["x_min", "x_max"]].to_numpy().max() <= self.width, (
-            f"{df[['x_min', 'x_max']].to_numpy().max()} <= {self.width}"
-        )
-        assert df[["y_min", "y_max"]].to_numpy().max() <= self.height, (
-            f"{df[['y_min', 'y_max']].to_numpy().max()} <= {self.height}"
-        )
+        assert (
+            df[["x_min", "x_max"]].to_numpy().max() <= self.width
+        ), f"{df[['x_min', 'x_max']].to_numpy().max()} <= {self.width}"
+        assert (
+            df[["y_min", "y_max"]].to_numpy().max() <= self.height
+        ), f"{df[['y_min', 'y_max']].to_numpy().max()} <= {self.height}"
 
         return None
 
-    def draw_detections(self, 
-                       image: Optional[np.ndarray] = None,
-                       predictions: bool = True,
-                       annotations: bool = True,
-                       prediction_color: Tuple[int, int, int] = (0, 255, 0),  # Green for predictions
-                       annotation_color: Tuple[int, int, int] = (255, 0, 0),   # Red for annotations
-                       line_thickness: int = 2,
-                       font_scale: float = 0.5,
-                       show_confidence: bool = True,
-                       save_path: Optional[str] = None) -> np.ndarray:
+    def draw_detections(
+        self,
+        image: Optional[np.ndarray] = None,
+        predictions: bool = True,
+        annotations: bool = True,
+        prediction_color: Tuple[int, int, int] = (0, 255, 0),  # Green for predictions
+        annotation_color: Tuple[int, int, int] = (255, 0, 0),  # Red for annotations
+        line_thickness: int = 2,
+        font_scale: float = 0.5,
+        show_confidence: bool = True,
+        save_path: Optional[str] = None,
+    ) -> np.ndarray:
         """Draw detection bounding boxes on an image.
-        
+
         Args:
             image: Input image as numpy array. If None, uses tile's image data
             predictions: Whether to draw predictions
@@ -404,12 +422,11 @@ class Tile:
             font_scale: Scale of the font for labels
             show_confidence: Whether to show confidence scores in labels
             save_path: Optional path to save the resulting image
-            
+
         Returns:
             Image with detections drawn
         """
-        
-        
+
         # Load image if not provided
         if image is None:
             pil_image = self.load_image_data()
@@ -418,9 +435,9 @@ class Tile:
             if len(image.shape) == 3 and image.shape[2] == 3:
                 # Convert RGB to BGR
                 image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        
+
         result = image.copy()
-        
+
         # Draw predictions
         if predictions and self.predictions:
             for detection in self.predictions:
@@ -428,31 +445,49 @@ class Tile:
                     bbox = detection.bbox
                     class_name = detection.class_name
                     confidence = detection.confidence
-                    
+
                     # Draw bounding box
-                    cv2.rectangle(result, (bbox[0], bbox[1]), (bbox[2], bbox[3]), 
-                                prediction_color, line_thickness)
-                    
+                    cv2.rectangle(
+                        result,
+                        (bbox[0], bbox[1]),
+                        (bbox[2], bbox[3]),
+                        prediction_color,
+                        line_thickness,
+                    )
+
                     # Draw label
                     if show_confidence:
                         label = f"{class_name}: {confidence:.2f}"
                     else:
                         label = class_name
-                    
+
                     # Calculate text position
                     text_x = bbox[0]
                     text_y = bbox[1] - 10 if bbox[1] - 10 > 0 else bbox[1] + 20
-                    
+
                     # Draw text background for better visibility
-                    (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 
-                                                                  font_scale, line_thickness)
-                    cv2.rectangle(result, (text_x, text_y - text_height - 5), 
-                                (text_x + text_width, text_y + 5), prediction_color, -1)
-                    
+                    (text_width, text_height), _ = cv2.getTextSize(
+                        label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, line_thickness
+                    )
+                    cv2.rectangle(
+                        result,
+                        (text_x, text_y - text_height - 5),
+                        (text_x + text_width, text_y + 5),
+                        prediction_color,
+                        -1,
+                    )
+
                     # Draw text
-                    cv2.putText(result, label, (text_x, text_y), 
-                              cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), line_thickness)
-        
+                    cv2.putText(
+                        result,
+                        label,
+                        (text_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        font_scale,
+                        (255, 255, 255),
+                        line_thickness,
+                    )
+
         # Draw annotations
         if annotations and self.annotations:
             for detection in self.annotations:
@@ -460,51 +495,71 @@ class Tile:
                     bbox = detection.bbox
                     class_name = detection.class_name
                     confidence = detection.confidence
-                    
+
                     # Draw bounding box
-                    cv2.rectangle(result, (bbox[0], bbox[1]), (bbox[2], bbox[3]), 
-                                annotation_color, line_thickness)
-                    
+                    cv2.rectangle(
+                        result,
+                        (bbox[0], bbox[1]),
+                        (bbox[2], bbox[3]),
+                        annotation_color,
+                        line_thickness,
+                    )
+
                     # Draw label
                     if show_confidence:
                         label = f"{class_name}: {confidence:.2f}"
                     else:
                         label = class_name
-                    
+
                     # Calculate text position
                     text_x = bbox[0]
                     text_y = bbox[1] - 10 if bbox[1] - 10 > 0 else bbox[1] + 20
-                    
+
                     # Draw text background for better visibility
-                    (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 
-                                                                  font_scale, line_thickness)
-                    cv2.rectangle(result, (text_x, text_y - text_height - 5), 
-                                (text_x + text_width, text_y + 5), annotation_color, -1)
-                    
+                    (text_width, text_height), _ = cv2.getTextSize(
+                        label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, line_thickness
+                    )
+                    cv2.rectangle(
+                        result,
+                        (text_x, text_y - text_height - 5),
+                        (text_x + text_width, text_y + 5),
+                        annotation_color,
+                        -1,
+                    )
+
                     # Draw text
-                    cv2.putText(result, label, (text_x, text_y), 
-                              cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), line_thickness)
-        
+                    cv2.putText(
+                        result,
+                        label,
+                        (text_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        font_scale,
+                        (255, 255, 255),
+                        line_thickness,
+                    )
+
         # Save image if path is provided
         if save_path:
             cv2.imwrite(save_path, result)
             logger.info(f"Image with detections saved to: {save_path}")
-        
+
         return result
-    
-    def draw_detections_with_legend(self, 
-                                   image: Optional[np.ndarray] = None,
-                                   predictions: bool = True,
-                                   annotations: bool = True,
-                                   prediction_color: Tuple[int, int, int] = (0, 255, 0),
-                                   annotation_color: Tuple[int, int, int] = (255, 0, 0),
-                                   line_thickness: int = 2,
-                                   font_scale: float = 0.5,
-                                   show_confidence: bool = True,
-                                   save_path: Optional[str] = None,
-                                   legend_position: str = "top-right") -> np.ndarray:
+
+    def draw_detections_with_legend(
+        self,
+        image: Optional[np.ndarray] = None,
+        predictions: bool = True,
+        annotations: bool = True,
+        prediction_color: Tuple[int, int, int] = (0, 255, 0),
+        annotation_color: Tuple[int, int, int] = (255, 0, 0),
+        line_thickness: int = 2,
+        font_scale: float = 0.5,
+        show_confidence: bool = True,
+        save_path: Optional[str] = None,
+        legend_position: str = "top-right",
+    ) -> np.ndarray:
         """Draw detections with a legend showing what each color represents.
-        
+
         Args:
             image: Input image as numpy array. If None, uses tile's image data
             predictions: Whether to draw predictions
@@ -516,12 +571,12 @@ class Tile:
             show_confidence: Whether to show confidence scores in labels
             save_path: Optional path to save the resulting image
             legend_position: Position of legend ("top-right", "top-left", "bottom-right", "bottom-left")
-            
+
         Returns:
             Image with detections and legend drawn
         """
         import cv2
-        
+
         # Draw the base image with detections
         result = self.draw_detections(
             image=image,
@@ -531,26 +586,26 @@ class Tile:
             annotation_color=annotation_color,
             line_thickness=line_thickness,
             font_scale=font_scale,
-            show_confidence=show_confidence
+            show_confidence=show_confidence,
         )
-        
+
         # Add legend
         legend_items = []
         if predictions and self.predictions:
             legend_items.append(("Predictions", prediction_color))
         if annotations and self.annotations:
             legend_items.append(("Annotations", annotation_color))
-        
+
         if not legend_items:
             return result
-        
+
         # Calculate legend position
         img_height, img_width = result.shape[:2]
         legend_width = 200
         legend_height = len(legend_items) * 30 + 20
         legend_x = 10
         legend_y = 10
-        
+
         if legend_position == "top-right":
             legend_x = img_width - legend_width - 10
         elif legend_position == "bottom-left":
@@ -558,46 +613,68 @@ class Tile:
         elif legend_position == "bottom-right":
             legend_x = img_width - legend_width - 10
             legend_y = img_height - legend_height - 10
-        
+
         # Draw legend background
-        cv2.rectangle(result, (legend_x, legend_y), 
-                     (legend_x + legend_width, legend_y + legend_height), 
-                     (0, 0, 0), -1)
-        cv2.rectangle(result, (legend_x, legend_y), 
-                     (legend_x + legend_width, legend_y + legend_height), 
-                     (255, 255, 255), 2)
-        
+        cv2.rectangle(
+            result,
+            (legend_x, legend_y),
+            (legend_x + legend_width, legend_y + legend_height),
+            (0, 0, 0),
+            -1,
+        )
+        cv2.rectangle(
+            result,
+            (legend_x, legend_y),
+            (legend_x + legend_width, legend_y + legend_height),
+            (255, 255, 255),
+            2,
+        )
+
         # Draw legend items
         for i, (label, color) in enumerate(legend_items):
             y_pos = legend_y + 20 + i * 30
-            
+
             # Draw color box
-            cv2.rectangle(result, (legend_x + 10, y_pos - 10), 
-                         (legend_x + 30, y_pos + 10), color, -1)
-            
+            cv2.rectangle(
+                result,
+                (legend_x + 10, y_pos - 10),
+                (legend_x + 30, y_pos + 10),
+                color,
+                -1,
+            )
+
             # Draw label
-            cv2.putText(result, label, (legend_x + 40, y_pos + 5), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-        
+            cv2.putText(
+                result,
+                label,
+                (legend_x + 40, y_pos + 5),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                1,
+            )
+
         # Save image if path is provided
         if save_path:
             cv2.imwrite(save_path, result)
             logger.info(f"Image with detections and legend saved to: {save_path}")
-        
+
         return result
 
-    def draw_detections_to_pil(self, 
-                              image: Optional[np.ndarray] = None,
-                              predictions: bool = True,
-                              annotations: bool = True,
-                              prediction_color: Tuple[int, int, int] = (0, 255, 0),
-                              annotation_color: Tuple[int, int, int] = (255, 0, 0),
-                              line_thickness: int = 2,
-                              font_scale: float = 0.5,
-                              show_confidence: bool = True,
-                              save_path: Optional[str] = None) -> Image.Image:
+    def draw_detections_to_pil(
+        self,
+        image: Optional[np.ndarray] = None,
+        predictions: bool = True,
+        annotations: bool = True,
+        prediction_color: Tuple[int, int, int] = (0, 255, 0),
+        annotation_color: Tuple[int, int, int] = (255, 0, 0),
+        line_thickness: int = 2,
+        font_scale: float = 0.5,
+        show_confidence: bool = True,
+        save_path: Optional[str] = None,
+    ) -> Image.Image:
         """Draw detections and return as PIL Image.
-        
+
         Args:
             image: Input image as numpy array. If None, uses tile's image data
             predictions: Whether to draw predictions
@@ -608,12 +685,12 @@ class Tile:
             font_scale: Scale of the font for labels
             show_confidence: Whether to show confidence scores in labels
             save_path: Optional path to save the resulting image
-            
+
         Returns:
             PIL Image with detections drawn
         """
         import cv2
-        
+
         # Draw detections
         result = self.draw_detections(
             image=image,
@@ -624,13 +701,13 @@ class Tile:
             line_thickness=line_thickness,
             font_scale=font_scale,
             show_confidence=show_confidence,
-            save_path=save_path
+            save_path=save_path,
         )
-        
+
         # Convert BGR to RGB for PIL
         result_rgb = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
-        
+
         # Convert to PIL Image
         pil_image = Image.fromarray(result_rgb)
-        
+
         return pil_image

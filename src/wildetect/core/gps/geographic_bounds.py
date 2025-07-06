@@ -2,9 +2,10 @@
 Geographic bounds utilities for wildlife detection.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import List, Optional
-import logging
+
 from wildetect.utils.utils import compute_iou
 
 logger = logging.getLogger(__name__)
@@ -23,12 +24,13 @@ class GeographicBounds:
     def area(self) -> float:
         """Calculate area in square degrees covered by the bounding box."""
         return (self.east - self.west) * (self.north - self.south)
-    
+
     @property
-    def box(self,) -> List[float]:
+    def box(
+        self,
+    ) -> List[float]:
         return [self.west, self.south, self.east, self.north]
-        
-    
+
     def overlap_ratio(self, other: "GeographicBounds") -> float:
         """Calculate overlap ratio (IoU) with another bounds using torchmetrics IntersectionOverUnion.
         Args:
@@ -40,13 +42,13 @@ class GeographicBounds:
         box_other = other.box
 
         return compute_iou(box_self, box_other)
-    
+
     def expand(self, margin: float) -> "GeographicBounds":
         """Expand the bounds by a margin.
-        
+
         Args:
             margin (float): Margin to expand by
-            
+
         Returns:
             GeographicBounds: Expanded bounds
         """
@@ -54,5 +56,5 @@ class GeographicBounds:
             north=self.north + margin,
             south=self.south - margin,
             east=self.east + margin,
-            west=self.west - margin
+            west=self.west - margin,
         )

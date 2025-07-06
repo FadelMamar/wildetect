@@ -7,4 +7,4 @@ from aerial images, with FiftyOne integration for visualization and annotation c
 
 __version__ = "1.0.0"
 __author__ = "WildDetect Team"
-__description__ = "Wildlife detection from aerial images" 
+__description__ = "Wildlife detection from aerial images"

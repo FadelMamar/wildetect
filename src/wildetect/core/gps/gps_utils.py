@@ -3,8 +3,9 @@ GPS utilities for wildlife detection with optional dependencies.
 """
 
 import logging
-from typing import Optional, Tuple, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
 from ..config import FlightSpecs
 
 logger = logging.getLogger(__name__)
@@ -12,13 +13,17 @@ logger = logging.getLogger(__name__)
 # Optional imports with graceful fallbacks
 try:
     import utm
+
     UTM_AVAILABLE = True
 except ImportError:
     UTM_AVAILABLE = False
-    logger.warning("UTM library not available. GPS coordinate conversion will be limited.")
+    logger.warning(
+        "UTM library not available. GPS coordinate conversion will be limited."
+    )
 
 try:
     import geopy
+
     GEOPY_AVAILABLE = True
 except ImportError:
     GEOPY_AVAILABLE = False
@@ -26,6 +31,7 @@ except ImportError:
 
 try:
     from PIL import Image
+
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
@@ -33,15 +39,15 @@ except ImportError:
 
 
 def get_pixel_gps_coordinates(
-        x,
-        y,
-        lat_center,
-        lon_center,
-        W,
-        H,
-        gsd: float = 2.6,
-        return_as_utm: bool = False,
-    ) -> tuple[float, float]:
+    x,
+    y,
+    lat_center,
+    lon_center,
+    W,
+    H,
+    gsd: float,
+    return_as_utm: bool = False,
+) -> tuple[float, float]:
     """computes (x,y) pixel gps coordinates
 
     Args:
@@ -87,27 +93,32 @@ def get_pixel_gps_coordinates(
 
 
 class GPSUtils:
-
     # Sensor height mapping for common camera models
     SENSOR_HEIGHTS = {
         "FC7303": 24.0,  # DJI Phantom 4 Pro
         "FC6310": 24.0,  # DJI Phantom 4
-        "FC220": 24.0,   # DJI Spark
-        "FC330": 24.0,   # DJI Mavic Pro
-        "default": 24.0  # Default sensor height,
-        "ZenmuseP1":24.0
+        "FC220": 24.0,  # DJI Spark
+        "FC330": 24.0,  # DJI Mavic Pro
+        "default": 24.0,  # Default sensor height,
+        "ZenmuseP1": 24.0,
     }
-    
+
     @staticmethod
     def get_exif(file_name: str, image: Image = None) -> dict | None:
         from PIL.ExifTags import TAGS
 
         if image is None:
             with Image.open(file_name) as img:
-                exif_data = img._getexif()
+                exif_data = img._getexif()  # type: ignore
         else:
             assert isinstance(image, Image.Image), "Provide PIL Image"
-            exif_data = image._getexif()
+            try:
+                exif_data = image._getexif()  # type: ignore
+            except AttributeError:
+                return None
+            except Exception as e:
+                logger.warning(f"Error getting exif: {e}")
+                raise Exception(f"Error getting exif: {e}")
 
         if exif_data is None:
             return None
@@ -152,7 +163,7 @@ class GPSUtils:
     def get_gps_coord(
         file_name: str,
         image: Image = None,
-        altitude: str = None,
+        altitude: str | None = None,
         return_as_decimal: bool = False,
     ) -> tuple | None:
         extracted_exif = GPSUtils.get_exif(file_name=file_name, image=image)
@@ -207,35 +218,54 @@ class GPSUtils:
 
 
 def get_gsd(
-        image_path: str,
-        flight_specs: FlightSpecs,
-        image: Image.Image | None = None
-    ):
+    image_path: str, flight_specs: FlightSpecs, image: Image.Image | None = None
+):
     ##-- Extract exif
-    exif = GPSUtils.get_exif(file_name=image_path, image=image)
+    try:
+        exif = GPSUtils.get_exif(file_name=image_path, image=image)
+    except Exception as e:
+        logger.warning(f"Error getting exif: {e}")
+        return None
 
     if image:
         _, image_height = image.size
     else:
         try:
-            image_height = exif["ExifImageHeight"]
+            if exif and "ExifImageHeight" in exif:
+                image_height = exif["ExifImageHeight"]
+            else:
+                image_height = Image.open(image_path).size[1]
         except:
             image_height = Image.open(image_path).size[1]
 
-    if flight_specs.focal_length is None:
-        focal_length = exif["FocalLength"]
-
-    if flight_specs.sensor_height is None:
-        sensor_height = GPSUtils.SENSOR_HEIGHTS.get(exif["Model"])
-        if sensor_height is None:
-            raise ValueError("Sensor height not found. Please provide it.")
+    # Initialize focal_length - use flight_specs if available, otherwise from exif
+    if flight_specs.focal_length is not None:
+        focal_length = flight_specs.focal_length
     else:
-        assert isinstance(flight_specs.sensor_height, float) or isinstance(flight_specs.sensor_height, int), (
-            f"Received {flight_specs.sensor_height}"
-        )
+        if exif and "FocalLength" in exif:
+            focal_length = exif["FocalLength"]
+        else:
+            raise ValueError(
+                "Focal length not found in flight_specs or image EXIF data"
+            )
+
+    # Initialize sensor_height - use flight_specs if available, otherwise from exif
+    if flight_specs.sensor_height is not None:
+        sensor_height = flight_specs.sensor_height
+    else:
+        if exif and "Model" in exif:
+            sensor_height = GPSUtils.SENSOR_HEIGHTS.get(exif["Model"])
+            if sensor_height is None:
+                raise ValueError(
+                    "Sensor height not found. Please provide it in flight_specs."
+                )
+        else:
+            raise ValueError(
+                "Sensor height not found. Please provide it in flight_specs."
+            )
 
     ##-- Compute gsd
-    flight_height = flight_specs.flight_height * 1e2 # in cm
+    flight_height = flight_specs.flight_height * 1e2  # in cm
     focal_length *= 0.1  # in cm
     sensor_height *= 0.1  # in cm
 

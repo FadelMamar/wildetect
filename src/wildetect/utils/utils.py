@@ -1,8 +1,8 @@
 import logging
+from typing import List
+
 import torch
 from torchmetrics.functional.detection import complete_intersection_over_union
-
-from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +10,7 @@ try:
     import mlflow
 except ImportError:
     logger.warning("mlflow not installed")
+
 
 def compute_iou(bbox1: List[float], bbox2: List[float]) -> float:
     """Compute Intersection over Union (IoU) between two bounding boxes.
@@ -30,7 +31,6 @@ def compute_iou(bbox1: List[float], bbox2: List[float]) -> float:
     return iou
 
 
-
 def load_registered_model(
     alias,
     name,
@@ -38,7 +38,6 @@ def load_registered_model(
     mlflow_tracking_url="http://localhost:5000",
     load_unwrapped: bool = False,
 ):
-    
     mlflow.set_tracking_uri(mlflow_tracking_url)
 
     client = mlflow.MlflowClient()

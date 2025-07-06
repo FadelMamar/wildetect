@@ -3,27 +3,33 @@ import os
 import traceback
 from pathlib import Path
 from time import time
+from typing import Sequence
 from urllib.parse import quote, unquote
+
 import pandas as pd
 from dotenv import load_dotenv
-from typing import Sequence
+from label_studio_sdk.client import LabelStudio
 
 # from label_studio_ml.utils import get_local_path
 from label_studio_tools.core.utils.io import get_local_path
-
-from label_studio_sdk.client import LabelStudio
 from PIL import Image
 
+from ..config import PredictionConfig
 from ..data.tile import Tile
 from ..registry import Detector
-from ..config import PredictionConfig
-
 
 logger = logging.getLogger(__name__)
 
 
 class InferenceEngine(object):
-    def __init__(self, config: PredictionConfig, detector: Detector, model_tag:str, roi_processor, dotenv_path:str=None):
+    def __init__(
+        self,
+        config: PredictionConfig,
+        detector: Detector,
+        model_tag: str,
+        roi_processor,
+        dotenv_path: str = None,
+    ):
         """
         Initialize the InferenceEngine with a prediction configuration.
 
@@ -45,13 +51,12 @@ class InferenceEngine(object):
         self.detector = detector
         self.model_tag = model_tag
         self.roi_processor = roi_processor
-        
+
         self.labelstudio_client = None
         try:
             self._set_ls_client(dotenv_path=dotenv_path)
         except Exception as e:
             logger.warning(f"Failed to set up Label Studio client: {e}")
-
 
     def _set_ls_client(self, dotenv_path: str):
         """
@@ -62,7 +67,7 @@ class InferenceEngine(object):
         """
         # # Load environment variables
         load_dotenv(dotenv_path=dotenv_path)
-        
+
         # # label studio client
         LABEL_STUDIO_URL = os.getenv("LABEL_STUDIO_URL")
         API_KEY = os.getenv("LABEL_STUDIO_API_KEY")
@@ -77,7 +82,6 @@ class InferenceEngine(object):
         )
 
         return None
-
 
     def inference(
         self,
@@ -95,7 +99,6 @@ class InferenceEngine(object):
         Returns:
             Sequence[list[Detection]] | list[Tile] | pd.DataFrame: Detections, tiles, or DataFrame depending on arguments.
         """
-
 
         logger.info(f"Running inference on {len(tiles)} tiles.")
 
@@ -254,8 +257,9 @@ class InferenceEngine(object):
         Example:
             >>> engine, feature_extractor = InferenceEngine.from_yaml("configs/inference.yaml")
         """
-        import yaml
         from pathlib import Path
+
+        import yaml
 
         # Load YAML configuration
         yaml_path = Path(yaml_path)

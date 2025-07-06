@@ -6,40 +6,42 @@ and visualizing results with FiftyOne integration.
 """
 
 import os
-import streamlit as st
-import pandas as pd
-from pathlib import Path
-from typing import List, Dict, Any
-import tempfile
 import shutil
 
 # Add parent directory to path for imports
 import sys
+import tempfile
+from pathlib import Path
+from typing import Any, Dict, List
+
+import pandas as pd
+import streamlit as st
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from wildetect.core.detector import WildlifeDetector
 from wildetect.core.fiftyone_manager import FiftyOneManager
 from wildetect.core.labelstudio_manager import LabelStudioManager
-from wildetect.utils.config import get_config, create_directories
+from wildetect.utils.config import create_directories, get_config
 
 # Page configuration
 st.set_page_config(
     page_title="WildDetect - Wildlife Detection System",
     page_icon="🦁",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 # Initialize session state
-if 'detector' not in st.session_state:
+if "detector" not in st.session_state:
     st.session_state.detector = None
-if 'fo_manager' not in st.session_state:
+if "fo_manager" not in st.session_state:
     st.session_state.fo_manager = None
-if 'ls_manager' not in st.session_state:
+if "ls_manager" not in st.session_state:
     st.session_state.ls_manager = None
-if 'uploaded_files' not in st.session_state:
+if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = []
-if 'detection_results' not in st.session_state:
+if "detection_results" not in st.session_state:
     st.session_state.detection_results = []
 
 
@@ -49,18 +51,18 @@ def initialize_components():
         if st.session_state.detector is None:
             with st.spinner("Loading detection model..."):
                 st.session_state.detector = WildlifeDetector()
-        
+
         if st.session_state.fo_manager is None:
             with st.spinner("Initializing FiftyOne..."):
                 st.session_state.fo_manager = FiftyOneManager()
-        
+
         if st.session_state.ls_manager is None:
             with st.spinner("Initializing LabelStudio..."):
                 st.session_state.ls_manager = LabelStudioManager()
-        
+
         # Create necessary directories
         create_directories()
-        
+
     except Exception as e:
         st.error(f"Error initializing components: {e}")
 
@@ -69,14 +71,14 @@ def main():
     """Main application function."""
     st.title("🦁 WildDetect - Wildlife Detection System")
     st.markdown("Semi-automated wildlife detection from aerial images")
-    
+
     # Initialize components
     initialize_components()
-    
+
     # Sidebar
     with st.sidebar:
         st.header("Settings")
-        
+
         # Model settings
         st.subheader("Detection Settings")
         confidence_threshold = st.slider(
@@ -85,9 +87,9 @@ def main():
             max_value=1.0,
             value=0.5,
             step=0.1,
-            help="Minimum confidence for detections"
+            help="Minimum confidence for detections",
         )
-        
+
         # FiftyOne settings
         st.subheader("FiftyOne Settings")
         if st.button("Launch FiftyOne App"):
@@ -96,16 +98,20 @@ def main():
                 st.success("FiftyOne app launched!")
             except Exception as e:
                 st.error(f"Error launching FiftyOne: {e}")
-        
+
         if st.button("Export Annotations"):
             try:
-                export_format = st.selectbox("Export Format", ["coco", "yolo", "pascal"])
+                export_format = st.selectbox(
+                    "Export Format", ["coco", "yolo", "pascal"]
+                )
                 export_path = f"data/annotations_export_{export_format}"
-                st.session_state.fo_manager.export_annotations(export_path, export_format)
+                st.session_state.fo_manager.export_annotations(
+                    export_path, export_format
+                )
                 st.success(f"Annotations exported to {export_path}")
             except Exception as e:
                 st.error(f"Error exporting annotations: {e}")
-        
+
         # LabelStudio settings
         st.subheader("LabelStudio Settings")
         if st.button("Launch LabelStudio"):
@@ -114,37 +120,45 @@ def main():
                 st.success("LabelStudio integration ready!")
             except Exception as e:
                 st.error(f"Error connecting to LabelStudio: {e}")
-        
+
         if st.button("Create Annotation Job"):
             if st.session_state.detection_results:
                 try:
-                    project_name = st.text_input("Project Name", value="wildlife_annotation_job")
+                    project_name = st.text_input(
+                        "Project Name", value="wildlife_annotation_job"
+                    )
                     if st.button("Create Job"):
-                        image_paths = [r['image_path'] for r in st.session_state.detection_results]
+                        image_paths = [
+                            r["image_path"] for r in st.session_state.detection_results
+                        ]
                         job_info = st.session_state.ls_manager.create_annotation_job(
-                            project_name, image_paths, st.session_state.detection_results
+                            project_name,
+                            image_paths,
+                            st.session_state.detection_results,
                         )
                         st.success(f"Annotation job created! URL: {job_info['url']}")
                 except Exception as e:
                     st.error(f"Error creating annotation job: {e}")
             else:
                 st.warning("No detection results available. Run detection first.")
-    
+
     # Main content
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Upload & Detect", "Results", "Dataset Stats", "Model Info", "LabelStudio"])
-    
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["Upload & Detect", "Results", "Dataset Stats", "Model Info", "LabelStudio"]
+    )
+
     with tab1:
         upload_and_detect_tab()
-    
+
     with tab2:
         results_tab()
-    
+
     with tab3:
         dataset_stats_tab()
-    
+
     with tab4:
         model_info_tab()
-    
+
     with tab5:
         labelstudio_tab()
 
@@ -152,54 +166,61 @@ def main():
 def upload_and_detect_tab():
     """Handle image upload and detection."""
     st.header("Upload Images & Run Detection")
-    
+
     # File upload
     uploaded_files = st.file_uploader(
         "Upload aerial images",
-        type=['jpg', 'jpeg', 'png', 'tiff', 'bmp'],
+        type=["jpg", "jpeg", "png", "tiff", "bmp"],
         accept_multiple_files=True,
-        help="Upload one or more aerial images for wildlife detection"
+        help="Upload one or more aerial images for wildlife detection",
     )
-    
+
     if uploaded_files:
         st.session_state.uploaded_files = uploaded_files
-        
+
         # Save uploaded files
         config = get_config()
-        images_dir = Path(config['paths']['images_dir'])
+        images_dir = Path(config["paths"]["images_dir"])
         images_dir.mkdir(parents=True, exist_ok=True)
-        
+
         saved_paths = []
         for uploaded_file in uploaded_files:
             # Save to temporary location
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
+            with tempfile.NamedTemporaryFile(
+                delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}"
+            ) as tmp_file:
                 shutil.copyfileobj(uploaded_file, tmp_file)
                 saved_paths.append(tmp_file.name)
-        
+
         st.session_state.saved_paths = saved_paths
-        
+
         # Detection button
         if st.button("Run Detection", type="primary"):
-            run_detection(saved_paths, st.session_state.get('confidence_threshold', 0.5))
-    
+            run_detection(
+                saved_paths, st.session_state.get("confidence_threshold", 0.5)
+            )
+
     # Batch processing
     st.subheader("Batch Processing")
     batch_dir = st.text_input(
         "Process Directory",
         value="data/images",
-        help="Path to directory containing images to process"
+        help="Path to directory containing images to process",
     )
-    
+
     if st.button("Process Directory"):
         if os.path.exists(batch_dir):
             image_files = []
-            for ext in ['*.jpg', '*.jpeg', '*.png', '*.tiff', '*.bmp']:
+            for ext in ["*.jpg", "*.jpeg", "*.png", "*.tiff", "*.bmp"]:
                 image_files.extend(Path(batch_dir).glob(ext))
-            
+
             if image_files:
                 st.info(f"Found {len(image_files)} images in {batch_dir}")
                 if st.button("Process All Images"):
-                    run_batch_detection([str(f) for f in image_files], st.session_state.get('confidence_threshold', 0.5))
+                    run_batch_detection(
+                        [str(f) for f in image_files],
+                        st.session_state.get("confidence_threshold", 0.5),
+                    )
             else:
                 st.warning(f"No image files found in {batch_dir}")
         else:
@@ -211,33 +232,35 @@ def run_detection(image_paths: List[str], confidence: float):
     if st.session_state.detector is None:
         st.error("Detector not initialized")
         return
-    
+
     progress_bar = st.progress(0)
     status_text = st.empty()
-    
+
     results = []
     for i, image_path in enumerate(image_paths):
         status_text.text(f"Processing image {i+1}/{len(image_paths)}")
-        
+
         try:
             result = st.session_state.detector.detect(image_path, confidence)
             results.append(result)
-            
+
             # Add to FiftyOne dataset
             if st.session_state.fo_manager:
                 st.session_state.fo_manager.add_images([image_path], [result])
-            
+
         except Exception as e:
             st.error(f"Error processing {image_path}: {e}")
-        
+
         progress_bar.progress((i + 1) / len(image_paths))
-    
+
     st.session_state.detection_results = results
     status_text.text("Detection completed!")
-    
+
     # Show summary
-    total_detections = sum(r.get('total_count', 0) for r in results)
-    st.success(f"Detection completed! Found {total_detections} wildlife in {len(results)} images")
+    total_detections = sum(r.get("total_count", 0) for r in results)
+    st.success(
+        f"Detection completed! Found {total_detections} wildlife in {len(results)} images"
+    )
 
 
 def run_batch_detection(image_paths: List[str], confidence: float):
@@ -245,48 +268,54 @@ def run_batch_detection(image_paths: List[str], confidence: float):
     if st.session_state.detector is None:
         st.error("Detector not initialized")
         return
-    
+
     progress_bar = st.progress(0)
     status_text = st.empty()
-    
+
     results = []
     for i, image_path in enumerate(image_paths):
         status_text.text(f"Processing image {i+1}/{len(image_paths)}")
-        
+
         try:
             result = st.session_state.detector.detect(image_path, confidence)
             results.append(result)
-            
+
             # Add to FiftyOne dataset
             if st.session_state.fo_manager:
                 st.session_state.fo_manager.add_images([image_path], [result])
-            
+
         except Exception as e:
             st.error(f"Error processing {image_path}: {e}")
-        
+
         progress_bar.progress((i + 1) / len(image_paths))
-    
+
     st.session_state.detection_results = results
     status_text.text("Batch detection completed!")
-    
+
     # Show summary
-    total_detections = sum(r.get('total_count', 0) for r in results)
-    st.success(f"Batch detection completed! Found {total_detections} wildlife in {len(results)} images")
+    total_detections = sum(r.get("total_count", 0) for r in results)
+    st.success(
+        f"Batch detection completed! Found {total_detections} wildlife in {len(results)} images"
+    )
 
 
 def results_tab():
     """Display detection results."""
     st.header("Detection Results")
-    
+
     if not st.session_state.detection_results:
-        st.info("No detection results available. Upload images and run detection first.")
+        st.info(
+            "No detection results available. Upload images and run detection first."
+        )
         return
-    
+
     # Summary statistics
     st.subheader("Summary")
     total_images = len(st.session_state.detection_results)
-    total_detections = sum(r.get('total_count', 0) for r in st.session_state.detection_results)
-    
+    total_detections = sum(
+        r.get("total_count", 0) for r in st.session_state.detection_results
+    )
+
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Images Processed", total_images)
@@ -295,37 +324,39 @@ def results_tab():
     with col3:
         avg_detections = total_detections / total_images if total_images > 0 else 0
         st.metric("Avg Detections/Image", f"{avg_detections:.1f}")
-    
+
     # Species breakdown
     st.subheader("Species Breakdown")
     all_species_counts = {}
     for result in st.session_state.detection_results:
-        species_counts = result.get('species_counts', {})
+        species_counts = result.get("species_counts", {})
         for species, count in species_counts.items():
             all_species_counts[species] = all_species_counts.get(species, 0) + count
-    
+
     if all_species_counts:
-        species_df = pd.DataFrame([
-            {'Species': species, 'Count': count}
-            for species, count in all_species_counts.items()
-        ]).sort_values('Count', ascending=False)
-        
-        st.bar_chart(species_df.set_index('Species'))
-    
+        species_df = pd.DataFrame(
+            [
+                {"Species": species, "Count": count}
+                for species, count in all_species_counts.items()
+            ]
+        ).sort_values("Count", ascending=False)
+
+        st.bar_chart(species_df.set_index("Species"))
+
     # Detailed results
     st.subheader("Detailed Results")
     for i, result in enumerate(st.session_state.detection_results):
         with st.expander(f"Image {i+1}: {os.path.basename(result['image_path'])}"):
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.write(f"**Total Detections:** {result.get('total_count', 0)}")
                 st.write(f"**Species Found:**")
-                for species, count in result.get('species_counts', {}).items():
+                for species, count in result.get("species_counts", {}).items():
                     st.write(f"- {species}: {count}")
-            
+
             with col2:
-                if 'error' in result:
+                if "error" in result:
                     st.error(f"Error: {result['error']}")
                 else:
                     st.success("Detection successful")
@@ -334,47 +365,57 @@ def results_tab():
 def dataset_stats_tab():
     """Display dataset statistics."""
     st.header("Dataset Statistics")
-    
+
     if st.session_state.fo_manager is None:
         st.error("FiftyOne manager not initialized")
         return
-    
+
     try:
         # Dataset info
         dataset_info = st.session_state.fo_manager.get_dataset_info()
         st.subheader("Dataset Information")
-        
+
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Dataset Name", dataset_info['name'])
+            st.metric("Dataset Name", dataset_info["name"])
         with col2:
-            st.metric("Total Samples", dataset_info['num_samples'])
+            st.metric("Total Samples", dataset_info["num_samples"])
         with col3:
-            st.metric("Fields", len(dataset_info['fields']))
-        
+            st.metric("Fields", len(dataset_info["fields"]))
+
         # Annotation statistics
         annotation_stats = st.session_state.fo_manager.get_annotation_stats()
         st.subheader("Annotation Statistics")
-        
+
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Annotated Samples", annotation_stats['annotated_samples'])
+            st.metric("Annotated Samples", annotation_stats["annotated_samples"])
         with col2:
-            st.metric("Total Detections", annotation_stats['total_detections'])
+            st.metric("Total Detections", annotation_stats["total_detections"])
         with col3:
-            annotation_rate = (annotation_stats['annotated_samples'] / annotation_stats['total_samples'] * 100) if annotation_stats['total_samples'] > 0 else 0
+            annotation_rate = (
+                (
+                    annotation_stats["annotated_samples"]
+                    / annotation_stats["total_samples"]
+                    * 100
+                )
+                if annotation_stats["total_samples"] > 0
+                else 0
+            )
             st.metric("Annotation Rate", f"{annotation_rate:.1f}%")
-        
+
         # Species distribution
-        if annotation_stats['species_counts']:
+        if annotation_stats["species_counts"]:
             st.subheader("Species Distribution")
-            species_df = pd.DataFrame([
-                {'Species': species, 'Count': count}
-                for species, count in annotation_stats['species_counts'].items()
-            ]).sort_values('Count', ascending=False)
-            
-            st.bar_chart(species_df.set_index('Species'))
-    
+            species_df = pd.DataFrame(
+                [
+                    {"Species": species, "Count": count}
+                    for species, count in annotation_stats["species_counts"].items()
+                ]
+            ).sort_values("Count", ascending=False)
+
+            st.bar_chart(species_df.set_index("Species"))
+
     except Exception as e:
         st.error(f"Error getting dataset statistics: {e}")
 
@@ -382,31 +423,31 @@ def dataset_stats_tab():
 def model_info_tab():
     """Display model information."""
     st.header("Model Information")
-    
+
     if st.session_state.detector is None:
         st.error("Detector not initialized")
         return
-    
+
     try:
         model_info = st.session_state.detector.get_model_info()
-        
+
         st.subheader("Model Details")
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.write(f"**Model Path:** {model_info['model_path']}")
             st.write(f"**Device:** {model_info['device']}")
             st.write(f"**Input Size:** {model_info['input_size']}")
-        
+
         with col2:
             st.write(f"**Number of Classes:** {model_info['num_classes']}")
             st.write(f"**Classes:** {', '.join(model_info['class_names'])}")
-        
+
         # Configuration
         config = get_config()
         st.subheader("Configuration")
         st.json(config)
-    
+
     except Exception as e:
         st.error(f"Error getting model information: {e}")
 
@@ -414,11 +455,11 @@ def model_info_tab():
 def labelstudio_tab():
     """Display LabelStudio management interface."""
     st.header("LabelStudio Management")
-    
+
     if st.session_state.ls_manager is None:
         st.error("LabelStudio manager not initialized")
         return
-    
+
     # LabelStudio status
     st.subheader("LabelStudio Status")
     try:
@@ -426,50 +467,54 @@ def labelstudio_tab():
         st.write("URL: http://localhost:8080")
     except Exception as e:
         st.error(f"LabelStudio connection error: {e}")
-    
+
     # Create annotation job
     st.subheader("Create Annotation Job")
     if st.session_state.detection_results:
         project_name = st.text_input("Project Name", value="wildlife_annotation_job")
-        description = st.text_area("Description", value="Wildlife detection annotation job")
-        
+        description = st.text_area(
+            "Description", value="Wildlife detection annotation job"
+        )
+
         if st.button("Create Annotation Job"):
             try:
-                image_paths = [r['image_path'] for r in st.session_state.detection_results]
+                image_paths = [
+                    r["image_path"] for r in st.session_state.detection_results
+                ]
                 job_info = st.session_state.ls_manager.create_annotation_job(
                     project_name, image_paths, st.session_state.detection_results
                 )
-                
+
                 st.success("Annotation job created successfully!")
                 st.write(f"**Project ID:** {job_info['project_id']}")
                 st.write(f"**Project URL:** {job_info['url']}")
                 st.write(f"**Total Tasks:** {job_info['total_tasks']}")
                 st.write(f"**Completion Rate:** {job_info['completion_rate']:.1%}")
-                
+
             except Exception as e:
                 st.error(f"Error creating annotation job: {e}")
     else:
         st.warning("No detection results available. Run detection first.")
-    
+
     # Export annotations
     st.subheader("Export Annotations")
     export_format = st.selectbox("Export Format", ["yolo", "coco", "pascal"])
-    
+
     if st.button("Export for Training"):
         try:
             config = get_config()
             output_dir = f"{config['paths']['annotations_dir']}/labelstudio_export_{export_format}"
-            
+
             # This would require a project selection interface
             st.info("Export functionality requires project selection")
-            
+
         except Exception as e:
             st.error(f"Error exporting annotations: {e}")
-    
+
     # Sync with FiftyOne
     st.subheader("Sync with FiftyOne")
     dataset_name = st.text_input("FiftyOne Dataset Name", value="wildlife_detection")
-    
+
     if st.button("Sync Annotations"):
         try:
             st.info("Sync functionality requires project selection")
@@ -479,4 +524,4 @@ def labelstudio_tab():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
