@@ -7,12 +7,11 @@ import logging
 import os
 import sys
 
-# Add the src directory to the Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+from wildetect.core.config import FlightSpecs
 
+# Add the src directory to the Python path
 from wildetect.core.data.drone_image import DroneImage
 from wildetect.core.data.utils import get_images_paths
-from wildetect.core.gps.geographic_bounds import GeographicBounds
 from wildetect.core.visualization.geographic import (
     GeographicVisualizer,
     VisualizationConfig,
@@ -23,16 +22,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TEST_DATA_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
+FLIGHT_SPECS = FlightSpecs(sensor_height=24.0, focal_length=35.0, flight_height=180.0)
 
 
-def create_test_drone_images():
+def create_test_drone_images() -> list[DroneImage]:
     """Create test DroneImage instances with geographic footprints."""
     drone_images = []
 
     for image_path in get_images_paths(TEST_DATA_DIR):
-        drone_image = DroneImage(
-            image_path=image_path,
-        )
+        drone_image = DroneImage.from_image_path(image_path, flight_specs=FLIGHT_SPECS)
 
         drone_images.append(drone_image)
 
@@ -80,9 +78,8 @@ def test_geographic_visualizer():
         show_image_path=False,
         show_detection_count=True,
         show_gps_info=True,
-        show_bounding_boxes=True,
+        show_image_bounds=True,
         show_image_centers=True,
-        show_overlaps=True,
         show_statistics=True,
     )
 
@@ -94,7 +91,7 @@ def test_geographic_visualizer():
     logger.info(f"Found {len(overlap_map)} overlapping image pairs")
 
     for image_path, overlapping_paths in overlap_map.items():
-        logger.info(f"Image {image_path} overlaps with: {overlapping_paths}")
+        logger.debug(f"Image {image_path} overlaps with: {overlapping_paths}")
 
     # Test coverage statistics
     logger.info("Testing coverage statistics...")

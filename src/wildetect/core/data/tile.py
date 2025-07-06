@@ -80,7 +80,7 @@ class Tile:
         exif = self._extract_exif()
 
         if self.flight_specs is None:
-            logger.debug("Flight specs are not provided.")
+            logger.warning("Flight specs are not provided.")
             return
         elif isinstance(self.flight_specs, FlightSpecs):
             pass
@@ -346,9 +346,9 @@ class Tile:
         """Validate a single detection."""
         if not detection.is_empty:
             if detection.x_center < 0 or detection.x_center >= self.width:
-                raise ValueError(f"Detection {i}: x_center out of bounds")
+                raise ValueError(f"Detection: x_center out of bounds")
             if detection.y_center < 0 or detection.y_center >= self.height:
-                raise ValueError(f"Detection {i}: y_center out of bounds")
+                raise ValueError(f"Detection : y_center out of bounds")
 
     def validate_detections(
         self, predictions: bool = True, annotations: bool = True

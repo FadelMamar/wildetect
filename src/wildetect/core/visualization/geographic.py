@@ -14,7 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import folium
 import numpy as np
 from folium import plugins
-from pyproj import Transformer
+from shapely.geometry import MultiPolygon, Polygon
+from shapely.ops import unary_union
 
 from ..data.drone_image import DroneImage
 from ..flight.geographic_merger import GPSOverlapStrategy
@@ -40,10 +41,8 @@ class VisualizationConfig:
 
     # Display settings
     show_image_centers: bool = True
-    show_bounding_boxes: bool = True
     use_polygons: bool = True  # Use polygons instead of rectangles for more accuracy
-    show_detections: bool = False
-    show_overlaps: bool = True
+    show_image_bounds: bool = True
     show_statistics: bool = True
 
     # Popup settings
@@ -63,29 +62,7 @@ class GeographicVisualizer:
             config: Configuration for visualization settings
         """
         self.config = config or VisualizationConfig()
-        self.transformer = Transformer.from_crs(
-            "EPSG:32632", "EPSG:4326", always_xy=True
-        )
         self.overlap_strategy = GPSOverlapStrategy()
-
-    def _transform_utm_to_wgs84(
-        self, easting: float, northing: float
-    ) -> Optional[Tuple[float, float]]:
-        """Transform UTM coordinates to WGS84 lat/lon.
-
-        Args:
-            easting: UTM easting coordinate
-            northing: UTM northing coordinate
-
-        Returns:
-            Tuple of (longitude, latitude) in WGS84, or None if transformation fails
-        """
-        try:
-            lon, lat = self.transformer.transform(easting, northing)
-            return lon, lat
-        except Exception as e:
-            logger.warning(f"Failed to transform coordinates: {e}")
-            return None
 
     def _extract_geographic_data(
         self, drone_images: List[DroneImage]
@@ -189,6 +166,78 @@ class GeographicVisualizer:
         content += "</div>"
         return content
 
+    def _visualize_drone_image_polygon(
+        self,
+        map_obj: folium.Map,
+        drone_image: DroneImage,
+        color: Optional[str] = None,
+        weight: int = 2,
+        fill_opacity: float = 0.1,
+        popup_content: Optional[str] = None,
+    ) -> bool:
+        """Visualize a DroneImage bounds using its polygon.
+
+        Args:
+            map_obj: Folium map object to add the visualization to
+            drone_image: DroneImage instance to visualize
+            color: Color for the polygon (defaults to config image_bounds_color)
+            weight: Line weight for the polygon border
+            fill_opacity: Opacity for polygon fill
+            popup_content: Optional custom popup content
+
+        Returns:
+            bool: True if visualization was successful, False otherwise
+        """
+        if drone_image.geographic_footprint is None:
+            logger.warning(
+                f"DroneImage {drone_image.image_path} has no geographic footprint"
+            )
+            return False
+
+        if drone_image.geo_polygon_points is None:
+            logger.warning(f"DroneImage {drone_image.image_path} has no polygon points")
+            return False
+
+        try:
+            # Use provided color or default from config
+            polygon_color = color or self.config.image_bounds_color
+
+            # Create popup content if not provided
+            if popup_content is None:
+                image_data = {
+                    "path": drone_image.image_path,
+                    "width": drone_image.width,
+                    "height": drone_image.height,
+                    "detection_count": len(drone_image.predictions),
+                    "latitude": drone_image.latitude,
+                    "longitude": drone_image.longitude,
+                    "gsd": drone_image.gsd,
+                }
+                popup_content = self._create_popup_content(image_data)
+
+            # Create polygon visualization
+            folium.Polygon(
+                locations=drone_image.geo_polygon_points,
+                color=polygon_color,
+                weight=weight,
+                fill=True,
+                fillOpacity=fill_opacity,
+                popup=folium.Popup(
+                    popup_content, max_width=self.config.popup_max_width
+                ),
+            ).add_to(map_obj)
+
+            logger.debug(
+                f"Added polygon visualization for image: {drone_image.image_path}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to visualize polygon for {drone_image.image_path}: {e}"
+            )
+            return False
+
     def _find_overlaps_using_strategy(
         self, drone_images: List[DroneImage]
     ) -> Dict[str, List[str]]:
@@ -205,74 +254,6 @@ class GeographicVisualizer:
         except Exception as e:
             logger.warning(f"Failed to find overlaps using GPSOverlapStrategy: {e}")
             return {}
-
-    def _create_overlap_visualizations(
-        self,
-        map_obj: folium.Map,
-        drone_images: List[DroneImage],
-        overlap_map: Dict[str, List[str]],
-    ) -> int:
-        """Create overlap visualizations on the map.
-
-        Args:
-            map_obj: Folium map object
-            drone_images: List of DroneImage instances
-            overlap_map: Dictionary mapping image paths to overlapping image paths
-
-        Returns:
-            Number of overlap visualizations created
-        """
-        overlap_count = 0
-        image_path_to_image = {img.image_path: img for img in drone_images}
-
-        for image_path, overlapping_paths in overlap_map.items():
-            if image_path not in image_path_to_image:
-                continue
-
-            main_image = image_path_to_image[image_path]
-
-            for overlap_path in overlapping_paths:
-                if overlap_path not in image_path_to_image:
-                    continue
-
-                overlap_image = image_path_to_image[overlap_path]
-
-                # Create overlap visualization if both images have geographic footprints
-                if (
-                    main_image.geographic_footprint is not None
-                    and overlap_image.geographic_footprint is not None
-                ):
-                    # Calculate overlap bounds
-                    main_bounds = main_image.geographic_footprint
-                    overlap_bounds = overlap_image.geographic_footprint
-
-                    # Find intersection
-                    overlap_west = max(main_bounds.west, overlap_bounds.west)
-                    overlap_east = min(main_bounds.east, overlap_bounds.east)
-                    overlap_south = max(main_bounds.south, overlap_bounds.south)
-                    overlap_north = min(main_bounds.north, overlap_bounds.north)
-
-                    if overlap_west < overlap_east and overlap_south < overlap_north:
-                        # Calculate overlap area
-                        overlap_area = (overlap_east - overlap_west) * (
-                            overlap_north - overlap_south
-                        )
-
-                        # Create rectangle for overlap
-                        folium.Rectangle(
-                            bounds=[
-                                [overlap_south, overlap_west],
-                                [overlap_north, overlap_east],
-                            ],
-                            color=self.config.overlap_color,
-                            weight=3,
-                            fill=True,
-                            fillOpacity=0.3,
-                            popup=f"Overlap Area: {overlap_area:.2f} m²<br>Images: {image_path.split('/')[-1]}, {overlap_path.split('/')[-1]}",
-                        ).add_to(map_obj)
-                        overlap_count += 1
-
-        return overlap_count
 
     def create_map(self, drone_images: List[DroneImage]) -> folium.Map:
         """Create a Folium map with geographic bounds visualization.
@@ -310,31 +291,33 @@ class GeographicVisualizer:
         )
 
         # Add image bounding boxes
-        if self.config.show_bounding_boxes:
-            bounds_count = 0
+        if self.config.show_image_bounds:
+            failed_count = 0
             polygon_count = 0
-            for i, image_data in enumerate(geo_data["images"]):
-                popup_content = self._create_popup_content(image_data)
-
-                # Try to create polygon first (more accurate) if enabled
-                polygon_points = image_data["polygon_points"]
-                if self.config.use_polygons and polygon_points is not None:
-                    # Create polygon
-                    folium.Polygon(
-                        locations=polygon_points,
+            for i, drone_image in enumerate(drone_images):
+                # Use the new polygon visualization method
+                if self.config.use_polygons:
+                    success = self._visualize_drone_image_polygon(
+                        map_obj=map_obj,
+                        drone_image=drone_image,
                         color=self.config.image_bounds_color,
                         weight=2,
-                        fill=True,
-                        fillOpacity=0.1,
-                        popup=folium.Popup(
-                            popup_content, max_width=self.config.popup_max_width
-                        ),
-                    ).add_to(map_obj)
-                    polygon_count += 1
-                    logger.debug(f"Added polygon for image {i}")
+                        fill_opacity=0.1,
+                    )
+                    if success:
+                        polygon_count += 1
+                        logger.debug(
+                            f"Added polygon for image {i}: {drone_image.image_path}"
+                        )
+                    else:
+                        # Fallback to rectangle if polygon fails
+                        failed_count += 1
+                        logger.debug(
+                            f"Fallback to rectangle for image {i}: {drone_image.image_path}"
+                        )
 
             logger.info(
-                f"Added {bounds_count} rectangles and {polygon_count} polygons to map"
+                f"Added {polygon_count} image polygons and {failed_count} failed to add polygons to map"
             )
 
         # Add image centers
@@ -348,33 +331,17 @@ class GeographicVisualizer:
 
                     folium.CircleMarker(
                         location=[image_data["latitude"], image_data["longitude"]],
-                        radius=5,
+                        radius=3,
                         color=self.config.image_center_color,
-                        fill=True,
+                        fill=False,
                         popup=folium.Popup(
                             popup_content, max_width=self.config.popup_max_width
                         ),
                     ).add_to(map_obj)
 
-        # Add overlap visualization using GPSOverlapStrategy
-        if self.config.show_overlaps:
-            overlap_map = self._find_overlaps_using_strategy(drone_images)
-            overlap_count = self._create_overlap_visualizations(
-                map_obj, drone_images, overlap_map
-            )
-            geo_data["statistics"]["overlap_count"] = len(overlap_map)
-            logger.info(
-                f"Found {len(overlap_map)} overlapping image pairs, created {overlap_count} overlap visualizations"
-            )
-
         # Add statistics layer
         if self.config.show_statistics:
             stats = geo_data["statistics"]
-            overlap_map = (
-                self._find_overlaps_using_strategy(drone_images)
-                if self.config.show_overlaps
-                else {}
-            )
             stats_html = f"""
             <div style="background-color: white; padding: 10px; border-radius: 5px;">
                 <h4>Coverage Statistics</h4>
@@ -384,7 +351,6 @@ class GeographicVisualizer:
                 <p><strong>Total Detections:</strong> {stats['total_detections']}</p>
                 <p><strong>Detections with GPS:</strong> {stats['detections_with_gps']}</p>
                 <p><strong>Coverage Area:</strong> {stats['coverage_area']:.2f} m²</p>
-                <p><strong>Overlapping Image Pairs:</strong> {len(overlap_map)}</p>
             </div>
             """
 
@@ -440,34 +406,15 @@ class GeographicVisualizer:
                     and overlap_image.geographic_footprint is not None
                 ):
                     # Calculate overlap area
-                    main_bounds = main_image.geographic_footprint
-                    overlap_bounds = overlap_image.geographic_footprint
-
-                    overlap_west = max(main_bounds.west, overlap_bounds.west)
-                    overlap_east = min(main_bounds.east, overlap_bounds.east)
-                    overlap_south = max(main_bounds.south, overlap_bounds.south)
-                    overlap_north = min(main_bounds.north, overlap_bounds.north)
-
-                    if overlap_west < overlap_east and overlap_south < overlap_north:
-                        overlap_area = (overlap_east - overlap_west) * (
-                            overlap_north - overlap_south
-                        )
-                        overlap_areas.append(overlap_area)
-                        total_overlap_area += overlap_area
+                    overlap_area = main_image.geographic_footprint.overlap_area(
+                        overlap_image.geographic_footprint
+                    )
+                    overlap_areas.append(overlap_area)
+                    total_overlap_area += overlap_area
 
         stats["overlap_areas"] = overlap_areas
         stats["total_overlap_area"] = total_overlap_area
-
-        if stats["coverage_area"] > 0:
-            stats["average_overlap_area"] = (
-                np.mean(overlap_areas) if overlap_areas else 0
-            )
-            stats["overlap_percentage"] = (
-                total_overlap_area / stats["coverage_area"]
-            ) * 100
-        else:
-            stats["average_overlap_area"] = 0
-            stats["overlap_percentage"] = 0
+        stats["average_overlap_area"] = float(np.mean(overlap_areas))
 
         return stats
 

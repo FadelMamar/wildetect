@@ -3,6 +3,7 @@ Geographic bounds utilities for wildlife detection.
 """
 
 import logging
+import traceback
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Union
 
@@ -64,6 +65,23 @@ class GeographicBounds:
 
         return compute_iou(box_self, box_other)
 
+    def overlap_area(self, other: "GeographicBounds") -> float:
+        main_bounds = self
+        overlap_bounds = other
+
+        overlap_west = max(main_bounds.west, overlap_bounds.west)
+        overlap_east = min(main_bounds.east, overlap_bounds.east)
+        overlap_south = max(main_bounds.south, overlap_bounds.south)
+        overlap_north = min(main_bounds.north, overlap_bounds.north)
+
+        overlap_area = 0.0
+        if overlap_west < overlap_east and overlap_south < overlap_north:
+            overlap_area = (overlap_east - overlap_west) * (
+                overlap_north - overlap_south
+            )
+
+        return overlap_area
+
     def expand(self, margin: float) -> "GeographicBounds":
         """Expand the bounds by a margin.
 
@@ -105,20 +123,20 @@ class GeographicBounds:
             # Create edge coordinates efficiently
             edges = [
                 (
-                    np.linspace(0, width, num_points_per_edge + 1),
-                    np.zeros(num_points_per_edge + 1),
+                    np.linspace(0, width, num_points_per_edge),
+                    np.zeros(num_points_per_edge),
                 ),  # Top
                 (
                     np.full(num_points_per_edge, width),
-                    np.linspace(0, height, num_points_per_edge + 1)[1:],
+                    np.linspace(0, height, num_points_per_edge),
                 ),  # Right
                 (
-                    np.linspace(width, 0, num_points_per_edge + 1)[1:],
+                    np.linspace(width, 0, num_points_per_edge),
                     np.full(num_points_per_edge, height),
                 ),  # Bottom
                 (
-                    np.zeros(num_points_per_edge - 1),
-                    np.linspace(height, 0, num_points_per_edge)[1:-1],
+                    np.zeros(num_points_per_edge),
+                    np.linspace(height, 0, num_points_per_edge),
                 ),  # Left
             ]
 
@@ -169,6 +187,8 @@ class GeographicBounds:
 
         except Exception as e:
             logger.warning(f"Failed to create polygon from GPS: {e}")
+            traceback.print_exc()
+            raise Exception
             return None
 
     def _can_compute_polygon(self) -> bool:
@@ -225,6 +245,7 @@ class GeographicBounds:
                 W=width_px,
                 H=height_px,
                 gsd=gsd,
+                return_as_utm=True,
             )
 
             # Convert to float values
