@@ -179,6 +179,8 @@ class Tile:
                 )
             if self.predictions and (not self._pred_is_original):
                 for det in self.predictions:
+                    if det.is_empty:
+                        continue
                     det.to_absolute_coords(self.x_offset, self.y_offset)
                 self._pred_is_original = True
 
@@ -188,6 +190,8 @@ class Tile:
                         "Skipping - Annotations have already been mapped to the reference coordinates."
                     )
                 for det in self.annotations:
+                    if det.is_empty:
+                        continue
                     det.to_absolute_coords(self.x_offset, self.y_offset)
                 self._annot_is_original = True
         else:

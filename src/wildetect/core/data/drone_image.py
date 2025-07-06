@@ -56,29 +56,27 @@ class DroneImage(Tile):
         )
 
         # Add it as the first tile with no offset
-        self.add_tile(full_tile, (0, 0))
+        self.add_tile(full_tile, 0, 0)
 
-    def add_tile(self, tile: Tile, offset: Tuple[int, int]) -> None:
+    def add_tile(self, tile: Tile, x_offset: int, y_offset: int) -> None:
         """Add a tile with its offset to the drone image.
 
         Args:
             tile (Tile): Tile to add
-            offset (Tuple[int, int]): (x, y) offset of the tile
+            x_offset (int): x offset of the tile
+            y_offset (int): y offset of the tile
         """
         if not isinstance(tile, Tile):
             raise TypeError(f"Expected Tile object, got {type(tile)}")
 
-        if not isinstance(offset, tuple) or len(offset) != 2:
-            raise ValueError("Offset must be a tuple of (x, y) coordinates")
-
         # Set the tile's parent image and offset
         tile.parent_image = self.image_path
-        tile.set_offsets(offset[0], offset[1])
+        tile.set_offsets(x_offset, y_offset)
 
         self.tiles.append(tile)
-        self.tile_offsets.append(offset)
+        self.tile_offsets.append((x_offset, y_offset))
 
-        logger.debug(f"Added tile {tile.id} at offset {offset}")
+        logger.debug(f"Added tile {tile.id} at offset {x_offset}, {y_offset}")
 
     def get_tiles_at_position(self, x: int, y: int) -> List[Tile]:
         """Get tile at a specific position.

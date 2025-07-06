@@ -136,13 +136,6 @@ def main():
     gps_samples = fiftyone_manager.get_detections_with_gps()
     logger.info(f"Found {len(gps_samples)} samples with native geolocation data")
 
-    # Filter by geographic bounds using native geolocation
-    bounds = GeographicBounds(
-        north=40.7200, south=40.7000, east=-73.9900, west=-74.0200
-    )
-    region_samples = fiftyone_manager.filter_by_geographic_bounds(bounds)
-    logger.info(f"Found {len(region_samples)} samples within geographic bounds")
-
     # Get dataset statistics
     stats = fiftyone_manager.get_annotation_stats()
     logger.info(f"Dataset statistics: {stats}")

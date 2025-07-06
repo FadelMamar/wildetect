@@ -103,17 +103,7 @@ class FeatureExtractor(Processor):
 
     @torch.no_grad()
     def run(self, images: Sequence[Image.Image], batch_size: int = 8) -> np.ndarray:
-        """Extract features from a sequence of images.
-
-        Args:
-            images (Sequence[Image.Image]): List of images as PIL Images.
-
-        Returns:
-            np.ndarray: Extracted features.
-
-        Raises:
-            ValueError: If images is empty or invalid.
-        """
+        """Extract features from a sequence of images."""
         if not images:
             raise ValueError("Images sequence cannot be empty")
 
@@ -156,10 +146,9 @@ class Classifier(Processor):
 
     def __init__(
         self,
-        model: torch.nn.Module,
+        model_path: str,
         label_map: Dict[int, str],
-        feature_extractor: Optional[FeatureExtractor] = None,
-        imgsz: int = 128,
+        feature_extractor_path: Optional[str] = None,
         transform: Optional[A.Compose] = None,
         device: str = "cpu",
     ):
@@ -168,21 +157,20 @@ class Classifier(Processor):
         Args:
             model (torch.nn.Module): PyTorch model for classification.
             label_map (Dict[int, str]): Mapping from class indices to class names.
-            feature_extractor (Optional[FeatureExtractor]): Feature extractor to use.
+            feature_extractor_path (Optional[str]): Path to feature extractor model.
             imgsz (int): Image size for preprocessing.
             transform (Optional[A.Compose]): Albumentations transform for preprocessing.
-            config (Optional[ProcessorConfig]): Processor configuration.
         """
-
-        if not isinstance(model, torch.nn.Module):
-            raise ValueError("model must be a torch.nn.Module")
 
         if not isinstance(label_map, dict):
             raise ValueError("label_map must be a dictionary")
 
-        self.model = model
+        self.model = torch.jit.load(model_path)
         self.label_map = label_map
-        self.feature_extractor = feature_extractor
+        if feature_extractor_path:
+            self.feature_extractor = FeatureExtractor(feature_extractor_path)
+        else:
+            self.feature_extractor = None
 
         # Move model to device
         self.device = device
@@ -278,9 +266,14 @@ class RoIPostProcessor(Processor):
 
     def __init__(
         self,
-        classifier: Classifier,
+        model_path: str,
+        label_map: Dict[int, str],
+        feature_extractor_path: Optional[str] = None,
+        imgsz: int = 128,
+        transform: Optional[A.Compose] = None,
+        device: str = "cpu",
+        classifier: Optional[Classifier] = None,
         keep_classes: Optional[List[str]] = None,
-        config: Optional[ProcessorConfig] = None,
     ):
         """Initialize the postprocessor.
 
@@ -288,8 +281,15 @@ class RoIPostProcessor(Processor):
             keep_classes (Optional[List[str]]): List of class names to keep. Defaults to ["groundtruth"].
             config (Optional[ProcessorConfig]): Processor configuration.
         """
-        super().__init__(config)
-        self.classifier = classifier
+        super().__init__()
+        self.box_size = imgsz
+
+        if classifier:
+            self.classifier = classifier
+        else:
+            self.classifier = Classifier(
+                model_path, label_map, feature_extractor_path, transform, device
+            )
         self.keep = keep_classes or ["groundtruth"]
         self.logger.info(
             f"DetectionsPostprocessor initialized to keep classes: {self.keep}"
@@ -299,8 +299,7 @@ class RoIPostProcessor(Processor):
         self,
         detections: List[Detection],
         image: Image.Image,
-        box_size: int = 128,
-        verbose: Optional[bool] = None,
+        verbose: bool = False,
     ) -> List[Detection]:
         """Filter detections by running a classifier on cropped image regions.
 
@@ -323,7 +322,6 @@ class RoIPostProcessor(Processor):
         if not detections:
             return []
 
-        verbose = verbose if verbose is not None else self.config.verbose
         self.logger.debug(f"Filtering {len(detections)} detections...")
 
         try:
@@ -344,10 +342,10 @@ class RoIPostProcessor(Processor):
                 x_center, y_center = det.x_center, det.y_center
 
                 # Calculate crop bounds
-                x1 = int(max(x_center - box_size // 2, 0))
-                y1 = int(max(y_center - box_size // 2, 0))
-                x2 = int(min(x_center + box_size // 2, img_width))
-                y2 = int(min(y_center + box_size // 2, img_height))
+                x1 = int(max(x_center - self.box_size // 2, 0))
+                y1 = int(max(y_center - self.box_size // 2, 0))
+                x2 = int(min(x_center + self.box_size // 2, img_width))
+                y2 = int(min(y_center + self.box_size // 2, img_height))
 
                 # Ensure minimum crop size
                 if x2 - x1 < 10 or y2 - y1 < 10:

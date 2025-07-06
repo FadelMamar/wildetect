@@ -56,7 +56,7 @@ class YOLODetector(Detector):
             logger.error(f"Error loading YOLO model: {e}")
             raise
 
-    def predict_batch(self, images: List[Image.Image]) -> List[List[Detection]]:
+    def predict_batch(self, batch: torch.Tensor) -> List[List[Detection]]:
         """Run prediction on an image.
 
         Args:
@@ -69,10 +69,12 @@ class YOLODetector(Detector):
         if not self._is_loaded:
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
+        assert isinstance(batch, torch.Tensor), "Batch must be a tensor"
+
         try:
             # Run inference
             results = self.model.predict(
-                images,
+                batch,
                 imgsz=self.config.tilesize,
                 conf=self.config.confidence_threshold,
                 verbose=self.config.verbose,
@@ -82,7 +84,7 @@ class YOLODetector(Detector):
             # Process results
             detections = [
                 self._process_results(result, image.size)
-                for result, image in zip(results, images)
+                for result, image in zip(results, batch)
             ]
 
             return detections
@@ -92,15 +94,7 @@ class YOLODetector(Detector):
             raise
 
     def _process_results(self, result, image_size: tuple) -> List[Detection]:
-        """Process YOLO results into Detection objects.
-
-        Args:
-            result: YOLO result object
-            image_size: Original image size (width, height)
-
-        Returns:
-            List of Detection objects
-        """
+        """Process YOLO results into Detection objects."""
         detections = []
         try:
             boxes = result.boxes
@@ -128,7 +122,7 @@ class YOLODetector(Detector):
 
     def predict(
         self,
-        image: Image.Image,
+        image: torch.Tensor,
     ) -> List[Detection]:
         """Run prediction on a batch of images.
 
@@ -139,7 +133,13 @@ class YOLODetector(Detector):
         Returns:
             List of detection lists
         """
-        return self.predict_batch([image])[0]
+        assert isinstance(image, torch.Tensor), "Image must be a tensor"
+        shape = image.shape
+        assert len(shape) == 3, "Image must be a 3D tensor"
+        C, H, W = shape
+        assert C == 3, "Image must have 3 channels"
+
+        return self.predict_batch(image.unsqueeze(0))[0]
 
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the loaded model."""

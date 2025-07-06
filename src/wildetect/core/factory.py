@@ -102,3 +102,7 @@ class DetectorFactory:
             "module": detector_class.__module__,
             "doc": detector_class.__doc__,
         }
+
+
+def build_detector(config: PredictionConfig) -> Detector:
+    return DetectorFactory.create_detector(config)

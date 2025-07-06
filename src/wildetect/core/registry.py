@@ -4,11 +4,13 @@ Model registry for managing different detector types.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
+import torch
 from PIL import Image
 
 from .config import PredictionConfig
+from .data.detection import Detection
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +31,15 @@ class Detector(ABC):
         pass
 
     @abstractmethod
-    def predict(self, image, **kwargs) -> List:
+    def predict(self, batch: torch.Tensor) -> List[List[Detection]]:
         """Run prediction on an image."""
         pass
 
     def warmup(self, image_size=(640, 640)) -> None:
         """Warm up the model with a dummy prediction."""
         try:
-            dummy_image = Image.new("RGB", image_size)
-            self.predict(dummy_image)
+            dummy_batch = torch.randn(1, 3, *image_size)
+            self.predict(dummy_batch)
             logger.info("Model warmup completed successfully")
         except Exception as e:
             logger.warning(f"Model warmup failed: {e}")
@@ -49,6 +51,10 @@ class Detector(ABC):
     def get_class_names(self) -> List[str]:
         """Get list of class names."""
         return self.class_names
+
+    @abstractmethod
+    def get_model_info(self) -> Dict[str, Any]:
+        pass
 
 
 class ModelRegistry:

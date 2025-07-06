@@ -46,6 +46,9 @@ class PredictionConfig:
 
     verbose: bool = False
 
+    buffer_size = 24
+    timeout = 60
+
     # inference service
     inference_service_url: Optional[str] = None
 

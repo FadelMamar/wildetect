@@ -83,8 +83,12 @@ class TileDataset(Dataset):
                 )
 
                 # Extract sub-tiles if image is large enough
-                if (drone_image.width > self.config.tile_size) or (
-                    drone_image.height > self.config.tile_size
+                if (
+                    drone_image.width is not None
+                    and drone_image.width > self.config.tile_size
+                ) or (
+                    drone_image.height is not None
+                    and drone_image.height > self.config.tile_size
                 ):
                     sub_tiles = self._extract_sub_tiles(drone_image)
                     tiles.extend(sub_tiles)
@@ -158,15 +162,12 @@ class TileDataset(Dataset):
                     altitude=None,
                     gsd=base_tile.gsd,
                     parent_image=base_tile.image_path,
-                    parent_image_date=base_tile.date,
-                    date=base_tile.date,
                 )
 
-                # Set offsets from the offset_info
-                x_offset = offset_info["x_offset"][i]
-                y_offset = offset_info["y_offset"][i]
-                sub_tile.set_offsets(x_offset, y_offset)
-                sub_tile.parent_image = base_tile.image_path
+                # Set offsets after creation
+                sub_tile.set_offsets(
+                    offset_info["x_offset"][i], offset_info["y_offset"][i]
+                )
 
                 sub_tiles.append(sub_tile)
 
@@ -256,13 +257,18 @@ class DataLoader:
         self,
         image_paths: List[str],
         image_dir: Optional[str] = None,
-        config: LoaderConfig = None,
+        config: Optional[LoaderConfig] = None,
     ):
         """Initialize the data loader.
 
         Args:
-            config (LoaderConfig): Loader configuration.
+            image_paths: List of image paths
+            image_dir: Optional directory containing images
+            config: Loader configuration
         """
+        if config is None:
+            raise ValueError("LoaderConfig must be provided")
+
         self.config = config
         self.dataset = TileDataset(config, image_paths=image_paths, image_dir=image_dir)
 

@@ -235,22 +235,9 @@ class CensusDataManager:
                 "total_area_covered_sqkm": self.flight_efficiency.total_area_covered_sqkm,
                 "coverage_efficiency": self.flight_efficiency.coverage_efficiency,
                 "overlap_percentage": self.flight_efficiency.overlap_percentage,
-                "flight_duration_hours": self.flight_efficiency.flight_duration_hours,
                 "average_altitude_m": self.flight_efficiency.average_altitude_m,
                 "image_density_per_sqkm": self.flight_efficiency.image_density_per_sqkm,
             }
-
-        # Add geographic merging statistics
-        if self.geographic_dataset:
-            stats["geographic_merging"] = {
-                "total_merged_detections": len(
-                    self.geographic_dataset.merged_detections
-                ),
-                "total_area_covered_sqkm": self.geographic_dataset.total_area_covered_sqkm,
-                "detection_density_per_sqkm": self.geographic_dataset.detection_density_per_sqkm,
-                "geographic_bounds": self.geographic_dataset.geographic_bounds,
-            }
-
         return stats
 
     # TODO: Add enhanced campaign statistics
