@@ -79,7 +79,10 @@ def demonstrate_custom_configuration():
         map_center = (mean_lat, mean_lon)
         logger.info(f"Map centered at mean coordinates: {mean_lat:.6f}, {mean_lon:.6f}")
     else:
-        map_center = (40.7128, -74.0060)  # Fallback to New York coordinates
+        map_center = (
+            -23.988208339433463,
+            31.55495477272327,
+        )  # Fallback to Kruger National Park coordinates
         logger.warning("No valid GPS coordinates found, using default center")
 
     # Custom configuration
@@ -123,12 +126,10 @@ def demonstrate_statistics_analysis():
     # Analyze coverage
     total_area = stats["coverage_area"]
     overlap_area = sum(stats["overlap_areas"])
-    overlap_percentage = stats["overlap_percentage"]
 
     logger.info("Coverage Analysis:")
     logger.info(f"  Total Coverage Area: {total_area:.2f} m²")
     logger.info(f"  Total Overlap Area: {overlap_area:.2f} m²")
-    logger.info(f"  Overlap Percentage: {overlap_percentage:.2f}%")
     logger.info(f"  Average Overlap Area: {stats['average_overlap_area']:.2f} m²")
 
     # GPS coverage analysis
@@ -148,20 +149,11 @@ def main():
     """Main demonstration function."""
     logger.info("Starting Geographic Bounds Visualization Demo")
 
-    try:
-        # Run demonstrations
-        demonstrate_custom_configuration()
-        demonstrate_statistics_analysis()
+    demonstrate_custom_configuration()
+    demonstrate_statistics_analysis()
 
-        logger.info("Demo completed successfully!")
-        logger.info("Check the generated HTML files for interactive maps.")
-
-    except Exception as e:
-        logger.error(f"Demo failed: {e}")
-        logger.info("Make sure to:")
-        logger.info("1. Update EXAMPLE_IMAGE_DIR to point to your drone images")
-        logger.info("2. Install required dependencies: pip install folium pyproj")
-        logger.info("3. Ensure your images have GPS EXIF data")
+    logger.info("Demo completed successfully!")
+    logger.info("Check the generated HTML files for interactive maps.")
 
 
 if __name__ == "__main__":

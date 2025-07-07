@@ -149,11 +149,6 @@ class LoaderConfig:
 
     # GPS and metadata
     flight_specs: Optional[FlightSpecs] = field(default_factory=FlightSpecs)
-    extract_gps: bool = True
-
-    # Caching
-    cache_images: bool = False
-    cache_dir: Optional[str] = None
 
 
 def get_config(config_path: str = "config/settings.yaml") -> Dict[str, Any]:

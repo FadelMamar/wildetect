@@ -139,7 +139,9 @@ class DroneImage(Tile):
         self.offset_detections()
         for tile in self.tiles:
             if tile.predictions:
-                all_detections.extend(tile.predictions)
+                all_detections.extend(
+                    [det for det in tile.predictions if not det.is_empty]
+                )
 
         self.predictions = all_detections
         return self.predictions
@@ -210,6 +212,8 @@ class DroneImage(Tile):
             "class_counts": class_counts,
             "has_gps": self.latitude is not None and self.longitude is not None,
             "has_geographic_footprint": self.geographic_footprint is not None,
+            "gps_loc": self.tile_gps_loc,
+            "polygon_points": self.geo_polygon_points,
             "gsd": self.gsd,
             "timestamp": self.timestamp,
         }

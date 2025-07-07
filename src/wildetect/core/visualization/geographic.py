@@ -255,6 +255,25 @@ class GeographicVisualizer:
             logger.warning(f"Failed to find overlaps using GPSOverlapStrategy: {e}")
             return {}
 
+    def _create_map_center(self, drone_images: List[DroneImage]) -> Tuple[float, float]:
+        """Create a map center from the drone images."""
+        valid_coordinates = []
+        for drone_image in drone_images:
+            if drone_image.latitude is not None and drone_image.longitude is not None:
+                valid_coordinates.append((drone_image.latitude, drone_image.longitude))
+
+        if valid_coordinates:
+            mean_lat = float(np.mean([coord[0] for coord in valid_coordinates]))
+            mean_lon = float(np.mean([coord[1] for coord in valid_coordinates]))
+            map_center = (mean_lat, mean_lon)
+        else:
+            map_center = (
+                -23.988208339433463,
+                31.55495477272327,
+            )  # Fallback to Kruger National Park coordinates
+
+        return map_center
+
     def create_map(self, drone_images: List[DroneImage]) -> folium.Map:
         """Create a Folium map with geographic bounds visualization.
 
@@ -274,14 +293,8 @@ class GeographicVisualizer:
         # Determine map center
         if self.config.map_center:
             center = self.config.map_center
-        elif geo_data["centers"]:
-            # Use average of image centers
-            lons = [c[0] for c in geo_data["centers"]]
-            lats = [c[1] for c in geo_data["centers"]]
-            center = (np.mean(lats), np.mean(lons))
         else:
-            # Default center (can be adjusted)
-            center = (0, 0)
+            center = self._create_map_center(drone_images)
 
         # Create base map
         map_obj = folium.Map(
@@ -312,12 +325,10 @@ class GeographicVisualizer:
                     else:
                         # Fallback to rectangle if polygon fails
                         failed_count += 1
-                        logger.debug(
-                            f"Fallback to rectangle for image {i}: {drone_image.image_path}"
-                        )
 
-            logger.info(
-                f"Added {polygon_count} image polygons and {failed_count} failed to add polygons to map"
+            logger.debug(
+                f"Added {polygon_count} image polygons"
+                f"and {failed_count} failed to add polygons to map"
             )
 
         # Add image centers

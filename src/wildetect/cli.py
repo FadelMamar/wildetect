@@ -20,7 +20,11 @@ from .core.campaign_manager import CampaignConfig, CampaignManager
 from .core.config import FlightSpecs, LoaderConfig, PredictionConfig
 from .core.data.census import CampaignMetadata, CensusDataManager
 from .core.detection_pipeline import DetectionPipeline
-from .core.visualization.geographic import GeographicVisualizer, VisualizationConfig
+from .core.visualization.geographic import (
+    GeographicVisualizer,
+    VisualizationConfig,
+    visualize_geographic_bounds,
+)
 
 ROOT_DIR = Path(__file__).parent.parent.parent
 
@@ -168,9 +172,6 @@ def detect(
             batch_size=batch_size,
             num_workers=0,
             flight_specs=flight_specs,
-            cache_images=False,
-            cache_dir=None,
-            extract_gps=True,
         )
 
         # Create detection pipeline
@@ -178,6 +179,9 @@ def detect(
             config=pred_config,
             loader_config=loader_config,
         )
+        if output:
+            output_path = Path(output)
+            output_path.mkdir(parents=True, exist_ok=True)
 
         # Run detection
         with Progress(
@@ -555,20 +559,23 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
     class_counts = {}
 
     for drone_image in drone_images:
-        stats = drone_image.get_statistics()
+        # Get all predictions and filter out empty ones
+        all_predictions = drone_image.get_all_predictions()
+        non_empty_predictions = [det for det in all_predictions if not det.is_empty]
 
-        # Count detections by class
-        for class_name, count in stats.get("class_counts", {}).items():
-            class_counts[class_name] = class_counts.get(class_name, 0) + count
+        # Count detections by class (excluding empty ones)
+        for detection in non_empty_predictions:
+            class_name = detection.class_name or "unknown"
+            class_counts[class_name] = class_counts.get(class_name, 0) + 1
 
-        total_detections += stats.get("total_detections", 0)
+        total_detections += len(non_empty_predictions)
 
         # Add row to table
         table.add_row(
-            Path(stats["image_path"]).name,
-            str(stats.get("total_detections", 0)),
-            ", ".join(stats.get("class_counts", {}).keys()) or "None",
-            "✓" if stats.get("total_detections", 0) > 0 else "✗",
+            Path(drone_image.image_path).name,
+            str(len(non_empty_predictions)),
+            ", ".join(set(det.class_name for det in non_empty_predictions)) or "None",
+            "✓" if len(non_empty_predictions) > 0 else "✗",
         )
 
     console.print(table)
@@ -592,8 +599,63 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
 
         console.print(f"\n[green]Saving visualizations to: {output_path}[/green]")
 
-        # TODO: Implement visualization saving
-        console.print("[yellow]Visualization saving not yet implemented[/yellow]")
+        # Filter out drone images with empty detections
+        images_with_detections = [
+            drone_image
+            for drone_image in drone_images
+            if any(not det.is_empty for det in drone_image.get_all_predictions())
+        ]
+
+        console.print(f"Images with detections: {len(images_with_detections)}")
+        console.print(
+            f"Images with GPS: {len([img for img in images_with_detections if img.latitude and img.longitude])}"
+        )
+
+        if images_with_detections:
+            try:
+                # Create geographic visualization
+                config = VisualizationConfig(
+                    map_center=None,
+                    zoom_start=12,
+                    tiles="OpenStreetMap",  # Use OpenStreetMap instead of Stamen Terrain
+                    image_bounds_color="purple",
+                    image_center_color="orange",
+                    overlap_color="red",
+                    show_image_path=False,
+                    show_image_bounds=True,
+                    show_detection_count=True,
+                    show_gps_info=True,
+                    show_image_centers=True,
+                    show_statistics=True,
+                )
+                map_file = str(output_path / "geographic_visualization.html")
+
+                map_obj = visualize_geographic_bounds(
+                    drone_images=images_with_detections,
+                    output_path=map_file,
+                    config=config,
+                )
+                console.print(
+                    f"[green]✓ Geographic visualization saved to: {map_file}[/green]"
+                )
+
+                # Get coverage statistics
+                # coverage_stats = visualizer.get_coverage_statistics(images_with_detections)
+                # console.print(f"[green]✓ Coverage statistics calculated[/green]")
+                # console.print(f"  Images with GPS: {coverage_stats['images_with_gps']}")
+                # console.print(f"  Images with footprints: {coverage_stats['images_with_footprints']}")
+                # if coverage_stats['total_overlap_area'] > 0:
+                #    console.print(f"  Total overlap area: {coverage_stats['total_overlap_area']:.2f} m²")
+
+            except Exception as e:
+                console.print(
+                    f"[red]✗ Failed to create geographic visualization: {e}[/red]"
+                )
+                console.print(f"[yellow]Continuing without visualization...[/yellow]")
+        else:
+            console.print(
+                "[yellow]No images with detections found for visualization[/yellow]"
+            )
 
 
 def display_census_results(
