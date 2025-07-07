@@ -261,12 +261,20 @@ class FiftyOneManager:
     def launch_app():
         """Launch the FiftyOne app."""
         import subprocess
+        import sys
 
-        subprocess.Popen(
-            ["uv", "run", "fiftyone", "app", "launch"],
-            env=os.environ,
-            creationflags=subprocess.CREATE_NEW_CONSOLE,
-        )
+        # Cross-platform subprocess creation
+        if sys.platform == "win32":
+            subprocess.Popen(
+                ["uv", "run", "fiftyone", "app", "launch"],
+                env=os.environ.copy(),
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+            )
+        else:
+            subprocess.Popen(
+                ["uv", "run", "fiftyone", "app", "launch"],
+                env=os.environ.copy(),
+            )
 
     def get_dataset_info(self) -> Dict[str, Any]:
         """Get information about the dataset."""

@@ -44,9 +44,8 @@ class CLIUIIntegration:
         self,
         command: str,
         args: List[str],
-        timeout: int = 300,
-        progress_bar=None,
-        status_text=None,
+        log_placeholder: Optional["st.empty"] = None,
+        status_text: Optional["st.empty"] = None,
     ) -> Dict[str, Any]:
         """Run a CLI command through subprocess and return results."""
         try:
@@ -56,63 +55,34 @@ class CLIUIIntegration:
             if status_text:
                 status_text.text(f"Running command: {' '.join(cmd)}")
 
-            # Run the subprocess
-            if progress_bar:
-                progress_bar.progress(0.1)
-
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
-                env=dict(os.environ),
+                env=os.environ.copy(),
+                bufsize=1,
+                universal_newlines=True,
             )
 
-            # Monitor progress
-            start_time = time.time()
-            while process.poll() is None:
-                if progress_bar:
-                    elapsed = time.time() - start_time
-                    progress = min(0.9, elapsed / timeout)
-                    progress_bar.progress(progress)
+            if log_placeholder is not None:
+                logs = ""
+                for line in process.stdout:
+                    logs += line
+                    log_placeholder.code(
+                        logs
+                    )  # Update the Streamlit code block with new logs
 
-                if status_text:
-                    status_text.text(f"Running... ({elapsed:.1f}s)")
-
-                time.sleep(0.1)
-
-            # Get output
-            stdout, stderr = process.communicate()
-            return_code = process.returncode
-
-            if progress_bar:
-                progress_bar.progress(1.0)
-
-            if return_code != 0:
-                error_msg = stderr.strip() if stderr else "Unknown error"
-                self.logger.error(f"CLI command failed: {error_msg}")
-                return {
-                    "success": False,
-                    "error": error_msg,
-                    "return_code": return_code,
-                    "stdout": stdout,
-                    "stderr": stderr,
-                }
+            process.stdout.close()
+            return_code = process.wait()
 
             return {
                 "success": True,
-                "stdout": stdout,
-                "stderr": stderr,
+                "stdout": logs,
+                "stderr": "",
                 "return_code": return_code,
             }
 
-        except subprocess.TimeoutExpired:
-            process.kill()
-            return {
-                "success": False,
-                "error": f"Command timed out after {timeout} seconds",
-                "return_code": -1,
-            }
         except Exception as e:
             self.logger.error(f"Subprocess error: {e}")
             return {
@@ -124,38 +94,17 @@ class CLIUIIntegration:
     def run_detection_ui(
         self,
         images: List[str],
-        model_path: Optional[str] = None,
-        model_type: str = "yolo",
-        confidence: float = 0.25,
-        device: str = "auto",
-        batch_size: int = 8,
-        tile_size: int = 640,
-        output: Optional[str] = None,
-        progress_bar=None,
-        status_text=None,
+        log_placeholder: Optional["st.empty"] = None,
+        status_text: Optional["st.empty"] = None,
+        output: str = "results",
     ) -> Dict[str, Any]:
         """Run detection from UI using subprocess."""
         try:
-            # Create temporary output directory if not provided
-            if not output:
-                output = tempfile.mkdtemp(prefix="wildetect_detection_")
-
             # Build CLI arguments
             args = []
 
             # Add image paths
             args.extend(images)
-
-            # Add optional parameters
-            if model_path:
-                args.extend(["--model", model_path])
-
-            args.extend(["--type", model_type])
-            args.extend(["--confidence", str(confidence)])
-            args.extend(["--device", device])
-            args.extend(["--batch-size", str(batch_size)])
-            args.extend(["--tile-size", str(tile_size)])
-            args.extend(["--output", output])
 
             if status_text:
                 status_text.text("Starting detection process...")
@@ -164,7 +113,7 @@ class CLIUIIntegration:
             result = self._run_cli_command(
                 "detect",
                 args,
-                progress_bar=progress_bar,
+                log_placeholder=log_placeholder,
                 status_text=status_text,
             )
 
@@ -211,22 +160,12 @@ class CLIUIIntegration:
         self,
         campaign_id: str,
         images: List[str],
-        model_path: Optional[str] = None,
-        model_type: str = "yolo",
-        confidence: float = 0.25,
-        device: str = "auto",
-        batch_size: int = 8,
-        tile_size: int = 640,
-        output: Optional[str] = None,
+        output: str = "results",
         pilot_name: Optional[str] = None,
         target_species: Optional[List[str]] = None,
         create_map: bool = True,
-        progress_bar=None,
-        status_text=None,
-        sensor_height: float = 24.0,
-        focal_length: float = 35.0,
-        flight_height: float = 180.0,
-        equipment_info: Optional[Dict[str, Union[str, int, float]]] = None,
+        log_placeholder: Optional["st.empty"] = None,
+        status_text: Optional["st.empty"] = None,
     ) -> Dict[str, Any]:
         """Run census campaign from UI using subprocess."""
         try:
@@ -239,13 +178,7 @@ class CLIUIIntegration:
             args.extend(images)
 
             # Add optional parameters
-            if model_path:
-                args.extend(["--model", model_path])
 
-            args.extend(["--confidence", str(confidence)])
-            args.extend(["--device", device])
-            args.extend(["--batch-size", str(batch_size)])
-            args.extend(["--tile-size", str(tile_size)])
             args.extend(["--output", output])
 
             if pilot_name:
@@ -265,7 +198,7 @@ class CLIUIIntegration:
             result = self._run_cli_command(
                 "census",
                 args,
-                progress_bar=progress_bar,
+                log_placeholder=log_placeholder,
                 status_text=status_text,
             )
 
@@ -295,8 +228,8 @@ class CLIUIIntegration:
         results_path: str,
         output_dir: str = "analysis",
         create_map: bool = True,
-        progress_bar=None,
-        status_text=None,
+        log_placeholder: Optional["st.empty"] = None,
+        status_text: Optional["st.empty"] = None,
     ) -> Dict[str, Any]:
         """Analyze detection results from UI using subprocess."""
         try:
@@ -314,7 +247,7 @@ class CLIUIIntegration:
             result = self._run_cli_command(
                 "analyze",
                 args,
-                progress_bar=progress_bar,
+                log_placeholder=log_placeholder,
                 status_text=status_text,
             )
 
@@ -347,11 +280,11 @@ class CLIUIIntegration:
     def visualize_results_ui(
         self,
         results_path: str,
-        output_dir: str = "visualizations",
+        output_dir: str = "results",
         show_confidence: bool = True,
         create_map: bool = True,
-        progress_bar=None,
-        status_text=None,
+        log_placeholder: Optional["st.empty"] = None,
+        status_text: Optional["st.empty"] = None,
     ) -> Dict[str, Any]:
         """Visualize detection results from UI using subprocess."""
         try:
@@ -372,7 +305,7 @@ class CLIUIIntegration:
             result = self._run_cli_command(
                 "visualize",
                 args,
-                progress_bar=progress_bar,
+                log_placeholder=log_placeholder,
                 status_text=status_text,
             )
 
@@ -506,8 +439,8 @@ class CLIUIIntegration:
     def clear_results_ui(
         self,
         results_dir: str = "results",
-        progress_bar=None,
-        status_text=None,
+        log_placeholder: Optional["st.empty"] = None,
+        status_text: Optional["st.empty"] = None,
     ) -> Dict[str, Any]:
         """Clear results using subprocess."""
         try:
@@ -518,7 +451,7 @@ class CLIUIIntegration:
             result = self._run_cli_command(
                 "clear-results",
                 [results_dir],
-                progress_bar=progress_bar,
+                log_placeholder=log_placeholder,
                 status_text=status_text,
             )
 
@@ -542,8 +475,8 @@ class CLIUIIntegration:
         action: str = "launch",
         export_format: str = "coco",
         export_path: Optional[str] = None,
-        progress_bar=None,
-        status_text=None,
+        log_placeholder: Optional["st.empty"] = None,
+        status_text: Optional["st.empty"] = None,
     ) -> Dict[str, Any]:
         """Manage FiftyOne datasets from UI using subprocess."""
         try:
@@ -555,14 +488,11 @@ class CLIUIIntegration:
                 if export_path:
                     args.extend(["--output", export_path])
 
-            if status_text:
-                status_text.text(f"Running FiftyOne {action}...")
-
             # Run fiftyone command
             result = self._run_cli_command(
                 "fiftyone",
                 args,
-                progress_bar=progress_bar,
+                log_placeholder=log_placeholder,
                 status_text=status_text,
             )
 
@@ -581,56 +511,6 @@ class CLIUIIntegration:
                 "error": str(e),
                 "action": action,
                 "dataset_name": dataset_name,
-            }
-
-    def labelstudio_ui(
-        self,
-        action: str = "status",
-        project_name: str = "wildlife_detection",
-        results_path: Optional[str] = None,
-        export_format: str = "yolo",
-        export_path: Optional[str] = None,
-        progress_bar=None,
-        status_text=None,
-    ) -> Dict[str, Any]:
-        """Manage LabelStudio projects from UI using subprocess."""
-        try:
-            # Build CLI arguments
-            args = [f"--action", action, "--project", project_name]
-
-            if action == "create" and results_path:
-                args.extend(["--results", results_path])
-            elif action == "export":
-                args.extend(["--format", export_format])
-                if export_path:
-                    args.extend(["--output", export_path])
-
-            if status_text:
-                status_text.text(f"Running LabelStudio {action}...")
-
-            # Run labelstudio command
-            result = self._run_cli_command(
-                "labelstudio",
-                args,
-                progress_bar=progress_bar,
-                status_text=status_text,
-            )
-
-            return {
-                "success": result["success"],
-                "action": action,
-                "project_name": project_name,
-                "output": result.get("stdout", ""),
-                "error": result.get("error", ""),
-            }
-
-        except Exception as e:
-            self.logger.error(f"LabelStudio operation failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "action": action,
-                "project_name": project_name,
             }
 
 

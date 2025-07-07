@@ -102,7 +102,7 @@ def demonstrate_custom_configuration():
     )
 
     # Use convenience function
-    map_obj = visualize_geographic_bounds(
+    visualize_geographic_bounds(
         drone_images=drone_images,
         output_path="custom_visualization.html",
         config=custom_config,

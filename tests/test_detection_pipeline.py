@@ -108,7 +108,7 @@ class TestDetectionPipeline:
         )
 
         prediction_config = PredictionConfig(
-            model_path=r"D:\workspace\repos\wildetect\weights\best.onnx",
+            model_path=r"D:\workspace\repos\wildetect\weights\best.pt",
             model_type="yolo",
             device="cpu",
             confidence_threshold=0.5,

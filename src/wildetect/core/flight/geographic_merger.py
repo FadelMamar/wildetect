@@ -110,7 +110,10 @@ class GPSOverlapStrategy(OverlapStrategy):
         """
         num_images = len(overlap_map)
         neighbor_counts = [len(neighs) for neighs in overlap_map.values()]
-        avg_neighbors = float(np.mean(neighbor_counts)) if neighbor_counts else 0.0
+        if neighbor_counts:
+            avg_neighbors = float(np.mean(neighbor_counts))
+        else:
+            avg_neighbors = 0.0
         max_neighbors = max(neighbor_counts) if neighbor_counts else 0
         min_neighbors = min(neighbor_counts) if neighbor_counts else 0
         return {

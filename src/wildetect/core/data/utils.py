@@ -15,9 +15,13 @@ logger = logging.getLogger(__name__)
 
 def get_images_paths(
     images_dir: str,
-    patterns: tuple = ("*.JPG", "*.jpg", "*.png", "*.PNG", "*.jpeg", "*.JPEG"),
+    patterns: tuple = ("*.jpg", "*.png", "*.jpeg", "*.tiff", "*.bmp"),
 ) -> List[str]:
-    images_paths = chain.from_iterable([Path(images_dir).glob(p) for p in patterns])
+    patterns_ = []
+    for pattern in patterns:
+        patterns_.append(pattern.upper())
+        patterns_.append(pattern.lower())
+    images_paths = chain.from_iterable([Path(images_dir).glob(p) for p in patterns_])
     images_paths = list(set(images_paths))
     return [str(path) for path in images_paths]
 

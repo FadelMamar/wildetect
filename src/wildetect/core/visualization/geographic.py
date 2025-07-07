@@ -41,8 +41,7 @@ class VisualizationConfig:
     detection_color: str = "green"
 
     # Display settings
-    show_image_centers: bool = True
-    use_polygons: bool = True  # Use polygons instead of rectangles for more accuracy
+    show_image_centers: bool = False
     show_image_bounds: bool = True
     show_statistics: bool = True
     show_detections: bool = True  # Show individual detections on the map
@@ -375,7 +374,9 @@ class GeographicVisualizer:
 
         return map_center
 
-    def create_map(self, drone_images: List[DroneImage]) -> folium.Map:
+    def create_map(
+        self, drone_images: List[DroneImage], save_path: Optional[str] = None
+    ) -> folium.Map:
         """Create a Folium map with geographic bounds visualization.
 
         Args:
@@ -410,22 +411,17 @@ class GeographicVisualizer:
             polygon_count = 0
             for i, drone_image in enumerate(drone_images):
                 # Use the new polygon visualization method
-                if self.config.use_polygons:
-                    success = self._visualize_drone_image_polygon(
-                        map_obj=map_obj,
-                        drone_image=drone_image,
-                        color=self.config.image_bounds_color,
-                        weight=2,
-                        fill_opacity=0.1,
-                    )
-                    if success:
-                        polygon_count += 1
-                        logger.debug(
-                            f"Added polygon for image {i}: {drone_image.image_path}"
-                        )
-                    else:
-                        # Fallback to rectangle if polygon fails
-                        failed_count += 1
+                success = self._visualize_drone_image_polygon(
+                    map_obj=map_obj,
+                    drone_image=drone_image,
+                    color=self.config.image_bounds_color,
+                    weight=2,
+                    fill_opacity=0.1,
+                )
+                if success:
+                    polygon_count += 1
+                else:
+                    failed_count += 1
 
             logger.debug(
                 f"Added {polygon_count} image polygons"
@@ -496,16 +492,18 @@ class GeographicVisualizer:
 
             folium.Element(stats_html).add_to(map_obj)
 
+        if save_path:
+            self.save_map(map_obj, save_path)
+
         return map_obj
 
-    def save_map(self, drone_images: List[DroneImage], output_path: str) -> None:
+    def save_map(self, map_obj: folium.Map, output_path: str) -> None:
         """Create and save a map visualization to file.
 
         Args:
             drone_images: List of DroneImage instances to visualize
             output_path: Path to save the HTML map file
         """
-        map_obj = self.create_map(drone_images)
         map_obj.save(output_path)
         logger.info(f"Map saved to: {output_path}")
 
@@ -575,9 +573,6 @@ def visualize_geographic_bounds(
         Folium map object
     """
     visualizer = GeographicVisualizer(config)
-    map_obj = visualizer.create_map(drone_images)
-
-    if output_path:
-        visualizer.save_map(drone_images, output_path)
+    map_obj = visualizer.create_map(drone_images, output_path)
 
     return map_obj

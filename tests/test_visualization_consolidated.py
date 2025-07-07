@@ -169,12 +169,10 @@ def test_basic_geographic_visualizer():
 
     # Create map
     logger.info("Creating map visualization...")
-    map_obj = visualizer.create_map(drone_images)
+    output_path = "test_basic_geographic_visualization.html"
+    visualizer.create_map(drone_images, output_path)
     logger.info("✓ Map created successfully")
 
-    # Save map
-    output_path = "test_basic_geographic_visualization.html"
-    visualizer.save_map(drone_images, output_path)
     logger.info(f"✓ Map saved to: {output_path}")
 
     return True
@@ -234,7 +232,8 @@ def test_detection_visualization():
     if images_with_detections:
         output_path = Path("test_detection_visualization.html")
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        visualizer.save_map(images_with_detections, str(output_path))
+        map_obj = visualizer.create_map(images_with_detections)
+        visualizer.save_map(map_obj, str(output_path))
         logger.info(f"✓ Detection visualization saved to: {output_path}")
     else:
         logger.warning("✗ No images with non-empty detections for visualization")
@@ -297,7 +296,7 @@ def test_consolidated_functionality():
 
     # Save comprehensive visualization
     output_path = "test_consolidated_visualization.html"
-    visualizer.save_map(images_with_detections, output_path)
+    visualizer.save_map(map_obj, output_path)
     logger.info(f"✓ Consolidated visualization saved to: {output_path}")
 
     return True

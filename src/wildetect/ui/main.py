@@ -21,8 +21,6 @@ import streamlit as st
 ROOT_DIR = Path(__file__).parent.parent.parent
 
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 from wildetect.cli_ui_integration import cli_ui_integration
 from wildetect.core.visualization.fiftyone_manager import FiftyOneManager
 
@@ -41,9 +39,6 @@ if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = []
 if "detection_results" not in st.session_state:
     st.session_state.detection_results = []
-
-# if "fo_manager" not in st.session_state:
-#    st.session_state.fo_manager = FiftyOneManager()
 
 
 def initialize_components():
@@ -73,58 +68,54 @@ def main():
         st.header("Settings")
 
         # Model settings
-        # st.subheader("Detection Settings")
+        st.subheader("Model settings")
+        with st.form("model_form"):
+            model_path = st.text_input(
+                "Model Path", value=r"D:\workspace\repos\wildetect\weights\best.pt"
+            )
+            roi_weights = st.text_input(
+                "ROI Weights Path",
+                value=r"D:\workspace\repos\wildetect\weights\roi_classifier.torchscript",
+            )
+            if st.form_submit_button("Load Model"):
+                os.environ["WILDETECT_MODEL_PATH"] = model_path
+                os.environ["ROI_MODEL_PATH"] = roi_weights
+                st.success("Model updated successfully!")
 
-        # FiftyOne settings
-        st.subheader("FiftyOne Settings")
-        col1, col2 = st.columns(2)
+        # Dataset settings
+        st.subheader("Data visualization")
+        with st.form("dataset_form"):
+            dataset_name = st.text_input("Dataset Name", value="wildlife_detection")
+            if st.form_submit_button("Create Dataset"):
+                if "fo_manager" not in st.session_state:
+                    st.session_state.fo_manager = FiftyOneManager(dataset_name)
+                else:
+                    st.session_state.fo_manager.dataset_name = dataset_name
 
-        with col1:
-            if st.button("Launch FiftyOne App"):
-                try:
+        if st.button("Launch FiftyOne App"):
+            try:
+                with st.expander("Logs"):
+                    log_placeholder = st.empty()
                     result = st.session_state.cli_integration.fiftyone_ui(
-                        action="launch"
+                        action="launch",
+                        log_placeholder=log_placeholder,
+                        status_text=log_placeholder,
                     )
-                    if result["success"]:
-                        st.success("FiftyOne app launched!")
-                    else:
-                        st.error(f"Error launching FiftyOne: {result['error']}")
-                except Exception as e:
-                    st.error(f"Error launching FiftyOne: {e}")
 
-        with col2:
-            if st.button("Get Dataset Info"):
-                try:
-                    result = st.session_state.cli_integration.fiftyone_ui(action="info")
-                    if result["success"]:
-                        st.success("Dataset info retrieved!")
-                        st.text(result["output"])
-                    else:
-                        st.error(f"Error getting dataset info: {result['error']}")
-                except Exception as e:
-                    st.error(f"Error getting dataset info: {e}")
-
-        # if st.button("Export Annotations"):
-        #    try:
-        #        export_format = st.selectbox(
-        #            "Export Format", ["coco", "yolo",]
-        #        )
-        #        export_path = f"data/annotations_export_{export_format}"
-        #        st.session_state.fo_manager.export_annotations(
-        #            export_path, export_format
-        #        )
-        #        st.success(f"Annotations exported to {export_path}")
-        #    except Exception as e:
-        #        st.error(f"Error exporting annotations: {e}")
+                if result["success"]:
+                    st.success("FiftyOne app launched!")
+                else:
+                    st.error(f"Error launching FiftyOne: {result['error']}")
+            except Exception as e:
+                st.error(f"Error launching FiftyOne: {e}")
 
     # Main content
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+    tab1, tab2, tab3, tab4, tab6, tab7 = st.tabs(
         [
             "Upload & Detect",
             "Results",
             "Dataset Stats",
             "Model Info",
-            "LabelStudio",
             "CLI Features",
             "Census Campaign",
         ]
@@ -141,9 +132,6 @@ def main():
 
     with tab4:
         model_info_tab()
-
-    with tab5:
-        labelstudio_tab()
 
     with tab6:
         cli_features_tab()
@@ -168,8 +156,8 @@ def upload_and_detect_tab():
         st.session_state.uploaded_files = uploaded_files
 
         # Save uploaded files
-        images_dir = ROOT_DIR / Path("data/images")
-        images_dir.mkdir(parents=True, exist_ok=True)
+        # images_dir = ROOT_DIR / Path("data/images")
+        # images_dir.mkdir(parents=True, exist_ok=True)
 
         saved_paths = []
         for uploaded_file in uploaded_files:
@@ -184,9 +172,7 @@ def upload_and_detect_tab():
 
         # Detection button
         if st.button("Run Detection", type="primary"):
-            run_detection(
-                saved_paths, st.session_state.get("confidence_threshold", 0.5)
-            )
+            run_detection(saved_paths)
 
     # Batch processing
     st.subheader("Batch Processing")
@@ -198,35 +184,25 @@ def upload_and_detect_tab():
 
     if st.button("Process Directory"):
         if os.path.exists(batch_dir):
-            image_files = []
-            for ext in ["*.jpg", "*.jpeg", "*.png", "*.tiff", "*.bmp"]:
-                image_files.extend(Path(batch_dir).glob(ext))
-
-            if image_files:
-                st.info(f"Found {len(image_files)} images in {batch_dir}")
-                if st.button("Process All Images"):
-                    run_batch_detection(
-                        [str(f) for f in image_files],
-                        st.session_state.get("confidence_threshold", 0.5),
-                    )
+            if st.button("Process All Images"):
+                run_detection([batch_dir])
             else:
                 st.warning(f"No image files found in {batch_dir}")
         else:
             st.error(f"Directory {batch_dir} does not exist")
 
 
-def run_detection(image_paths: List[str], confidence: float):
+def run_detection(image_paths: List[str]):
     """Run detection on uploaded images using CLI integration."""
-    progress_bar = st.progress(0)
-    status_text = st.empty()
 
     # Use CLI integration for detection
-    detection_result = st.session_state.cli_integration.run_detection_ui(
-        images=image_paths,
-        confidence=confidence,
-        progress_bar=progress_bar,
-        status_text=status_text,
-    )
+    with st.expander("Logs"):
+        log_placeholder = st.empty()
+        detection_result = st.session_state.cli_integration.run_detection_ui(
+            images=image_paths,
+            status_text=log_placeholder,
+            log_placeholder=log_placeholder,
+        )
 
     if detection_result["success"]:
         st.session_state.detection_results = detection_result["results"]
@@ -239,42 +215,11 @@ def run_detection(image_paths: List[str], confidence: float):
         )
 
         # Add to FiftyOne dataset if available
-        # if st.session_state.fo_manager and detection_result["results"]:
-        #    for result in detection_result["results"]:
-        #        st.session_state.fo_manager.add_images([result["image_path"]], [result])
+        if st.session_state.fo_manager and detection_result["results"]:
+            for result in detection_result["results"]:
+                st.session_state.fo_manager.add_images([result["image_path"]], [result])
     else:
         st.error(f"Detection failed: {detection_result['error']}")
-
-
-def run_batch_detection(image_paths: List[str], confidence: float):
-    """Run detection on a batch of images using CLI integration."""
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    # Use CLI integration for batch detection
-    detection_result = st.session_state.cli_integration.run_detection_ui(
-        images=image_paths,
-        confidence=confidence,
-        progress_bar=progress_bar,
-        status_text=status_text,
-    )
-
-    if detection_result["success"]:
-        st.session_state.detection_results = detection_result["results"]
-
-        # Show summary
-        total_detections = detection_result["total_detections"]
-        total_images = detection_result["total_images"]
-        st.success(
-            f"Batch detection completed! Found {total_detections} wildlife in {total_images} images"
-        )
-
-        # Add to FiftyOne dataset if available
-        # if st.session_state.fo_manager and detection_result["results"]:
-        #    for result in detection_result["results"]:
-        #        st.session_state.fo_manager.add_images([result["image_path"]], [result])
-    else:
-        st.error(f"Batch detection failed: {detection_result['error']}")
 
 
 def results_tab():
@@ -436,88 +381,6 @@ def model_info_tab():
 
     except Exception as e:
         st.error(f"Error getting model information: {e}")
-
-
-def labelstudio_tab():
-    """Display LabelStudio management interface."""
-    st.header("LabelStudio Management")
-
-    # LabelStudio status
-    st.subheader("LabelStudio Status")
-    try:
-        result = st.session_state.cli_integration.labelstudio_ui(action="status")
-        if result["success"]:
-            st.success("LabelStudio integration ready")
-            st.write(f"URL: {result.get('output', 'http://localhost:8080')}")
-        else:
-            st.error(f"LabelStudio connection error: {result['error']}")
-    except Exception as e:
-        st.error(f"LabelStudio connection error: {e}")
-
-    # Create annotation job
-    st.subheader("Create Annotation Job")
-    if st.session_state.detection_results:
-        project_name = st.text_input("Project Name", value="wildlife_annotation_job")
-        description = st.text_area(
-            "Description", value="Wildlife detection annotation job"
-        )
-
-        if st.button("Create Annotation Job"):
-            try:
-                # Save detection results to temporary file
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=".json", mode="w"
-                ) as tmp_file:
-                    json.dump(st.session_state.detection_results, tmp_file)
-                    results_path = tmp_file.name
-
-                result = st.session_state.cli_integration.labelstudio_ui(
-                    action="create",
-                    project_name=project_name,
-                    results_path=results_path,
-                )
-
-                if result["success"]:
-                    st.success("Annotation job created successfully!")
-                    st.text(result["output"])
-                else:
-                    st.error(f"Error creating annotation job: {result['error']}")
-
-            except Exception as e:
-                st.error(f"Error creating annotation job: {e}")
-    else:
-        st.warning("No detection results available. Run detection first.")
-
-    # Export annotations
-    st.subheader("Export Annotations")
-    export_format = st.selectbox("Export Format", ["yolo", "coco", "pascal"])
-    project_name = st.text_input("Project Name for Export", value="wildlife_detection")
-
-    if st.button("Export for Training"):
-        try:
-            result = st.session_state.cli_integration.labelstudio_ui(
-                action="export", project_name=project_name, export_format=export_format
-            )
-
-            if result["success"]:
-                st.success("Annotations exported successfully!")
-                st.text(result["output"])
-            else:
-                st.error(f"Error exporting annotations: {result['error']}")
-
-        except Exception as e:
-            st.error(f"Error exporting annotations: {e}")
-
-    # Sync with FiftyOne
-    st.subheader("Sync with FiftyOne")
-    dataset_name = st.text_input("FiftyOne Dataset Name", value="wildlife_detection")
-
-    if st.button("Sync Annotations"):
-        try:
-            st.info("Sync functionality available through CLI integration")
-            st.success("Annotations sync initiated")
-        except Exception as e:
-            st.error(f"Error syncing annotations: {e}")
 
 
 def cli_features_tab():

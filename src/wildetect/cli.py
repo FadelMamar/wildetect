@@ -18,8 +18,10 @@ from rich.table import Table
 
 from .core.campaign_manager import CampaignConfig, CampaignManager
 from .core.config import FlightSpecs, LoaderConfig, PredictionConfig
-from .core.data.census import CampaignMetadata, CensusDataManager
+from .core.data.census import CensusDataManager
+from .core.data.drone_image import DroneImage
 from .core.detection_pipeline import DetectionPipeline
+from .core.visualization.fiftyone_manager import FiftyOneManager
 from .core.visualization.geographic import (
     GeographicVisualizer,
     VisualizationConfig,
@@ -87,7 +89,7 @@ def detect(
     ),
     model_type: str = typer.Option("yolo", "--type", "-t", help="Model type"),
     confidence: float = typer.Option(
-        0.25, "--confidence", "-c", help="Confidence threshold"
+        0.2, "--confidence", "-c", help="Confidence threshold"
     ),
     device: str = typer.Option(
         "auto", "--device", "-d", help="Device to run inference on. auto, cpu or cuda"
@@ -95,7 +97,7 @@ def detect(
     batch_size: int = typer.Option(8, "--batch-size", "-b", help="Batch size"),
     tile_size: int = typer.Option(800, "--tile-size", help="Tile size for processing"),
     output: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Output directory for results"
+        "results", "--output", "-o", help="Output directory for results"
     ),
     roi_weights: Optional[str] = typer.Option(
         None,
@@ -212,10 +214,7 @@ def detect(
 def visualize(
     results_path: str = typer.Argument(..., help="Path to detection results"),
     output_dir: str = typer.Option(
-        "visualizations", "--output", "-o", help="Output directory for visualizations"
-    ),
-    show_confidence: bool = typer.Option(
-        True, "--show-confidence", help="Show confidence scores"
+        "results", "--output", "-o", help="Output directory for visualizations"
     ),
     create_map: bool = typer.Option(
         True, "--map", help="Create geographic visualization map"
@@ -366,14 +365,36 @@ def census(
     model_path: Optional[str] = typer.Option(
         None, "--model", "-m", help="Path to model weights"
     ),
+    roi_weights: Optional[str] = typer.Option(
+        None,
+        "--roi-weights",
+        help="Path to ROI weights file. Otherwise uses ROI_MODEL_PATH environment variable",
+    ),
     confidence: float = typer.Option(
-        0.25, "--confidence", "-c", help="Confidence threshold"
+        0.2, "--confidence", "-c", help="Confidence threshold"
     ),
     device: str = typer.Option(
         "auto", "--device", "-d", help="Device to run inference on"
     ),
+    inference_service_url: Optional[str] = typer.Option(
+        None, "--inference-service-url", help="URL for inference service"
+    ),
+    nms_iou: float = typer.Option(0.5, "--nms-iou", help="NMS IoU threshold"),
+    overlap_ratio: float = typer.Option(
+        0.2, "--overlap-ratio", help="Tile overlap ratio"
+    ),
     batch_size: int = typer.Option(8, "--batch-size", "-b", help="Batch size"),
     tile_size: int = typer.Option(640, "--tile-size", help="Tile size for processing"),
+    cls_imgsz: int = typer.Option(96, "--cls-imgsz", help="Image size for classifier"),
+    sensor_height: float = typer.Option(
+        24.0, "--sensor-height", help="Sensor height in mm"
+    ),
+    focal_length: float = typer.Option(
+        35.0, "--focal-length", help="Focal length in mm"
+    ),
+    flight_height: float = typer.Option(
+        180.0, "--flight-height", help="Flight height in meters"
+    ),
     output: Optional[str] = typer.Option(
         None, "--output", "-o", help="Output directory for results"
     ),
@@ -407,37 +428,45 @@ def census(
             image_paths = images
             console.print(f"[green]Processing {len(images)} images[/green]")
 
+        flight_specs = FlightSpecs(
+            sensor_height=sensor_height,
+            focal_length=focal_length,
+            flight_height=flight_height,
+        )
+
         # Create campaign metadata
         campaign_metadata = {
             "pilot_info": {"name": pilot_name or "Unknown", "experience": "Unknown"},
-            "weather_conditions": {
-                "temperature": 25,
-                "wind_speed": 5,
-                "visibility": "good",
-            },
-            "mission_objectives": ["wildlife_survey", "habitat_mapping"],
-            "target_species": target_species
-            or ["elephant", "giraffe", "zebra", "lion"],
-            "flight_parameters": {"altitude": 100, "speed": 15, "overlap": 0.7},
+            "weather_conditions": {},
+            "mission_objectives": [
+                "wildlife_survey",
+            ],
+            "target_species": target_species,
+            "flight_parameters": vars(flight_specs),
             "equipment_info": {"drone": "DJI Phantom 4", "camera": "20MP RGB"},
         }
 
-        # Create campaign configuration
+        # Create configurations
         pred_config = PredictionConfig(
             model_path=model_path,
-            model_type="yolo",
             confidence_threshold=confidence,
             device=device,
             batch_size=batch_size,
             tilesize=tile_size,
+            flight_specs=flight_specs,
+            roi_weights=roi_weights,
+            cls_imgsz=cls_imgsz,
+            inference_service_url=inference_service_url,
+            verbose=verbose,
+            nms_iou=nms_iou,
+            overlap_ratio=overlap_ratio,
         )
 
         loader_config = LoaderConfig(
             tile_size=tile_size,
             batch_size=batch_size,
-            flight_specs=FlightSpecs(
-                sensor_height=24.0, focal_length=35.0, flight_height=180.0
-            ),
+            num_workers=0,
+            flight_specs=flight_specs,
         )
 
         # Create campaign configuration
@@ -631,7 +660,7 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
                 map_file = str(output_path / "geographic_visualization.html")
 
                 visualizer = GeographicVisualizer(config)
-                visualizer.create_map(images_with_detections)
+                visualizer.create_map(images_with_detections, map_file)
 
                 console.print(
                     f"[green]✓ Geographic visualization saved to: {map_file}[/green]"
@@ -782,7 +811,7 @@ def get_geographic_coverage(drone_images: List) -> dict:
 
 
 def create_geographic_visualization(
-    drone_images: List, output_dir: Optional[str] = None
+    drone_images: List[DroneImage], output_dir: Optional[str] = None
 ):
     """Create geographic visualization of drone images."""
     if not drone_images:
@@ -792,8 +821,18 @@ def create_geographic_visualization(
     try:
         # Create visualizer
         config = VisualizationConfig(
+            map_center=None,
+            zoom_start=12,
+            tiles="OpenStreetMap",  # Use OpenStreetMap instead of Stamen Terrain
+            image_bounds_color="purple",
+            image_center_color="orange",
+            overlap_color="red",
+            show_image_path=True,
             show_image_bounds=True,
-            show_image_centers=True,
+            show_detection_count=True,
+            show_gps_info=True,
+            show_image_centers=False,
+            show_detections=True,
             show_statistics=True,
         )
         visualizer = GeographicVisualizer(config)
@@ -969,7 +1008,9 @@ def ui(
         ]
 
         subprocess.Popen(
-            cmd, env=os.environ, creationflags=subprocess.CREATE_NEW_CONSOLE
+            cmd,
+            env=os.environ.copy(),
+            # creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
         )
 
     except ImportError:
@@ -1030,8 +1071,6 @@ def fiftyone(
     logger = logging.getLogger(__name__)
 
     try:
-        from .core.visualization.fiftyone_manager import FiftyOneManager
-
         if action == "launch":
             console.print("[green]Launching FiftyOne app...[/green]")
             FiftyOneManager.launch_app()
@@ -1091,85 +1130,6 @@ def fiftyone(
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         logger.error(f"FiftyOne operation failed: {e}")
-        raise typer.Exit(1)
-
-
-@app.command()
-def labelstudio(
-    action: str = typer.Option(
-        "status", "--action", "-a", help="Action to perform: status, create, export"
-    ),
-    project_name: str = typer.Option(
-        "wildlife_detection", "--project", "-p", help="Project name"
-    ),
-    results_path: Optional[str] = typer.Option(
-        None, "--results", "-r", help="Path to detection results"
-    ),
-    export_format: str = typer.Option("yolo", "--format", "-f", help="Export format"),
-    export_path: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Export output path"
-    ),
-):
-    """Manage LabelStudio projects for annotation."""
-    setup_logging()
-    logger = logging.getLogger(__name__)
-
-    try:
-        from .core.annotation.labelstudio_manager import LabelStudioManager
-
-        ls_manager = LabelStudioManager()
-
-        if action == "status":
-            console.print("[green]Checking LabelStudio status...[/green]")
-            console.print(f"[green]LabelStudio is running at: {ls_manager.url}[/green]")
-
-        elif action == "create":
-            if not results_path:
-                console.print(
-                    "[red]Error: --results path is required for create action[/red]"
-                )
-                raise typer.Exit(1)
-
-            console.print(
-                f"[green]Creating LabelStudio project: {project_name}[/green]"
-            )
-
-            # Load results
-            with open(results_path, "r") as f:
-                results = json.load(f)
-
-            # Create project
-            project_info = ls_manager.create_annotation_job(
-                project_name, results.get("image_paths", []), results
-            )
-
-            console.print(f"[green]Project created successfully![/green]")
-            console.print(f"  Project ID: {project_info['project_id']}")
-            console.print(f"  Project URL: {project_info['url']}")
-            console.print(f"  Total Tasks: {project_info['total_tasks']}")
-
-        elif action == "export":
-            if not export_path:
-                export_path = f"exports/labelstudio_{export_format}"
-
-            console.print(f"[green]Exporting annotations to: {export_path}[/green]")
-
-            # Create a temporary project for export
-            project = ls_manager.create_project(project_name)
-
-            # Export annotations using the available method
-            ls_manager.export_for_training(project, export_path, export_format)
-
-            console.print(f"[green]Annotations exported successfully![/green]")
-            console.print(f"  Export Path: {export_path}")
-
-        else:
-            console.print(f"[red]Unknown action: {action}[/red]")
-            console.print("Available actions: status, create, export")
-
-    except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
-        logger.error(f"LabelStudio operation failed: {e}")
         raise typer.Exit(1)
 
 

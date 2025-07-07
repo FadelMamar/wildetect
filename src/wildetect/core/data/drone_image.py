@@ -29,7 +29,6 @@ class DroneImage(Tile):
     tiles: List[Tile] = field(default_factory=list)
     tile_offsets: List[Tuple[int, int]] = field(default_factory=list)
     metadata: Optional[Dict[str, Any]] = None
-    predictions: List[Detection] = field(default_factory=list)
 
     def __post_init__(self):
         """Initialize the drone image."""
@@ -81,7 +80,7 @@ class DroneImage(Tile):
         self.tiles.append(tile)
         self.tile_offsets.append((x_offset, y_offset))
         # add predictions to drone image
-        self.predictions.extend(tile.predictions)
+        self.predictions.extend(deepcopy(tile.predictions))
 
         logger.debug(f"Added tile {tile.id} at offset {x_offset}, {y_offset}")
 
