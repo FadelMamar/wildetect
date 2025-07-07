@@ -5,7 +5,7 @@ Configuration utilities for WildDetect.
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
 import yaml
@@ -151,15 +151,18 @@ class LoaderConfig:
     flight_specs: Optional[FlightSpecs] = field(default_factory=FlightSpecs)
 
 
-def get_config(config_path: str = "config/settings.yaml") -> Dict[str, Any]:
+def get_config(
+    config_path: Union[str, Path] = "config/settings.yaml"
+) -> Dict[str, Any]:
     """Load configuration from YAML file."""
-    config_path = Path(config_path)
+    if not isinstance(config_path, Path):
+        config_path = Path(config_path)
 
     if not config_path.exists():
         # Return default config if file doesn't exist
         return _get_default_config()
 
-    with open(config_path, "r") as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     return config

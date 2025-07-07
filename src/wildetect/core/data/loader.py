@@ -47,9 +47,9 @@ class TileDataset(Dataset):
         self.config = config
 
         # Handle image paths - prioritize image_paths over image_dir
-        if image_paths is not None:
+        if image_paths:
             self.image_paths = image_paths
-        elif image_dir is not None:
+        elif image_dir:
             self.image_paths = get_images_paths(image_dir)
         else:
             raise ValueError("Either image_paths or image_dir must be provided")
@@ -259,7 +259,7 @@ class DataLoader:
 
     def __init__(
         self,
-        image_paths: List[str],
+        image_paths: Optional[List[str]] = None,
         image_dir: Optional[str] = None,
         config: Optional[LoaderConfig] = None,
     ):

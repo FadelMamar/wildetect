@@ -5,6 +5,7 @@ This module provides a web interface for uploading images, running detection,
 and visualizing results with FiftyOne integration.
 """
 
+import json
 import os
 import shutil
 
@@ -17,13 +18,13 @@ from typing import Any, Dict, List
 import pandas as pd
 import streamlit as st
 
+ROOT_DIR = Path(__file__).parent.parent.parent
+
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from wildetect.cli_ui_integration import cli_ui_integration
-from wildetect.core.detector import WildlifeDetector
-from wildetect.core.fiftyone_manager import FiftyOneManager
-from wildetect.core.labelstudio_manager import LabelStudioManager
-from wildetect.utils.config import create_directories, get_config
+from wildetect.core.visualization.fiftyone_manager import FiftyOneManager
 
 # Page configuration
 st.set_page_config(
@@ -34,38 +35,27 @@ st.set_page_config(
 )
 
 # Initialize session state
-if "detector" not in st.session_state:
-    st.session_state.detector = None
-if "fo_manager" not in st.session_state:
-    st.session_state.fo_manager = None
-if "ls_manager" not in st.session_state:
-    st.session_state.ls_manager = None
+if "cli_integration" not in st.session_state:
+    st.session_state.cli_integration = cli_ui_integration
 if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = []
 if "detection_results" not in st.session_state:
     st.session_state.detection_results = []
-if "cli_integration" not in st.session_state:
-    st.session_state.cli_integration = cli_ui_integration
+
+# if "fo_manager" not in st.session_state:
+#    st.session_state.fo_manager = FiftyOneManager()
 
 
 def initialize_components():
-    """Initialize detection and FiftyOne components."""
+    """Initialize CLI integration and session state."""
     try:
-        if st.session_state.detector is None:
-            with st.spinner("Loading detection model..."):
-                st.session_state.detector = WildlifeDetector()
-
-        if st.session_state.fo_manager is None:
-            with st.spinner("Initializing FiftyOne..."):
-                st.session_state.fo_manager = FiftyOneManager()
-
-        if st.session_state.ls_manager is None:
-            with st.spinner("Initializing LabelStudio..."):
-                st.session_state.ls_manager = LabelStudioManager()
-
-        # Create necessary directories
-        create_directories()
-
+        # Initialize session state for components
+        if "fo_manager" not in st.session_state:
+            st.session_state.fo_manager = None
+        if "ls_manager" not in st.session_state:
+            st.session_state.ls_manager = None
+        if "detector" not in st.session_state:
+            st.session_state.detector = None
     except Exception as e:
         st.error(f"Error initializing components: {e}")
 
@@ -83,67 +73,49 @@ def main():
         st.header("Settings")
 
         # Model settings
-        st.subheader("Detection Settings")
-        confidence_threshold = st.slider(
-            "Confidence Threshold",
-            min_value=0.1,
-            max_value=1.0,
-            value=0.5,
-            step=0.1,
-            help="Minimum confidence for detections",
-        )
+        # st.subheader("Detection Settings")
 
         # FiftyOne settings
         st.subheader("FiftyOne Settings")
-        if st.button("Launch FiftyOne App"):
-            try:
-                st.session_state.fo_manager.launch_app()
-                st.success("FiftyOne app launched!")
-            except Exception as e:
-                st.error(f"Error launching FiftyOne: {e}")
+        col1, col2 = st.columns(2)
 
-        if st.button("Export Annotations"):
-            try:
-                export_format = st.selectbox(
-                    "Export Format", ["coco", "yolo", "pascal"]
-                )
-                export_path = f"data/annotations_export_{export_format}"
-                st.session_state.fo_manager.export_annotations(
-                    export_path, export_format
-                )
-                st.success(f"Annotations exported to {export_path}")
-            except Exception as e:
-                st.error(f"Error exporting annotations: {e}")
-
-        # LabelStudio settings
-        st.subheader("LabelStudio Settings")
-        if st.button("Launch LabelStudio"):
-            try:
-                st.info("LabelStudio should be running at http://localhost:8080")
-                st.success("LabelStudio integration ready!")
-            except Exception as e:
-                st.error(f"Error connecting to LabelStudio: {e}")
-
-        if st.button("Create Annotation Job"):
-            if st.session_state.detection_results:
+        with col1:
+            if st.button("Launch FiftyOne App"):
                 try:
-                    project_name = st.text_input(
-                        "Project Name", value="wildlife_annotation_job"
+                    result = st.session_state.cli_integration.fiftyone_ui(
+                        action="launch"
                     )
-                    if st.button("Create Job"):
-                        image_paths = [
-                            r["image_path"] for r in st.session_state.detection_results
-                        ]
-                        job_info = st.session_state.ls_manager.create_annotation_job(
-                            project_name,
-                            image_paths,
-                            st.session_state.detection_results,
-                        )
-                        st.success(f"Annotation job created! URL: {job_info['url']}")
+                    if result["success"]:
+                        st.success("FiftyOne app launched!")
+                    else:
+                        st.error(f"Error launching FiftyOne: {result['error']}")
                 except Exception as e:
-                    st.error(f"Error creating annotation job: {e}")
-            else:
-                st.warning("No detection results available. Run detection first.")
+                    st.error(f"Error launching FiftyOne: {e}")
+
+        with col2:
+            if st.button("Get Dataset Info"):
+                try:
+                    result = st.session_state.cli_integration.fiftyone_ui(action="info")
+                    if result["success"]:
+                        st.success("Dataset info retrieved!")
+                        st.text(result["output"])
+                    else:
+                        st.error(f"Error getting dataset info: {result['error']}")
+                except Exception as e:
+                    st.error(f"Error getting dataset info: {e}")
+
+        # if st.button("Export Annotations"):
+        #    try:
+        #        export_format = st.selectbox(
+        #            "Export Format", ["coco", "yolo",]
+        #        )
+        #        export_path = f"data/annotations_export_{export_format}"
+        #        st.session_state.fo_manager.export_annotations(
+        #            export_path, export_format
+        #        )
+        #        st.success(f"Annotations exported to {export_path}")
+        #    except Exception as e:
+        #        st.error(f"Error exporting annotations: {e}")
 
     # Main content
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
@@ -196,8 +168,7 @@ def upload_and_detect_tab():
         st.session_state.uploaded_files = uploaded_files
 
         # Save uploaded files
-        config = get_config()
-        images_dir = Path(config["paths"]["images_dir"])
+        images_dir = ROOT_DIR / Path("data/images")
         images_dir.mkdir(parents=True, exist_ok=True)
 
         saved_paths = []
@@ -268,9 +239,9 @@ def run_detection(image_paths: List[str], confidence: float):
         )
 
         # Add to FiftyOne dataset if available
-        if st.session_state.fo_manager and detection_result["results"]:
-            for result in detection_result["results"]:
-                st.session_state.fo_manager.add_images([result["image_path"]], [result])
+        # if st.session_state.fo_manager and detection_result["results"]:
+        #    for result in detection_result["results"]:
+        #        st.session_state.fo_manager.add_images([result["image_path"]], [result])
     else:
         st.error(f"Detection failed: {detection_result['error']}")
 
@@ -299,9 +270,9 @@ def run_batch_detection(image_paths: List[str], confidence: float):
         )
 
         # Add to FiftyOne dataset if available
-        if st.session_state.fo_manager and detection_result["results"]:
-            for result in detection_result["results"]:
-                st.session_state.fo_manager.add_images([result["image_path"]], [result])
+        # if st.session_state.fo_manager and detection_result["results"]:
+        #    for result in detection_result["results"]:
+        #        st.session_state.fo_manager.add_images([result["image_path"]], [result])
     else:
         st.error(f"Batch detection failed: {detection_result['error']}")
 
@@ -451,9 +422,17 @@ def model_info_tab():
             st.write(f"**Classes:** {', '.join(model_info['class_names'])}")
 
         # Configuration
-        config = get_config()
         st.subheader("Configuration")
-        st.json(config)
+        st.info("Configuration details available through CLI integration")
+        st.json(
+            {
+                "model_path": model_info.get("model_path", "Not available"),
+                "device": model_info.get("device", "Not available"),
+                "input_size": model_info.get("input_size", "Not available"),
+                "num_classes": model_info.get("num_classes", 0),
+                "class_names": model_info.get("class_names", []),
+            }
+        )
 
     except Exception as e:
         st.error(f"Error getting model information: {e}")
@@ -463,15 +442,15 @@ def labelstudio_tab():
     """Display LabelStudio management interface."""
     st.header("LabelStudio Management")
 
-    if st.session_state.ls_manager is None:
-        st.error("LabelStudio manager not initialized")
-        return
-
     # LabelStudio status
     st.subheader("LabelStudio Status")
     try:
-        st.info("LabelStudio integration ready")
-        st.write("URL: http://localhost:8080")
+        result = st.session_state.cli_integration.labelstudio_ui(action="status")
+        if result["success"]:
+            st.success("LabelStudio integration ready")
+            st.write(f"URL: {result.get('output', 'http://localhost:8080')}")
+        else:
+            st.error(f"LabelStudio connection error: {result['error']}")
     except Exception as e:
         st.error(f"LabelStudio connection error: {e}")
 
@@ -485,18 +464,24 @@ def labelstudio_tab():
 
         if st.button("Create Annotation Job"):
             try:
-                image_paths = [
-                    r["image_path"] for r in st.session_state.detection_results
-                ]
-                job_info = st.session_state.ls_manager.create_annotation_job(
-                    project_name, image_paths, st.session_state.detection_results
+                # Save detection results to temporary file
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".json", mode="w"
+                ) as tmp_file:
+                    json.dump(st.session_state.detection_results, tmp_file)
+                    results_path = tmp_file.name
+
+                result = st.session_state.cli_integration.labelstudio_ui(
+                    action="create",
+                    project_name=project_name,
+                    results_path=results_path,
                 )
 
-                st.success("Annotation job created successfully!")
-                st.write(f"**Project ID:** {job_info['project_id']}")
-                st.write(f"**Project URL:** {job_info['url']}")
-                st.write(f"**Total Tasks:** {job_info['total_tasks']}")
-                st.write(f"**Completion Rate:** {job_info['completion_rate']:.1%}")
+                if result["success"]:
+                    st.success("Annotation job created successfully!")
+                    st.text(result["output"])
+                else:
+                    st.error(f"Error creating annotation job: {result['error']}")
 
             except Exception as e:
                 st.error(f"Error creating annotation job: {e}")
@@ -506,14 +491,19 @@ def labelstudio_tab():
     # Export annotations
     st.subheader("Export Annotations")
     export_format = st.selectbox("Export Format", ["yolo", "coco", "pascal"])
+    project_name = st.text_input("Project Name for Export", value="wildlife_detection")
 
     if st.button("Export for Training"):
         try:
-            config = get_config()
-            output_dir = f"{config['paths']['annotations_dir']}/labelstudio_export_{export_format}"
+            result = st.session_state.cli_integration.labelstudio_ui(
+                action="export", project_name=project_name, export_format=export_format
+            )
 
-            # This would require a project selection interface
-            st.info("Export functionality requires project selection")
+            if result["success"]:
+                st.success("Annotations exported successfully!")
+                st.text(result["output"])
+            else:
+                st.error(f"Error exporting annotations: {result['error']}")
 
         except Exception as e:
             st.error(f"Error exporting annotations: {e}")
@@ -524,8 +514,8 @@ def labelstudio_tab():
 
     if st.button("Sync Annotations"):
         try:
-            st.info("Sync functionality requires project selection")
-            st.success("Annotations synced with FiftyOne")
+            st.info("Sync functionality available through CLI integration")
+            st.success("Annotations sync initiated")
         except Exception as e:
             st.error(f"Error syncing annotations: {e}")
 

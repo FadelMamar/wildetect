@@ -134,7 +134,7 @@ class DetectionPipeline:
 
     def run_detection(
         self,
-        image_paths: List[str],
+        image_paths: Optional[List[str]] = None,
         image_dir: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> List[DroneImage]:

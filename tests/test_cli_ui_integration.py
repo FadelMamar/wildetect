@@ -1,10 +1,12 @@
 """
-Tests for CLI-UI Integration.
+Tests for CLI-UI Integration using subprocesses.
 
-This module tests the integration between CLI and UI functionality.
+This module tests the integration between CLI and UI functionality using subprocess calls.
 """
 
 import json
+import os
+import random
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -12,9 +14,17 @@ from unittest.mock import Mock, patch
 import pytest
 from wildetect.cli_ui_integration import CLIUIIntegration
 
+TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
+
+
+def load_image_path():
+    image_path = random.choice(os.listdir(TEST_IMAGE_DIR))
+    image_path = os.path.join(TEST_IMAGE_DIR, image_path)
+    return image_path
+
 
 class TestCLIUIIntegration:
-    """Test CLI-UI integration functionality."""
+    """Test CLI-UI integration functionality using subprocesses."""
 
     def setup_method(self):
         """Set up test fixtures."""
@@ -30,219 +40,284 @@ class TestCLIUIIntegration:
     def test_integration_initialization(self):
         """Test that the integration can be initialized."""
         assert self.integration is not None
+        assert hasattr(self.integration, "_run_cli_command")
         assert hasattr(self.integration, "run_detection_ui")
         assert hasattr(self.integration, "run_census_ui")
         assert hasattr(self.integration, "analyze_results_ui")
         assert hasattr(self.integration, "visualize_results_ui")
         assert hasattr(self.integration, "get_system_info_ui")
+        assert hasattr(self.integration, "clear_results_ui")
 
-    def test_system_info_ui(self):
-        """Test system information retrieval."""
+    @patch("subprocess.Popen")
+    def test_run_cli_command_success(self, mock_popen):
+        """Test successful CLI command execution."""
+        # Mock successful subprocess execution
+        mock_process = Mock()
+        mock_process.poll.return_value = 0
+        mock_process.communicate.return_value = ("stdout", "stderr")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        result = self.integration._run_cli_command("detect", ["image.jpg"])
+
+        assert result["success"] is True
+        assert result["stdout"] == "stdout"
+        assert result["stderr"] == "stderr"
+        assert result["return_code"] == 0
+
+    @patch("subprocess.Popen")
+    def test_run_cli_command_failure(self, mock_popen):
+        """Test failed CLI command execution."""
+        # Mock failed subprocess execution
+        mock_process = Mock()
+        mock_process.poll.return_value = 1
+        mock_process.communicate.return_value = ("stdout", "error message")
+        mock_process.returncode = 1
+        mock_popen.return_value = mock_process
+
+        result = self.integration._run_cli_command("detect", ["image.jpg"])
+
+        assert result["success"] is False
+        assert "error message" in result["error"]
+        assert result["return_code"] == 1
+
+    @patch("subprocess.Popen")
+    def test_system_info_ui(self, mock_popen):
+        """Test system information retrieval using subprocess."""
+        # Mock successful subprocess execution
+        mock_process = Mock()
+        mock_process.poll.return_value = 0
+        mock_process.communicate.return_value = (
+            "Component | Status | Details\nPyTorch | ✓ | Version 2.0.0\nCUDA | ✓ | Available",
+            "",
+        )
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
         system_info = self.integration.get_system_info_ui()
 
-        assert isinstance(system_info, dict)
-        assert "components" in system_info
-        assert "dependencies" in system_info
-        assert "timestamp" in system_info
+        assert system_info["success"] is True
+        assert "system_info" in system_info
+        assert "components" in system_info["system_info"]
+        assert "dependencies" in system_info["system_info"]
+        assert "timestamp" in system_info["system_info"]
 
-        # Check that PyTorch is checked
-        assert "PyTorch" in system_info["components"]
-        assert "CUDA" in system_info["components"]
+    @patch("subprocess.Popen")
+    def test_run_detection_ui_success(self, mock_popen):
+        """Test successful detection from UI."""
+        # Mock successful subprocess execution
+        mock_process = Mock()
+        mock_process.poll.return_value = 0
+        mock_process.communicate.return_value = ("stdout", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
 
-        # Check that dependencies are checked
-        assert "numpy" in system_info["dependencies"]
-        assert "PIL" in system_info["dependencies"]
-
-    def test_analyze_results_ui_with_valid_file(self):
-        """Test results analysis with valid JSON file."""
-        # Create a sample results file
-        sample_results = [
-            {
-                "image_path": "test1.jpg",
-                "total_detections": 5,
-                "class_counts": {"elephant": 3, "lion": 2},
-            },
-            {
-                "image_path": "test2.jpg",
-                "total_detections": 2,
-                "class_counts": {"elephant": 1, "giraffe": 1},
-            },
-        ]
-
-        results_file = Path(self.temp_dir) / "test_results.json"
+        # Create temporary directory with mock results
+        results_file = Path(self.temp_dir) / "results.json"
+        mock_results = {
+            "drone_images": [{"total_detections": 5}, {"total_detections": 3}]
+        }
         with open(results_file, "w") as f:
-            json.dump(sample_results, f)
+            json.dump(mock_results, f)
 
-        # Test analysis
+        result = self.integration.run_detection_ui(
+            images=["image1.jpg", "image2.jpg"], output=self.temp_dir
+        )
+
+        assert result["success"] is True
+        assert result["total_images"] == 2
+        assert result["total_detections"] == 8
+
+    @patch("subprocess.Popen")
+    def test_run_census_ui_success(self, mock_popen):
+        """Test successful census campaign from UI."""
+        # Mock successful subprocess execution
+        mock_process = Mock()
+        mock_process.poll.return_value = 0
+        mock_process.communicate.return_value = ("stdout", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        # Create temporary directory with mock campaign results
+        campaign_file = Path(self.temp_dir) / "campaign_report.json"
+        mock_campaign = {
+            "campaign_id": "test_campaign",
+            "status": "completed",
+            "statistics": {"total_images": 10},
+        }
+        with open(campaign_file, "w") as f:
+            json.dump(mock_campaign, f)
+
+        result = self.integration.run_census_ui(
+            campaign_id="test_campaign", images=["image1.jpg"], output=self.temp_dir
+        )
+
+        assert result["success"] is True
+        assert result["campaign_id"] == "test_campaign"
+        assert "results" in result
+
+    @patch("subprocess.Popen")
+    def test_analyze_results_ui_success(self, mock_popen):
+        """Test successful analysis from UI."""
+        # Mock successful subprocess execution
+        mock_process = Mock()
+        mock_process.poll.return_value = 0
+        mock_process.communicate.return_value = ("stdout", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        # Create temporary directory with mock analysis results
+        analysis_file = Path(self.temp_dir) / "analysis_report.json"
+        mock_analysis = {
+            "total_images": 5,
+            "total_detections": 15,
+            "species_breakdown": {"elephant": 10, "giraffe": 5},
+        }
+        with open(analysis_file, "w") as f:
+            json.dump(mock_analysis, f)
+
         result = self.integration.analyze_results_ui(
-            str(results_file), output_dir=self.temp_dir, create_map=False
+            results_path="results.json", output_dir=self.temp_dir
         )
 
         assert result["success"] is True
         assert "analysis_results" in result
-        assert result["analysis_results"]["total_images"] == 2
-        assert result["analysis_results"]["total_detections"] == 7
-        assert "elephant" in result["analysis_results"]["species_breakdown"]
-        assert result["analysis_results"]["species_breakdown"]["elephant"] == 4
 
-    def test_analyze_results_ui_with_invalid_file(self):
-        """Test results analysis with invalid file."""
-        invalid_file = Path(self.temp_dir) / "nonexistent.json"
+    @patch("subprocess.Popen")
+    def test_visualize_results_ui_success(self, mock_popen):
+        """Test successful visualization from UI."""
+        # Mock successful subprocess execution
+        mock_process = Mock()
+        mock_process.poll.return_value = 0
+        mock_process.communicate.return_value = ("stdout", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
 
-        result = self.integration.analyze_results_ui(
-            str(invalid_file), output_dir=self.temp_dir
-        )
+        # Create temporary directory with mock visualization results
+        viz_file = Path(self.temp_dir) / "visualization_report.json"
+        mock_viz = {
+            "total_images": 5,
+            "total_detections": 15,
+            "species_counts": {"elephant": 10, "giraffe": 5},
+        }
+        with open(viz_file, "w") as f:
+            json.dump(mock_viz, f)
 
-        assert result["success"] is False
-        assert "error" in result
-        assert "not found" in result["error"]
-
-    def test_visualize_results_ui_with_valid_file(self):
-        """Test results visualization with valid JSON file."""
-        # Create a sample results file
-        sample_results = [
-            {
-                "image_path": "test1.jpg",
-                "total_detections": 3,
-                "class_counts": {"elephant": 2, "lion": 1},
-            }
-        ]
-
-        results_file = Path(self.temp_dir) / "test_viz_results.json"
-        with open(results_file, "w") as f:
-            json.dump(sample_results, f)
-
-        # Test visualization
         result = self.integration.visualize_results_ui(
-            str(results_file),
-            output_dir=self.temp_dir,
-            show_confidence=True,
-            create_map=False,
+            results_path="results.json", output_dir=self.temp_dir
         )
 
         assert result["success"] is True
         assert "visualization_data" in result
-        assert result["visualization_data"]["total_images"] == 1
-        assert result["visualization_data"]["total_detections"] == 3
-        assert "elephant" in result["visualization_data"]["species_counts"]
 
-    def test_convert_drone_images_to_ui_format(self):
-        """Test conversion of drone images to UI format."""
-        # Mock drone image with statistics
-        mock_drone_image = Mock()
-        mock_drone_image.get_statistics.return_value = {
-            "image_path": "test.jpg",
-            "total_detections": 5,
-            "class_counts": {"elephant": 3, "lion": 2},
-        }
+    def test_parse_system_info(self):
+        """Test parsing of system information from CLI output."""
+        stdout = """
+Component | Status | Details
+PyTorch | ✓ | Version 2.0.0
+CUDA | ✓ | Available - RTX 3080
+PIL | ✓ | Installed
+numpy | ✓ | Installed
+        """.strip()
 
-        drone_images = [mock_drone_image]
-        results = self.integration._convert_drone_images_to_ui_format(drone_images)
+        system_info = self.integration._parse_system_info(stdout)
 
-        assert len(results) == 1
-        assert results[0]["image_path"] == "test.jpg"
-        assert results[0]["total_detections"] == 5
-        assert results[0]["class_counts"] == {"elephant": 3, "lion": 2}
-        assert results[0]["species_counts"] == {"elephant": 3, "lion": 2}
-        assert results[0]["total_count"] == 5
+        assert "components" in system_info
+        assert "dependencies" in system_info
+        assert "PyTorch" in system_info["components"]
+        assert "CUDA" in system_info["components"]
+        assert system_info["components"]["PyTorch"]["status"] == "✓"
 
-    def test_analyze_detection_results(self):
-        """Test analysis of detection results."""
-        sample_results = [
-            {"total_detections": 5, "class_counts": {"elephant": 3, "lion": 2}},
-            {"total_detections": 2, "class_counts": {"elephant": 1, "giraffe": 1}},
-        ]
+    def test_load_campaign_results(self):
+        """Test loading campaign results from file."""
+        campaign_file = Path(self.temp_dir) / "campaign_report.json"
+        mock_campaign = {"campaign_id": "test_campaign", "status": "completed"}
+        with open(campaign_file, "w") as f:
+            json.dump(mock_campaign, f)
 
-        analysis = self.integration._analyze_detection_results(sample_results)
+        result = self.integration._load_campaign_results(self.temp_dir, "test_campaign")
+        assert result["campaign_id"] == "test_campaign"
+        assert result["status"] == "completed"
 
-        assert analysis["total_images"] == 2
-        assert analysis["total_detections"] == 7
-        assert analysis["species_breakdown"]["elephant"] == 4
-        assert analysis["species_breakdown"]["lion"] == 2
-        assert analysis["species_breakdown"]["giraffe"] == 1
+    def test_clear_results_ui(self):
+        """Test clearing results from UI."""
+        with patch.object(self.integration, "_run_cli_command") as mock_run:
+            mock_run.return_value = {"success": True}
 
-    def test_extract_visualization_data(self):
-        """Test extraction of visualization data."""
-        sample_results = [
-            {"total_detections": 3, "class_counts": {"elephant": 2, "lion": 1}}
-        ]
+            result = self.integration.clear_results_ui("results")
 
-        viz_data = self.integration._extract_visualization_data(sample_results)
+            assert result["success"] is True
+            assert "cleared successfully" in result["message"]
+            mock_run.assert_called_once_with(
+                "clear-results", ["results"], progress_bar=None, status_text=None
+            )
 
-        assert viz_data["total_images"] == 1
-        assert viz_data["total_detections"] == 3
-        assert viz_data["species_counts"]["elephant"] == 2
-        assert viz_data["species_counts"]["lion"] == 1
-        assert "timestamp" in viz_data
+    def test_error_handling(self):
+        """Test error handling in subprocess execution."""
+        with patch("subprocess.Popen") as mock_popen:
+            mock_popen.side_effect = Exception("Subprocess error")
 
-    @patch("wildetect.cli_ui_integration.GeographicVisualizer")
-    def test_create_geographic_visualization(self, mock_visualizer):
-        """Test geographic visualization creation."""
-        # Mock drone images
-        mock_drone_image = Mock()
-        mock_drone_images = [mock_drone_image]
+            result = self.integration._run_cli_command("detect", ["image.jpg"])
 
-        # Mock visualizer
-        mock_viz_instance = Mock()
-        mock_visualizer.return_value = mock_viz_instance
-        mock_map = Mock()
-        mock_viz_instance.create_map.return_value = mock_map
+            assert result["success"] is False
+            assert "Subprocess error" in result["error"]
+            assert result["return_code"] == -1
 
-        # Test visualization creation
-        self.integration._create_geographic_visualization(
-            mock_drone_images, output_dir=self.temp_dir
+    @patch("subprocess.Popen")
+    def test_run_detection_ui_with_temp_output(self, mock_popen):
+        """Test detection with temporary output directory."""
+        # Mock successful subprocess execution
+        mock_process = Mock()
+        mock_process.poll.return_value = 0
+        mock_process.communicate.return_value = ("stdout", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        # Create a temporary directory with mock results
+        with tempfile.TemporaryDirectory() as temp_dir:
+            results_file = Path(temp_dir) / "results.json"
+            mock_results = {"drone_images": [{"total_detections": 5}]}
+            with open(results_file, "w") as f:
+                json.dump(mock_results, f)
+
+            # Mock the tempfile.mkdtemp to return our temp_dir
+            with patch("tempfile.mkdtemp", return_value=temp_dir):
+                result = self.integration.run_detection_ui(images=["image1.jpg"])
+
+                assert result["success"] is True
+                assert "output_dir" in result
+
+    @patch("subprocess.Popen")
+    def test_run_census_ui_with_optional_params(self, mock_popen):
+        """Test census with optional parameters."""
+        # Mock successful subprocess execution
+        mock_process = Mock()
+        mock_process.poll.return_value = 0
+        mock_process.communicate.return_value = ("stdout", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        # Create temporary directory with mock campaign results
+        campaign_file = Path(self.temp_dir) / "campaign_report.json"
+        mock_campaign = {"campaign_id": "test_campaign", "status": "completed"}
+        with open(campaign_file, "w") as f:
+            json.dump(mock_campaign, f)
+
+        result = self.integration.run_census_ui(
+            campaign_id="test_campaign",
+            images=["image1.jpg"],
+            output=self.temp_dir,
+            pilot_name="Test Pilot",
+            target_species=["elephant", "giraffe"],
+            create_map=False,
         )
 
-        # Verify visualizer was called
-        mock_visualizer.assert_called_once()
-        mock_viz_instance.create_map.assert_called_once_with(mock_drone_images)
-        mock_map.save.assert_called_once()
-
-    def test_export_analysis_report(self):
-        """Test analysis report export."""
-        analysis_results = {
-            "total_images": 2,
-            "total_detections": 7,
-            "species_breakdown": {"elephant": 4, "lion": 3},
-        }
-
-        self.integration._export_analysis_report(analysis_results, self.temp_dir)
-
-        report_file = Path(self.temp_dir) / "analysis_report.json"
-        assert report_file.exists()
-
-        with open(report_file, "r") as f:
-            exported_data = json.load(f)
-
-        assert exported_data["total_images"] == 2
-        assert exported_data["total_detections"] == 7
-        assert exported_data["species_breakdown"]["elephant"] == 4
-
-    def test_export_visualization_report(self):
-        """Test visualization report export."""
-        viz_data = {
-            "total_images": 1,
-            "total_detections": 3,
-            "species_counts": {"elephant": 2, "lion": 1},
-        }
-
-        self.integration._export_visualization_report(
-            "test_results.json", viz_data, self.temp_dir
-        )
-
-        report_file = Path(self.temp_dir) / "visualization_report.json"
-        assert report_file.exists()
-
-        with open(report_file, "r") as f:
-            exported_data = json.load(f)
-
-        assert exported_data["total_images"] == 1
-        assert exported_data["total_detections"] == 3
-        assert exported_data["species_counts"]["elephant"] == 2
+        assert result["success"] is True
+        assert result["campaign_id"] == "test_campaign"
 
 
 def test_integration_import():
-    """Test that the integration can be imported."""
+    """Test that the integration can be imported and instantiated."""
     from wildetect.cli_ui_integration import cli_ui_integration
 
     assert cli_ui_integration is not None

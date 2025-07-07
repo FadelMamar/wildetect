@@ -23,7 +23,6 @@ from .core.detection_pipeline import DetectionPipeline
 from .core.visualization.geographic import (
     GeographicVisualizer,
     VisualizationConfig,
-    visualize_geographic_bounds,
 )
 
 ROOT_DIR = Path(__file__).parent.parent.parent
@@ -634,11 +633,6 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
                 visualizer = GeographicVisualizer(config)
                 visualizer.create_map(images_with_detections)
 
-                # map_obj = visualize_geographic_bounds(
-                #    drone_images=images_with_detections,
-                #    output_path=map_file,
-                #    config=config,
-                # )
                 console.print(
                     f"[green]✓ Geographic visualization saved to: {map_file}[/green]"
                 )
@@ -725,7 +719,9 @@ def display_census_results(
             f"  Images with footprints: {geo_stats['images_with_footprints']}"
         )
 
-        if geo_stats["geographic_bounds"]:
+        if geo_stats["geographic_bounds"] and isinstance(
+            geo_stats["geographic_bounds"], dict
+        ):
             bounds = geo_stats["geographic_bounds"]
             console.print(f"  Coverage bounds:")
             console.print(
@@ -944,8 +940,8 @@ def ui(
 ):
     """Launch the WildDetect web interface with CLI integration."""
     try:
+        import os
         import subprocess
-        import sys
 
         # Get the path to the UI module
         ui_path = Path(__file__).parent / "ui" / "main.py"
@@ -959,8 +955,8 @@ def ui(
 
         # Launch Streamlit
         cmd = [
-            sys.executable,
-            "-m",
+            "uv",
+            "run",
             "streamlit",
             "run",
             str(ui_path),
@@ -972,7 +968,9 @@ def ui(
             "true" if not open_browser else "false",
         ]
 
-        subprocess.run(cmd)
+        subprocess.Popen(
+            cmd, env=os.environ, creationflags=subprocess.CREATE_NEW_CONSOLE
+        )
 
     except ImportError:
         console.print("[red]Streamlit not installed. Please install it with:[/red]")
@@ -1010,6 +1008,169 @@ def clear_results(
             f"Directory '{results_dir}' does not exist.", fg=typer.colors.YELLOW
         )
         raise typer.Exit(0)
+
+
+@app.command()
+def fiftyone(
+    dataset_name: str = typer.Option(
+        "wildlife_detection", "--dataset", "-d", help="Dataset name"
+    ),
+    action: str = typer.Option(
+        "launch", "--action", "-a", help="Action to perform: launch, info, export"
+    ),
+    export_format: str = typer.Option(
+        "coco", "--format", "-f", help="Export format (coco, yolo, pascal)"
+    ),
+    export_path: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Export output path"
+    ),
+):
+    """Manage FiftyOne datasets for wildlife detection."""
+    setup_logging()
+    logger = logging.getLogger(__name__)
+
+    try:
+        from .core.visualization.fiftyone_manager import FiftyOneManager
+
+        if action == "launch":
+            console.print("[green]Launching FiftyOne app...[/green]")
+            FiftyOneManager.launch_app()
+            console.print("[green]FiftyOne app launched successfully![/green]")
+
+        elif action == "info":
+            console.print(f"[green]Getting dataset info for: {dataset_name}[/green]")
+            fo_manager = FiftyOneManager(dataset_name)
+            dataset_info = fo_manager.get_dataset_info()
+
+            table = Table(title="Dataset Information")
+            table.add_column("Property", style="cyan")
+            table.add_column("Value", style="green")
+
+            table.add_row("Dataset Name", dataset_info["name"])
+            table.add_row("Total Samples", str(dataset_info["num_samples"]))
+            table.add_row("Fields", str(len(dataset_info["fields"])))
+
+            console.print(table)
+
+            # Get annotation statistics
+            annotation_stats = fo_manager.get_annotation_stats()
+            console.print(f"\n[bold green]Annotation Statistics:[/bold green]")
+            console.print(
+                f"  Annotated Samples: {annotation_stats['annotated_samples']}"
+            )
+            console.print(f"  Total Detections: {annotation_stats['total_detections']}")
+            console.print(
+                f"  Annotation Rate: {annotation_stats['annotation_rate']:.1f}%"
+            )
+
+        elif action == "export":
+            if not export_path:
+                export_path = f"exports/{dataset_name}_{export_format}"
+
+            console.print(f"[green]Exporting dataset to: {export_path}[/green]")
+            fo_manager = FiftyOneManager(dataset_name)
+
+            # Create export directory
+            Path(export_path).mkdir(parents=True, exist_ok=True)
+
+            # Export dataset using FiftyOne's export method
+            if fo_manager.dataset:
+                fo_manager.dataset.export(
+                    export_dir=export_path, dataset_type=export_format, overwrite=True
+                )
+                console.print(
+                    f"[green]Dataset exported successfully to: {export_path}[/green]"
+                )
+            else:
+                console.print("[red]Error: Dataset not initialized[/red]")
+
+        else:
+            console.print(f"[red]Unknown action: {action}[/red]")
+            console.print("Available actions: launch, info, export")
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        logger.error(f"FiftyOne operation failed: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def labelstudio(
+    action: str = typer.Option(
+        "status", "--action", "-a", help="Action to perform: status, create, export"
+    ),
+    project_name: str = typer.Option(
+        "wildlife_detection", "--project", "-p", help="Project name"
+    ),
+    results_path: Optional[str] = typer.Option(
+        None, "--results", "-r", help="Path to detection results"
+    ),
+    export_format: str = typer.Option("yolo", "--format", "-f", help="Export format"),
+    export_path: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Export output path"
+    ),
+):
+    """Manage LabelStudio projects for annotation."""
+    setup_logging()
+    logger = logging.getLogger(__name__)
+
+    try:
+        from .core.annotation.labelstudio_manager import LabelStudioManager
+
+        ls_manager = LabelStudioManager()
+
+        if action == "status":
+            console.print("[green]Checking LabelStudio status...[/green]")
+            console.print(f"[green]LabelStudio is running at: {ls_manager.url}[/green]")
+
+        elif action == "create":
+            if not results_path:
+                console.print(
+                    "[red]Error: --results path is required for create action[/red]"
+                )
+                raise typer.Exit(1)
+
+            console.print(
+                f"[green]Creating LabelStudio project: {project_name}[/green]"
+            )
+
+            # Load results
+            with open(results_path, "r") as f:
+                results = json.load(f)
+
+            # Create project
+            project_info = ls_manager.create_annotation_job(
+                project_name, results.get("image_paths", []), results
+            )
+
+            console.print(f"[green]Project created successfully![/green]")
+            console.print(f"  Project ID: {project_info['project_id']}")
+            console.print(f"  Project URL: {project_info['url']}")
+            console.print(f"  Total Tasks: {project_info['total_tasks']}")
+
+        elif action == "export":
+            if not export_path:
+                export_path = f"exports/labelstudio_{export_format}"
+
+            console.print(f"[green]Exporting annotations to: {export_path}[/green]")
+
+            # Create a temporary project for export
+            project = ls_manager.create_project(project_name)
+
+            # Export annotations using the available method
+            ls_manager.export_for_training(project, export_path, export_format)
+
+            console.print(f"[green]Annotations exported successfully![/green]")
+            console.print(f"  Export Path: {export_path}")
+
+        else:
+            console.print(f"[red]Unknown action: {action}[/red]")
+            console.print("Available actions: status, create, export")
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        logger.error(f"LabelStudio operation failed: {e}")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
