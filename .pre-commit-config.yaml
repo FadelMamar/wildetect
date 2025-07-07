@@ -5,5 +5,7 @@ repos:
       - id: ruff
         args: [--fix, --select=I]
         name: "ruff (import sorting)"
+        files: ^(src/|tests/).*\.py$
       - id: ruff-format
-        name: "ruff (formatting)" 
+        name: "ruff (formatting)"
+        files: ^(src/|tests/).*\.py$ 
