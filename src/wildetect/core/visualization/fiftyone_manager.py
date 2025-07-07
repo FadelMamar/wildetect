@@ -262,7 +262,11 @@ class FiftyOneManager:
         """Launch the FiftyOne app."""
         import subprocess
 
-        subprocess.run(["uv", "run", "fiftyone", "launch", "app"])
+        subprocess.Popen(
+            ["uv", "run", "fiftyone", "app", "launch"],
+            env=os.environ,
+            creationflags=subprocess.CREATE_NEW_CONSOLE,
+        )
 
     def get_dataset_info(self) -> Dict[str, Any]:
         """Get information about the dataset."""
