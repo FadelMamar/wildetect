@@ -126,8 +126,9 @@ class DetectionPipeline:
                 offset = (tile.x_offset or 0, tile.y_offset or 0)
                 drone_images[parent_image].add_tile(tile, offset[0], offset[1])
 
+        # Update detections
         for drone_image in drone_images.values():
-            drone_image.offset_detections()
+            drone_image.update_detection_gps("predictions")
 
         return list(drone_images.values())
 

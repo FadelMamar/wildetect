@@ -621,31 +621,41 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
                     image_bounds_color="purple",
                     image_center_color="orange",
                     overlap_color="red",
-                    show_image_path=False,
+                    show_image_path=True,
                     show_image_bounds=True,
                     show_detection_count=True,
                     show_gps_info=True,
-                    show_image_centers=True,
+                    show_image_centers=False,
+                    show_detections=True,
                     show_statistics=True,
                 )
                 map_file = str(output_path / "geographic_visualization.html")
 
-                map_obj = visualize_geographic_bounds(
-                    drone_images=images_with_detections,
-                    output_path=map_file,
-                    config=config,
-                )
+                visualizer = GeographicVisualizer(config)
+                visualizer.create_map(images_with_detections)
+
+                # map_obj = visualize_geographic_bounds(
+                #    drone_images=images_with_detections,
+                #    output_path=map_file,
+                #    config=config,
+                # )
                 console.print(
                     f"[green]✓ Geographic visualization saved to: {map_file}[/green]"
                 )
 
                 # Get coverage statistics
-                # coverage_stats = visualizer.get_coverage_statistics(images_with_detections)
-                # console.print(f"[green]✓ Coverage statistics calculated[/green]")
-                # console.print(f"  Images with GPS: {coverage_stats['images_with_gps']}")
-                # console.print(f"  Images with footprints: {coverage_stats['images_with_footprints']}")
-                # if coverage_stats['total_overlap_area'] > 0:
-                #    console.print(f"  Total overlap area: {coverage_stats['total_overlap_area']:.2f} m²")
+                coverage_stats = visualizer.get_coverage_statistics(
+                    images_with_detections
+                )
+                console.print(f"[green]✓ Coverage statistics calculated[/green]")
+                console.print(f"  Images with GPS: {coverage_stats['images_with_gps']}")
+                console.print(
+                    f"  Images with footprints: {coverage_stats['images_with_footprints']}"
+                )
+                if coverage_stats["total_overlap_area"] > 0:
+                    console.print(
+                        f"  Total overlap area: {coverage_stats['total_overlap_area']:.2f} m²"
+                    )
 
             except Exception as e:
                 console.print(

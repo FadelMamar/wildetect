@@ -9,6 +9,7 @@ and coverage statistics.
 import logging
 import traceback
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import folium
@@ -44,6 +45,7 @@ class VisualizationConfig:
     use_polygons: bool = True  # Use polygons instead of rectangles for more accuracy
     show_image_bounds: bool = True
     show_statistics: bool = True
+    show_detections: bool = True  # Show individual detections on the map
 
     # Popup settings
     popup_max_width: int = 300
@@ -238,6 +240,105 @@ class GeographicVisualizer:
             )
             return False
 
+    def _visualize_detections(
+        self,
+        map_obj: folium.Map,
+        drone_image: DroneImage,
+        color: Optional[str] = None,
+        radius: int = 5,
+        weight: int = 2,
+        fill_opacity: float = 0.7,
+    ) -> int:
+        """Visualize detections for a drone image.
+
+        Args:
+            map_obj: Folium map object to add the visualization to
+            drone_image: DroneImage instance containing detections
+            color: Color for the detection markers (defaults to config detection_color)
+            radius: Radius of the detection markers
+            weight: Line weight for the marker border
+            fill_opacity: Opacity for marker fill
+
+        Returns:
+            int: Number of detections visualized
+        """
+        if not drone_image.predictions:
+            return 0
+
+        detection_color = color or self.config.detection_color
+        visualized_count = 0
+
+        for detection in drone_image.predictions:
+            # Skip empty detections
+            if detection.is_empty:
+                continue
+
+            try:
+                # Get detection center coordinates
+                if detection.gps_loc is None:
+                    logger.warning(
+                        f"Can't visualize detection. No GPS location for detection {detection}"
+                    )
+                    continue
+
+                lat, lon, alt = detection.gps_as_decimals
+
+                # Create popup content for detection
+                popup_content = self._create_detection_popup_content(
+                    detection, drone_image
+                )
+
+                # Create marker for detection
+                folium.CircleMarker(
+                    location=[lat, lon],
+                    radius=radius,
+                    color=detection_color,
+                    fill=True,
+                    fillColor=detection_color,
+                    fillOpacity=fill_opacity,
+                    weight=weight,
+                    popup=folium.Popup(
+                        popup_content, max_width=self.config.popup_max_width
+                    ),
+                ).add_to(map_obj)
+
+                visualized_count += 1
+                logger.debug(f"Added detection marker at {lat}, {lon}")
+
+            except Exception as e:
+                logger.warning(f"Failed to visualize detection: {e}")
+                continue
+
+        return visualized_count
+
+    def _create_detection_popup_content(
+        self, detection, drone_image: DroneImage
+    ) -> str:
+        """Create HTML popup content for a detection.
+
+        Args:
+            detection: Detection object
+            drone_image: Parent DroneImage
+
+        Returns:
+            HTML string for popup content
+        """
+        content = f"<div style='max-width: {self.config.popup_max_width}px;'>"
+
+        content += f"<strong>Detection:</strong><br>"
+        content += f"<strong>Class:</strong> {detection.class_name}<br>"
+        content += f"<strong>Confidence:</strong> {detection.confidence:.3f}<br>"
+        content += f"<strong>BBox:</strong> {detection.bbox}<br>"
+        content += f"<strong>Area:</strong> {detection.area} px²<br>"
+
+        if detection.gps_loc:
+            content += f"<strong>GPS:</strong> {detection.gps_loc}<br>"
+
+        content += f"<strong>Image:</strong> {Path(drone_image.image_path).name}<br>"
+
+        content += "</div>"
+        return content
+
     def _find_overlaps_using_strategy(
         self, drone_images: List[DroneImage]
     ) -> Dict[str, List[str]]:
@@ -303,7 +404,7 @@ class GeographicVisualizer:
             tiles=self.config.tiles,
         )
 
-        # Add image bounding boxes
+        # Add image
         if self.config.show_image_bounds:
             failed_count = 0
             polygon_count = 0
@@ -349,6 +450,34 @@ class GeographicVisualizer:
                             popup_content, max_width=self.config.popup_max_width
                         ),
                     ).add_to(map_obj)
+
+        # Add detections
+        if self.config.show_detections:
+            total_detections_visualized = 0
+            total_detections = 0
+            for drone_image in drone_images:
+                eligible_detections = [
+                    det
+                    for det in drone_image.get_all_predictions()
+                    if not det.is_empty and det.gps_loc is not None
+                ]
+                detections_count = self._visualize_detections(
+                    map_obj=map_obj,
+                    drone_image=drone_image,
+                    color=self.config.detection_color,
+                    radius=3,
+                    weight=2,
+                    fill_opacity=0.7,
+                )
+                total_detections += len(eligible_detections)
+                total_detections_visualized += detections_count
+                logger.debug(
+                    f"Visualized {detections_count} detections for {drone_image.image_path}"
+                )
+
+            logger.info(
+                f"Total detections visualized: {total_detections_visualized}/{total_detections}"
+            )
 
         # Add statistics layer
         if self.config.show_statistics:

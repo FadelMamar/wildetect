@@ -3,8 +3,9 @@ Drone image representation with tiles and geographic footprint.
 """
 
 import logging
+from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from PIL import Image
@@ -28,6 +29,7 @@ class DroneImage(Tile):
     tiles: List[Tile] = field(default_factory=list)
     tile_offsets: List[Tuple[int, int]] = field(default_factory=list)
     metadata: Optional[Dict[str, Any]] = None
+    predictions: List[Detection] = field(default_factory=list)
 
     def __post_init__(self):
         """Initialize the drone image."""
@@ -40,7 +42,7 @@ class DroneImage(Tile):
             self._create_initial_tile()
 
     @property
-    def geo_polygon_points(self) -> List[Tuple[float, float]]:
+    def geo_polygon_points(self) -> Optional[List[Tuple[float, float]]]:
         """Get the polygon points for the geographic footprint."""
         if self.geographic_footprint is not None:
             return self.geographic_footprint.get_polygon_points()
@@ -71,10 +73,15 @@ class DroneImage(Tile):
 
         # Set the tile's parent image and offset
         tile.parent_image = self.image_path
+        # set offsets
         tile.set_offsets(x_offset, y_offset)
-
+        # offset detections -> DrroneImage reference coordinates
+        tile.offset_detections()
+        # add tile to drone image
         self.tiles.append(tile)
         self.tile_offsets.append((x_offset, y_offset))
+        # add predictions to drone image
+        self.predictions.extend(tile.predictions)
 
         logger.debug(f"Added tile {tile.id} at offset {x_offset}, {y_offset}")
 
@@ -121,22 +128,31 @@ class DroneImage(Tile):
     def offset_detections(
         self,
     ):
-        """Offset detections based on tile offsets."""
-        for offset, tile in zip(self.tile_offsets, self.tiles):
-            tile.set_offsets(offset[0], offset[1])
-            tile.offset_detections()
+        """Offset detections based on tile offsets if not offset already."""
+        if not self.tile_offsets:
+            logger.warning(
+                "No tile offsets found for drone image. Skipping offsetting detections."
+            )
+            return
 
-    def get_all_predictions(self, force_offset: bool = False) -> List[Detection]:
+        for offset, tile in zip(self.tile_offsets, self.tiles):
+            if not tile.x_offset or not tile.y_offset:
+                tile.set_offsets(offset[0], offset[1])
+                tile.offset_detections()
+
+    def get_all_predictions(self) -> List[Detection]:
         """Get all predictions from all tiles.
 
         Returns:
             List[Detection]: All predictions from all tiles
         """
-        if self.predictions and not force_offset:
+        if self.predictions:
             return self.predictions
 
         all_detections = []
+
         self.offset_detections()
+        self.update_detection_gps("predictions")
         for tile in self.tiles:
             if tile.predictions:
                 all_detections.extend(

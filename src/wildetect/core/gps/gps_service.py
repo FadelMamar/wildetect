@@ -172,7 +172,9 @@ class GPSDetectionService:
             detection_type: Type of detections to update ("predictions" or "annotations")
         """
         if not tile.tile_gps_loc or not tile.gsd:
-            logger.debug(f"No GPS coordinate found in tile: {tile.image_path}")
+            logger.warning(
+                f"Cannot update detections for tile. No GPS @ path: {tile.image_path}"
+            )
             return
 
         detections = getattr(tile, detection_type, [])
@@ -198,7 +200,9 @@ class GPSDetectionService:
             tile: Tile object containing detections to update
         """
         if not tile.tile_gps_loc or not tile.gsd:
-            logger.debug(f"No GPS coordinate found in tile: {tile.image_path}")
+            logger.warning(
+                f"Cannot update detections for tile. No GPS @ path: {tile.image_path}"
+            )
             return
 
         GPSDetectionService.update_detections_by_type(tile, "predictions")
