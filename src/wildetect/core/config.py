@@ -64,6 +64,24 @@ class PredictionConfig:
         ]:
             assert a is not None
 
+        if self.device == "auto":
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        if self.model_path is None:
+            self.model_path = os.environ.get("WILDETECT_MODEL_PATH")
+        else:
+            self.model_path = str(Path(self.model_path).resolve())
+
+        if self.roi_weights is None:
+            self.roi_weights = os.environ.get("WILDETECT_ROI_WEIGHTS")
+        else:
+            self.roi_weights = str(Path(self.roi_weights).resolve())
+
+        if self.inference_service_url is None:
+            self.inference_service_url = os.environ.get(
+                "WILDETECT_INFERENCE_SERVICE_URL"
+            )
+
     @classmethod
     def from_yaml(
         cls, yaml_path: str = "configs/prediction.yaml"
@@ -128,12 +146,6 @@ class LoaderConfig:
     # Batch processing
     batch_size: int = 1
     num_workers: int = 0
-    shuffle: bool = False
-
-    # Image preprocessing
-    resize: Optional[Tuple[int, int]] = None
-    normalize: bool = True
-    to_tensor: bool = True
 
     # GPS and metadata
     flight_specs: Optional[FlightSpecs] = field(default_factory=FlightSpecs)

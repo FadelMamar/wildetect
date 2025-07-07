@@ -174,7 +174,7 @@ class Tile:
     ):
         if self.x_offset is not None and self.y_offset is not None:
             if self._pred_is_original:
-                logger.info(
+                logger.debug(
                     "Skipping - Predictions have already been mapped to the reference coordinates."
                 )
             if self.predictions and (not self._pred_is_original):
@@ -186,7 +186,7 @@ class Tile:
 
             if self.annotations and (not self._annot_is_original):
                 if self._annot_is_original:
-                    logger.info(
+                    logger.debug(
                         "Skipping - Annotations have already been mapped to the reference coordinates."
                     )
                 for det in self.annotations:
@@ -195,7 +195,7 @@ class Tile:
                     det.to_absolute_coords(self.x_offset, self.y_offset)
                 self._annot_is_original = True
         else:
-            logger.info("Failed...self.x_offset is None or self.y_offset is not None.")
+            logger.error("Failed...self.x_offset is None or self.y_offset is not None.")
 
     def _nms(self, threshold: float = 0.5):
         if len(self.predictions) < 2:

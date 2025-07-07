@@ -4,6 +4,7 @@ YOLO-based detector implementation.
 
 import logging
 import os
+import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -35,7 +36,7 @@ class YOLODetector(Detector):
         """Load the YOLO model."""
         try:
             if self.model_path and os.path.exists(self.model_path):
-                self.model = YOLO(self.model_path)
+                self.model = YOLO(self.model_path, task="detect")
                 logger.info(f"Loaded YOLO model from {self.model_path}")
             else:
                 raise FileNotFoundError(f"Model file not found: {self.model_path}")
@@ -56,7 +57,7 @@ class YOLODetector(Detector):
             logger.error(f"Error loading YOLO model: {e}")
             raise
 
-    def predict_batch(self, batch: torch.Tensor) -> List[List[Detection]]:
+    def _predict_batch(self, batch: torch.Tensor) -> List[List[Detection]]:
         """Run prediction on an image.
 
         Args:
@@ -66,6 +67,12 @@ class YOLODetector(Detector):
         Returns:
             List of detections
         """
+
+        assert batch.ndim == 4, "Batch must be a 4D tensor"
+        B, C, H, W = batch.shape
+        assert C == 3, "Batch must have 3 channels"
+        assert B >= 1, "Batch must have at least 1 image"
+
         if not self._is_loaded:
             raise RuntimeError("Model not loaded. Call load_model() first.")
 
@@ -82,48 +89,56 @@ class YOLODetector(Detector):
             )
 
             # Process results
-            detections = [
-                self._process_results(result, image.size)
-                for result, image in zip(results, batch)
-            ]
+            detections = [self._process_results(result, W, H) for result in results]
 
             return detections
 
         except Exception as e:
+            traceback.print_exc()
             logger.error(f"Error during YOLO prediction: {e}")
             raise
 
-    def _process_results(self, result, image_size: tuple) -> List[Detection]:
+    def _process_results(
+        self, result, image_width: int, image_height: int
+    ) -> List[Detection]:
         """Process YOLO results into Detection objects."""
         detections = []
         try:
             boxes = result.boxes
-        except Exception:
+            if boxes is None:
+                raise ValueError("No boxes found in result")
+        except ValueError:
             boxes = result.obb
+        except Exception:
+            raise Exception(f"Error processing results: {result}")
 
-        labels = boxes.cls
-        confidence = boxes.conf.cpu().numpy()
-        bbox = boxes.xyxy.cpu().numpy()
+        labels = boxes.cls.int().cpu().tolist()
+        confidence = boxes.conf.cpu().tolist()
+        bbox = boxes.xyxy.round().int().cpu().tolist()
 
         detections = []
         for i, (box, conf, label) in enumerate(zip(bbox, confidence, labels)):
+            logger.debug(f"Processing detection {i}: {box}, {conf}, {label}")
             detection = Detection(
-                bbox=box.tolist(),
+                bbox=box,
                 confidence=conf,
-                class_id=int(label),
-                class_name=self.class_names.get(int(label)) or f"class_{int(label)}",
+                class_id=label,
+                class_name=self.class_names.get(label) or f"class_{label}",
                 metadata={
                     "model_type": self.model.__class__.__name__,
-                    "image_size": image_size,
+                    "image_width": image_width,
+                    "image_height": image_height,
                 },
             )
+            detection.clamp_bbox(x_range=(0, image_width), y_range=(0, image_height))
+
             detections.append(detection)
         return detections
 
     def predict(
         self,
         image: torch.Tensor,
-    ) -> List[Detection]:
+    ) -> List[List[Detection]]:
         """Run prediction on a batch of images.
 
         Args:
@@ -135,11 +150,12 @@ class YOLODetector(Detector):
         """
         assert isinstance(image, torch.Tensor), "Image must be a tensor"
         shape = image.shape
-        assert len(shape) == 3, "Image must be a 3D tensor"
-        C, H, W = shape
-        assert C == 3, "Image must have 3 channels"
-
-        return self.predict_batch(image.unsqueeze(0))[0]
+        if len(shape) == 4:
+            return self._predict_batch(image)
+        elif len(shape) == 3:
+            return self._predict_batch(image.unsqueeze(0))
+        else:
+            raise ValueError(f"Invalid image shape: {shape}")
 
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the loaded model."""

@@ -19,6 +19,7 @@ import streamlit as st
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
+from wildetect.cli_ui_integration import cli_ui_integration
 from wildetect.core.detector import WildlifeDetector
 from wildetect.core.fiftyone_manager import FiftyOneManager
 from wildetect.core.labelstudio_manager import LabelStudioManager
@@ -43,6 +44,8 @@ if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = []
 if "detection_results" not in st.session_state:
     st.session_state.detection_results = []
+if "cli_integration" not in st.session_state:
+    st.session_state.cli_integration = cli_ui_integration
 
 
 def initialize_components():
@@ -143,8 +146,16 @@ def main():
                 st.warning("No detection results available. Run detection first.")
 
     # Main content
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
-        ["Upload & Detect", "Results", "Dataset Stats", "Model Info", "LabelStudio"]
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+        [
+            "Upload & Detect",
+            "Results",
+            "Dataset Stats",
+            "Model Info",
+            "LabelStudio",
+            "CLI Features",
+            "Census Campaign",
+        ]
     )
 
     with tab1:
@@ -161,6 +172,12 @@ def main():
 
     with tab5:
         labelstudio_tab()
+
+    with tab6:
+        cli_features_tab()
+
+    with tab7:
+        census_campaign_tab()
 
 
 def upload_and_detect_tab():
@@ -228,75 +245,65 @@ def upload_and_detect_tab():
 
 
 def run_detection(image_paths: List[str], confidence: float):
-    """Run detection on uploaded images."""
-    if st.session_state.detector is None:
-        st.error("Detector not initialized")
-        return
-
+    """Run detection on uploaded images using CLI integration."""
     progress_bar = st.progress(0)
     status_text = st.empty()
 
-    results = []
-    for i, image_path in enumerate(image_paths):
-        status_text.text(f"Processing image {i+1}/{len(image_paths)}")
-
-        try:
-            result = st.session_state.detector.detect(image_path, confidence)
-            results.append(result)
-
-            # Add to FiftyOne dataset
-            if st.session_state.fo_manager:
-                st.session_state.fo_manager.add_images([image_path], [result])
-
-        except Exception as e:
-            st.error(f"Error processing {image_path}: {e}")
-
-        progress_bar.progress((i + 1) / len(image_paths))
-
-    st.session_state.detection_results = results
-    status_text.text("Detection completed!")
-
-    # Show summary
-    total_detections = sum(r.get("total_count", 0) for r in results)
-    st.success(
-        f"Detection completed! Found {total_detections} wildlife in {len(results)} images"
+    # Use CLI integration for detection
+    detection_result = st.session_state.cli_integration.run_detection_ui(
+        images=image_paths,
+        confidence=confidence,
+        progress_bar=progress_bar,
+        status_text=status_text,
     )
+
+    if detection_result["success"]:
+        st.session_state.detection_results = detection_result["results"]
+
+        # Show summary
+        total_detections = detection_result["total_detections"]
+        total_images = detection_result["total_images"]
+        st.success(
+            f"Detection completed! Found {total_detections} wildlife in {total_images} images"
+        )
+
+        # Add to FiftyOne dataset if available
+        if st.session_state.fo_manager and detection_result["results"]:
+            for result in detection_result["results"]:
+                st.session_state.fo_manager.add_images([result["image_path"]], [result])
+    else:
+        st.error(f"Detection failed: {detection_result['error']}")
 
 
 def run_batch_detection(image_paths: List[str], confidence: float):
-    """Run detection on a batch of images."""
-    if st.session_state.detector is None:
-        st.error("Detector not initialized")
-        return
-
+    """Run detection on a batch of images using CLI integration."""
     progress_bar = st.progress(0)
     status_text = st.empty()
 
-    results = []
-    for i, image_path in enumerate(image_paths):
-        status_text.text(f"Processing image {i+1}/{len(image_paths)}")
-
-        try:
-            result = st.session_state.detector.detect(image_path, confidence)
-            results.append(result)
-
-            # Add to FiftyOne dataset
-            if st.session_state.fo_manager:
-                st.session_state.fo_manager.add_images([image_path], [result])
-
-        except Exception as e:
-            st.error(f"Error processing {image_path}: {e}")
-
-        progress_bar.progress((i + 1) / len(image_paths))
-
-    st.session_state.detection_results = results
-    status_text.text("Batch detection completed!")
-
-    # Show summary
-    total_detections = sum(r.get("total_count", 0) for r in results)
-    st.success(
-        f"Batch detection completed! Found {total_detections} wildlife in {len(results)} images"
+    # Use CLI integration for batch detection
+    detection_result = st.session_state.cli_integration.run_detection_ui(
+        images=image_paths,
+        confidence=confidence,
+        progress_bar=progress_bar,
+        status_text=status_text,
     )
+
+    if detection_result["success"]:
+        st.session_state.detection_results = detection_result["results"]
+
+        # Show summary
+        total_detections = detection_result["total_detections"]
+        total_images = detection_result["total_images"]
+        st.success(
+            f"Batch detection completed! Found {total_detections} wildlife in {total_images} images"
+        )
+
+        # Add to FiftyOne dataset if available
+        if st.session_state.fo_manager and detection_result["results"]:
+            for result in detection_result["results"]:
+                st.session_state.fo_manager.add_images([result["image_path"]], [result])
+    else:
+        st.error(f"Batch detection failed: {detection_result['error']}")
 
 
 def results_tab():
@@ -521,6 +528,303 @@ def labelstudio_tab():
             st.success("Annotations synced with FiftyOne")
         except Exception as e:
             st.error(f"Error syncing annotations: {e}")
+
+
+def cli_features_tab():
+    """Display CLI features in the UI."""
+    st.header("CLI Features Integration")
+    st.markdown("Access CLI functionality through the web interface")
+
+    # System Information
+    st.subheader("System Information")
+    if st.button("Get System Info"):
+        system_info = st.session_state.cli_integration.get_system_info_ui()
+
+        # Display components
+        st.write("**System Components:**")
+        for component, info in system_info["components"].items():
+            status_color = "green" if info["status"] == "✓" else "red"
+            st.markdown(
+                f"- **{component}:** :{status_color}[{info['status']}] {info['details']}"
+            )
+
+        # Display dependencies
+        st.write("**Dependencies:**")
+        for dep, info in system_info["dependencies"].items():
+            status_color = "green" if info["status"] == "✓" else "red"
+            st.markdown(
+                f"- **{dep}:** :{status_color}[{info['status']}] {info['details']}"
+            )
+
+    # Results Analysis
+    st.subheader("Analyze Results")
+    results_file = st.file_uploader(
+        "Upload results file (JSON)",
+        type=["json"],
+        help="Upload a detection results file to analyze",
+    )
+
+    if results_file:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_file:
+            tmp_file.write(results_file.getvalue())
+            tmp_path = tmp_file.name
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            create_map = st.checkbox("Create geographic map", value=True)
+
+        with col2:
+            if st.button("Analyze Results"):
+                with st.spinner("Analyzing results..."):
+                    analysis_result = (
+                        st.session_state.cli_integration.analyze_results_ui(
+                            tmp_path, output_dir="analysis", create_map=create_map
+                        )
+                    )
+
+                if analysis_result["success"]:
+                    st.success("Analysis completed successfully!")
+
+                    # Display analysis results
+                    analysis = analysis_result["analysis_results"]
+                    st.write(f"**Total Images:** {analysis.get('total_images', 0)}")
+                    st.write(
+                        f"**Total Detections:** {analysis.get('total_detections', 0)}"
+                    )
+
+                    if analysis.get("species_breakdown"):
+                        st.write("**Species Breakdown:**")
+                        for species, count in analysis["species_breakdown"].items():
+                            st.write(f"- {species}: {count}")
+                else:
+                    st.error(f"Analysis failed: {analysis_result['error']}")
+
+    # Results Visualization
+    st.subheader("Visualize Results")
+    viz_results_file = st.file_uploader(
+        "Upload results file for visualization",
+        type=["json"],
+        help="Upload a detection results file to visualize",
+        key="viz_results",
+    )
+
+    if viz_results_file:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_file:
+            tmp_file.write(viz_results_file.getvalue())
+            tmp_path = tmp_file.name
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            show_confidence = st.checkbox("Show confidence scores", value=True)
+
+        with col2:
+            create_viz_map = st.checkbox("Create geographic map", value=True)
+
+        if st.button("Visualize Results"):
+            with st.spinner("Creating visualizations..."):
+                viz_result = st.session_state.cli_integration.visualize_results_ui(
+                    tmp_path,
+                    output_dir="visualizations",
+                    show_confidence=show_confidence,
+                    create_map=create_viz_map,
+                )
+
+            if viz_result["success"]:
+                st.success("Visualization completed successfully!")
+
+                # Display visualization data
+                viz_data = viz_result["visualization_data"]
+                st.write(f"**Total Images:** {viz_data.get('total_images', 0)}")
+                st.write(f"**Total Detections:** {viz_data.get('total_detections', 0)}")
+
+                if viz_data.get("species_counts"):
+                    st.write("**Species Detected:**")
+                    for species, count in viz_data["species_counts"].items():
+                        st.write(f"- {species}: {count}")
+            else:
+                st.error(f"Visualization failed: {viz_result['error']}")
+
+
+def census_campaign_tab():
+    """Display census campaign functionality."""
+    st.header("Census Campaign Management")
+    st.markdown("Run comprehensive wildlife census campaigns with geographic analysis")
+
+    # Campaign Configuration
+    st.subheader("Campaign Configuration")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        campaign_id = st.text_input(
+            "Campaign ID",
+            value="campaign_001",
+            help="Unique identifier for the campaign",
+        )
+        pilot_name = st.text_input(
+            "Pilot Name", value="", help="Name of the pilot conducting the survey"
+        )
+
+    with col2:
+        confidence = st.slider(
+            "Confidence Threshold",
+            min_value=0.1,
+            max_value=1.0,
+            value=0.25,
+            step=0.05,
+            help="Minimum confidence for detections",
+        )
+        batch_size = st.number_input(
+            "Batch Size",
+            min_value=1,
+            max_value=32,
+            value=8,
+            help="Number of images to process in each batch",
+        )
+
+    # Target Species
+    st.subheader("Target Species")
+    default_species = ["elephant", "giraffe", "zebra", "lion"]
+    target_species = st.multiselect(
+        "Select target species",
+        options=default_species + ["rhino", "buffalo", "antelope", "other"],
+        default=default_species,
+        help="Species to detect in the campaign",
+    )
+
+    # Image Input
+    st.subheader("Image Input")
+    input_type = st.radio(
+        "Input Type",
+        ["Upload Images", "Directory Path"],
+        help="Choose how to provide images for the campaign",
+    )
+
+    if input_type == "Upload Images":
+        uploaded_images = st.file_uploader(
+            "Upload campaign images",
+            type=["jpg", "jpeg", "png", "tiff", "bmp"],
+            accept_multiple_files=True,
+            help="Upload images for the census campaign",
+        )
+        image_paths = []
+        if uploaded_images:
+            # Save uploaded files temporarily
+            for uploaded_file in uploaded_images:
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}"
+                ) as tmp_file:
+                    shutil.copyfileobj(uploaded_file, tmp_file)
+                    image_paths.append(tmp_file.name)
+    else:
+        directory_path = st.text_input(
+            "Image Directory Path",
+            value="data/images",
+            help="Path to directory containing campaign images",
+        )
+        image_paths = [directory_path] if directory_path else []
+
+    # Campaign Execution
+    st.subheader("Run Campaign")
+
+    if st.button("Start Census Campaign", type="primary"):
+        if not image_paths:
+            st.error("Please provide images for the campaign")
+        elif not campaign_id:
+            st.error("Please provide a campaign ID")
+        else:
+            # Create progress tracking
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+
+            with st.spinner("Running census campaign..."):
+                campaign_result = st.session_state.cli_integration.run_census_ui(
+                    campaign_id=campaign_id,
+                    images=image_paths,
+                    confidence=confidence,
+                    batch_size=batch_size,
+                    pilot_name=pilot_name,
+                    target_species=target_species,
+                    create_map=True,
+                    progress_bar=progress_bar,
+                    status_text=status_text,
+                )
+
+            if campaign_result["success"]:
+                st.success("Census campaign completed successfully!")
+
+                # Display campaign results
+                campaign_manager = campaign_result["campaign_manager"]
+                results = campaign_result["results"]
+
+                st.write(f"**Campaign ID:** {campaign_id}")
+                st.write(
+                    f"**Total Images:** {len(campaign_manager.census_manager.image_paths)}"
+                )
+                st.write(
+                    f"**Drone Images Created:** {len(campaign_manager.census_manager.drone_images)}"
+                )
+
+                if "statistics" in results:
+                    stats = results["statistics"]
+                    if "flight_analysis" in stats:
+                        flight_stats = stats["flight_analysis"]
+                        st.write(
+                            f"**Images with GPS:** {flight_stats.get('num_images_with_gps', 0)}"
+                        )
+                        st.write(
+                            f"**Total Waypoints:** {flight_stats.get('total_waypoints', 0)}"
+                        )
+                        st.write(
+                            f"**Total Distance:** {flight_stats.get('total_distance_km', 0):.2f} km"
+                        )
+
+                # Detection statistics
+                if campaign_manager.census_manager.drone_images:
+                    detection_stats = get_detection_statistics(
+                        campaign_manager.census_manager.drone_images
+                    )
+                    if detection_stats["total_detections"] > 0:
+                        st.write("**Detection Results:**")
+                        st.write(
+                            f"- Total detections: {detection_stats['total_detections']}"
+                        )
+                        st.write(
+                            f"- Species detected: {len(detection_stats['species_counts'])}"
+                        )
+
+                        if detection_stats["species_counts"]:
+                            st.write("**Species breakdown:**")
+                            for species, count in detection_stats[
+                                "species_counts"
+                            ].items():
+                                st.write(f"- {species}: {count}")
+            else:
+                st.error(f"Campaign failed: {campaign_result['error']}")
+
+
+def get_detection_statistics(drone_images: List) -> dict:
+    """Calculate detection statistics from drone images."""
+    total_detections = 0
+    species_counts = {}
+
+    for drone_image in drone_images:
+        detections = drone_image.get_all_predictions()
+        total_detections += len(detections)
+
+        for detection in detections:
+            if not detection.is_empty:
+                species = detection.class_name
+                species_counts[species] = species_counts.get(species, 0) + 1
+
+    return {
+        "total_detections": total_detections,
+        "species_counts": species_counts,
+    }
 
 
 if __name__ == "__main__":

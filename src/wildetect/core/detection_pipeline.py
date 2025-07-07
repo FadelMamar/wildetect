@@ -3,6 +3,7 @@ Detection Pipeline for end-to-end wildlife detection processing.
 """
 
 import logging
+import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -26,7 +27,6 @@ class DetectionPipeline:
         self,
         config: PredictionConfig,
         loader_config: LoaderConfig,
-        device: str = "cpu",
     ):
         """Initialize the detection pipeline.
 
@@ -37,7 +37,7 @@ class DetectionPipeline:
         """
         self.config = config
         self.loader_config = loader_config
-        self.device = device or config.device
+        self.device = config.device
 
         assert config.model_path is not None, "Model path must be provided"
         assert config.model_type is not None, "Model type must be provided"
@@ -51,6 +51,8 @@ class DetectionPipeline:
         logger.info(
             f"Initialized DetectionPipeline with model_type={config.model_type}"
         )
+
+        self.error_count = 0
 
     def setup(self) -> None:
         """Set up the inference engine with model and processors."""
@@ -71,28 +73,21 @@ class DetectionPipeline:
             logger.error(f"Failed to setup inference engine: {e}")
             raise
 
-    def process_batch(
+    def _process_batch(
         self,
         batch: Dict[str, Any],
         progress_bar: Optional[tqdm] = None,
     ) -> List[List[Detection]]:
         """Process a single batch of tiles."""
         # Run inference on tiles
-        try:
-            if self.detection_system is None:
-                raise ValueError("Detection system not initialized")
+        if self.detection_system is None:
+            raise ValueError("Detection system not initialized")
+        detections = self.detection_system.predict(batch["images"])
+        if progress_bar:
+            progress_bar.update(len(batch["tiles"]))
+        return detections
 
-            detections = self.detection_system.predict(batch["images"])
-            # Update progress bar
-            if progress_bar:
-                progress_bar.update(len(batch["tiles"]))
-            return detections
-
-        except Exception as e:
-            logger.error(f"Failed to process batch: {e}")
-            return []
-
-    def _postprocess(self, batch: Dict[str, Any]) -> List[DroneImage]:
+    def _postprocess(self, batches: List[Dict[str, Any]]) -> List[DroneImage]:
         """Post-process batch results and convert to DroneImage objects.
 
         Args:
@@ -101,38 +96,38 @@ class DetectionPipeline:
         Returns:
             List of DroneImage objects with detections
         """
-        if not batch.get("detections"):
-            logger.warning("No detections found in batch")
+        if len(batches) == 0:
             return []
 
         # Group tiles by parent image
         drone_images: Dict[str, DroneImage] = {}
 
         # Process each tile and its detections
-        for i, tile in enumerate(batch["tiles"]):
-            parent_image = tile.parent_image or tile.image_path
+        for batch in batches:
+            for tile, tile_detections in zip(batch["tiles"], batch["detections"]):
+                parent_image = tile.parent_image or tile.image_path
 
-            # Create or get drone image for this parent
-            if parent_image not in drone_images:
-                drone_image = DroneImage.from_image_path(
-                    image_path=parent_image,
-                    flight_specs=self.loader_config.flight_specs,
-                )
-                drone_images[parent_image] = drone_image
+                # Create or get drone image for this parent
+                if parent_image not in drone_images:
+                    drone_image = DroneImage.from_image_path(
+                        image_path=parent_image,
+                        flight_specs=self.loader_config.flight_specs,
+                    )
+                    drone_images[parent_image] = drone_image
 
-            # Get detections for this tile
-            tile_detections = batch["detections"][i]
+                # Set detections on the tile
+                if tile_detections:
+                    tile.set_predictions(tile_detections)
+                else:
+                    # Set empty detection if no detections found
+                    tile.set_predictions([])
 
-            # Set detections on the tile
-            if tile_detections:
-                tile.set_predictions(tile_detections)
-            else:
-                # Set empty detection if no detections found
-                tile.set_predictions([])
+                # Add tile to drone image with its offset
+                offset = (tile.x_offset or 0, tile.y_offset or 0)
+                drone_images[parent_image].add_tile(tile, offset[0], offset[1])
 
-            # Add tile to drone image with its offset
-            offset = (tile.x_offset or 0, tile.y_offset or 0)
-            drone_images[parent_image].add_tile(tile, offset[0], offset[1])
+        for drone_image in drone_images.values():
+            drone_image.offset_detections()
 
         return list(drone_images.values())
 
@@ -161,23 +156,27 @@ class DetectionPipeline:
         )
 
         # Process batches
-        all_detections = []
+        all_batches = []
         total_batches = len(data_loader)
         batch = None  # Initialize batch variable
 
         with tqdm(total=total_batches, desc="Processing batches") as pbar:
             for batch_idx, batch in enumerate(data_loader):
                 try:
-                    detections = self.process_batch(batch, pbar)
-                    all_detections.append(detections)
+                    detections = self._process_batch(batch, pbar)
+                    batch["detections"] = detections
+                    all_batches.append(batch)
                 except Exception as e:
                     logger.error(f"Failed to process batch {batch_idx}: {e}")
+                    self.error_count += 1
                     continue
+                finally:
+                    if self.error_count > 5:
+                        raise RuntimeError("Too many errors. Stopping.")
 
         # Add detections to the last batch for postprocessing
-        if batch is not None:
-            batch["detections"] = all_detections
-            all_drone_images = self._postprocess(batch=batch)
+        if len(all_batches) > 0:
+            all_drone_images = self._postprocess(batches=all_batches)
         else:
             logger.warning("No batches were processed")
             all_drone_images = []

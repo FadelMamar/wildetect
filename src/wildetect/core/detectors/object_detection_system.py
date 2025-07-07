@@ -15,7 +15,7 @@ from ..data.tile import Tile
 from ..processor.processor import RoIPostProcessor
 from ..registry import Detector
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("DETECTION_SYSTEM")
 
 
 class ObjectDetectionSystem:
@@ -69,7 +69,6 @@ class ObjectDetectionSystem:
                 d = self.roi_processor.run(
                     detections=detections[i],
                     image=image,
-                    box_size=self.config.cls_imgsz,
                     verbose=self.config.verbose,
                 )
                 processed_detections.append(d)
@@ -85,10 +84,21 @@ class ObjectDetectionSystem:
         assert batch.ndim == 4, "Image must be a 4D tensor"
         B, C, H, W = batch.shape
         assert C == 3, "Image must have 3 channels"
+        assert B >= 1, "Batch must have at least 1 image"
+        if batch.max() > 1.0 and batch.min() < 0.0:
+            logger.warning("Batch is not normalized. Normalizing it.")
 
         # Run batch prediction
         detections = self.model.predict(batch)
         detections = self._postprocess(detections=detections, batch=batch)
+        if len(detections) != B:
+            logger.error(
+                f"Number of detections and images must match. {len(detections)} != {B}"
+            )
+            raise ValueError(
+                f"Number of detections and images must match. {len(detections)} != {B}"
+            )
+
         return detections
 
     def get_model_info(self) -> Dict[str, Any]:

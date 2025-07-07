@@ -126,13 +126,13 @@ class DroneImage(Tile):
             tile.set_offsets(offset[0], offset[1])
             tile.offset_detections()
 
-    def get_all_predictions(self, force_compute: bool = False) -> List[Detection]:
+    def get_all_predictions(self, force_offset: bool = False) -> List[Detection]:
         """Get all predictions from all tiles.
 
         Returns:
             List[Detection]: All predictions from all tiles
         """
-        if self.predictions and not force_compute:
+        if self.predictions and not force_offset:
             return self.predictions
 
         all_detections = []

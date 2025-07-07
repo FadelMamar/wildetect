@@ -145,10 +145,14 @@ class TileDataset(Dataset):
 
                 # Convert to numpy and then to PIL
                 patch_numpy = patch_tensor.cpu().numpy()
-                if patch_numpy.max() <= 1.0:  # Normalized
+                if patch_numpy.max() <= 1.0 and patch_numpy.min() >= 0:  # Normalized
                     patch_numpy = (patch_numpy * 255).astype(np.uint8)
-                else:
+                elif patch_numpy.max() <= 255 and patch_numpy.min() >= 0:
                     patch_numpy = patch_numpy.astype(np.uint8)
+                else:
+                    raise ValueError(
+                        f"Invalid patch numpy: max:{patch_numpy.max()} min:{patch_numpy.min()}. Either 0-1 or 0-255"
+                    )
 
                 patch_image = Image.fromarray(patch_numpy)
 
@@ -234,10 +238,10 @@ class TileDataset(Dataset):
 
         # Load image data
         image = tile.load_image_data()
-
+        image = self.transforms(image).float() / 255.0
         return {
             "tile": tile,
-            "image": self.transforms(image),
+            "image": image,
             "image_path": tile.image_path,
             "tile_id": tile.id,
             "width": tile.width,

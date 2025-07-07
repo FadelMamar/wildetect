@@ -367,7 +367,10 @@ class TestDetectionPipeline:
 
         # Check if model file exists
         if not os.path.exists(prediction_config.model_path):
-            pytest.skip(f"Model file not found: {prediction_config.model_path}")
+            raise FileNotFoundError(
+                f"Model file not found: {prediction_config.model_path}"
+            )
+            # pytest.skip(f"Model file not found: {prediction_config.model_path}")
 
         # Load a few test images
         image_paths = []
@@ -381,7 +384,8 @@ class TestDetectionPipeline:
                 continue
 
         if not image_paths:
-            pytest.skip("No valid image paths found for testing")
+            raise ValueError("No valid image paths found for testing")
+            # pytest.skip("No valid image paths found for testing")
 
         print(f"Testing with {len(image_paths)} images: {image_paths}")
 

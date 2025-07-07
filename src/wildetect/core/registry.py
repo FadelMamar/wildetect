@@ -31,6 +31,10 @@ class Detector(ABC):
         pass
 
     @abstractmethod
+    def _predict_batch(self, batch: torch.Tensor) -> List[List[Detection]]:
+        pass
+
+    @abstractmethod
     def predict(self, batch: torch.Tensor) -> List[List[Detection]]:
         """Run prediction on an image."""
         pass

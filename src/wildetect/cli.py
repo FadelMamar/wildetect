@@ -2,9 +2,11 @@
 Command Line Interface for WildDetect using Typer.
 """
 
+import importlib.metadata
 import json
 import logging
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Union
@@ -20,6 +22,8 @@ from .core.data.census import CampaignMetadata, CensusDataManager
 from .core.detection_pipeline import DetectionPipeline
 from .core.visualization.geographic import GeographicVisualizer, VisualizationConfig
 
+ROOT_DIR = Path(__file__).parent.parent.parent
+
 # Create Typer app
 app = typer.Typer(
     name="wildetect",
@@ -29,6 +33,12 @@ app = typer.Typer(
 
 # Create console for rich output
 console = Console()
+
+# Get version from package metadata
+try:
+    __version__ = importlib.metadata.version("wildetect")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "0.0.0"
 
 
 def setup_logging(verbose: bool = False):
@@ -41,26 +51,70 @@ def setup_logging(verbose: bool = False):
     )
 
 
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=lambda value: (
+            print(f"wildetect version: {__version__}") or raise_exit()
+        )
+        if value
+        else None,
+        is_eager=True,
+        help="Show the version and exit.",
+    ),
+):
+    """WildDetect - Wildlife Detection System"""
+    pass
+
+
+def raise_exit():
+    raise typer.Exit()
+
+
 @app.command()
 def detect(
     images: List[str] = typer.Argument(..., help="Image paths or directory"),
     model_path: Optional[str] = typer.Option(
-        None, "--model", "-m", help="Path to model weights"
+        None,
+        "--model",
+        "-m",
+        help="Path to model weights. Otherwise uses WILDETECT_MODEL_PATH environment variable",
     ),
     model_type: str = typer.Option("yolo", "--type", "-t", help="Model type"),
     confidence: float = typer.Option(
         0.25, "--confidence", "-c", help="Confidence threshold"
     ),
     device: str = typer.Option(
-        "auto", "--device", "-d", help="Device to run inference on"
+        "auto", "--device", "-d", help="Device to run inference on. auto, cpu or cuda"
     ),
     batch_size: int = typer.Option(8, "--batch-size", "-b", help="Batch size"),
-    tile_size: int = typer.Option(640, "--tile-size", help="Tile size for processing"),
+    tile_size: int = typer.Option(800, "--tile-size", help="Tile size for processing"),
     output: Optional[str] = typer.Option(
         None, "--output", "-o", help="Output directory for results"
     ),
-    max_images: Optional[int] = typer.Option(
-        None, "--max-images", help="Maximum number of images to process"
+    roi_weights: Optional[str] = typer.Option(
+        None,
+        "--roi-weights",
+        help="Path to ROI weights file. Otherwise uses ROI_MODEL_PATH environment variable",
+    ),
+    cls_imgsz: int = typer.Option(96, "--cls-imgsz", help="Image size for classifier"),
+    inference_service_url: Optional[str] = typer.Option(
+        None, "--inference-service-url", help="URL for inference service"
+    ),
+    nms_iou: float = typer.Option(0.5, "--nms-iou", help="NMS IoU threshold"),
+    overlap_ratio: float = typer.Option(
+        0.2, "--overlap-ratio", help="Tile overlap ratio"
+    ),
+    sensor_height: float = typer.Option(
+        24.0, "--sensor-height", help="Sensor height in mm"
+    ),
+    focal_length: float = typer.Option(
+        35.0, "--focal-length", help="Focal length in mm"
+    ),
+    flight_height: float = typer.Option(
+        180.0, "--flight-height", help="Flight height in meters"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
@@ -70,14 +124,27 @@ def detect(
 
     try:
         # Determine if input is directory or file paths
+        logger.info(f"Processing images: {images}")
         if len(images) == 1 and Path(images[0]).is_dir():
             image_dir = images[0]
             image_paths = None
             console.print(f"[green]Processing directory: {image_dir}[/green]")
         else:
+            for image in images:
+                if not Path(image).exists():
+                    raise FileNotFoundError(f"Image not found: {image}")
+                if not Path(image).is_file():
+                    raise FileNotFoundError(f"Image is not a file: {image}")
+
             image_dir = None
             image_paths = images
             console.print(f"[green]Processing {len(images)} images[/green]")
+
+        flight_specs = FlightSpecs(
+            sensor_height=sensor_height,
+            focal_length=focal_length,
+            flight_height=flight_height,
+        )
 
         # Create configurations
         pred_config = PredictionConfig(
@@ -87,18 +154,29 @@ def detect(
             device=device,
             batch_size=batch_size,
             tilesize=tile_size,
+            flight_specs=flight_specs,
+            roi_weights=roi_weights,
+            cls_imgsz=cls_imgsz,
+            inference_service_url=inference_service_url,
+            verbose=verbose,
+            nms_iou=nms_iou,
+            overlap_ratio=overlap_ratio,
         )
 
         loader_config = LoaderConfig(
             tile_size=tile_size,
             batch_size=batch_size,
+            num_workers=0,
+            flight_specs=flight_specs,
+            cache_images=False,
+            cache_dir=None,
+            extract_gps=True,
         )
 
         # Create detection pipeline
         pipeline = DetectionPipeline(
             config=pred_config,
             loader_config=loader_config,
-            device=device,
         )
 
         # Run detection
@@ -110,7 +188,7 @@ def detect(
             task = progress.add_task("Running detection...", total=None)
 
             drone_images = pipeline.run_detection(
-                image_paths=image_paths or [],
+                image_paths=image_paths,
                 image_dir=image_dir,
                 save_path=output + "/results.json" if output else None,
             )
@@ -121,8 +199,9 @@ def detect(
         display_results(drone_images, output)
 
     except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
+        typer.secho(f"[red]Error: {e}[/red]", fg=typer.colors.RED)
         logger.error(f"Detection failed: {e}")
+        traceback.print_exc()
         raise typer.Exit(1)
 
 
@@ -781,6 +860,84 @@ def export_analysis_report(analysis_results: dict, output_dir: str):
 
     except Exception as e:
         console.print(f"[red]Failed to export analysis report: {e}[/red]")
+
+
+@app.command()
+def ui(
+    port: int = typer.Option(8501, "--port", "-p", help="Port to run the UI on"),
+    host: str = typer.Option("localhost", "--host", "-h", help="Host to run the UI on"),
+    open_browser: bool = typer.Option(
+        True, "--no-browser", help="Don't open browser automatically"
+    ),
+):
+    """Launch the WildDetect web interface with CLI integration."""
+    try:
+        import subprocess
+        import sys
+
+        # Get the path to the UI module
+        ui_path = Path(__file__).parent / "ui" / "main.py"
+
+        if not ui_path.exists():
+            console.print(f"[red]UI module not found at: {ui_path}[/red]")
+            raise typer.Exit(1)
+
+        console.print(f"[green]Launching WildDetect UI on http://{host}:{port}[/green]")
+        console.print("[yellow]Press Ctrl+C to stop the server[/yellow]")
+
+        # Launch Streamlit
+        cmd = [
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
+            str(ui_path),
+            "--server.port",
+            str(port),
+            "--server.address",
+            host,
+            "--server.headless",
+            "true" if not open_browser else "false",
+        ]
+
+        subprocess.run(cmd)
+
+    except ImportError:
+        console.print("[red]Streamlit not installed. Please install it with:[/red]")
+        console.print("[yellow]pip install streamlit[/yellow]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error launching UI: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def clear_results(
+    results_dir: str = typer.Option(
+        "results", help="Directory containing results to clear."
+    ),
+):
+    """Delete all detection results in the specified directory."""
+    if not typer.confirm(
+        f"Are you sure you want to delete all results in '{results_dir}'?"
+    ):
+        typer.echo("Operation cancelled.")
+        raise typer.Exit(0)
+    import shutil
+    from pathlib import Path
+
+    results_path = Path(results_dir)
+    if results_path.exists() and results_path.is_dir():
+        shutil.rmtree(results_path)
+        typer.secho(
+            f"All results in '{results_dir}' have been deleted.", fg=typer.colors.GREEN
+        )
+        raise typer.Exit(0)
+    else:
+        typer.secho(
+            f"Directory '{results_dir}' does not exist.", fg=typer.colors.YELLOW
+        )
+        raise typer.Exit(0)
 
 
 if __name__ == "__main__":
