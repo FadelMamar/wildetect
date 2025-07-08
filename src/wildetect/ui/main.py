@@ -5,22 +5,29 @@ This module provides a web interface for uploading images, running detection,
 and visualizing results with FiftyOne integration.
 """
 
+import atexit
 import json
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import traceback
 from pathlib import Path
 from typing import List, Optional
 
+import mlflow
 import pandas as pd
 import streamlit as st
+from dotenv import load_dotenv
 
-ROOT_DIR = Path(__file__).parent.parent.parent
-
+ROOT_DIR = Path(__file__).parents[3]
+MODELS_ROOT = ROOT_DIR / "models"
+MODELS_ROOT.mkdir(exist_ok=True)
 
 from wildetect.cli_ui_integration import cli_ui_integration
 from wildetect.core.visualization.fiftyone_manager import FiftyOneManager
+from wildetect.utils.utils import load_registered_model
 
 # Page configuration
 st.set_page_config(
@@ -47,14 +54,20 @@ def initialize_components():
             st.session_state.fo_manager = None
         if "detector" not in st.session_state:
             st.session_state.detector = None
-    except Exception as e:
-        st.error(f"Error initializing components: {e}")
+        if "temp_dir" not in st.session_state:
+            temp_dir = tempfile.TemporaryDirectory()
+            st.session_state.temp_dir = temp_dir
+            atexit.register(temp_dir.cleanup)
+    except Exception:
+        st.error(f"Error initializing components: {traceback.format_exc()}")
 
 
 def main():
     """Main application function."""
     st.title("🦁 WildDetect - Wildlife Detection System")
     st.markdown("Semi-automated wildlife detection from aerial images")
+
+    load_dotenv(ROOT_DIR / ".env", override=False)
 
     # Initialize components
     initialize_components()
@@ -63,20 +76,12 @@ def main():
     with st.sidebar:
         st.header("Settings")
 
+        st.subheader("MLflow Server")
+        launch_mlflow()
+
         # Model settings
         st.subheader("Model settings")
-        with st.form("model_form"):
-            model_path = st.text_input(
-                "Model Path", value=r"D:\workspace\repos\wildetect\weights\best.pt"
-            )
-            roi_weights = st.text_input(
-                "ROI Weights Path",
-                value=r"D:\workspace\repos\wildetect\weights\roi_classifier.torchscript",
-            )
-            if st.form_submit_button("Load Model"):
-                os.environ["WILDETECT_MODEL_PATH"] = model_path
-                os.environ["ROI_MODEL_PATH"] = roi_weights
-                st.success("Model updated successfully!")
+        model_settings_tab()
 
         # Dataset settings
         st.subheader("Data visualization")
@@ -128,6 +133,105 @@ def main():
     with tab4:
         census_campaign_tab()
 
+    return None
+
+
+def launch_mlflow():
+    """Launch MLflow server."""
+
+    if st.button("Launch MLflow Server"):
+        if sys.platform == "win32":
+            creationflags = subprocess.CREATE_NEW_CONSOLE
+            path = str(Path(ROOT_DIR).resolve() / "scripts/launch_mlflow.bat")
+            # st.write(path)
+            subprocess.Popen([path], creationflags=creationflags)
+        else:
+            raise NotImplementedError(
+                "MLflow server is not supported on this platform."
+            )
+        st.success("MLflow server launched!")
+    return None
+
+
+# TODO: debugg
+def get_registered_model_names():
+    """Return a list of all registered model names from MLflow."""
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
+    st.write("Mlflow server:", tracking_uri)
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
+    try:
+        models = mlflow.MlflowClient().search_registered_models()
+        return [m.name for m in models]
+    except Exception as e:
+        st.error(f"Error fetching registered model names: {e}")
+        return []
+
+
+def get_model_versions_and_aliases(model_name):
+    """Return (model_versions, alias_to_version, version_to_aliases) for a model."""
+    model_versions = []
+    alias_to_version = {}
+    version_to_aliases = {}
+    try:
+        versions = mlflow.MlflowClient().search_model_versions(f"name='{model_name}'")
+        for v in versions:
+            model_versions.append(str(v.version))
+            for alias in getattr(v, "aliases", []):
+                alias_to_version[alias] = str(v.version)
+                version_to_aliases.setdefault(str(v.version), []).append(alias)
+    except Exception as e:
+        st.error(f"Error fetching model versions/aliases: {e}")
+    return model_versions, alias_to_version, version_to_aliases
+
+
+def model_settings_tab():
+    """Handle model settings."""
+    # model_names = get_registered_model_names()
+    # if not model_names:
+    #    st.warning("No registered models found in MLflow.")
+    #    return
+
+    model_name = st.selectbox("Registered Model Name", options=["labeler"])
+    (
+        model_versions,
+        alias_to_version,
+        version_to_aliases,
+    ) = get_model_versions_and_aliases(model_name)
+    alias_options = list(alias_to_version.keys())
+    selected_alias = None
+    selected_version = None
+
+    if alias_options:
+        selected_alias = st.selectbox("Select Model Alias", alias_options)
+        selected_version = alias_to_version[selected_alias]
+    # elif model_versions:
+    #    selected_version = st.selectbox("Select Model Version", model_versions)
+    else:
+        st.warning("No versions or aliases found for this model name.")
+        return
+
+    local_model_dir = MODELS_ROOT / model_name / str(selected_version)
+    local_model_dir.mkdir(parents=True, exist_ok=True)
+    local_model_dir = str(local_model_dir.resolve())
+
+    st.write(f"Local model dir: `{local_model_dir}`")
+    # if local_model_dir.exists():
+    #    st.success("Model already downloaded.")
+    # else:
+    if st.button("Download Model"):
+        with st.spinner("Downloading model from MLflow..."):
+            try:
+                model, metadata = load_registered_model(
+                    selected_alias, model_name, dwnd_location=str(local_model_dir)
+                )
+                st.success(
+                    f"Model {model_name}:{selected_alias} downloaded to {local_model_dir}"
+                )
+                st.write(model)
+            except Exception as e:
+                st.error(f"Error downloading model: {e}")
+
 
 def upload_and_detect_tab():
     """Handle image upload and detection."""
@@ -152,13 +256,12 @@ def upload_and_detect_tab():
         saved_paths = []
         if uploaded_files:
             st.session_state.uploaded_files = uploaded_files
+            temp_dir = st.session_state.temp_dir.name
             for uploaded_file in uploaded_files:
-                # Save to temporary location
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}"
-                ) as tmp_file:
-                    shutil.copyfileobj(uploaded_file, tmp_file)
-                    saved_paths.append(tmp_file.name)
+                file_path = os.path.join(temp_dir, uploaded_file.name)
+                with open(file_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                saved_paths.append(file_path)
 
             st.session_state.saved_paths = saved_paths
 
@@ -386,13 +489,18 @@ def census_campaign_tab():
         )
         image_paths = []
         if uploaded_images:
+            temp_dir = st.session_state.temp_dir.name
             # Save uploaded files temporarily
             for uploaded_file in uploaded_images:
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}"
-                ) as tmp_file:
-                    shutil.copyfileobj(uploaded_file, tmp_file)
-                    image_paths.append(tmp_file.name)
+                file_path = os.path.join(temp_dir, uploaded_file.name)
+                with open(file_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                image_paths.append(file_path)
+
+            if isinstance(st.session_state.saved_paths, list):
+                st.session_state.saved_paths.extend(image_paths)
+            else:
+                st.session_state.saved_paths = image_paths
     else:
         directory_path = st.text_input(
             "Image Directory Path",

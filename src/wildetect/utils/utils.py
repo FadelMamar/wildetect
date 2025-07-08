@@ -1,5 +1,6 @@
 import logging
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
 import torch
 from torchmetrics.functional.detection import complete_intersection_over_union
@@ -37,6 +38,7 @@ def load_registered_model(
     tag_to_append: str = "",
     mlflow_tracking_url="http://localhost:5000",
     load_unwrapped: bool = False,
+    dwnd_location: Optional[str] = None,
 ):
     mlflow.set_tracking_uri(mlflow_tracking_url)
 
@@ -46,7 +48,12 @@ def load_registered_model(
     modelversion = f"{name}:{version}" + tag_to_append
     modelURI = f"models:/{name}/{version}"
 
-    model = mlflow.pyfunc.load_model(modelURI)
+    if dwnd_location:
+        if not Path(dwnd_location).exists():
+            Path(dwnd_location).mkdir(parents=True, exist_ok=True)
+        model = mlflow.pyfunc.load_model(modelURI, dst_path=str(dwnd_location))
+    else:
+        model = mlflow.pyfunc.load_model(modelURI)
 
     metadata = dict(version=modelversion, modeluri=modelURI)
     metadata.update(model.metadata.metadata)
