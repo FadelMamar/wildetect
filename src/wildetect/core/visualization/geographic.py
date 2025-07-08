@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import folium
 import numpy as np
 
+from ..data.detection import Detection
 from ..data.drone_image import DroneImage
 from ..flight.geographic_merger import GPSOverlapStrategy
 
@@ -236,7 +237,8 @@ class GeographicVisualizer:
     def _visualize_detections(
         self,
         map_obj: folium.Map,
-        drone_image: DroneImage,
+        detections: List[Detection],
+        drone_image_path: str,
         color: Optional[str] = None,
         radius: int = 5,
         weight: int = 2,
@@ -255,26 +257,31 @@ class GeographicVisualizer:
         Returns:
             int: Number of detections visualized
         """
-        if not drone_image.get_non_empty_predictions():
+        if len(detections) == 0:
             return 0
 
         detection_color = color or self.config.detection_color
         visualized_count = 0
 
-        for detection in drone_image.get_non_empty_predictions():
-            try:
-                # Get detection center coordinates
-                if detection.gps_loc is None:
-                    logger.warning(
-                        f"Can't visualize detection. No GPS location for detection {detection}"
-                    )
-                    continue
+        eligible_detections = [det for det in detections if det.gps_loc is not None]
 
+        if len(eligible_detections) != len(detections):
+            logger.warning(
+                f"Skipping {len(detections) - len(eligible_detections)} detections without GPS location"
+            )
+        elif len(eligible_detections) == 0:
+            logger.warning(
+                f"No eligible detections to visualize for {drone_image_path}"
+            )
+            return 0
+
+        for detection in eligible_detections:
+            try:
                 lat, lon, alt = detection.gps_as_decimals
 
                 # Create popup content for detection
                 popup_content = self._create_detection_popup_content(
-                    detection, drone_image
+                    detection, drone_image_path
                 )
 
                 # Create marker for detection
@@ -301,17 +308,9 @@ class GeographicVisualizer:
         return visualized_count
 
     def _create_detection_popup_content(
-        self, detection, drone_image: DroneImage
+        self, detection: Detection, drone_image_path: str
     ) -> str:
-        """Create HTML popup content for a detection.
-
-        Args:
-            detection: Detection object
-            drone_image: Parent DroneImage
-
-        Returns:
-            HTML string for popup content
-        """
+        """Create HTML popup content for a detection."""
         content = f"<div style='max-width: {self.config.popup_max_width}px;'>"
 
         content += f"<strong>Detection:</strong><br>"
@@ -323,7 +322,7 @@ class GeographicVisualizer:
         if detection.gps_loc:
             content += f"<strong>GPS:</strong> {detection.gps_loc}<br>"
 
-        content += f"<strong>Image:</strong> {Path(drone_image.image_path).name}<br>"
+        content += f"<strong>Image:</strong> {Path(drone_image_path).name}<br>"
 
         content += "</div>"
         return content
@@ -444,12 +443,13 @@ class GeographicVisualizer:
             for drone_image in drone_images:
                 eligible_detections = [
                     det
-                    for det in drone_image.get_all_predictions()
-                    if not det.is_empty and det.gps_loc is not None
+                    for det in drone_image.get_non_empty_predictions()
+                    if det.gps_loc is not None
                 ]
                 detections_count = self._visualize_detections(
                     map_obj=map_obj,
-                    drone_image=drone_image,
+                    detections=eligible_detections,
+                    drone_image_path=drone_image.image_path,
                     color=self.config.detection_color,
                     radius=3,
                     weight=2,

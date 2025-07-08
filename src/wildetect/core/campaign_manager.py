@@ -90,6 +90,10 @@ class CampaignManager:
         else:
             return drone_images
 
+    def set_drone_images(self, drone_images: List[DroneImage]) -> None:
+        """Set the drone images for the campaign."""
+        self.census_manager.drone_images = drone_images
+
     def add_images_from_paths(self, image_paths: List[str]) -> None:
         """Add images from file paths.
 
@@ -136,16 +140,16 @@ class CampaignManager:
         Returns:
             DetectionResults: Results from the detection campaign
         """
-        if not self.census_manager.drone_images:
+
+        images = self.get_drone_images(as_dict=False)
+        if not images:
             raise ValueError("No drone images available. Call prepare_data() first.")
 
-        logger.info(
-            f"Starting detection campaign for {len(self.census_manager.drone_images)} images"
-        )
+        logger.info(f"Starting detection campaign for {len(images)} images")
         start_time = time.time()
 
         # Run detection using the pipeline
-        image_paths = [img.image_path for img in self.census_manager.drone_images]
+        image_paths = [img.image_path for img in images]
         processed_drone_images = self.detection_pipeline.run_detection(
             image_paths=image_paths,
             save_path=output_dir + "/detection_results.json"
@@ -154,7 +158,7 @@ class CampaignManager:
         )
 
         # Update census manager with processed images
-        self.census_manager.drone_images = processed_drone_images
+        self.set_drone_images(processed_drone_images)
 
         # Calculate detection statistics
         total_detections = 0
@@ -222,10 +226,8 @@ class CampaignManager:
         self,
     ) -> None:
         """Merge detections across overlapping geographic regions."""
-        self.census_manager.drone_images = (
-            self.census_manager.merge_detections_geographically(
-                iou_threshold=self.config.detection_merging_threshold
-            )
+        self.census_manager.merge_detections_geographically(
+            iou_threshold=self.config.detection_merging_threshold
         )
         return None
 
@@ -238,15 +240,14 @@ class CampaignManager:
         Returns:
             str: Path to the saved visualization file
         """
-        if not self.get_drone_images():
+        images = self.get_drone_images(as_dict=False)
+        if not images:
             raise ValueError("No drone images available for visualization")
 
         if output_path is None:
             output_path = f"campaign_{self.campaign_id}_visualization.html"
 
-        self.geographic_visualizer.create_map(
-            self.get_drone_images(), save_path=output_path
-        )
+        self.geographic_visualizer.create_map(images, save_path=output_path)
 
         logger.info(f"Geographic visualization saved to: {output_path}")
         return output_path
@@ -257,14 +258,13 @@ class CampaignManager:
             logger.warning("FiftyOne manager not initialized. Skipping export.")
             return
 
-        if not self.census_manager.drone_images:
+        images = self.get_drone_images(as_dict=False)
+        if not images:
             logger.warning("No drone images available for FiftyOne export.")
             return
-
-        self.fiftyone_manager.add_drone_images(self.census_manager.drone_images)
-        logger.info(
-            f"Exported {len(self.census_manager.drone_images)} images to FiftyOne"
-        )
+        self.fiftyone_manager.add_drone_images(images)
+        self.fiftyone_manager.save_dataset()
+        logger.info(f"Exported {len(images)} images to FiftyOne")
 
     def export_detection_report(self, output_path: str) -> None:
         """Export a comprehensive detection report.
@@ -280,7 +280,7 @@ class CampaignManager:
         Returns:
             Dict[str, Any]: Complete campaign statistics
         """
-        return self.census_manager.get_enhanced_campaign_statistics()
+        return self.census_manager.get_campaign_statistics()
 
     def get_all_detections(
         self,
@@ -299,7 +299,7 @@ class CampaignManager:
         self,
         image_paths: List[str],
         output_dir: Optional[str] = None,
-        export_to_fiftyone: bool = False,
+        export_to_fiftyone: bool = True,
     ) -> Dict[str, Any]:
         """Run a complete campaign from start to finish.
 
@@ -350,9 +350,9 @@ class CampaignManager:
 
         # Step 6: Create visualization (optional)
         if output_dir:
-            visualization_path = f"{output_dir}/geographic_visualization.html"
+            visualization_path = Path(output_dir) / "geographic_visualization.html"
             visualization_path = self.create_geographic_visualization(
-                visualization_path
+                str(visualization_path)
             )
 
         # Step 7: Export to FiftyOne (optional)
@@ -361,8 +361,8 @@ class CampaignManager:
 
         # Step 8: Export final report
         if output_dir:
-            report_path = f"{output_dir}/campaign_report.json"
-            self.export_detection_report(report_path)
+            report_path = Path(output_dir) / "campaign_report.json"
+            self.export_detection_report(str(report_path))
             # joblib.dump(self.get_drone_images(), f"{output_dir}/drone_images.pkl")
 
         # Compile results

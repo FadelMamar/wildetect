@@ -151,7 +151,6 @@ class CLIUIIntegration:
                 "error": str(traceback.format_exc()),
             }
 
-    # TODO: test this
     def run_census_ui(
         self,
         campaign_id: str,
@@ -208,7 +207,6 @@ class CLIUIIntegration:
                 "campaign_id": campaign_id,
             }
 
-    # TODO: test this
     def _load_campaign_results(
         self, output_dir: str, campaign_id: str
     ) -> Dict[str, Any]:
@@ -219,19 +217,20 @@ class CLIUIIntegration:
                 with open(campaign_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             else:
+                self.logger.error(f"Campaign results file not found: {campaign_file}")
                 return {
                     "campaign_id": campaign_id,
                     "status": "completed",
                     "output_dir": output_dir,
                 }
-        except Exception:
+        except Exception as e:
             self.logger.error(
                 f"Failed to load campaign results: {traceback.format_exc()}"
             )
             return {
                 "campaign_id": campaign_id,
                 "status": "error",
-                "error": traceback.format_exc(),
+                "error": e,
                 "output_dir": output_dir,
             }
 

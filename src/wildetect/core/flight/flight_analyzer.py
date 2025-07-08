@@ -39,13 +39,11 @@ class FlightEfficiency:
 
     total_distance_km: float
     total_area_covered_sqkm: float
-    coverage_efficiency: float  # area_covered / distance_flown
     overlap_percentage: float
     average_altitude_m: float
     image_density_per_sqkm: float
 
 
-# TODO
 class FlightPathAnalyzer:
     """Analyzes flight paths and calculates efficiency metrics."""
 
@@ -120,7 +118,6 @@ class FlightPathAnalyzer:
             return FlightEfficiency(
                 total_distance_km=0.0,
                 total_area_covered_sqkm=0.0,
-                coverage_efficiency=0.0,
                 overlap_percentage=0.0,
                 average_altitude_m=0.0,
                 image_density_per_sqkm=0.0,
@@ -131,12 +128,6 @@ class FlightPathAnalyzer:
 
         # Calculate area covered
         total_area_covered_sqkm = self._calculate_area_covered(drone_images)
-
-        # Calculate coverage efficiency
-        if total_distance_km == 0.0:
-            coverage_efficiency = 0.0
-        else:
-            coverage_efficiency = total_area_covered_sqkm / total_distance_km
 
         # Calculate overlap percentage
         overlap_percentage = self._calculate_overlap_percentage(drone_images)
@@ -155,7 +146,6 @@ class FlightPathAnalyzer:
         return FlightEfficiency(
             total_distance_km=total_distance_km,
             total_area_covered_sqkm=total_area_covered_sqkm,
-            coverage_efficiency=coverage_efficiency,
             overlap_percentage=overlap_percentage,
             average_altitude_m=average_altitude_m,
             image_density_per_sqkm=image_density_per_sqkm,

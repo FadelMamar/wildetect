@@ -16,6 +16,7 @@ from .data.drone_image import DroneImage
 from .data.loader import DataLoader
 from .detectors.object_detection_system import ObjectDetectionSystem
 from .factory import build_detector
+from .processor.processor import RoIPostProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +68,23 @@ class DetectionPipeline:
             )
             self.detection_system.set_model(detector)
 
+            if self.config.roi_weights:
+                roi_processor = RoIPostProcessor(
+                    model_path=self.config.roi_weights,
+                    label_map=self.config.cls_label_map,
+                    feature_extractor_path=self.config.feature_extractor_path,
+                    roi_size=self.config.cls_imgsz,
+                    transform=self.config.transform,
+                    device=self.config.device,
+                    classifier=None,
+                    keep_classes=self.config.keep_classes,
+                )
+                self.detection_system.set_processor(roi_processor)
+
             logger.info("Detection pipeline setup completed")
 
         except Exception as e:
-            logger.error(f"Failed to setup inference engine: {e}")
+            logger.error(f"Failed to setup inference engine: {traceback.format_exc()}")
             raise
 
     def _process_batch(
@@ -176,11 +190,10 @@ class DetectionPipeline:
                         raise RuntimeError("Too many errors. Stopping.")
 
         # Add detections to the last batch for postprocessing
-        if len(all_batches) > 0:
-            all_drone_images = self._postprocess(batches=all_batches)
-        else:
+        all_drone_images = self._postprocess(batches=all_batches)
+        if len(all_drone_images) == 0:
             logger.warning("No batches were processed")
-            all_drone_images = []
+            return []
 
         # Save results if path provided
         if save_path:

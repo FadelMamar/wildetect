@@ -1,4 +1,5 @@
 import logging
+import traceback
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -166,6 +167,10 @@ class Classifier(Processor):
 
         if not isinstance(label_map, dict):
             raise ValueError("label_map must be a dictionary")
+        else:
+            assert all(
+                isinstance(key, int) for key in label_map.keys()
+            ), "label_map must be a dictionary of int keys"
 
         self.model = torch.jit.load(model_path)
         self.label_map = label_map
@@ -376,11 +381,13 @@ class RoIPostProcessor(Processor):
                 det for det, pred in zip(valid_detections, preds) if pred in self.keep
             ]
 
-            self.logger.info(
+            self.logger.debug(
                 f"Filtered {len(detections)} -> {len(filtered_detections)} detections"
             )
             return filtered_detections
 
         except Exception as e:
-            self.logger.error(f"Detection postprocessing failed: {e}")
+            self.logger.error(
+                f"Detection postprocessing failed: {traceback.format_exc()}"
+            )
             raise

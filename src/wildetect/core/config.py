@@ -2,13 +2,17 @@
 Configuration utilities for WildDetect.
 """
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
+import albumentations as A
 import torch
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,10 +43,16 @@ class PredictionConfig:
 
     batch_size: int = 8
 
+    cls_label_map: Optional[Dict[int, str]] = field(
+        default_factory=lambda: {0: "groundtruth", 1: "other"}
+    )
+    feature_extractor_path: Optional[str] = "facebook/dinov2-with-registers-small"
     roi_weights: Optional[str] = None
+    transform: Optional[A.Compose] = None
 
     # Image classifier imgsz
     cls_imgsz: int = 96
+    keep_classes: Optional[Sequence[str]] = ("groundtruth",)
 
     verbose: bool = False
 
@@ -68,12 +78,27 @@ class PredictionConfig:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         if self.model_path is None:
-            self.model_path = os.environ.get("WILDETECT_MODEL_PATH")
+            model_path = os.environ.get("WILDETECT_MODEL_PATH", None)
+            if model_path:
+                if Path(model_path).exists():
+                    self.model_path = os.environ.get("WILDETECT_MODEL_PATH")
+                else:
+                    logger.warning(
+                        "Model path not found in environment variables or config file."
+                    )
+
         else:
             self.model_path = str(Path(self.model_path).resolve())
 
         if self.roi_weights is None:
-            self.roi_weights = os.environ.get("WILDETECT_ROI_WEIGHTS")
+            roi_weights = os.environ.get("ROI_MODEL_PATH", None)
+            if roi_weights:
+                if Path(roi_weights).exists():
+                    self.roi_weights = roi_weights
+            else:
+                logger.warning(
+                    "ROI model path not found in environment variables or config file."
+                )
         else:
             self.roi_weights = str(Path(self.roi_weights).resolve())
 

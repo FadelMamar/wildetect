@@ -54,7 +54,7 @@ class FiftyOneManager:
         if self.dataset is None:
             raise RuntimeError("Dataset not initialized. Call _init_dataset() first.")
 
-    def add_drone_image(self, drone_image: DroneImage):
+    def _create_fo_sample(self, drone_image: DroneImage):
         """Add a DroneImage to the dataset.
 
         Args:
@@ -67,14 +67,13 @@ class FiftyOneManager:
             return
 
         # Get all detections from the drone image
-        all_detections = drone_image.get_all_predictions()
+        all_detections = drone_image.get_non_empty_predictions()
 
         # Convert to FiftyOne format
         fo_detections = []
         for detection in all_detections:
-            if not detection.is_empty:
-                fo_detection = detection.to_fiftyone()
-                fo_detections.append(fo_detection)
+            fo_detection = detection.to_fiftyone()
+            fo_detections.append(fo_detection)
 
         # Create sample with metadata
         sample = fo.Sample(filepath=drone_image.image_path)
@@ -121,10 +120,10 @@ class FiftyOneManager:
                 species_counts[species] = species_counts.get(species, 0) + 1
         sample["species_counts"] = species_counts
 
-        self.dataset.add_sample(sample)
-        logger.info(
-            f"Added drone image with {len(fo_detections)} detections: {drone_image.image_path}"
+        logger.debug(
+            f"Created sample for drone image with {len(fo_detections)} detections: {drone_image.image_path}"
         )
+        return sample
 
     def add_drone_images(self, drone_images: List[DroneImage]):
         """Add multiple DroneImage objects to the dataset.
@@ -134,18 +133,25 @@ class FiftyOneManager:
         """
         self._ensure_dataset_initialized()
 
+        assert isinstance(drone_images, list), "drone_images must be a list"
+        for drone_image in drone_images:
+            assert isinstance(
+                drone_image, DroneImage
+            ), "drone_images must be a list of DroneImage objects"
+
         if self.dataset is None:
             logger.error("Dataset is not initialized")
             return
 
         samples = []
         total_detections = 0
-
         for drone_image in drone_images:
-            # Get all detections from the drone image
-            self.add_drone_image(drone_image)
+            sample = self._create_fo_sample(drone_image)
+            samples.append(sample)
+            total_detections += sample["total_count"]
 
         self.dataset.add_samples(samples)
+        self.dataset.save()
         logger.info(
             f"Added {len(samples)} drone images with {total_detections} total detections"
         )

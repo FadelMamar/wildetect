@@ -53,8 +53,11 @@ class ObjectDetectionSystem:
         Args:
             roi_processor: ROI post-processor instance
         """
-        self.roi_processor = roi_processor
+        assert isinstance(
+            roi_processor, RoIPostProcessor
+        ), "roi_processor must be a RoIPostProcessor instance"
         if roi_processor:
+            self.roi_processor = roi_processor
             logger.info("Setting ROI post-processor")
         else:
             logger.info("No ROI post-processor set")

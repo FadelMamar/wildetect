@@ -2,11 +2,14 @@
 Dataset management for drone image analysis campaigns.
 """
 
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+import pandas as pd
 
 from ..config import LoaderConfig
 from ..data.detection import Detection
@@ -187,27 +190,22 @@ class CensusDataManager:
             f"  Area covered: {self.flight_efficiency.total_area_covered_sqkm:.2f} sq km"
         )
         logger.info(
-            f"  Coverage efficiency: {self.flight_efficiency.coverage_efficiency:.2f}"
-        )
-        logger.info(
             f"  Overlap percentage: {self.flight_efficiency.overlap_percentage:.1%}"
         )
 
         return self.flight_efficiency
 
-    def merge_detections_geographically(
-        self, iou_threshold: float = 0.8
-    ) -> List[DroneImage]:
+    def merge_detections_geographically(self, iou_threshold: float = 0.8) -> None:
         """Merge detections across overlapping geographic regions."""
         if not self.drone_images:
             logger.warning("No drone images available for geographic merging")
-            return []
+            return None
 
         merged_drone_images = self.geographic_merger.run(
             self.drone_images, iou_threshold=iou_threshold
         )
-
-        return merged_drone_images
+        self.drone_images = merged_drone_images
+        return None
 
     def set_detection_results(self, results: DetectionResults) -> None:
         """Set detection results from a detection campaign.
@@ -232,43 +230,6 @@ class CensusDataManager:
                 return drone_image
         return None
 
-    # TODO: Add enhanced campaign statistics
-    def get_enhanced_campaign_statistics(self) -> Dict[str, Any]:
-        """Get comprehensive statistics including Phase 2 features.
-
-        Returns:
-            Dict[str, Any]: Enhanced campaign statistics
-        """
-        stats = self.get_campaign_statistics()
-
-        # Add flight analysis statistics
-        if self.flight_path:
-            stats["flight_analysis"] = {
-                "total_waypoints": len(self.flight_path.coordinates),
-                "total_distance_km": self.flight_path.metadata.get(
-                    "total_distance_km", 0.0
-                ),
-                "average_altitude_m": self.flight_path.metadata.get(
-                    "average_altitude_m", 0.0
-                ),
-                "num_images_with_gps": len(
-                    [img for img in self.drone_images if img.latitude and img.longitude]
-                ),
-            }
-
-        # Add flight efficiency statistics
-        if self.flight_efficiency:
-            stats["flight_efficiency"] = {
-                "total_distance_km": self.flight_efficiency.total_distance_km,
-                "total_area_covered_sqkm": self.flight_efficiency.total_area_covered_sqkm,
-                "coverage_efficiency": self.flight_efficiency.coverage_efficiency,
-                "overlap_percentage": self.flight_efficiency.overlap_percentage,
-                "average_altitude_m": self.flight_efficiency.average_altitude_m,
-                "image_density_per_sqkm": self.flight_efficiency.image_density_per_sqkm,
-            }
-        return stats
-
-    # TODO: Add enhanced campaign statistics
     def _calculate_geographic_coverage(self) -> Dict[str, Any]:
         """Calculate geographic coverage statistics."""
         coverage = {
@@ -297,7 +258,6 @@ class CensusDataManager:
 
         return coverage
 
-    # TODO: Add enhanced campaign statistics
     def get_campaign_statistics(self) -> Dict[str, Any]:
         """Get comprehensive statistics about the campaign.
 
@@ -320,20 +280,38 @@ class CensusDataManager:
                 "confidence_stats": self.detection_results.detection_confidence_stats,
             }
 
+        # Add flight analysis statistics
+        if self.flight_path:
+            stats["flight_analysis"] = {
+                "total_waypoints": len(self.flight_path.coordinates),
+                "total_distance_km": self.flight_path.metadata.get(
+                    "total_distance_km", 0.0
+                ),
+                "average_altitude_m": self.flight_path.metadata.get(
+                    "average_altitude_m", 0.0
+                ),
+                "num_images_with_gps": len(
+                    [img for img in self.drone_images if img.latitude and img.longitude]
+                ),
+            }
+
+        # Add flight efficiency statistics
+        if self.flight_efficiency:
+            stats["flight_efficiency"] = {
+                "total_distance_km": self.flight_efficiency.total_distance_km,
+                "total_area_covered_sqkm": self.flight_efficiency.total_area_covered_sqkm,
+                "overlap_percentage": self.flight_efficiency.overlap_percentage,
+                "average_altitude_m": self.flight_efficiency.average_altitude_m,
+                "image_density_per_sqkm": self.flight_efficiency.image_density_per_sqkm,
+            }
+
         return stats
 
-    # TODO: Add detection report export
     def export_detection_report(self, output_path: str) -> None:
-        """Export detection results to a file.
-
-        Args:
-            output_path (str): Path to save the report
-        """
+        """Export detection results to a file."""
         if not self.detection_results:
             logger.warning("No detection results to export")
             return
-
-        import json
 
         report = {
             "campaign_id": self.campaign_id,
@@ -351,17 +329,18 @@ class CensusDataManager:
         with open(output_path, "w") as f:
             json.dump(report, f, indent=2, default=str)
 
+        gps_coords = [
+            detection.gps_as_decimals for detection in self.get_all_detections()
+        ]
+        df = pd.DataFrame(gps_coords, columns=["latitude", "longitude", "altitude"])
+        df.to_csv(Path(output_path).with_suffix(".csv"), index=False)
+
         logger.info(f"Detection report exported to: {output_path}")
 
-    # TODO: Add all detections retrieval
     def get_all_detections(
         self,
     ) -> List[Detection]:
-        """Get all detections from all DroneImages.
-
-        Returns:
-            List: All detections across the campaign
-        """
+        """Get all detections from all DroneImages."""
         all_detections = []
         for drone_image in self.drone_images:
             all_detections.extend(drone_image.get_non_empty_predictions())

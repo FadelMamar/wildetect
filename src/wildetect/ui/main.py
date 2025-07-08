@@ -417,7 +417,6 @@ def census_campaign_tab():
                         campaign_id=campaign_id,
                         images=image_paths,
                         target_species=target_species,
-                        create_map=True,
                         log_placeholder=log_placeholder,
                         status_text=log_placeholder,
                     )
@@ -426,16 +425,8 @@ def census_campaign_tab():
                 st.success("Census campaign completed successfully!")
 
                 # Display campaign results
-                campaign_manager = campaign_result["campaign_manager"]
                 results = campaign_result["results"]
-
                 st.write(f"**Campaign ID:** {campaign_id}")
-                st.write(
-                    f"**Total Images:** {len(campaign_manager.census_manager.image_paths)}"
-                )
-                st.write(
-                    f"**Drone Images Created:** {len(campaign_manager.census_manager.drone_images)}"
-                )
 
                 if "statistics" in results:
                     stats = results["statistics"]
@@ -450,49 +441,6 @@ def census_campaign_tab():
                         st.write(
                             f"**Total Distance:** {flight_stats.get('total_distance_km', 0):.2f} km"
                         )
-
-                # Detection statistics
-                if campaign_manager.census_manager.drone_images:
-                    detection_stats = get_detection_statistics(
-                        campaign_manager.census_manager.drone_images
-                    )
-                    if detection_stats["total_detections"] > 0:
-                        st.write("**Detection Results:**")
-                        st.write(
-                            f"- Total detections: {detection_stats['total_detections']}"
-                        )
-                        st.write(
-                            f"- Species detected: {len(detection_stats['species_counts'])}"
-                        )
-
-                        if detection_stats["species_counts"]:
-                            st.write("**Species breakdown:**")
-                            for species, count in detection_stats[
-                                "species_counts"
-                            ].items():
-                                st.write(f"- {species}: {count}")
-            else:
-                st.error(f"Campaign failed: {campaign_result['error']}")
-
-
-def get_detection_statistics(drone_images: List) -> dict:
-    """Calculate detection statistics from drone images."""
-    total_detections = 0
-    species_counts = {}
-
-    for drone_image in drone_images:
-        detections = drone_image.get_all_predictions()
-        total_detections += len(detections)
-
-        for detection in detections:
-            if not detection.is_empty:
-                species = detection.class_name
-                species_counts[species] = species_counts.get(species, 0) + 1
-
-    return {
-        "total_detections": total_detections,
-        "species_counts": species_counts,
-    }
 
 
 if __name__ == "__main__":

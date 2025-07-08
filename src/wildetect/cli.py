@@ -10,7 +10,7 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 import typer
 from rich.console import Console
@@ -80,6 +80,15 @@ def raise_exit():
     raise typer.Exit()
 
 
+def parse_cls_label_map(cls_label_map: List[str]) -> Dict[int, str]:
+    """Parse a list of key:value strings into a dictionary with int keys and str values."""
+    result = {}
+    for item in cls_label_map:
+        key, value = item.split(":", 1)
+        result[int(key)] = value
+    return result
+
+
 @app.command()
 def detect(
     images: List[str] = typer.Argument(..., help="Image paths or directory"),
@@ -111,6 +120,19 @@ def detect(
         None,
         "--roi-weights",
         help="Path to ROI weights file. Otherwise uses ROI_MODEL_PATH environment variable",
+    ),
+    feature_extractor_path: Optional[str] = typer.Option(
+        "facebook/dinov2-with-registers-small",
+        "--feature-extractor-path",
+        help="Path to feature extractor",
+    ),
+    cls_label_map: List[str] = typer.Option(
+        ["0:groundtruth", "1:other"],
+        "--cls-label-map",
+        help="Label map as key:value pairs",
+    ),
+    keep_classes: List[str] = typer.Option(
+        ["groundtruth"], "--keep-classes", help="Classes to keep"
     ),
     cls_imgsz: int = typer.Option(96, "--cls-imgsz", help="Image size for classifier"),
     inference_service_url: Optional[str] = typer.Option(
@@ -159,6 +181,15 @@ def detect(
             flight_height=flight_height,
         )
 
+        # Parse cls_label_map
+        label_map_dict = parse_cls_label_map(cls_label_map)
+
+        for class_name in keep_classes:
+            if class_name not in label_map_dict.values():
+                raise ValueError(
+                    f"Class {class_name} not found in cls_label_map. Please check the cls_label_map argument."
+                )
+
         # Create configurations
         pred_config = PredictionConfig(
             model_path=model_path,
@@ -170,6 +201,9 @@ def detect(
             flight_specs=flight_specs,
             roi_weights=roi_weights,
             cls_imgsz=cls_imgsz,
+            keep_classes=keep_classes,
+            feature_extractor_path=feature_extractor_path,
+            cls_label_map=label_map_dict,
             inference_service_url=inference_service_url,
             verbose=verbose,
             nms_iou=nms_iou,
@@ -486,6 +520,19 @@ def census(
         "--roi-weights",
         help="Path to ROI weights file. Otherwise uses ROI_MODEL_PATH environment variable",
     ),
+    feature_extractor_path: str = typer.Option(
+        "facebook/dinov2-with-registers-small",
+        "--feature-extractor-path",
+        help="Path to feature extractor",
+    ),
+    cls_label_map: List[str] = typer.Option(
+        ["0:groundtruth", "1:other"],
+        "--cls-label-map",
+        help="Label map as key:value pairs",
+    ),
+    keep_classes: List[str] = typer.Option(
+        ["groundtruth"], "--keep-classes", help="Classes to keep"
+    ),
     confidence: float = typer.Option(
         0.2, "--confidence", "-c", help="Confidence threshold"
     ),
@@ -550,6 +597,14 @@ def census(
             flight_height=flight_height,
         )
 
+        # Parse cls_label_map
+        label_map_dict = parse_cls_label_map(cls_label_map)
+        for class_name in keep_classes:
+            if class_name not in label_map_dict.values():
+                raise ValueError(
+                    f"Class {class_name} not found in cls_label_map. Please check the cls_label_map argument."
+                )
+
         # Create campaign metadata
         campaign_metadata = {
             "pilot_info": {"name": pilot_name or "Unknown", "experience": "Unknown"},
@@ -572,6 +627,9 @@ def census(
             flight_specs=flight_specs,
             roi_weights=roi_weights,
             cls_imgsz=cls_imgsz,
+            keep_classes=keep_classes,
+            feature_extractor_path=feature_extractor_path,
+            cls_label_map=label_map_dict,
             inference_service_url=inference_service_url,
             verbose=verbose,
             nms_iou=nms_iou,
@@ -821,24 +879,7 @@ def display_census_results(
 
     console.print(table)
 
-    # Detection results if available
-    if census_manager.drone_images:
-        detection_stats = get_detection_statistics(census_manager.drone_images)
-        if detection_stats["total_detections"] > 0:
-            console.print(f"\n[bold green]Detection Results:[/bold green]")
-            console.print(f"  Total detections: {detection_stats['total_detections']}")
-            console.print(
-                f"  Species detected: {len(detection_stats['species_counts'])}"
-            )
-
-            if detection_stats["species_counts"]:
-                console.print(f"  Species breakdown:")
-                for species, count in sorted(
-                    detection_stats["species_counts"].items(),
-                    key=lambda x: x[1],
-                    reverse=True,
-                ):
-                    console.print(f"    {species}: {count}")
+    display_results(census_manager.drone_images, output_dir=None)
 
     # Geographic coverage
     if census_manager.drone_images:
@@ -855,26 +896,25 @@ def display_census_results(
             bounds = geo_stats["geographic_bounds"]
             console.print(f"  Coverage bounds:")
             console.print(
-                f"    Latitude: {bounds['min_lat']:.6f} to {bounds['max_lat']:.6f}"
+                f"    Latitude: {bounds.get('min_lat', 0):.6f} to {bounds.get('max_lat', 0):.6f}"
             )
             console.print(
-                f"    Longitude: {bounds['min_lon']:.6f} to {bounds['max_lon']:.6f}"
+                f"    Longitude: {bounds.get('min_lon', 0):.6f} to {bounds.get('max_lon', 0):.6f}"
             )
 
 
-def get_detection_statistics(drone_images: List) -> dict:
+def get_detection_statistics(drone_images: List[DroneImage]) -> dict:
     """Calculate detection statistics from drone images."""
     total_detections = 0
     species_counts = {}
 
     for drone_image in drone_images:
-        detections = drone_image.get_all_predictions()
+        detections = drone_image.get_non_empty_predictions()
         total_detections += len(detections)
 
         for detection in detections:
-            if not detection.is_empty:
-                species = detection.class_name
-                species_counts[species] = species_counts.get(species, 0) + 1
+            species = detection.class_name
+            species_counts[species] = species_counts.get(species, 0) + 1
 
     return {
         "total_detections": total_detections,
@@ -962,7 +1002,7 @@ def export_campaign_report(census_manager: CensusDataManager, output_dir: str):
         report = {
             "campaign_id": census_manager.campaign_id,
             "metadata": census_manager.metadata,
-            "statistics": census_manager.get_enhanced_campaign_statistics(),
+            "statistics": census_manager.get_campaign_statistics(),
             "timestamp": datetime.now().isoformat(),
         }
 
@@ -1095,9 +1135,7 @@ def ui(
         ]
 
         subprocess.Popen(
-            cmd,
-            env=os.environ.copy(),
-            # creationflags=subprocess.CREATE_NEW_CONSOLE
+            cmd, env=os.environ.copy(), creationflags=subprocess.CREATE_NEW_CONSOLE
         )
 
     except ImportError:
