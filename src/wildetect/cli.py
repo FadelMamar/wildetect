@@ -180,9 +180,11 @@ def detect(
             config=pred_config,
             loader_config=loader_config,
         )
+        save_path = None
         if output:
             output_path = Path(output)
             output_path.mkdir(parents=True, exist_ok=True)
+            save_path = str(output_path / "results.json")
 
         # Run detection
         with Progress(
@@ -195,7 +197,7 @@ def detect(
             drone_images = pipeline.run_detection(
                 image_paths=image_paths,
                 image_dir=image_dir,
-                save_path=output + "/results.json" if output else None,
+                save_path=save_path,
             )
 
             progress.update(task, completed=True)
@@ -588,8 +590,7 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
 
     for drone_image in drone_images:
         # Get all predictions and filter out empty ones
-        all_predictions = drone_image.get_all_predictions()
-        non_empty_predictions = [det for det in all_predictions if not det.is_empty]
+        non_empty_predictions = drone_image.get_non_empty_predictions()
 
         # Count detections by class (excluding empty ones)
         for detection in non_empty_predictions:
@@ -631,7 +632,7 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
         images_with_detections = [
             drone_image
             for drone_image in drone_images
-            if any(not det.is_empty for det in drone_image.get_all_predictions())
+            if len(drone_image.get_non_empty_predictions()) > 0
         ]
 
         console.print(f"Images with detections: {len(images_with_detections)}")
@@ -643,19 +644,18 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
             try:
                 # Create geographic visualization
                 config = VisualizationConfig(
-                    map_center=None,
+                    # map_center=map_center,
                     zoom_start=12,
                     tiles="OpenStreetMap",  # Use OpenStreetMap instead of Stamen Terrain
                     image_bounds_color="purple",
                     image_center_color="orange",
                     overlap_color="red",
-                    show_image_path=True,
-                    show_image_bounds=True,
-                    show_detection_count=True,
-                    show_gps_info=True,
-                    show_image_centers=False,
-                    show_detections=True,
-                    show_statistics=True,
+                    # show_image_path=True,
+                    # show_image_bounds=True,
+                    # show_detection_count=True,
+                    # show_gps_info=True,
+                    # show_image_centers=True,
+                    # show_statistics=True,
                 )
                 map_file = str(output_path / "geographic_visualization.html")
 

@@ -15,13 +15,9 @@ from typing import List
 from unittest.mock import MagicMock, Mock, patch
 
 import fiftyone as fo
-import numpy as np
-from PIL import Image
 from wildetect.core.config import FlightSpecs
 from wildetect.core.data.detection import Detection
 from wildetect.core.data.drone_image import DroneImage
-from wildetect.core.data.utils import get_images_paths
-from wildetect.core.gps.geographic_bounds import GeographicBounds
 from wildetect.core.visualization.fiftyone_manager import FiftyOneManager
 
 TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
@@ -178,7 +174,6 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         image_path = load_image_path()
 
         # Add detections
-        manager.add_detections(detections, image_path)
 
         # Verify dataset has the sample
         sample = manager.dataset.first()
@@ -349,9 +344,6 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
             parent_image=load_image_path(),
         )
 
-        # Add detection
-        manager.add_detections([detection], detection.parent_image)
-
         # Verify FiftyOne detection format
         sample = manager.dataset.first()
         fo_detection = sample.detections.detections[0]  # Use .detections attribute
@@ -379,7 +371,6 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         )
 
         # Add detection
-        manager.add_detections([detection], detection.parent_image)
 
         # Verify metadata was preserved
         sample = manager.dataset.first()
@@ -399,9 +390,6 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         empty_detection = Detection.empty(load_image_path())
         detections = [empty_detection]
 
-        # Add empty detections
-        manager.add_detections(detections, empty_detection.parent_image)
-
         # Verify sample was added but no detections
         sample = manager.dataset.first()
         self.assertIsNotNone(sample)
@@ -412,7 +400,6 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         # Test with invalid dataset name
         with self.assertRaises((ValueError, RuntimeError)):
             manager = FiftyOneManager("", self.config)
-            manager.add_detections([], "test.jpg")
 
     def test_save_and_load_dataset(self):
         """Test saving and loading dataset."""

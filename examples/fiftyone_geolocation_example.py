@@ -5,19 +5,29 @@ This example shows how to use the updated FiftyOneManager with native
 FiftyOne geolocation features using fo.GeoLocation.
 """
 
+import os
+import random
 import logging
 from pathlib import Path
 from typing import List
 
+import fiftyone as fo
+
 from wildetect.core.data.detection import Detection
 from wildetect.core.data.drone_image import DroneImage
-from wildetect.core.gps.geographic_bounds import GeographicBounds
 from wildetect.core.visualization.fiftyone_manager import FiftyOneManager
+from wildetect.core.config import FlightSpecs
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
+
+def load_image_path():
+    image_path = random.choice(os.listdir(TEST_IMAGE_DIR))
+    image_path = os.path.join(TEST_IMAGE_DIR, image_path)
+    return image_path
 
 def create_sample_detections() -> List[Detection]:
     """Create sample Detection objects for demonstration."""
@@ -28,9 +38,7 @@ def create_sample_detections() -> List[Detection]:
         bbox=[100, 150, 200, 250],  # [x1, y1, x2, y2]
         confidence=0.85,
         class_id=1,
-        class_name="deer",
-        gps_loc="40.7128,-74.0060",  # Sample GPS coordinates
-        parent_image="/path/to/sample_image.jpg",
+        class_name="giraffe",
     )
     detections.append(detection1)
 
@@ -39,9 +47,7 @@ def create_sample_detections() -> List[Detection]:
         bbox=[300, 400, 400, 500],
         confidence=0.72,
         class_id=2,
-        class_name="bear",
-        gps_loc="40.7128,-74.0060",
-        parent_image="/path/to/sample_image.jpg",
+        class_name="elephant",
     )
     detections.append(detection2)
 
@@ -52,44 +58,26 @@ def create_sample_drone_image() -> DroneImage:
     """Create a sample DroneImage for demonstration."""
     # Create a drone image with sample data
     drone_image = DroneImage.from_image_path(
-        image_path="/path/to/drone_image.jpg",
-        latitude=40.7128,
-        longitude=-74.0060,
-        gsd=0.1,  # Ground sample distance in meters
-        timestamp="2024-01-15T10:30:00Z",
+        image_path=load_image_path(),
+        flight_specs=FlightSpecs(
+            sensor_height=24.0,
+            focal_length=35.0,
+            flight_height=180.0,
+        ),
     )
-
-    # Create geographic footprint
-    geographic_footprint = GeographicBounds(
-        north=40.7228,  # Max latitude
-        south=40.7028,  # Min latitude
-        east=-73.9960,  # Max longitude
-        west=-74.0160,  # Min longitude
-        lat_center=40.7128,
-        lon_center=-74.0060,
-        width_px=1920,
-        height_px=1080,
-        gsd=0.1,
-    )
-    drone_image.geographic_footprint = geographic_footprint
 
     # Add some sample detections to the drone image
     detections = create_sample_detections()
-    for detection in detections:
-        detection.parent_image = drone_image.image_path
-
-    # Add detections to the drone image (this would normally come from model predictions)
-    drone_image.predictions = detections
+    drone_image.set_predictions(detections,update_gps=True)
 
     return drone_image
 
 
 def demonstrate_native_geolocation():
     """Demonstrate FiftyOne's native geolocation features."""
-    import fiftyone as fo
 
     # Create a sample with native FiftyOne geolocation
-    sample = fo.Sample(filepath="/path/to/image.png")
+    sample = fo.Sample(filepath=load_image_path())
 
     # Add native FiftyOne geolocation
     sample["location"] = fo.GeoLocation(
@@ -122,16 +110,12 @@ def main():
 
     # Create sample data
     drone_image = create_sample_drone_image()
-    detections = create_sample_detections()
 
     # Add drone image to dataset (now uses native geolocation)
     logger.info("Adding drone image with native geolocation to FiftyOne dataset")
     fiftyone_manager.add_drone_image(drone_image)
 
-    # Add individual detections to dataset
-    logger.info("Adding individual detections to FiftyOne dataset")
-    fiftyone_manager.add_detections(detections, "/path/to/another_image.jpg")
-
+ 
     # Get samples with GPS data (now uses native location field)
     gps_samples = fiftyone_manager.get_detections_with_gps()
     logger.info(f"Found {len(gps_samples)} samples with native geolocation data")
@@ -153,7 +137,6 @@ def main():
     # fiftyone_manager.launch_app()
 
     # Close the dataset
-    fiftyone_manager.close()
     logger.info("Native geolocation example completed successfully")
 
 

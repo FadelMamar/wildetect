@@ -28,11 +28,6 @@ def main():
 
         ui_main()
 
-    except ImportError as e:
-        print(f"Error: Missing required dependencies. {e}")
-        print("Please install the required packages:")
-        print("pip install streamlit pandas rich typer")
-        sys.exit(1)
     except Exception as e:
         print(f"Error launching UI: {e}")
         sys.exit(1)

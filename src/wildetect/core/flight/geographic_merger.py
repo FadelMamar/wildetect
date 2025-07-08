@@ -111,7 +111,7 @@ class GPSOverlapStrategy(OverlapStrategy):
         num_images = len(overlap_map)
         neighbor_counts = [len(neighs) for neighs in overlap_map.values()]
         if neighbor_counts:
-            avg_neighbors = float(np.mean(neighbor_counts))
+            avg_neighbors = sum(neighbor_counts) / max(len(neighbor_counts), 1)
         else:
             avg_neighbors = 0.0
         max_neighbors = max(neighbor_counts) if neighbor_counts else 0
@@ -582,9 +582,9 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
                 stats["class_duplicate_stats"][class_name]["total_duplicates"] = len(
                     confidences
                 )
-                stats["class_duplicate_stats"][class_name]["avg_confidence"] = np.mean(
+                stats["class_duplicate_stats"][class_name]["avg_confidence"] = sum(
                     confidences
-                )
+                ) / max(len(confidences), 1)
                 # Avoid division by zero
                 if original_total_detections > 0:
                     stats["class_duplicate_stats"][class_name]["removal_rate"] = (

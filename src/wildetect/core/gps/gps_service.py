@@ -173,7 +173,7 @@ class GPSDetectionService:
         """
         if not tile.tile_gps_loc or not tile.gsd:
             logger.warning(
-                f"Cannot update detections for tile. No GPS @ path: {tile.image_path}"
+                f"Cannot update {detection_type} for tile. No GPS @ path: {tile.image_path}"
             )
             return
 

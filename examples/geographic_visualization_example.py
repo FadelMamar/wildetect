@@ -101,12 +101,7 @@ def demonstrate_custom_configuration():
         show_statistics=True,
     )
 
-    # Use convenience function
-    visualize_geographic_bounds(
-        drone_images=drone_images,
-        output_path="custom_visualization.html",
-        config=custom_config,
-    )
+    GeographicVisualizer(custom_config).create_map(drone_images, "custom_visualization.html")
 
     logger.info("Custom visualization created with terrain tiles and custom colors")
 

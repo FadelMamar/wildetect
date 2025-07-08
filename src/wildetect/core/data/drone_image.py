@@ -49,6 +49,10 @@ class DroneImage(Tile):
             logger.warning(f"No geographic footprint for {self.image_path}")
             return None
 
+    def get_non_empty_predictions(self) -> List[Detection]:
+        """Get all non-empty predictions from all tiles."""
+        return [det for det in self.get_all_predictions() if not det.is_empty]
+
     def _create_initial_tile(self):
         """Create initial tile from the drone image itself."""
         # Create a tile representing the full image
@@ -80,7 +84,7 @@ class DroneImage(Tile):
         self.tiles.append(tile)
         self.tile_offsets.append((x_offset, y_offset))
         # add predictions to drone image
-        self.predictions.extend(deepcopy(tile.predictions))
+        self.predictions.extend(tile.predictions)
 
         logger.debug(f"Added tile {tile.id} at offset {x_offset}, {y_offset}")
 
@@ -150,8 +154,8 @@ class DroneImage(Tile):
 
         all_detections = []
 
-        self.offset_detections()
-        self.update_detection_gps("predictions")
+        # self.offset_detections()
+        # self.update_detection_gps("predictions")
         for tile in self.tiles:
             if tile.predictions:
                 all_detections.extend(
@@ -209,7 +213,7 @@ class DroneImage(Tile):
         Returns:
             Dict[str, Any]: Statistics about the image
         """
-        all_detections = self.get_all_predictions()
+        all_detections = self.get_non_empty_predictions()
 
         # Count detections by class
         class_counts = {}
@@ -259,7 +263,6 @@ class DroneImage(Tile):
         Returns:
             Image with detections drawn
         """
-        import cv2
 
         # Load full image if not provided
         if image is None:
@@ -272,12 +275,9 @@ class DroneImage(Tile):
         result = image.copy()
 
         # Draw detections from all tiles
-        all_detections = self.get_all_predictions()
+        all_detections = self.get_non_empty_predictions()
 
         for detection in all_detections:
-            if detection.is_empty:
-                continue
-
             # Get absolute coordinates
             bbox = detection.bbox
             class_name = detection.class_name or "unknown"

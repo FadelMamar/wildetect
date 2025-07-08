@@ -117,12 +117,12 @@ class GeographicVisualizer:
                 geographic_data["statistics"]["images_with_footprints"] += 1
 
             geographic_data["statistics"]["total_detections"] += len(
-                drone_image.predictions
+                drone_image.get_non_empty_predictions()
             )
 
             # Count detections with GPS
-            for detection in drone_image.predictions:
-                if detection.geographic_footprint is not None:
+            for detection in drone_image.get_non_empty_predictions():
+                if detection.gps_loc is not None:
                     geographic_data["statistics"]["detections_with_gps"] += 1
 
             geographic_data["images"].append(image_data)
@@ -141,9 +141,7 @@ class GeographicVisualizer:
         content = f"<div style='max-width: {self.config.popup_max_width}px;'>"
 
         if self.config.show_image_path:
-            content += (
-                f"<strong>Image:</strong> {image_data['path'].split('/')[-1]}<br>"
-            )
+            content += f"<strong>Image:</strong> {Path(image_data['path']).name}<br>"
 
         content += (
             f"<strong>Size:</strong> {image_data['width']}x{image_data['height']}<br>"
@@ -261,17 +259,13 @@ class GeographicVisualizer:
         Returns:
             int: Number of detections visualized
         """
-        if not drone_image.predictions:
+        if not drone_image.get_non_empty_predictions():
             return 0
 
         detection_color = color or self.config.detection_color
         visualized_count = 0
 
-        for detection in drone_image.predictions:
-            # Skip empty detections
-            if detection.is_empty:
-                continue
-
+        for detection in drone_image.get_non_empty_predictions():
             try:
                 # Get detection center coordinates
                 if detection.gps_loc is None:
@@ -552,7 +546,7 @@ class GeographicVisualizer:
 
         stats["overlap_areas"] = overlap_areas
         stats["total_overlap_area"] = total_overlap_area
-        stats["average_overlap_area"] = float(np.mean(overlap_areas))
+        stats["average_overlap_area"] = sum(overlap_areas) / max(len(overlap_areas), 1)
 
         return stats
 

@@ -117,10 +117,10 @@ class DetectionPipeline:
 
                 # Set detections on the tile
                 if tile_detections:
-                    tile.set_predictions(tile_detections)
+                    tile.set_predictions(tile_detections, update_gps=False)
                 else:
                     # Set empty detection if no detections found
-                    tile.set_predictions([])
+                    tile.set_predictions([], update_gps=False)
 
                 # Add tile to drone image with its offset
                 offset = (tile.x_offset or 0, tile.y_offset or 0)

@@ -418,7 +418,6 @@ class Tile:
 
     def draw_detections(
         self,
-        image: Optional[np.ndarray] = None,
         predictions: bool = True,
         annotations: bool = True,
         prediction_color: Tuple[int, int, int] = (0, 255, 0),  # Green for predictions
@@ -446,13 +445,12 @@ class Tile:
         """
 
         # Load image if not provided
-        if image is None:
-            pil_image = self.load_image_data()
-            # Convert PIL image to numpy array (BGR format for OpenCV)
-            image = np.array(pil_image)
-            if len(image.shape) == 3 and image.shape[2] == 3:
-                # Convert RGB to BGR
-                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        pil_image = self.load_image_data()
+        # Convert PIL image to numpy array (BGR format for OpenCV)
+        image = np.array(pil_image)
+        if len(image.shape) == 3 and image.shape[2] == 3:
+            # Convert RGB to BGR
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
         result = image.copy()
 
@@ -565,7 +563,6 @@ class Tile:
 
     def draw_detections_with_legend(
         self,
-        image: Optional[np.ndarray] = None,
         predictions: bool = True,
         annotations: bool = True,
         prediction_color: Tuple[int, int, int] = (0, 255, 0),
@@ -576,28 +573,10 @@ class Tile:
         save_path: Optional[str] = None,
         legend_position: str = "top-right",
     ) -> np.ndarray:
-        """Draw detections with a legend showing what each color represents.
-
-        Args:
-            image: Input image as numpy array. If None, uses tile's image data
-            predictions: Whether to draw predictions
-            annotations: Whether to draw annotations
-            prediction_color: BGR color for prediction boxes
-            annotation_color: BGR color for annotation boxes
-            line_thickness: Thickness of bounding box lines
-            font_scale: Scale of the font for labels
-            show_confidence: Whether to show confidence scores in labels
-            save_path: Optional path to save the resulting image
-            legend_position: Position of legend ("top-right", "top-left", "bottom-right", "bottom-left")
-
-        Returns:
-            Image with detections and legend drawn
-        """
-        import cv2
+        """Draw detections with a legend showing what each color represents."""
 
         # Draw the base image with detections
         result = self.draw_detections(
-            image=image,
             predictions=predictions,
             annotations=annotations,
             prediction_color=prediction_color,
@@ -681,7 +660,6 @@ class Tile:
 
     def draw_detections_to_pil(
         self,
-        image: Optional[np.ndarray] = None,
         predictions: bool = True,
         annotations: bool = True,
         prediction_color: Tuple[int, int, int] = (0, 255, 0),
@@ -691,27 +669,10 @@ class Tile:
         show_confidence: bool = True,
         save_path: Optional[str] = None,
     ) -> Image.Image:
-        """Draw detections and return as PIL Image.
-
-        Args:
-            image: Input image as numpy array. If None, uses tile's image data
-            predictions: Whether to draw predictions
-            annotations: Whether to draw annotations
-            prediction_color: BGR color for prediction boxes
-            annotation_color: BGR color for annotation boxes
-            line_thickness: Thickness of bounding box lines
-            font_scale: Scale of the font for labels
-            show_confidence: Whether to show confidence scores in labels
-            save_path: Optional path to save the resulting image
-
-        Returns:
-            PIL Image with detections drawn
-        """
-        import cv2
+        """Draw detections and return as PIL Image."""
 
         # Draw detections
         result = self.draw_detections(
-            image=image,
             predictions=predictions,
             annotations=annotations,
             prediction_color=prediction_color,

@@ -54,100 +54,6 @@ class FiftyOneManager:
         if self.dataset is None:
             raise RuntimeError("Dataset not initialized. Call _init_dataset() first.")
 
-    def add_images(
-        self, image_paths: List[str], detections: Optional[List[Dict[str, Any]]] = None
-    ):
-        """Add images to the dataset.
-
-        Args:
-            image_paths: List of image file paths
-            detections: Optional list of detection results
-        """
-        self._ensure_dataset_initialized()
-
-        # Create a list of None values if detections is None
-        detection_list: List[Optional[Dict[str, Any]]] = []
-        if detections is None:
-            detection_list = [None] * len(image_paths)
-        else:
-            # Convert to List[Optional[Dict[str, Any]]] for type safety
-            detection_list = [det for det in detections]
-
-        samples = []
-        for image_path, detection in zip(image_paths, detection_list):
-            sample = fo.Sample(filepath=image_path)
-
-            if detection and "detections" in detection:
-                # Add detection annotations
-                detections_list = []
-                for det in detection["detections"]:
-                    detection_obj = fo.Detection(
-                        bounding_box=det["bbox"],
-                        confidence=det["confidence"],
-                        label=det["class_name"],
-                    )
-                    detections_list.append(detection_obj)
-
-                sample["detections"] = fo.Detections(detections=detections_list)
-                sample["total_count"] = detection.get("total_count", 0)
-                sample["species_counts"] = detection.get("species_counts", {})
-
-            samples.append(sample)
-
-        if self.dataset is not None:
-            self.dataset.add_samples(samples)
-            logger.info(f"Added {len(samples)} images to dataset")
-
-    def add_detections(self, detections: List[Detection], image_path: str):
-        """Add Detection objects to the dataset.
-
-        Args:
-            detections: List of Detection objects
-            image_path: Path to the source image
-        """
-        self._ensure_dataset_initialized()
-
-        if self.dataset is None:
-            logger.error("Dataset is not initialized")
-            return
-
-        # Convert Detection objects to FiftyOne format
-        fo_detections = []
-        for detection in detections:
-            if not detection.is_empty:
-                fo_detection = detection.to_fiftyone()
-                fo_detections.append(fo_detection)
-
-        # Create or update sample
-        try:
-            # Try to find existing sample by filepath
-            existing_samples = self.dataset.match(F("filepath") == image_path)
-            if len(existing_samples) > 0:
-                sample = existing_samples.first()
-                # Update existing sample
-                if fo_detections:
-                    sample["detections"] = fo.Detections(detections=fo_detections)
-                sample["total_count"] = len(fo_detections)
-                sample.save()
-            else:
-                # Create new sample
-                sample = fo.Sample(filepath=image_path)
-                if fo_detections:
-                    sample["detections"] = fo.Detections(detections=fo_detections)
-                sample["total_count"] = len(fo_detections)
-                self.dataset.add_sample(sample)
-        except Exception as e:
-            logger.error(f"Error adding detections for {image_path}: {e}")
-            # Fallback: create new sample
-            # sample = fo.Sample(filepath=image_path)
-            # if fo_detections:
-            #     sample["detections"] = fo.Detections(detections=fo_detections)
-            # sample["total_count"] = len(fo_detections)
-            # if self.dataset is not None:
-            #     self.dataset.add_sample(sample)
-
-        logger.info(f"Added {len(fo_detections)} detections for image: {image_path}")
-
     def add_drone_image(self, drone_image: DroneImage):
         """Add a DroneImage to the dataset.
 
@@ -288,7 +194,6 @@ class FiftyOneManager:
                 "fields": [],
             }
 
-        # Use count() method instead of len() for FiftyOne datasets
         num_samples = self.dataset.count()
 
         return {
@@ -312,27 +217,6 @@ class FiftyOneManager:
                 logger.info("Computed similarity embeddings")
         except Exception as e:
             logger.error(f"Error computing similarity: {e}")
-
-    def find_hardest_samples(self, num_samples: int = 100):
-        """Find the most challenging samples for annotation."""
-        self._ensure_dataset_initialized()
-
-        if self.dataset is None:
-            logger.error("Dataset is not initialized")
-            return None
-
-        try:
-            if self.config.get("fiftyone", {}).get("enable_brain", False):
-                # Use a different approach since compute_hardest doesn't exist
-                # Find samples with low confidence detections
-                low_confidence = self.dataset.match(
-                    F("detections.detections.confidence") < 0.5
-                ).limit(num_samples)
-                logger.info(f"Found {len(low_confidence)} low confidence samples")
-                return low_confidence
-        except Exception as e:
-            logger.error(f"Error finding hardest samples: {e}")
-        return None
 
     def get_annotation_stats(self) -> Dict[str, Any]:
         """Get statistics about annotations in the dataset."""
