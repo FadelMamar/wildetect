@@ -268,6 +268,9 @@ def visualize(
     create_map: bool = typer.Option(
         True, "--map", help="Create geographic visualization map"
     ),
+    show_confidence: bool = typer.Option(
+        False, "--show-confidence", help="Show confidence scores in visualization"
+    ),
 ):
     """Visualize detection results with geographic maps and statistics."""
     setup_logging()
@@ -571,6 +574,9 @@ def census(
     export_to_fiftyone: bool = typer.Option(
         True, "--to-fiftyone", help="Export to FiftyOne"
     ),
+    create_map: bool = typer.Option(
+        True, "--map", help="Create geographic visualization map"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
     """Run wildlife census campaign with enhanced analysis."""
@@ -694,9 +700,9 @@ def analyze(
     output_dir: str = typer.Option(
         "analysis", "--output", "-o", help="Output directory for analysis"
     ),
-    # create_map: bool = typer.Option(
-    # True, "--map", help="Create geographic visualization map"
-    # ),
+    create_map: bool = typer.Option(
+        True, "--map", help="Create geographic visualization map"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
     """Analyze detection results with geographic and statistical analysis."""

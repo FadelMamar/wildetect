@@ -103,15 +103,21 @@ class DetectionPipeline:
             progress_bar.update(len(batch["tiles"]))
         return detections
 
-    def _postprocess(self, batches: List[Dict[str, Any]]) -> List[DroneImage]:
+    def _postprocess(
+        self, batches: Union[Dict[str, Any], List[Dict[str, Any]]]
+    ) -> List[DroneImage]:
         """Post-process batch results and convert to DroneImage objects.
 
         Args:
-            batch: Batch containing tiles and detections
+            batches: Single batch or list of batches containing tiles and detections
 
         Returns:
             List of DroneImage objects with detections
         """
+        # Handle both single batch and list of batches
+        if isinstance(batches, dict):
+            batches = [batches]
+
         if len(batches) == 0:
             return []
 
@@ -167,7 +173,9 @@ class DetectionPipeline:
         logger.info("Starting detection pipeline")
 
         b = self.loader_config.batch_size
-        self.loader_config.batch_size = self.metadata.get("batch", b)
+        if "batch" in self.metadata:
+            self.loader_config.batch_size = self.metadata.get("batch", b)
+            logger.info(f"Batch size set to {self.loader_config.batch_size}")
 
         data_loader = DataLoader(
             image_paths=image_paths,

@@ -57,6 +57,11 @@ class Detection:
                 f"but got x1={x1}, y1={y1}, x2={x2}, y2={y2}"
             )
 
+        self.set_distance_to_centroid()
+
+    def set_distance_to_centroid(self, parent_image: Optional[str] = None) -> None:
+        if parent_image:
+            self.parent_image = parent_image
         self.distance_to_centroid = self._get_distance_to_centroid()
 
     @property
