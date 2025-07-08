@@ -31,6 +31,8 @@ MANIFEST
 *.pth
 *.torchscript
 
+models/
+
 *visualization.html
 
 # PyInstaller

@@ -155,7 +155,6 @@ class CLIUIIntegration:
         self,
         campaign_id: str,
         images: List[str],
-        output: str = "results",
         target_species: Optional[List[str]] = None,
         log_placeholder: Optional["st.empty"] = None,
         status_text: Optional["st.empty"] = None,
@@ -167,9 +166,6 @@ class CLIUIIntegration:
             args.extend(images)
 
             # Create temporary output directory if not provided
-            if output:
-                output = tempfile.mkdtemp(prefix="wildetect_census_")
-                args.extend(["--output", output])
 
             if target_species:
                 for species in target_species:

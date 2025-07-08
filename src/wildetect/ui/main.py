@@ -21,13 +21,9 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
-ROOT_DIR = Path(__file__).parents[3]
-MODELS_ROOT = ROOT_DIR / "models"
-MODELS_ROOT.mkdir(exist_ok=True)
-
 from wildetect.cli_ui_integration import cli_ui_integration
+from wildetect.core.config import ROOT
 from wildetect.core.visualization.fiftyone_manager import FiftyOneManager
-from wildetect.utils.utils import load_registered_model
 
 # Page configuration
 st.set_page_config(
@@ -67,7 +63,7 @@ def main():
     st.title("🦁 WildDetect - Wildlife Detection System")
     st.markdown("Semi-automated wildlife detection from aerial images")
 
-    load_dotenv(ROOT_DIR / ".env", override=False)
+    load_dotenv(ROOT / ".env", override=False)
 
     # Initialize components
     initialize_components()
@@ -142,7 +138,7 @@ def launch_mlflow():
     if st.button("Launch MLflow Server"):
         if sys.platform == "win32":
             creationflags = subprocess.CREATE_NEW_CONSOLE
-            path = str(Path(ROOT_DIR).resolve() / "scripts/launch_mlflow.bat")
+            path = str(ROOT / "scripts/launch_mlflow.bat")
             # st.write(path)
             subprocess.Popen([path], creationflags=creationflags)
         else:
@@ -187,12 +183,15 @@ def get_model_versions_and_aliases(model_name):
 
 def model_settings_tab():
     """Handle model settings."""
-    # model_names = get_registered_model_names()
-    # if not model_names:
-    #    st.warning("No registered models found in MLflow.")
-    #    return
-
-    model_name = st.selectbox("Registered Model Name", options=["labeler"])
+    st.info("Set the model to use for detection. This will be used for all detections.")
+    model_name = st.text_input("Model Name", value="labeler").strip()
+    roi_weights = st.text_input(
+        "ROI Weights",
+        value=r"D:\workspace\repos\wildetect\weights\roi_classifier.torchscript",
+    ).strip()
+    if not model_name:
+        st.warning("Please enter a model name")
+        return
     (
         model_versions,
         alias_to_version,
@@ -200,37 +199,26 @@ def model_settings_tab():
     ) = get_model_versions_and_aliases(model_name)
     alias_options = list(alias_to_version.keys())
     selected_alias = None
-    selected_version = None
 
     if alias_options:
         selected_alias = st.selectbox("Select Model Alias", alias_options)
-        selected_version = alias_to_version[selected_alias]
-    # elif model_versions:
-    #    selected_version = st.selectbox("Select Model Version", model_versions)
     else:
         st.warning("No versions or aliases found for this model name.")
         return
 
-    local_model_dir = MODELS_ROOT / model_name / str(selected_version)
-    local_model_dir.mkdir(parents=True, exist_ok=True)
-    local_model_dir = str(local_model_dir.resolve())
+    if st.button("Set Model", disabled=selected_alias is None):
+        os.environ["MLFLOW_MODEL_NAME"] = model_name
+        os.environ["MLFLOW_MODEL_ALIAS"] = selected_alias
+        st.success("Model set successfully")
 
-    st.write(f"Local model dir: `{local_model_dir}`")
-    # if local_model_dir.exists():
-    #    st.success("Model already downloaded.")
-    # else:
-    if st.button("Download Model"):
-        with st.spinner("Downloading model from MLflow..."):
-            try:
-                model, metadata = load_registered_model(
-                    selected_alias, model_name, dwnd_location=str(local_model_dir)
-                )
-                st.success(
-                    f"Model {model_name}:{selected_alias} downloaded to {local_model_dir}"
-                )
-                st.write(model)
-            except Exception as e:
-                st.error(f"Error downloading model: {e}")
+        if roi_weights:
+            if not os.path.exists(roi_weights):
+                st.error(f"ROI weights file not found: {roi_weights}")
+                return
+            os.environ["ROI_MODEL_PATH"] = roi_weights
+            st.success("ROI weights set successfully")
+        else:
+            st.warning("No ROI weights provided")
 
 
 def upload_and_detect_tab():
@@ -476,7 +464,10 @@ def census_campaign_tab():
     st.subheader("Image Input")
     input_type = st.radio(
         "Input Type",
-        ["Upload Images", "Directory Path"],
+        [
+            # "Upload Images",
+            "Directory Path"
+        ],
         help="Choose how to provide images for the campaign",
     )
 
@@ -504,7 +495,7 @@ def census_campaign_tab():
     else:
         directory_path = st.text_input(
             "Image Directory Path",
-            value="data/images",
+            value=r"D:\workspace\data\savmap_dataset_v2\raw\tmp",
             help="Path to directory containing campaign images",
         )
         image_paths = [directory_path] if directory_path else []

@@ -14,6 +14,8 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+ROOT = Path(__file__).parents[3]
+
 
 @dataclass
 class FlightSpecs:
@@ -100,7 +102,11 @@ class PredictionConfig:
                     "ROI model path not found in environment variables or config file."
                 )
         else:
-            self.roi_weights = str(Path(self.roi_weights).resolve())
+            if not Path(self.roi_weights).exists():
+                logger.warning(f"ROI weights file not found: {self.roi_weights}")
+                self.roi_weights = None
+            else:
+                self.roi_weights = str(Path(self.roi_weights).resolve())
 
         if self.inference_service_url is None:
             self.inference_service_url = os.environ.get(

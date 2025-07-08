@@ -245,6 +245,7 @@ def detect(
             if dataset_name:
                 fo_manager = FiftyOneManager(dataset_name)
                 fo_manager.add_drone_images(drone_images)
+                fo_manager.save_dataset()
 
             progress.update(task, completed=True)
 

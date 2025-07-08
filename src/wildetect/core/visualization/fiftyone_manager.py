@@ -21,6 +21,7 @@ from ..data.drone_image import DroneImage
 logger = logging.getLogger(__name__)
 
 
+# TODO: debug
 class FiftyOneManager:
     """Manages FiftyOne datasets for wildlife detection."""
 
@@ -97,7 +98,7 @@ class FiftyOneManager:
             # Add polygon if geographic footprint is available
             if drone_image.geo_polygon_points is not None:
                 # Convert geographic bounds to polygon points
-                polygon = [[lon, lat] for lon, lat in drone_image.geo_polygon_points]
+                polygon = [[lon, lat] for lat, lon in drone_image.geo_polygon_points]
 
                 # Update GeoLocation with polygon
                 sample["location"] = fo.GeoLocation(
@@ -125,6 +126,7 @@ class FiftyOneManager:
         )
         return sample
 
+    # TODO: debug
     def add_drone_images(self, drone_images: List[DroneImage]):
         """Add multiple DroneImage objects to the dataset.
 
@@ -156,6 +158,7 @@ class FiftyOneManager:
             f"Added {len(samples)} drone images with {total_detections} total detections"
         )
 
+    # TODO: debug
     def get_detections_with_gps(self) -> List[fo.Sample]:
         """Get all samples that have GPS data.
 
@@ -188,6 +191,7 @@ class FiftyOneManager:
                 env=os.environ.copy(),
             )
 
+    # TODO: debug
     def get_dataset_info(self) -> Dict[str, Any]:
         """Get information about the dataset."""
         self._ensure_dataset_initialized()
@@ -209,6 +213,7 @@ class FiftyOneManager:
             "fields": list(self.dataset.get_field_schema().keys()),
         }
 
+    # TODO: debug
     def compute_similarity(self):
         """Compute similarity between samples using FiftyOne Brain."""
         self._ensure_dataset_initialized()
@@ -224,6 +229,7 @@ class FiftyOneManager:
         except Exception as e:
             logger.error(f"Error computing similarity: {e}")
 
+    # TODO: debug
     def get_annotation_stats(self) -> Dict[str, Any]:
         """Get statistics about annotations in the dataset."""
         self._ensure_dataset_initialized()

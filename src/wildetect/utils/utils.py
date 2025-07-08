@@ -1,9 +1,12 @@
 import logging
+import traceback
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import torch
 from torchmetrics.functional.detection import complete_intersection_over_union
+
+from wildetect.core.config import ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +25,8 @@ def compute_iou(bbox1: List[float], bbox2: List[float]) -> float:
         float: IoU value between the two bounding boxes.
     """
 
-    bbox1 = torch.tensor([bbox1])
-    bbox2 = torch.tensor([bbox2])
-
     iou = complete_intersection_over_union(
-        preds=bbox1, target=bbox2, aggregate=False
+        preds=torch.tensor([bbox1]), target=torch.tensor([bbox2]), aggregate=False
     ).item()
 
     return iou
@@ -38,7 +38,7 @@ def load_registered_model(
     tag_to_append: str = "",
     mlflow_tracking_url="http://localhost:5000",
     load_unwrapped: bool = False,
-    dwnd_location: Optional[str] = None,
+    dwnd_location: Optional[Union[str, Path]] = ROOT / "models",
 ):
     mlflow.set_tracking_uri(mlflow_tracking_url)
 
@@ -48,26 +48,35 @@ def load_registered_model(
     modelversion = f"{name}:{version}" + tag_to_append
     modelURI = f"models:/{name}/{version}"
 
-    if dwnd_location:
-        if not Path(dwnd_location).exists():
-            Path(dwnd_location).mkdir(parents=True, exist_ok=True)
+    if dwnd_location is None:
+        dwnd_location = ROOT / Path(f"models/{name}")
+        dwnd_location.mkdir(parents=True, exist_ok=True)
+        dwnd_location = dwnd_location / version
+        dwnd_location = str(dwnd_location.resolve())
+    try:
+        model = mlflow.pyfunc.load_model(str(dwnd_location))
+    except:
         model = mlflow.pyfunc.load_model(modelURI, dst_path=str(dwnd_location))
-    else:
-        model = mlflow.pyfunc.load_model(modelURI)
 
     metadata = dict(version=modelversion, modeluri=modelURI)
-    metadata.update(model.metadata.metadata)
+    try:
+        metadata.update(model.metadata.metadata)
+    except:
+        logger.warning(
+            f"No metadata found for model {modelversion}. msg {traceback.format_exc()}"
+        )
 
     if load_unwrapped:
         try:
             model = model.unwrap_python_model().model
+            metadata["detection_model_type"] = "ultralytics"
         except:
             try:
                 model = model.unwrap_python_model().detection_model
+                metadata["detection_model_type"] = "ultralytics"
             except:
                 model = model.unwrap_python_model().classifier
-
-    metadata["detection_model_type"] = "ultralytics"
+                metadata["detection_model_type"] = "classifier"
 
     return model, metadata
 

@@ -13,6 +13,7 @@ import torch
 from PIL import Image
 from ultralytics import YOLO
 
+from ...utils.utils import load_registered_model
 from ..config import PredictionConfig
 from ..data import Detection
 from ..registry import Detector
@@ -27,6 +28,7 @@ class YOLODetector(Detector):
         super().__init__(config)
         self.model_path = getattr(config, "model_path", None)
         self.device = config.device
+        self.metadata = None
 
         # Set device
         if self.device == "auto":
@@ -34,12 +36,27 @@ class YOLODetector(Detector):
 
     def load_model(self) -> None:
         """Load the YOLO model."""
+        mlflow_model_name = os.environ.get("MLFLOW_MODEL_NAME", None)
+        mlflow_model_alias = os.environ.get("MLFLOW_MODEL_ALIAS", None)
+
         try:
-            if self.model_path and os.path.exists(self.model_path):
+            if mlflow_model_name and mlflow_model_alias:
+                self.model, self.metadata = load_registered_model(
+                    alias=mlflow_model_alias,
+                    name=mlflow_model_name,
+                    load_unwrapped=True,
+                )
+                logger.info(
+                    f"Loaded YOLO model from MLflow: {mlflow_model_name}/{mlflow_model_alias}"
+                )
+            elif self.model_path and os.path.exists(str(self.model_path)):
                 self.model = YOLO(self.model_path, task="detect")
                 logger.info(f"Loaded YOLO model from {self.model_path}")
+
             else:
-                raise FileNotFoundError(f"Model file not found: {self.model_path}")
+                raise FileNotFoundError(
+                    f"Model file not found: {self.model_path} and not found in MLflow. Set env variables MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS"
+                )
 
             # Get class names from model
             if hasattr(self.model, "names"):
@@ -165,4 +182,5 @@ class YOLODetector(Detector):
             "device": self.device,
             "class_names": self.class_names,
             "num_classes": len(self.class_names),
+            "metadata": self.metadata,
         }

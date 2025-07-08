@@ -5,8 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = "~=3.11"
 dependencies = [
-    "fiftyone>=1.7.0",
-    "fiftyone-brain>=0.21.2",
+    "fiftyone==1.2.0",
     "folium>=0.20.0",
     "geopy>=2.4.1",
     "huggingface",
@@ -32,6 +31,7 @@ dependencies = [
     "rich>=14.0.0",
     "typer>=0.16.0",
     "albumentations",
+    "fiftyone-brain>=0.18.2",
 ]
 
 [tool.ruff]
