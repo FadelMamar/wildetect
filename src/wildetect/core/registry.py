@@ -26,6 +26,7 @@ class Detector(ABC):
         self.class_names = []
         self._is_loaded = False
         self.metrics = None  # Will be set by factory if needed
+        self.metadata = dict()
 
     @abstractmethod
     def load_model(self) -> None:

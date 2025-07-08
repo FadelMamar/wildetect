@@ -28,7 +28,7 @@ class YOLODetector(Detector):
         super().__init__(config)
         self.model_path = getattr(config, "model_path", None)
         self.device = config.device
-        self.metadata = None
+        self.metadata = dict()
 
         # Set device
         if self.device == "auto":

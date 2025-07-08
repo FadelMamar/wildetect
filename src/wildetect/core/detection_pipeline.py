@@ -39,6 +39,7 @@ class DetectionPipeline:
         self.config = config
         self.loader_config = loader_config
         self.device = config.device
+        self.metadata = dict()
 
         assert config.model_path is not None, "Model path must be provided"
         assert config.model_type is not None, "Model type must be provided"
@@ -67,6 +68,7 @@ class DetectionPipeline:
                 config=self.config,
             )
             self.detection_system.set_model(detector)
+            self.metadata = detector.metadata
 
             if self.config.roi_weights:
                 roi_processor = RoIPostProcessor(
@@ -163,6 +165,9 @@ class DetectionPipeline:
             List of processed drone images with detections
         """
         logger.info("Starting detection pipeline")
+
+        b = self.loader_config.batch_size
+        self.loader_config.batch_size = self.metadata.get("batch", b)
 
         data_loader = DataLoader(
             image_paths=image_paths,
