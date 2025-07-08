@@ -51,9 +51,11 @@ class DroneImage(Tile):
 
     def to_dict(self) -> Dict[str, Any]:
         d = dict(vars(self))
+        d.pop("image_data")
         d["tiles"] = [tile.to_dict() for tile in self.tiles]
         d["tile_offsets"] = self.tile_offsets
         d["type"] = "DroneImage"
+        d["flight_specs"] = vars(self.flight_specs)
         d["predictions"] = [det.to_dict() for det in self.get_non_empty_predictions()]
         if self.geographic_footprint is not None:
             d["geographic_footprint"] = self.geographic_footprint.to_dict()
