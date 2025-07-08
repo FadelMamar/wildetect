@@ -36,43 +36,27 @@ class YOLODetector(Detector):
 
     def load_model(self) -> None:
         """Load the YOLO model."""
-        mlflow_model_name = os.environ.get("MLFLOW_MODEL_NAME", None)
-        mlflow_model_alias = os.environ.get("MLFLOW_MODEL_ALIAS", None)
+        model, metadata = self.load_from_mlflow()
+        if model and metadata:
+            self.model, self.metadata = model, metadata
+        elif self.model_path and os.path.exists(str(self.model_path)):
+            self.model = YOLO(self.model_path, task="detect")
+            logger.info(f"Loaded YOLO model from {self.model_path}")
+        else:
+            raise FileNotFoundError(
+                f"Model file not found: {self.model_path} and not found in MLflow. Set env variables MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS"
+            )
+        # Get class names from model
+        if hasattr(self.model, "names"):
+            self.class_names = self.model.names
+        else:
+            logger.warning(
+                "No class names found in the model. Using default class names."
+            )
+            self.class_names = {}
 
-        try:
-            if mlflow_model_name and mlflow_model_alias:
-                self.model, self.metadata = load_registered_model(
-                    alias=mlflow_model_alias,
-                    name=mlflow_model_name,
-                    load_unwrapped=True,
-                )
-                logger.info(
-                    f"Loaded YOLO model from MLflow: {mlflow_model_name}/{mlflow_model_alias}"
-                )
-            elif self.model_path and os.path.exists(str(self.model_path)):
-                self.model = YOLO(self.model_path, task="detect")
-                logger.info(f"Loaded YOLO model from {self.model_path}")
-
-            else:
-                raise FileNotFoundError(
-                    f"Model file not found: {self.model_path} and not found in MLflow. Set env variables MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS"
-                )
-
-            # Get class names from model
-            if hasattr(self.model, "names"):
-                self.class_names = self.model.names
-            else:
-                logger.warning(
-                    "No class names found in the model. Using default class names."
-                )
-                self.class_names = {}
-
-            self._is_loaded = True
-            logger.info(f"YOLO detector initialized on device: {self.device}")
-
-        except Exception as e:
-            logger.error(f"Error loading YOLO model: {e}")
-            raise
+        self._is_loaded = True
+        logger.info(f"YOLO detector initialized on device: {self.device}")
 
     def _predict_batch(self, batch: torch.Tensor) -> List[List[Detection]]:
         """Run prediction on an image.

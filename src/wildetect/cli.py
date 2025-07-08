@@ -1136,7 +1136,8 @@ def ui(
         ]
 
         subprocess.Popen(
-            cmd, env=os.environ.copy(), creationflags=subprocess.CREATE_NEW_CONSOLE
+            cmd,
+            env=os.environ.copy(),  # creationflags=subprocess.CREATE_NEW_CONSOLE
         )
 
     except ImportError:
