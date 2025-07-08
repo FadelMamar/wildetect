@@ -17,7 +17,6 @@ dependencies = [
     "shapely>=2.1.1",
     "spyder-kernels==3.0.*",
     "torch==2.6.0",
-    "torchmetrics>=1.7.4",
     "ultralytics>=8.3.162",
     "utm>=0.8.1",
     "tqdm>=4.65.0",
@@ -32,6 +31,7 @@ dependencies = [
     "typer>=0.16.0",
     "albumentations",
     "fiftyone-brain>=0.18.2",
+    "torchmetrics>=1.7.4",
 ]
 
 [tool.ruff]
