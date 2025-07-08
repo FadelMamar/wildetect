@@ -11,8 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import joblib
+
 from .config import LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
+from .data.detection import Detection
 from .data.drone_image import DroneImage
 from .detection_pipeline import DetectionPipeline
 from .flight.flight_analyzer import FlightEfficiency, FlightPath
@@ -34,6 +37,8 @@ class CampaignConfig:
 
     # Detection configuration
     prediction_config: PredictionConfig
+
+    detection_merging_threshold: float = 0.2
 
     # Optional configurations
     metadata: Optional[Dict[str, Any]] = None
@@ -75,12 +80,25 @@ class CampaignManager:
 
         logger.info(f"Initialized CampaignManager for campaign: {self.campaign_id}")
 
+    def get_drone_images(
+        self, as_dict: bool = False
+    ) -> Union[List[DroneImage], Dict[str, Dict[str, Any]]]:
+        """Get the drone images for the campaign."""
+        drone_images = self.census_manager.drone_images
+        if as_dict:
+            return {img.image_path: img.to_dict() for img in drone_images}
+        else:
+            return drone_images
+
     def add_images_from_paths(self, image_paths: List[str]) -> None:
         """Add images from file paths.
 
         Args:
             image_paths: List of image file paths
         """
+        for image_path in image_paths:
+            assert Path(image_path).is_file(), "image_paths must be file paths"
+
         self.census_manager.add_images_from_paths(image_paths)
 
     def add_images_from_directory(self, directory_path: str) -> None:
@@ -89,10 +107,11 @@ class CampaignManager:
         Args:
             directory_path: Path to directory containing images
         """
+        assert Path(directory_path).is_dir(), "directory_path must be a directory"
         self.census_manager.add_images_from_directory(directory_path)
 
     def prepare_data(
-        self, tile_size: Optional[int] = None, overlap: Optional[float] = None
+        self,
     ) -> None:
         """Prepare data for detection by creating DroneImage instances.
 
@@ -100,7 +119,7 @@ class CampaignManager:
             tile_size: Optional tile size override
             overlap: Optional overlap ratio override
         """
-        self.census_manager.create_drone_images(tile_size=tile_size, overlap=overlap)
+        self.census_manager.create_drone_images()
         logger.info(
             f"Prepared {len(self.census_manager.drone_images)} drone images for detection"
         )
@@ -143,21 +162,20 @@ class CampaignManager:
         confidence_scores = []
 
         for drone_image in processed_drone_images:
-            detections = drone_image.get_all_predictions()
+            detections = drone_image.get_non_empty_predictions()
             total_detections += len(detections)
 
             for detection in detections:
-                if not detection.is_empty:
-                    class_name = detection.class_name
-                    detection_by_class[class_name] = (
-                        detection_by_class.get(class_name, 0) + 1
-                    )
-                    confidence_scores.append(detection.confidence)
+                class_name = detection.class_name
+                detection_by_class[class_name] = (
+                    detection_by_class.get(class_name, 0) + 1
+                )
+                confidence_scores.append(detection.confidence)
 
         # Create detection results
         processing_time = time.time() - start_time
         confidence_stats = {
-            "mean": sum(confidence_scores) / len(confidence_scores)
+            "mean": sum(confidence_scores) / max(len(confidence_scores), 1)
             if confidence_scores
             else 0.0,
             "min": min(confidence_scores) if confidence_scores else 0.0,
@@ -201,17 +219,15 @@ class CampaignManager:
         return self.census_manager.calculate_flight_efficiency()
 
     def merge_detections_geographically(
-        self, iou_threshold: float = 0.8
-    ) -> List[DroneImage]:
-        """Merge detections across overlapping geographic regions.
-
-        Args:
-            iou_threshold: IoU threshold for merging detections
-
-        Returns:
-            List[DroneImage]: List of merged drone images
-        """
-        return self.census_manager.merge_detections_geographically(iou_threshold)
+        self,
+    ) -> None:
+        """Merge detections across overlapping geographic regions."""
+        self.census_manager.drone_images = (
+            self.census_manager.merge_detections_geographically(
+                iou_threshold=self.config.detection_merging_threshold
+            )
+        )
+        return None
 
     def create_geographic_visualization(self, output_path: Optional[str] = None) -> str:
         """Create geographic visualization of the campaign.
@@ -222,14 +238,14 @@ class CampaignManager:
         Returns:
             str: Path to the saved visualization file
         """
-        if not self.census_manager.drone_images:
+        if not self.get_drone_images():
             raise ValueError("No drone images available for visualization")
 
         if output_path is None:
             output_path = f"campaign_{self.campaign_id}_visualization.html"
 
-        self.geographic_visualizer.save_map(
-            self.census_manager.drone_images, output_path
+        self.geographic_visualizer.create_map(
+            self.get_drone_images(), save_path=output_path
         )
 
         logger.info(f"Geographic visualization saved to: {output_path}")
@@ -266,7 +282,9 @@ class CampaignManager:
         """
         return self.census_manager.get_enhanced_campaign_statistics()
 
-    def get_all_detections(self, force_compute: bool = False) -> List:
+    def get_all_detections(
+        self,
+    ) -> List[Detection]:
         """Get all detections from the campaign.
 
         Args:
@@ -275,17 +293,12 @@ class CampaignManager:
         Returns:
             List: All detections across the campaign
         """
-        return self.census_manager.get_all_detections(force_compute=force_compute)
+        return self.census_manager.get_all_detections()
 
     def run_complete_campaign(
         self,
         image_paths: List[str],
         output_dir: Optional[str] = None,
-        tile_size: Optional[int] = None,
-        overlap: Optional[float] = None,
-        run_flight_analysis: bool = True,
-        run_geographic_merging: bool = True,
-        create_visualization: bool = True,
         export_to_fiftyone: bool = False,
     ) -> Dict[str, Any]:
         """Run a complete campaign from start to finish.
@@ -293,8 +306,6 @@ class CampaignManager:
         Args:
             image_paths: List of image paths to process
             output_dir: Optional output directory for results
-            tile_size: Optional tile size override
-            overlap: Optional overlap ratio override
             run_flight_analysis: Whether to run flight path analysis
             run_geographic_merging: Whether to run geographic merging
             create_visualization: Whether to create geographic visualization
@@ -305,11 +316,24 @@ class CampaignManager:
         """
         logger.info(f"Starting complete campaign: {self.campaign_id}")
 
+        assert isinstance(image_paths, list), "image_paths must be a list"
+        for image_path in image_paths:
+            assert isinstance(image_path, str), "image_paths must be a list of strings"
+            assert Path(image_path).is_file(), "image_paths must be file paths"
+
+        if output_dir is None:
+            output_dir = Path("census_campaign_results") / self.campaign_id
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = str(output_dir)
+            logger.info(f"No output directory provided, using default: {output_dir}")
+        else:
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
+
         # Step 1: Add images
         self.add_images_from_paths(image_paths)
 
         # Step 2: Prepare data
-        self.prepare_data(tile_size=tile_size, overlap=overlap)
+        self.prepare_data()
 
         # Step 3: Run detection
         detection_results = self.run_detection(save_results=True, output_dir=output_dir)
@@ -317,21 +341,16 @@ class CampaignManager:
         # Step 4: Flight analysis (optional)
         flight_path = None
         flight_efficiency = None
-        if run_flight_analysis:
-            flight_path = self.analyze_flight_path()
-            if flight_path:
-                flight_efficiency = self.calculate_flight_efficiency()
+        flight_path = self.analyze_flight_path()
+        if flight_path:
+            flight_efficiency = self.calculate_flight_efficiency()
 
         # Step 5: Geographic merging (optional)
-        merged_images = None
-        if run_geographic_merging:
-            merged_images = self.merge_detections_geographically()
+        self.merge_detections_geographically()
 
         # Step 6: Create visualization (optional)
-        visualization_path = None
-        if create_visualization:
-            if output_dir:
-                visualization_path = f"{output_dir}/geographic_visualization.html"
+        if output_dir:
+            visualization_path = f"{output_dir}/geographic_visualization.html"
             visualization_path = self.create_geographic_visualization(
                 visualization_path
             )
@@ -344,6 +363,7 @@ class CampaignManager:
         if output_dir:
             report_path = f"{output_dir}/campaign_report.json"
             self.export_detection_report(report_path)
+            # joblib.dump(self.get_drone_images(), f"{output_dir}/drone_images.pkl")
 
         # Compile results
         results = {
@@ -351,7 +371,7 @@ class CampaignManager:
             "detection_results": detection_results,
             "flight_path": flight_path,
             "flight_efficiency": flight_efficiency,
-            "merged_images": merged_images,
+            "merged_images": self.get_drone_images(as_dict=True),
             "visualization_path": visualization_path,
             "statistics": self.get_campaign_statistics(),
         }

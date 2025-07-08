@@ -5,7 +5,7 @@ Detection data structures for wildlife detection results.
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import fiftyone as fo
 import numpy as np
@@ -63,6 +63,20 @@ class Detection:
     def area(self) -> int:
         return (self.bbox[2] - self.bbox[0]) * (self.bbox[3] - self.bbox[1])
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert detection to dictionary format."""
+        d = dict(vars(self))
+        if "bbox" in d:
+            x1, y1, x2, y2 = d["bbox"]
+            d["x_min"] = x1
+            d["y_min"] = y1
+            d["x_max"] = x2
+            d["y_max"] = y2
+        if d.get("geographic_footprint") is not None:
+            d["geographic_footprint"] = d["geographic_footprint"].box
+        d["type"] = "Detection"
+        return d
+
     @property
     def x_center(self) -> int:
         return int((self.bbox[0] + self.bbox[2]) / 2)
@@ -85,7 +99,7 @@ class Detection:
         return sum(self.bbox) == 0
 
     @property
-    def gps_as_decimals(self) -> Tuple[float, float, float]:
+    def gps_as_decimals(self) -> Optional[Tuple[float, float, float]]:
         """Return GPS coordinates as decimal degrees."""
         if self.gps_loc is None:
             return None, None, None
@@ -140,18 +154,6 @@ class Detection:
             class_name="EMPTY",
             parent_image=parent_image,
         )
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert detection to dictionary format."""
-        data = vars(self)
-        x1, y1, x2, y2 = data.pop("bbox")
-        data["x_min"] = x1
-        data["y_min"] = y1
-        data["x_max"] = x2
-        data["y_max"] = y2
-        if data["geographic_footprint"] is not None:
-            data["geographic_footprint"] = data["geographic_footprint"].box
-        return data
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Detection":

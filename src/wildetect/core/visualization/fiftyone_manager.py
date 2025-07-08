@@ -174,7 +174,7 @@ class FiftyOneManager:
             subprocess.Popen(
                 ["uv", "run", "fiftyone", "app", "launch"],
                 env=os.environ.copy(),
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
             )
         else:
             subprocess.Popen(

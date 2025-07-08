@@ -43,9 +43,6 @@ class TestCLIUIIntegration:
         assert hasattr(self.integration, "_run_cli_command")
         assert hasattr(self.integration, "run_detection_ui")
         assert hasattr(self.integration, "run_census_ui")
-        assert hasattr(self.integration, "analyze_results_ui")
-        assert hasattr(self.integration, "visualize_results_ui")
-        assert hasattr(self.integration, "get_system_info_ui")
         assert hasattr(self.integration, "clear_results_ui")
 
     @patch("subprocess.Popen")

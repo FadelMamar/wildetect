@@ -5,6 +5,7 @@ Command Line Interface for WildDetect using Typer.
 import importlib.metadata
 import json
 import logging
+import subprocess
 import sys
 import traceback
 from datetime import datetime
@@ -20,6 +21,7 @@ from .core.campaign_manager import CampaignConfig, CampaignManager
 from .core.config import FlightSpecs, LoaderConfig, PredictionConfig
 from .core.data.census import CensusDataManager
 from .core.data.drone_image import DroneImage
+from .core.data.utils import get_images_paths
 from .core.detection_pipeline import DetectionPipeline
 from .core.visualization.fiftyone_manager import FiftyOneManager
 from .core.visualization.geographic import (
@@ -43,7 +45,7 @@ console = Console()
 try:
     __version__ = importlib.metadata.version("wildetect")
 except importlib.metadata.PackageNotFoundError:
-    __version__ = "0.0.0"
+    __version__ = "0.0.1"
 
 
 def setup_logging(verbose: bool = False):
@@ -87,12 +89,18 @@ def detect(
         "-m",
         help="Path to model weights. Otherwise uses WILDETECT_MODEL_PATH environment variable",
     ),
+    dataset_name: Optional[str] = typer.Option(
+        None,
+        "--dataset",
+        "-d",
+        help="Name of the FiftyOne dataset to save detections to",
+    ),
     model_type: str = typer.Option("yolo", "--type", "-t", help="Model type"),
     confidence: float = typer.Option(
         0.2, "--confidence", "-c", help="Confidence threshold"
     ),
     device: str = typer.Option(
-        "auto", "--device", "-d", help="Device to run inference on. auto, cpu or cuda"
+        "auto", "--device", help="Device to run inference on. auto, cpu or cuda"
     ),
     batch_size: int = typer.Option(8, "--batch-size", "-b", help="Batch size"),
     tile_size: int = typer.Option(800, "--tile-size", help="Tile size for processing"),
@@ -199,6 +207,10 @@ def detect(
                 image_dir=image_dir,
                 save_path=save_path,
             )
+
+            if dataset_name:
+                fo_manager = FiftyOneManager(dataset_name)
+                fo_manager.add_drone_images(drone_images)
 
             progress.update(task, completed=True)
 
@@ -311,6 +323,49 @@ def visualize(
 
 
 @app.command()
+def visualize_geographic_bounds(
+    image_dir: str = typer.Argument(..., help="Image directory"),
+    output_dir: str = typer.Option(
+        "visualizations", "--output", "-o", help="Output directory for visualizations"
+    ),
+    sensor_height: float = typer.Option(
+        24.0, "--sensor-height", help="Sensor height in mm"
+    ),
+    focal_length: float = typer.Option(
+        35.0, "--focal-length", help="Focal length in mm"
+    ),
+    flight_height: float = typer.Option(
+        180.0, "--flight-height", help="Flight height in meters"
+    ),
+) -> None:
+    """Convenience function to visualize geographic bounds."""
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    try:
+        assert Path(image_dir).is_dir(), f"Image directory not found: {image_dir}"
+
+        flight_specs = FlightSpecs(
+            sensor_height=sensor_height,
+            focal_length=focal_length,
+            flight_height=flight_height,
+        )
+        drone_images = [
+            DroneImage.from_image_path(image, flight_specs=flight_specs)
+            for image in get_images_paths(image_dir)
+        ]
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        output_path = str(Path(output_dir) / "geographic_visualization.html")
+        GeographicVisualizer().create_map(drone_images, output_path)
+        console.print(
+            f"[green]Geographic visualization saved to: {output_path}[/green]"
+        )
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        logger.error(f"Visualization failed: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
 def info():
     """Show system information."""
     console.print("[bold blue]WildDetect System Information[/bold blue]")
@@ -341,13 +396,72 @@ def info():
         table.add_row("CUDA", "✗", "PyTorch not installed")
 
     # Check other dependencies
+    def get_pyproject_dependencies(pyproject_path="pyproject.toml"):
+        """
+        Reads the pyproject.toml file and extracts dependencies and their versions.
+
+        Returns:
+            List of tuples: (dependency_name, import_name, version)
+        """
+        import re
+        import tomllib
+
+        # Map package names to import names if they differ
+        import_name_map = {
+            "Pillow": "PIL",
+            "python-dotenv": "dotenv",
+            "fiftyone-brain": "fiftyone.brain",
+            "spyder-kernels": "spyder_kernels",
+        }
+
+        try:
+            with open(pyproject_path, "rb") as f:
+                pyproject = tomllib.load(f)
+            deps = pyproject["project"]["dependencies"]
+        except Exception:
+            traceback.print_exc()
+            # Fallback: hardcoded list if file not found or tomllib not available
+            deps = [
+                "fiftyone>=1.7.0",
+                "fiftyone-brain>=0.21.2",
+                "folium>=0.20.0",
+                "geopy>=2.4.1",
+                "huggingface",
+                "pillow>=11.3.0",
+                "pyproj>=3.7.1",
+                "pytest>=8.4.1",
+                "ruff>=0.1.6",
+                "shapely>=2.1.1",
+                "spyder-kernels==3.0.*",
+                "torch==2.6.0",
+                "torchmetrics>=1.7.4",
+                "ultralytics>=8.3.162",
+                "utm>=0.8.1",
+                "tqdm>=4.65.0",
+                "numpy>=1.24.0",
+                "torchvision>=0.15.0",
+                "python-dotenv>=1.0.0",
+                "transformers>=4.53.1",
+                "accelerate>=1.8.1",
+                "mlflow>=3.1.1",
+                "streamlit>=1.46.1",
+                "isort>=6.0.1",
+            ]
+
+        dep_list = []
+        for dep in deps:
+            # Extract name and version
+            match = re.match(r"([a-zA-Z0-9_\-]+)([<>=!~].*)?", dep)
+            if match:
+                name = match.group(1)
+                version = match.group(2) if match.group(2) else ""
+                import_name = import_name_map.get(name.lower(), name.replace("-", "_"))
+                dep_list.append((name, import_name, version))
+        return dep_list
+
     dependencies = [
-        ("PIL", "PIL"),
-        ("numpy", "numpy"),
-        ("tqdm", "tqdm"),
-        ("ultralytics", "ultralytics"),
-        ("folium", "folium"),
-        ("shapely", "shapely"),
+        (name, import_name)
+        for name, import_name, version in get_pyproject_dependencies()
     ]
 
     for name, module in dependencies:
@@ -406,8 +520,8 @@ def census(
     target_species: Optional[List[str]] = typer.Option(
         None, "--species", help="Target species for detection"
     ),
-    create_map: bool = typer.Option(
-        True, "--map", help="Create geographic visualization map"
+    export_to_fiftyone: bool = typer.Option(
+        True, "--to-fiftyone", help="Export to FiftyOne"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
@@ -423,7 +537,7 @@ def census(
         # Determine if input is directory or file paths
         if len(images) == 1 and Path(images[0]).is_dir():
             image_dir = images[0]
-            image_paths = None
+            image_paths = get_images_paths(image_dir)
             console.print(f"[green]Processing directory: {image_dir}[/green]")
         else:
             image_dir = None
@@ -445,7 +559,7 @@ def census(
             ],
             "target_species": target_species,
             "flight_parameters": vars(flight_specs),
-            "equipment_info": {"drone": "DJI Phantom 4", "camera": "20MP RGB"},
+            "equipment_info": {},
         }
 
         # Create configurations
@@ -492,21 +606,17 @@ def census(
             task = progress.add_task("Running census campaign...", total=None)
 
             results = campaign_manager.run_complete_campaign(
-                image_paths=image_paths or [],
+                image_paths=image_paths,
                 output_dir=output,
-                tile_size=tile_size,
-                overlap=0.2,
-                run_flight_analysis=True,
-                run_geographic_merging=True,
-                create_visualization=create_map,
-                export_to_fiftyone=False,
+                export_to_fiftyone=export_to_fiftyone,
             )
 
             progress.update(task, completed=True)
 
         # Display results
         display_census_results(
-            campaign_manager.census_manager, results["statistics"], output
+            campaign_manager.census_manager,
+            results["statistics"],
         )
 
         console.print(
@@ -515,7 +625,7 @@ def census(
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
-        logger.error(f"Census campaign failed: {e}")
+        logger.error(f"Census campaign failed: {traceback.format_exc()}")
         raise typer.Exit(1)
 
 
@@ -525,9 +635,9 @@ def analyze(
     output_dir: str = typer.Option(
         "analysis", "--output", "-o", help="Output directory for analysis"
     ),
-    create_map: bool = typer.Option(
-        True, "--map", help="Create geographic visualization map"
-    ),
+    # create_map: bool = typer.Option(
+    # True, "--map", help="Create geographic visualization map"
+    # ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
     """Analyze detection results with geographic and statistical analysis."""
@@ -555,9 +665,9 @@ def analyze(
         display_analysis_results(analysis_results)
 
         # Create geographic visualization if requested
-        if create_map and "drone_images" in results:
-            console.print("[green]Creating geographic visualization...[/green]")
-            create_geographic_visualization(results["drone_images"], output_dir)
+        # if create_map and "drone_images" in results:
+        # console.print("[green]Creating geographic visualization...[/green]")
+        # create_geographic_visualization(results["drone_images"], output_dir)
 
         # Export analysis report
         export_analysis_report(analysis_results, output_dir)
@@ -572,7 +682,7 @@ def analyze(
         raise typer.Exit(1)
 
 
-def display_results(drone_images: List, output_dir: Optional[str] = None):
+def display_results(drone_images: List[DroneImage], output_dir: Optional[str] = None):
     """Display detection results."""
     if not drone_images:
         console.print("[yellow]No images processed[/yellow]")
@@ -643,20 +753,7 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
         if images_with_detections:
             try:
                 # Create geographic visualization
-                config = VisualizationConfig(
-                    # map_center=map_center,
-                    zoom_start=12,
-                    tiles="OpenStreetMap",  # Use OpenStreetMap instead of Stamen Terrain
-                    image_bounds_color="purple",
-                    image_center_color="orange",
-                    overlap_color="red",
-                    # show_image_path=True,
-                    # show_image_bounds=True,
-                    # show_detection_count=True,
-                    # show_gps_info=True,
-                    # show_image_centers=True,
-                    # show_statistics=True,
-                )
+                config = VisualizationConfig()
                 map_file = str(output_path / "geographic_visualization.html")
 
                 visualizer = GeographicVisualizer(config)
@@ -665,6 +762,9 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
                 console.print(
                     f"[green]✓ Geographic visualization saved to: {map_file}[/green]"
                 )
+
+                # Open the map in the default browser
+                subprocess.Popen(f"start {map_file}", shell=True)
 
                 # Get coverage statistics
                 coverage_stats = visualizer.get_coverage_statistics(
@@ -675,10 +775,10 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
                 console.print(
                     f"  Images with footprints: {coverage_stats['images_with_footprints']}"
                 )
-                if coverage_stats["total_overlap_area"] > 0:
-                    console.print(
-                        f"  Total overlap area: {coverage_stats['total_overlap_area']:.2f} m²"
-                    )
+                # if coverage_stats["total_overlap_area"] > 0:
+                console.print(
+                    f"  Total overlap area: {coverage_stats['total_overlap_area']:.2f} m²"
+                )
 
             except Exception as e:
                 console.print(
@@ -692,7 +792,8 @@ def display_results(drone_images: List, output_dir: Optional[str] = None):
 
 
 def display_census_results(
-    census_manager: CensusDataManager, stats: dict, output_dir: Optional[str] = None
+    census_manager: CensusDataManager,
+    stats: dict,
 ):
     """Display comprehensive census campaign results."""
     console.print(
@@ -820,32 +921,18 @@ def create_geographic_visualization(
 
     try:
         # Create visualizer
-        config = VisualizationConfig(
-            map_center=None,
-            zoom_start=12,
-            tiles="OpenStreetMap",  # Use OpenStreetMap instead of Stamen Terrain
-            image_bounds_color="purple",
-            image_center_color="orange",
-            overlap_color="red",
-            show_image_path=True,
-            show_image_bounds=True,
-            show_detection_count=True,
-            show_gps_info=True,
-            show_image_centers=False,
-            show_detections=True,
-            show_statistics=True,
-        )
+        config = VisualizationConfig()
         visualizer = GeographicVisualizer(config)
-
-        # Create map
-        map_obj = visualizer.create_map(drone_images)
-
-        # Save map if output directory provided
+        map_file = None
         if output_dir:
             output_path = Path(output_dir)
             output_path.mkdir(parents=True, exist_ok=True)
-            map_file = output_path / "geographic_visualization.html"
-            map_obj.save(str(map_file))
+            map_file = str(output_path / "geographic_visualization.html")
+
+        # Create map
+        visualizer.create_map(drone_images, save_path=map_file)
+
+        if map_file:
             console.print(
                 f"[green]Geographic visualization saved to: {map_file}[/green]"
             )
@@ -1010,7 +1097,7 @@ def ui(
         subprocess.Popen(
             cmd,
             env=os.environ.copy(),
-            # creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            # creationflags=subprocess.CREATE_NEW_CONSOLE
         )
 
     except ImportError:

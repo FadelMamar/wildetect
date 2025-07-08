@@ -10,17 +10,13 @@ import logging
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import folium
 import numpy as np
-from folium import plugins
-from shapely.geometry import MultiPolygon, Polygon
-from shapely.ops import unary_union
 
 from ..data.drone_image import DroneImage
 from ..flight.geographic_merger import GPSOverlapStrategy
-from ..gps.geographic_bounds import GeographicBounds
 
 logger = logging.getLogger(__name__)
 

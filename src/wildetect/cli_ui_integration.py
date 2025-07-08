@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -53,25 +54,26 @@ class CLIUIIntegration:
             cmd = ["wildetect", command] + args
 
             if status_text:
-                status_text.text(f"Running command: {' '.join(cmd)}")
+                status_text.code(f"Running command: {' '.join(cmd)}")
 
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                env=os.environ.copy(),
+                encoding="utf-8",
+                errors="replace",
+                env=env,
                 bufsize=1,
                 universal_newlines=True,
             )
-
+            logs = ""
             if log_placeholder is not None:
-                logs = ""
                 for line in process.stdout:
                     logs += line
-                    log_placeholder.code(
-                        logs
-                    )  # Update the Streamlit code block with new logs
+                    log_placeholder.code(logs)
 
             process.stdout.close()
             return_code = process.wait()
@@ -83,20 +85,20 @@ class CLIUIIntegration:
                 "return_code": return_code,
             }
 
-        except Exception as e:
-            self.logger.error(f"Subprocess error: {e}")
+        except Exception:
+            self.logger.error(f"Subprocess error: {traceback.format_exc()}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": traceback.format_exc(),
                 "return_code": -1,
             }
 
     def run_detection_ui(
         self,
         images: List[str],
+        dataset_name: Optional[str] = None,
         log_placeholder: Optional["st.empty"] = None,
         status_text: Optional["st.empty"] = None,
-        output: str = "results",
     ) -> Dict[str, Any]:
         """Run detection from UI using subprocess."""
         try:
@@ -105,6 +107,9 @@ class CLIUIIntegration:
 
             # Add image paths
             args.extend(images)
+
+            if dataset_name:
+                args.extend(["--dataset", dataset_name])
 
             if status_text:
                 status_text.text("Starting detection process...")
@@ -116,80 +121,60 @@ class CLIUIIntegration:
                 log_placeholder=log_placeholder,
                 status_text=status_text,
             )
+            return result
 
-            if not result["success"]:
-                return result
+            # if not result["success"]:
+            #    return result
 
             # Load results from output file
-            results_file = Path(output) / "results.json"
-            if results_file.exists():
-                with open(results_file, "r") as f:
-                    results_data = json.load(f)
+            # results_file = Path(output) / "results.json"
+            # if results_file.exists():
+            #    with open(results_file, "r", encoding="utf-8") as f:
+            #        results_data = json.load(f)
 
-                # Extract statistics
-                total_images = len(results_data.get("drone_images", []))
-                total_detections = sum(
-                    drone_img.get("total_detections", 0)
-                    for drone_img in results_data.get("drone_images", [])
-                )
+            # return {
+            #    "success": True,
+            #    "results": results_data,
+            #    "output_dir": output,
+            # }
+            # else:
+            #    return {
+            #        "success": False,
+            #        "error": "Results file not found after detection",
+            #        "output_dir": output,
+            #    }
 
-                return {
-                    "success": True,
-                    "results": results_data,
-                    "total_images": total_images,
-                    "total_detections": total_detections,
-                    "output_dir": output,
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": "Results file not found after detection",
-                    "output_dir": output,
-                }
-
-        except Exception as e:
-            self.logger.error(f"Detection failed: {e}")
+        except Exception:
+            self.logger.error(f"Detection failed: {traceback.format_exc()}")
             return {
                 "success": False,
-                "error": str(e),
-                "total_images": 0,
-                "total_detections": 0,
+                "error": str(traceback.format_exc()),
             }
 
+    # TODO: test this
     def run_census_ui(
         self,
         campaign_id: str,
         images: List[str],
         output: str = "results",
-        pilot_name: Optional[str] = None,
         target_species: Optional[List[str]] = None,
-        create_map: bool = True,
         log_placeholder: Optional["st.empty"] = None,
         status_text: Optional["st.empty"] = None,
     ) -> Dict[str, Any]:
         """Run census campaign from UI using subprocess."""
         try:
-            # Create temporary output directory if not provided
-            if not output:
-                output = tempfile.mkdtemp(prefix="wildetect_census_")
-
             # Build CLI arguments
             args = [campaign_id]
             args.extend(images)
 
-            # Add optional parameters
-
-            args.extend(["--output", output])
-
-            if pilot_name:
-                args.extend(["--pilot", pilot_name])
+            # Create temporary output directory if not provided
+            if output:
+                output = tempfile.mkdtemp(prefix="wildetect_census_")
+                args.extend(["--output", output])
 
             if target_species:
                 for species in target_species:
                     args.extend(["--species", species])
-
-            if not create_map:
-                args.extend(["--no-map"])
 
             if status_text:
                 status_text.text(f"Starting census campaign: {campaign_id}")
@@ -215,153 +200,15 @@ class CLIUIIntegration:
                 "output_dir": output,
             }
 
-        except Exception as e:
-            self.logger.error(f"Census campaign failed: {e}")
+        except Exception:
+            self.logger.error(f"Census campaign failed: {traceback.format_exc()}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": traceback.format_exc(),
                 "campaign_id": campaign_id,
             }
 
-    def analyze_results_ui(
-        self,
-        results_path: str,
-        output_dir: str = "analysis",
-        create_map: bool = True,
-        log_placeholder: Optional["st.empty"] = None,
-        status_text: Optional["st.empty"] = None,
-    ) -> Dict[str, Any]:
-        """Analyze detection results from UI using subprocess."""
-        try:
-            # Build CLI arguments
-            args = [results_path]
-            args.extend(["--output", output_dir])
-
-            if not create_map:
-                args.extend(["--no-map"])
-
-            if status_text:
-                status_text.text("Starting analysis...")
-
-            # Run analyze command
-            result = self._run_cli_command(
-                "analyze",
-                args,
-                log_placeholder=log_placeholder,
-                status_text=status_text,
-            )
-
-            if not result["success"]:
-                return result
-
-            # Load analysis results
-            analysis_file = Path(output_dir) / "analysis_report.json"
-            if analysis_file.exists():
-                with open(analysis_file, "r") as f:
-                    analysis_results = json.load(f)
-            else:
-                analysis_results = {}
-
-            return {
-                "success": True,
-                "analysis_results": analysis_results,
-                "output_dir": output_dir,
-            }
-
-        except Exception as e:
-            self.logger.error(f"Analysis failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "analysis_results": {},
-                "output_dir": output_dir,
-            }
-
-    def visualize_results_ui(
-        self,
-        results_path: str,
-        output_dir: str = "results",
-        show_confidence: bool = True,
-        create_map: bool = True,
-        log_placeholder: Optional["st.empty"] = None,
-        status_text: Optional["st.empty"] = None,
-    ) -> Dict[str, Any]:
-        """Visualize detection results from UI using subprocess."""
-        try:
-            # Build CLI arguments
-            args = [results_path]
-            args.extend(["--output", output_dir])
-
-            if not show_confidence:
-                args.extend(["--no-confidence"])
-
-            if not create_map:
-                args.extend(["--no-map"])
-
-            if status_text:
-                status_text.text("Creating visualizations...")
-
-            # Run visualize command
-            result = self._run_cli_command(
-                "visualize",
-                args,
-                log_placeholder=log_placeholder,
-                status_text=status_text,
-            )
-
-            if not result["success"]:
-                return result
-
-            # Load visualization data
-            visualization_file = Path(output_dir) / "visualization_report.json"
-            if visualization_file.exists():
-                with open(visualization_file, "r") as f:
-                    visualization_data = json.load(f)
-            else:
-                visualization_data = {}
-
-            return {
-                "success": True,
-                "visualization_data": visualization_data,
-                "output_dir": output_dir,
-            }
-
-        except Exception as e:
-            self.logger.error(f"Visualization failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "visualization_data": {},
-                "output_dir": output_dir,
-            }
-
-    def get_system_info_ui(self) -> Dict[str, Any]:
-        """Get system information for UI display using subprocess."""
-        try:
-            result = self._run_cli_command("info", [])
-
-            if result["success"]:
-                # Parse the system info from stdout
-                system_info = self._parse_system_info(result["stdout"])
-                return {
-                    "success": True,
-                    "system_info": system_info,
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": result.get("error", "Failed to get system info"),
-                    "system_info": {},
-                }
-
-        except Exception as e:
-            self.logger.error(f"Failed to get system info: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "system_info": {},
-            }
-
+    # TODO: test this
     def _load_campaign_results(
         self, output_dir: str, campaign_id: str
     ) -> Dict[str, Any]:
@@ -369,7 +216,7 @@ class CLIUIIntegration:
         try:
             campaign_file = Path(output_dir) / "campaign_report.json"
             if campaign_file.exists():
-                with open(campaign_file, "r") as f:
+                with open(campaign_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             else:
                 return {
@@ -377,64 +224,16 @@ class CLIUIIntegration:
                     "status": "completed",
                     "output_dir": output_dir,
                 }
-        except Exception as e:
-            self.logger.error(f"Failed to load campaign results: {e}")
+        except Exception:
+            self.logger.error(
+                f"Failed to load campaign results: {traceback.format_exc()}"
+            )
             return {
                 "campaign_id": campaign_id,
                 "status": "error",
-                "error": str(e),
+                "error": traceback.format_exc(),
                 "output_dir": output_dir,
             }
-
-    def _parse_system_info(self, stdout: str) -> Dict[str, Any]:
-        """Parse system information from CLI output."""
-        system_info = {
-            "components": {},
-            "dependencies": {},
-            "timestamp": datetime.now().isoformat(),
-        }
-
-        lines = stdout.strip().split("\n")
-        current_section = None
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Look for table headers or section indicators
-            if "Component" in line and "Status" in line and "Details" in line:
-                current_section = "components"
-            elif "PyTorch" in line or "CUDA" in line:
-                # Parse component lines
-                parts = line.split("|")
-                if len(parts) >= 3:
-                    component = parts[0].strip()
-                    status = parts[1].strip()
-                    details = parts[2].strip()
-
-                    if current_section == "components":
-                        system_info["components"][component] = {
-                            "status": status,
-                            "details": details,
-                        }
-            elif any(
-                dep in line
-                for dep in ["PIL", "numpy", "tqdm", "ultralytics", "folium", "shapely"]
-            ):
-                # Parse dependency lines
-                parts = line.split("|")
-                if len(parts) >= 3:
-                    dependency = parts[0].strip()
-                    status = parts[1].strip()
-                    details = parts[2].strip()
-
-                    system_info["dependencies"][dependency] = {
-                        "status": status,
-                        "details": details,
-                    }
-
-        return system_info
 
     def clear_results_ui(
         self,
@@ -462,16 +261,16 @@ class CLIUIIntegration:
                 else result.get("error", "Failed to clear results"),
             }
 
-        except Exception as e:
-            self.logger.error(f"Failed to clear results: {e}")
+        except Exception:
+            self.logger.error(f"Failed to clear results: {traceback.format_exc()}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": traceback.format_exc(),
             }
 
     def fiftyone_ui(
         self,
-        dataset_name: str = "wildlife_detection",
+        dataset_name: Optional[str] = None,
         action: str = "launch",
         export_format: str = "coco",
         export_path: Optional[str] = None,
@@ -481,7 +280,10 @@ class CLIUIIntegration:
         """Manage FiftyOne datasets from UI using subprocess."""
         try:
             # Build CLI arguments
-            args = [f"--dataset", dataset_name, "--action", action]
+            if dataset_name:
+                args = [f"--dataset", dataset_name, "--action", action]
+            else:
+                args = [f"--action", action]
 
             if action == "export":
                 args.extend(["--format", export_format])
@@ -504,11 +306,11 @@ class CLIUIIntegration:
                 "error": result.get("error", ""),
             }
 
-        except Exception as e:
-            self.logger.error(f"FiftyOne operation failed: {e}")
+        except Exception:
+            self.logger.error(f"FiftyOne operation failed: {traceback.format_exc()}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": traceback.format_exc(),
                 "action": action,
                 "dataset_name": dataset_name,
             }

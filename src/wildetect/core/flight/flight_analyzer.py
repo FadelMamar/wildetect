@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 from ..data.detection import Detection
 from ..data.drone_image import DroneImage
+from .geographic_merger import GPSOverlapStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class FlightPathAnalyzer:
 
     def __init__(self):
         """Initialize the flight path analyzer."""
-        pass
+        self.overlap_strategy = GPSOverlapStrategy()
 
     def analyze_flight_path(self, drone_images: List[DroneImage]) -> FlightPath:
         """Analyze the flight path from DroneImage GPS data.
@@ -116,7 +117,14 @@ class FlightPathAnalyzer:
             FlightEfficiency: Flight efficiency metrics
         """
         if not flight_path.coordinates:
-            return FlightEfficiency(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            return FlightEfficiency(
+                total_distance_km=0.0,
+                total_area_covered_sqkm=0.0,
+                coverage_efficiency=0.0,
+                overlap_percentage=0.0,
+                average_altitude_m=0.0,
+                image_density_per_sqkm=0.0,
+            )
 
         # Calculate total distance
         total_distance_km = self._calculate_total_distance(flight_path.coordinates)
@@ -125,17 +133,13 @@ class FlightPathAnalyzer:
         total_area_covered_sqkm = self._calculate_area_covered(drone_images)
 
         # Calculate coverage efficiency
-        coverage_efficiency = (
-            total_area_covered_sqkm / total_distance_km
-            if total_distance_km > 0
-            else 0.0
-        )
+        if total_distance_km == 0.0:
+            coverage_efficiency = 0.0
+        else:
+            coverage_efficiency = total_area_covered_sqkm / total_distance_km
 
         # Calculate overlap percentage
         overlap_percentage = self._calculate_overlap_percentage(drone_images)
-
-        # Calculate flight duration
-        flight_duration_hours = self._calculate_flight_duration(flight_path.timestamps)
 
         # Calculate average altitude
         altitudes = [coord[2] for coord in flight_path.coordinates if coord[2] > 0]
@@ -187,6 +191,9 @@ class FlightPathAnalyzer:
         max_altitude = max(altitudes) if altitudes else 0.0
         min_altitude = min(altitudes) if altitudes else 0.0
 
+        # Calculate flight duration
+        flight_duration_hours = self._calculate_flight_duration(timestamps)
+
         return {
             "total_distance_km": total_distance,
             "average_distance_km": avg_distance,
@@ -196,6 +203,7 @@ class FlightPathAnalyzer:
             "max_altitude_m": max_altitude,
             "min_altitude_m": min_altitude,
             "num_waypoints": len(coordinates),
+            "flight_duration_hours": flight_duration_hours,
         }
 
     def _calculate_distance(
@@ -238,7 +246,7 @@ class FlightPathAnalyzer:
 
     def _calculate_area_covered(self, drone_images: List[DroneImage]) -> float:
         """Calculate total area covered by drone images."""
-
+        total_area = 0.0
         for drone_image in drone_images:
             geographic_footprint = drone_image.geographic_footprint
             if geographic_footprint is not None:
@@ -254,26 +262,11 @@ class FlightPathAnalyzer:
         """Calculate overall overlap percentage."""
         if len(drone_images) < 2:
             return 0.0
-
-        # Count overlapping pairs
-        overlapping_pairs = 0
-        total_pairs = len(drone_images) * (len(drone_images) - 1) / 2
-
-        for i, img1 in enumerate(drone_images):
-            for j, img2 in enumerate(drone_images[i + 1 :], i + 1):
-                if (
-                    img1.latitude
-                    and img1.longitude
-                    and img2.latitude
-                    and img2.longitude
-                ):
-                    distance = self._calculate_distance(
-                        img1.latitude, img1.longitude, img2.latitude, img2.longitude
-                    )
-                    if distance < 0.2:  # 200m threshold for overlap
-                        overlapping_pairs += 1
-
-        return overlapping_pairs / total_pairs if total_pairs > 0 else 0.0
+        self.overlap_strategy.find_overlapping_images(
+            drone_images, min_overlap_threshold=0.0
+        )
+        stats = self.overlap_strategy.stats
+        return stats["avg_overlap_ratio"]
 
     def _calculate_flight_duration(self, timestamps: List[datetime]) -> float:
         """Calculate flight duration in hours."""

@@ -119,7 +119,20 @@ class Tile:
 
     @property
     def geo_box(self):
-        return self.geographic_footprint.box
+        if self.geographic_footprint is not None:
+            return self.geographic_footprint.box
+        else:
+            return None
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = dict(vars(self))
+        if self.geographic_footprint is not None:
+            d["geographic_footprint"] = self.geographic_footprint.to_dict()
+        d["geo_box"] = self.geo_box
+        d["type"] = "Tile"
+        d["predictions"] = [det.to_dict() for det in self.predictions]
+        d["annotations"] = [det.to_dict() for det in self.annotations]
+        return d
 
     def geo_iou(self, other: "Tile") -> float:
         return self.geographic_footprint.overlap_ratio(other.geographic_footprint)
@@ -242,52 +255,6 @@ class Tile:
         """Update GPS information for all detections in this tile."""
         GPSDetectionService.update_detections_by_type(self, detection_type)
 
-    def detections_to_df(
-        self,
-    ) -> pd.DataFrame:
-        assert self.image_path is not None, "provide the path to the tile."
-
-        out = []
-        # add_tag = lambda x,tag:{f"{tag}_{k}":v for k,v in x.items()}
-
-        def add_tag(out: dict, is_annot: bool):
-            out["is_annot"] = is_annot
-            return out
-
-        if self.annotations:
-            out = out + [
-                add_tag(det.to_dict(), is_annot=True) for det in self.annotations
-            ]
-
-        if self.predictions:
-            out = out + [
-                add_tag(det.to_dict(), is_annot=False) for det in self.predictions
-            ]
-
-        df = pd.DataFrame.from_dict(out, orient="columns")
-
-        if df.empty:
-            df.at[0, "image_width"] = self.width  # add a row
-
-        df["image_width"] = self.width
-        df["image_height"] = self.height
-        df["parent_image"] = self.image_path
-        df["original_timestamp"] = self.timestamp
-
-        # YOLO format
-        if len(out) > 0:
-            df["w"] = df["w"] / self.width
-            df["h"] = df["h"] / self.height
-            df["x"] = df["x"] / self.width
-            df["y"] = df["y"] / self.height
-
-            # check detections
-            self.check_detections(df)
-
-        df.rename(columns={"parent_image": "file_name"}, inplace=True)
-
-        return df
-
     def set_predictions(self, data: List[Detection], update_gps: bool = True) -> None:
         """Set predictions with proper validation."""
         if not isinstance(data, list):
@@ -399,22 +366,6 @@ class Tile:
     def from_image_data(cls, image_data: Image.Image, **kwargs) -> "Tile":
         """Create tile from image data."""
         return cls(image_data=image_data, image_path=None, **kwargs)
-
-    def check_detections(self, df: pd.DataFrame) -> None:
-        df = df[["x_min", "x_max", "y_min", "y_max"]].dropna().copy()
-
-        if df.empty:
-            return None
-
-        assert df.to_numpy().min() >= 0
-        assert (
-            df[["x_min", "x_max"]].to_numpy().max() <= self.width
-        ), f"{df[['x_min', 'x_max']].to_numpy().max()} <= {self.width}"
-        assert (
-            df[["y_min", "y_max"]].to_numpy().max() <= self.height
-        ), f"{df[['y_min', 'y_max']].to_numpy().max()} <= {self.height}"
-
-        return None
 
     def draw_detections(
         self,

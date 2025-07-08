@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..config import LoaderConfig
+from ..data.detection import Detection
 from ..flight.flight_analyzer import FlightEfficiency, FlightPath, FlightPathAnalyzer
 from ..flight.geographic_merger import GeographicMerger
 from .drone_image import DroneImage
@@ -71,8 +72,6 @@ class CensusDataManager:
 
         # Processing configuration
         self.loading_config = loading_config
-        self.tile_size: Optional[int] = None
-        self.overlap: Optional[float] = None
 
         # Campaign metadata
         self.campaign_metadata: Optional[CampaignMetadata] = None
@@ -115,7 +114,7 @@ class CensusDataManager:
         logger.info(f"Added {len(image_paths)} images from directory: {directory_path}")
 
     def create_drone_images(
-        self, tile_size: Optional[int] = None, overlap: Optional[float] = None
+        self,
     ) -> None:
         """Create DroneImage instances from the loaded image paths.
 
@@ -128,12 +127,6 @@ class CensusDataManager:
                 "No image paths available for DroneImage creation. Please add images first."
             )
             return
-
-        # Update configuration if provided
-        if tile_size is not None:
-            self.tile_size = tile_size
-        if overlap is not None:
-            self.overlap = overlap
 
         logger.info(f"Creating DroneImages for {len(self.image_paths)} images...")
 
@@ -205,14 +198,7 @@ class CensusDataManager:
     def merge_detections_geographically(
         self, iou_threshold: float = 0.8
     ) -> List[DroneImage]:
-        """Merge detections across overlapping geographic regions.
-
-        Args:
-            iou_threshold (float): IoU threshold for merging detections
-
-        Returns:
-            List[DroneImage]: List of merged drone images
-        """
+        """Merge detections across overlapping geographic regions."""
         if not self.drone_images:
             logger.warning("No drone images available for geographic merging")
             return []
@@ -322,10 +308,7 @@ class CensusDataManager:
             "campaign_id": self.campaign_id,
             "total_images": len(self.drone_images),
             "total_image_paths": len(self.image_paths),
-            "tile_configuration": {
-                "tile_size": self.tile_size,
-                "overlap": self.overlap,
-            },
+            "tile_configuration": vars(self.loading_config),
             "metadata": self.metadata,
         }
 
@@ -371,7 +354,9 @@ class CensusDataManager:
         logger.info(f"Detection report exported to: {output_path}")
 
     # TODO: Add all detections retrieval
-    def get_all_detections(self, force_compute: bool = False) -> List:
+    def get_all_detections(
+        self,
+    ) -> List[Detection]:
         """Get all detections from all DroneImages.
 
         Returns:
@@ -379,7 +364,5 @@ class CensusDataManager:
         """
         all_detections = []
         for drone_image in self.drone_images:
-            all_detections.extend(
-                drone_image.get_all_predictions(force_compute=force_compute)
-            )
+            all_detections.extend(drone_image.get_non_empty_predictions())
         return all_detections

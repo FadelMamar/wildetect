@@ -49,6 +49,16 @@ class DroneImage(Tile):
             logger.warning(f"No geographic footprint for {self.image_path}")
             return None
 
+    def to_dict(self) -> Dict[str, Any]:
+        d = dict(vars(self))
+        d["tiles"] = [tile.to_dict() for tile in self.tiles]
+        d["tile_offsets"] = self.tile_offsets
+        d["type"] = "DroneImage"
+        d["predictions"] = [det.to_dict() for det in self.get_non_empty_predictions()]
+        if self.geographic_footprint is not None:
+            d["geographic_footprint"] = self.geographic_footprint.to_dict()
+        return d
+
     def get_non_empty_predictions(self) -> List[Detection]:
         """Get all non-empty predictions from all tiles."""
         return [det for det in self.get_all_predictions() if not det.is_empty]

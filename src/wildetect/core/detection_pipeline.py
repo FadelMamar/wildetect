@@ -209,7 +209,7 @@ class DetectionPipeline:
         save_path_obj = Path(save_path)
         save_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(save_path_obj, "w") as f:
+        with open(save_path_obj, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2)
 
         logger.info(f"Results saved to: {save_path}")

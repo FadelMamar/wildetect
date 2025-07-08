@@ -6,6 +6,7 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -35,7 +36,6 @@ class OverlapStrategy(ABC):
         self,
     ):
         self.stats = None
-        pass
 
     @abstractmethod
     def find_overlapping_images(
@@ -89,6 +89,7 @@ class GPSOverlapStrategy(OverlapStrategy):
             Dict[str, List[str]]: Map of image IDs to their overlapping neighbor image IDs.
         """
         overlap_map = defaultdict(list)
+        overlap_ratios = defaultdict(list)
         ious = self._compute_iou(images=images)
         for i, img1 in enumerate(tqdm(images, desc="Finding overlapping images")):
             for j, img2 in enumerate(images):
@@ -96,10 +97,49 @@ class GPSOverlapStrategy(OverlapStrategy):
                     continue
                 if ious[i, j] > min_overlap_threshold:
                     overlap_map[str(img1.image_path)].append(str(img2.image_path))
+                    overlap_ratios[str(img1.image_path)].append(ious[i, j])
 
         overlap_map = dict(overlap_map)
+        overlap_ratios = dict(overlap_ratios)
+
+        # compute stats
         self.stats = self.overlap_map_stats(overlap_map)
+        overlap_ratios = self.overlap_ratio_stats(overlap_ratios)
+        self.stats.update(overlap_ratios)
+
         return overlap_map
+
+    def overlap_ratio_stats(
+        self, overlap_ratios: Dict[str, List[float]]
+    ) -> Dict[str, Any]:
+        """Compute statistics on the overlap ratios.
+        Args:
+            overlap_ratios (Dict[str, List[float]]): Map of image IDs to their overlapping neighbor image IDs.
+        Returns:
+            Dict[str, Any]: Statistics including number of images, average, max, min neighbors, and neighbor counts list.
+        """
+
+        ratios = []
+
+        vals = list(overlap_ratios.values())
+        vals = deepcopy(vals)
+
+        for r in vals:
+            values = [r.pop() for i in range(len(r)) if r[i] <= 0]
+            ratios.extend(values)
+
+        if len(ratios) == 0:
+            return {
+                "avg_overlap_ratio": 0.0,
+                "max_overlap_ratio": 0.0,
+                "min_overlap_ratio": 0.0,
+            }
+
+        return {
+            "avg_overlap_ratio": sum(ratios) / max(len(ratios), 1),
+            "max_overlap_ratio": max(ratios),
+            "min_overlap_ratio": min(ratios),
+        }
 
     def overlap_map_stats(self, overlap_map: dict) -> dict:
         """Compute statistics on the overlap_map.
@@ -621,7 +661,7 @@ class GeographicMerger:
 
     def run(
         self, drone_images: List[DroneImage], iou_threshold: float = 0.8
-    ) -> Dict[str, Any]:
+    ) -> List[DroneImage]:
         """Merge detections across overlapping geographic regions.
 
         Args:
@@ -629,7 +669,7 @@ class GeographicMerger:
             iou_threshold (float): IoU threshold for duplicate removal
 
         Returns:
-            Dict[str, Any]: Statistics about the duplicate removal process.
+            List[DroneImage]: List of merged DroneImage objects.
         """
         logger.info(f"Merging detections from {len(drone_images)} drone images")
 
@@ -655,8 +695,8 @@ class GeographicMerger:
         overlap_map = self.overlap_strategy.find_overlapping_images(drone_images)
 
         # Merge detections based on geographic proximity
-        stats = self.duplicate_removal_strategy.remove_duplicates(
+        # The duplicate_removal_strategy modifies the drone_images in-place to remove duplicates
+        self.duplicate_removal_strategy.remove_duplicates(
             drone_images, overlap_map=overlap_map, iou_threshold=iou_threshold
         )
-
-        return stats
+        return drone_images

@@ -5,7 +5,7 @@ Geographic bounds utilities for wildlife detection.
 import logging
 import traceback
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -37,6 +37,17 @@ class GeographicBounds:
 
     def __post_init__(self):
         self._polygon_points = self.get_polygon_points()
+
+    def to_dict(
+        self
+    ) -> Dict[str, Union[List[Tuple[float, float]], List[float], float]]:
+        d = vars(self)
+        d["polygon_points"] = self.get_polygon_points()
+        d["box"] = self.box
+        d["center"] = self.center
+        d["area"] = self.area
+        d["type"] = "GeographicBounds"
+        return d
 
     @property
     def area(self) -> float:

@@ -29,7 +29,9 @@ dependencies = [
     "accelerate>=1.8.1",
     "mlflow>=3.1.1",
     "streamlit>=1.46.1",
-    "isort>=6.0.1",
+    "rich>=14.0.0",
+    "typer>=0.16.0",
+    "albumentations",
 ]
 
 [tool.ruff]
@@ -37,6 +39,10 @@ target-version = "py311"
 line-length = 88
 select = ["I", "E", "F", "W", "C90"]
 ignore = []
+
+[build-system]
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
 
 [tool.ruff.format]
 quote-style = "double"
