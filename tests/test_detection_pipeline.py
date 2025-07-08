@@ -156,8 +156,15 @@ class TestDetectionPipeline:
 
     @patch("wildetect.core.detectors.object_detection_system.ObjectDetectionSystem")
     @patch("PIL.Image.open")
+    @patch("wildetect.core.data.drone_image.DroneImage.from_image_path")
     def test_postprocess_method(
-        self, mock_image_open, mock_ods_class, mock_configs, mock_tiles, mock_detections
+        self,
+        mock_from_image_path,
+        mock_image_open,
+        mock_ods_class,
+        mock_configs,
+        mock_tiles,
+        mock_detections,
     ):
         """Test the _postprocess method of DetectionPipeline."""
         prediction_config, loader_config = mock_configs
@@ -166,7 +173,24 @@ class TestDetectionPipeline:
         mock_image = Mock()
         mock_image.size = (100, 100)
         mock_image._getexif.return_value = {36867: "2023:01:01 00:00:00"}
-        mock_image_open.return_value.__enter__.return_value = mock_image
+        mock_image_open.return_value = mock_image
+
+        # Mock DroneImage creation
+        mock_drone_image1 = Mock(spec=DroneImage)
+        mock_drone_image1.add_tile = Mock()
+        mock_drone_image1.update_detection_gps = Mock()
+        mock_drone_image2 = Mock(spec=DroneImage)
+        mock_drone_image2.add_tile = Mock()
+        mock_drone_image2.update_detection_gps = Mock()
+
+        # Mock the from_image_path method to return our mock instances
+        def mock_from_image_path_method(image_path, **kwargs):
+            if "parent_image_0" in image_path:
+                return mock_drone_image1
+            else:
+                return mock_drone_image2
+
+        mock_from_image_path.side_effect = mock_from_image_path_method
 
         # Create pipeline instance
         pipeline = DetectionPipeline(
@@ -197,8 +221,9 @@ class TestDetectionPipeline:
 
         # Verify that DroneImage objects were created
         for drone_image in result:
-            assert isinstance(drone_image, DroneImage)
-            assert len(drone_image.tiles) > 0
+            assert isinstance(drone_image, Mock)  # Should be our mocked DroneImage
+            drone_image.add_tile.assert_called()
+            drone_image.update_detection_gps.assert_called_once()
 
     def test_postprocess_empty_detections(self, mock_configs):
         """Test _postprocess with empty detections."""

@@ -32,7 +32,7 @@ def test_imports():
         from src.wildetect.core.data import DroneImage, Tile
         from src.wildetect.core.data.dataset import CensusData
         from src.wildetect.core.data.detection import Detection
-        from src.wildetect.core.data.loader import DataLoader, ImageTileDataset
+        from src.wildetect.core.data.loader import DataLoader, TileDataset
         from src.wildetect.core.data.utils import TileUtils, get_images_paths
 
         logger.info("✓ All core imports successful")
@@ -185,10 +185,24 @@ def test_census_data_basic():
     assert len(census_data.drone_images) == 0
     assert len(census_data.image_paths) == 0
 
-    # Test adding image paths
+    # Test adding image paths (using mock paths that will be filtered out)
     test_paths = ["/path/to/image1.jpg", "/path/to/image2.jpg"]
     census_data.add_images_from_paths(test_paths)
-    assert len(census_data.image_paths) == 2
+    # The method filters out non-existent paths, so we expect 0
+    assert len(census_data.image_paths) == 0
+
+    # Test with a valid path (create a temporary file)
+    import os
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
+        tmp_path = tmp_file.name
+
+    try:
+        census_data.add_images_from_paths([tmp_path])
+        assert len(census_data.image_paths) == 1
+    finally:
+        os.unlink(tmp_path)
 
     logger.info("✓ CensusData basic test passed")
 
