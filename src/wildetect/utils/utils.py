@@ -38,7 +38,7 @@ def load_registered_model(
     tag_to_append: str = "",
     mlflow_tracking_url="http://localhost:5000",
     load_unwrapped: bool = False,
-    dwnd_location: Optional[Union[str, Path]] = ROOT / "models",
+    dwnd_location: Optional[Union[str, Path]] = None,
 ):
     mlflow.set_tracking_uri(mlflow_tracking_url)
 
@@ -53,6 +53,9 @@ def load_registered_model(
         dwnd_location.mkdir(parents=True, exist_ok=True)
         dwnd_location = dwnd_location / version
         dwnd_location = str(dwnd_location.resolve())
+    
+    Path(dwnd_location).mkdir(parents=True, exist_ok=True)
+    
     try:
         model = mlflow.pyfunc.load_model(str(dwnd_location))
     except:

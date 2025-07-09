@@ -41,8 +41,8 @@ class DetectionPipeline:
         self.device = config.device
         self.metadata = dict()
 
-        assert config.model_path is not None, "Model path must be provided"
-        assert config.model_type is not None, "Model type must be provided"
+        #assert config.model_path is not None, "Model path must be provided"
+        #assert config.model_type is not None, "Model type must be provided"
 
         # Initialize components
         self.detection_system: Optional[ObjectDetectionSystem] = None
