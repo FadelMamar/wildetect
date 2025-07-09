@@ -1117,9 +1117,6 @@ def ui(
             console.print(f"[red]UI module not found at: {ui_path}[/red]")
             raise typer.Exit(1)
 
-        console.print(f"[green]Launching WildDetect UI on http://{host}:{port}[/green]")
-        console.print("[yellow]Press Ctrl+C to stop the server[/yellow]")
-
         # Launch Streamlit
         cmd = [
             "uv",
@@ -1139,6 +1136,9 @@ def ui(
             cmd,
             env=os.environ.copy(),  # creationflags=subprocess.CREATE_NEW_CONSOLE
         )
+
+        console.print(f"[green]Launching WildDetect UI on http://{host}:{port}[/green]")
+        console.print("[yellow]Press Ctrl+C to stop the server[/yellow]")
 
     except ImportError:
         console.print("[red]Streamlit not installed. Please install it with:[/red]")

@@ -1,11 +1,15 @@
+call c: 
+
 call cd "C:\Users\Machine Learning\Desktop\workspace-wildAI\datalabeling"
 
-call cd "D:\datalabeling"
+call dir
 
-call deactivate
+@REM cd "D:\datalabeling"
+
+@REM call deactivate
 
 call .venv-mlflow\Scripts\activate
 
 call mlflow server --backend-store-uri runs\mlflow
 
-call deactivate
+@REM call deactivate
