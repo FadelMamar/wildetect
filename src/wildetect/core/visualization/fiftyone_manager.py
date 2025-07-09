@@ -30,7 +30,7 @@ class FiftyOneManager:
         self,
         dataset_name: str,
         config: Optional[Dict[str, Any]] = None,
-        persistent: bool = False,
+        persistent: bool = True,
     ):
         """Initialize FiftyOne manager.
 

@@ -243,7 +243,7 @@ def detect(
             )
 
             if dataset_name:
-                fo_manager = FiftyOneManager(dataset_name)
+                fo_manager = FiftyOneManager(dataset_name, persistent=True)
                 fo_manager.add_drone_images(drone_images)
                 fo_manager.save_dataset()
 
@@ -833,9 +833,7 @@ def display_results(drone_images: List[DroneImage], output_dir: Optional[str] = 
                 subprocess.Popen(f"start {map_file}", shell=True)
 
                 # Get coverage statistics
-                coverage_stats = visualizer.get_coverage_statistics(
-                    drone_images
-                )
+                coverage_stats = visualizer.get_coverage_statistics(drone_images)
                 console.print(f"[green]✓ Coverage statistics calculated[/green]")
                 console.print(f"  Images with GPS: {coverage_stats['images_with_gps']}")
                 console.print(
@@ -1196,11 +1194,11 @@ def install_cuda(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
     """Install PyTorch with CUDA support for optimal performance."""
-    from .utils.cuda_installer import install_cuda_torch, install_cpu_torch
-    
+    from .utils.cuda_installer import install_cpu_torch, install_cuda_torch
+
     setup_logging(verbose)
     logger = logging.getLogger(__name__)
-    
+
     try:
         if cpu_only:
             console.print("[yellow]Installing CPU-only PyTorch...[/yellow]")
@@ -1208,9 +1206,9 @@ def install_cuda(
         else:
             console.print("[yellow]Installing PyTorch with CUDA support...[/yellow]")
             install_cuda_torch(cuda_version)
-            
+
         console.print("[green]✅ Installation completed![/green]")
-        
+
     except Exception as e:
         logger.error(f"Installation failed: {e}")
         console.print(f"[red]❌ Installation failed: {e}[/red]")
