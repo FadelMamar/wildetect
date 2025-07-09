@@ -643,13 +643,10 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
 class GeographicMerger:
     """Merges detections across overlapping geographic regions."""
 
-    def __init__(self, merge_distance_threshold_m: float = 50.0):
-        """Initialize the geographic merger.
-
-        Args:
-            merge_distance_threshold_m (float): Distance threshold for merging detections in meters
-        """
-        self.merge_distance_threshold_m = merge_distance_threshold_m
+    def __init__(
+        self,
+    ):
+        """Initialize the geographic merger."""
         self.overlap_strategy = GPSOverlapStrategy()
         self.duplicate_removal_strategy = CentroidProximityRemovalStrategy()
 
