@@ -1179,6 +1179,38 @@ def clear_results(
 
 
 @app.command()
+def install_cuda(
+    cuda_version: Optional[str] = typer.Option(
+        None, "--cuda-version", "-c", help="Specific CUDA version (118, 121)"
+    ),
+    cpu_only: bool = typer.Option(
+        False, "--cpu-only", help="Force CPU-only installation"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+):
+    """Install PyTorch with CUDA support for optimal performance."""
+    from .utils.cuda_installer import install_cuda_torch, install_cpu_torch
+    
+    setup_logging(verbose)
+    logger = logging.getLogger(__name__)
+    
+    try:
+        if cpu_only:
+            console.print("[yellow]Installing CPU-only PyTorch...[/yellow]")
+            install_cpu_torch()
+        else:
+            console.print("[yellow]Installing PyTorch with CUDA support...[/yellow]")
+            install_cuda_torch(cuda_version)
+            
+        console.print("[green]✅ Installation completed![/green]")
+        
+    except Exception as e:
+        logger.error(f"Installation failed: {e}")
+        console.print(f"[red]❌ Installation failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
 def fiftyone(
     dataset_name: str = typer.Option(
         "wildlife_detection", "--dataset", "-d", help="Dataset name"
