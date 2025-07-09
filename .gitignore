@@ -33,6 +33,8 @@ MANIFEST
 
 models/
 
+uv.lock
+
 *visualization.html
 
 # PyInstaller
