@@ -11,7 +11,7 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 from transformers import AutoImageProcessor, AutoModel
-
+import traceback
 from ..data.detection import Detection
 
 
@@ -148,20 +148,14 @@ class Classifier(Processor):
 
     def __init__(
         self,
-        model_path: str,
         label_map: Dict[int, str],
+        model_path: Optional[str]=None,
+        model: Optional[torch.nn.Module]=None,
         feature_extractor_path: Optional[str] = None,
         transform: Optional[A.Compose] = None,
         device: str = "cpu",
     ):
         """Initialize the classifier.
-
-        Args:
-            model (torch.nn.Module): PyTorch model for classification.
-            label_map (Dict[int, str]): Mapping from class indices to class names.
-            feature_extractor_path (Optional[str]): Path to feature extractor model.
-            imgsz (int): Image size for preprocessing.
-            transform (Optional[A.Compose]): Albumentations transform for preprocessing.
         """
         super().__init__()
 
@@ -172,12 +166,17 @@ class Classifier(Processor):
                 isinstance(key, int) for key in label_map.keys()
             ), "label_map must be a dictionary of int keys"
 
-        self.model = torch.jit.load(model_path)
+        if model is not None:
+            self.model = model.to(device)
+        else:
+            self.model = torch.jit.load(model_path)
+
         self.label_map = label_map
         if feature_extractor_path:
             self.feature_extractor = FeatureExtractor(feature_extractor_path)
         else:
             self.feature_extractor = None
+            self.logger.info(f"No feature extractor path provided")
 
         # Move model to device
         self.device = device
@@ -190,7 +189,7 @@ class Classifier(Processor):
         # Setup transform
         self.transform = transform
 
-        self.logger.info(f"Classifier initialized with {len(label_map)} classes")
+        self.logger.info(f"Classifier initialized with {len(label_map)} classes on {device}")
 
     def _pil_to_numpy(self, image: Image.Image) -> np.ndarray:
         """Convert a PIL Image to a numpy array.
@@ -257,8 +256,8 @@ class Classifier(Processor):
 
             return predictions
 
-        except Exception as e:
-            self.logger.error(f"Classification failed: {e}")
+        except Exception:
+            self.logger.error(f"Classification failed: {traceback.format_exc()}")
             raise
 
     def cleanup(self):
@@ -273,8 +272,8 @@ class RoIPostProcessor(Processor):
 
     def __init__(
         self,
-        model_path: str,
         label_map: Dict[int, str],
+        model_path: Optional[str]=None,
         feature_extractor_path: Optional[str] = None,
         roi_size: int = 96,
         transform: Optional[A.Compose] = None,
@@ -292,11 +291,18 @@ class RoIPostProcessor(Processor):
         self.box_size = roi_size
 
         if classifier:
+            assert isinstance(classifier, Classifier), "classifier must be a Classifier instance"
             self.classifier = classifier
+            self.logger.info(f"ROI Classifier initialized with classifier")
         else:
             self.classifier = Classifier(
-                model_path, label_map, feature_extractor_path, transform, device
+                model_path=model_path,
+                label_map=label_map,
+                feature_extractor_path=feature_extractor_path,
+                transform=transform,
+                device=device,
             )
+            self.logger.info(f"ROI Classifier initialized with model: {model_path}")
         self.keep = keep_classes or ["groundtruth"]
         self.logger.info(
             f"DetectionsPostprocessor initialized to keep classes: {self.keep}"

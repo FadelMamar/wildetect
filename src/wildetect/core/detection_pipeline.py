@@ -7,8 +7,8 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-import torch
 from tqdm import tqdm
+import os
 
 from .config import LoaderConfig, PredictionConfig
 from .data.detection import Detection
@@ -16,7 +16,8 @@ from .data.drone_image import DroneImage
 from .data.loader import DataLoader
 from .detectors.object_detection_system import ObjectDetectionSystem
 from .factory import build_detector
-from .processor.processor import RoIPostProcessor
+from .processor.processor import Classifier, RoIPostProcessor
+from ..utils.utils import load_registered_model
 
 logger = logging.getLogger(__name__)
 
@@ -55,22 +56,70 @@ class DetectionPipeline:
         )
 
         self.error_count = 0
+    
+    def load_registered_model(self,mlflow_model_name,mlflow_model_alias):
+        """Load the models from MLflow."""
+
+        if mlflow_model_name is None or mlflow_model_alias is None:
+            logger.warning("MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS are not set")
+            return None, dict()
+        
+        try:
+            detector_model, metadata = load_registered_model(
+                name=mlflow_model_name,
+                alias=mlflow_model_alias,
+                load_unwrapped=True,
+            )
+            logger.info(
+                f"Loaded model from MLflow: {mlflow_model_name}/{mlflow_model_alias}"
+            )
+        except Exception:
+            logger.error(f"Error loading model from MLflow: {traceback.format_exc()}")
+            return None, dict()
+    
+
+        return detector_model, metadata
+
+        
 
     def setup(self) -> None:
         """Set up the inference engine with model and processors."""
+
+        mlflow_model_name = os.environ.get("MLFLOW_DETECTOR_NAME", None)
+        mlflow_model_alias = os.environ.get("MLFLOW_DETECTOR_ALIAS", None)
+        mlflow_roi_name = os.environ.get("MLFLOW_ROI_NAME", None)
+        mlflow_roi_alias = os.environ.get("MLFLOW_ROI_ALIAS", None)
+
+        detector_model, self.metadata = self.load_registered_model(mlflow_model_name,mlflow_model_alias)
+        roi_model, roi_metadata = self.load_registered_model(mlflow_roi_name,mlflow_roi_alias)
+
+        classifier = None
+        if roi_model is not None:
+            classifier = Classifier(model=roi_model,
+                                    model_path=None, 
+                                    label_map=self.config.cls_label_map, 
+                                    device=self.config.device, 
+                                    feature_extractor_path=self.config.feature_extractor_path)
+            box_size = roi_metadata.get("box_size", self.config.cls_imgsz)
+            self.config.cls_imgsz = roi_metadata.get("cls_imgsz", self.config.cls_imgsz)
+            logger.info(f"ROI box size: {box_size} -> {self.config.cls_imgsz}")
+
         try:
             # Build detector
+            if detector_model is not None:
+                self.config.model_path = detector_model.ckpt_path
+
             detector = build_detector(
                 config=self.config,
             )
+            
             # Create object detection system
             self.detection_system = ObjectDetectionSystem(
                 config=self.config,
             )
             self.detection_system.set_model(detector)
-            self.metadata = detector.metadata
 
-            if self.config.roi_weights:
+            if self.config.roi_weights or classifier:
                 roi_processor = RoIPostProcessor(
                     model_path=self.config.roi_weights,
                     label_map=self.config.cls_label_map,
@@ -78,7 +127,7 @@ class DetectionPipeline:
                     roi_size=self.config.cls_imgsz,
                     transform=self.config.transform,
                     device=self.config.device,
-                    classifier=None,
+                    classifier=classifier,
                     keep_classes=self.config.keep_classes,
                 )
                 self.detection_system.set_processor(roi_processor)
@@ -174,10 +223,17 @@ class DetectionPipeline:
         """
         logger.info("Starting detection pipeline")
 
-        b = self.loader_config.batch_size
         if "batch" in self.metadata:
-            self.loader_config.batch_size = self.metadata.get("batch", b)
-            logger.info(f"Batch size set to {self.loader_config.batch_size}")
+            b = self.loader_config.batch_size
+            logger.info(f"Batch size: {b} -> {self.metadata.get('batch', b)}")
+            b = self.metadata.get("batch", b)
+            self.loader_config.batch_size = int(b)
+        
+        if "tilesize" in self.metadata:
+            tile_size = self.loader_config.tile_size
+            logger.info(f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}")
+            tile_size = self.metadata.get("tilesize", tile_size)
+            self.loader_config.tile_size = int(tile_size)
 
         data_loader = DataLoader(
             image_paths=image_paths,

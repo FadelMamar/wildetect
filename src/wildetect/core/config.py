@@ -84,6 +84,8 @@ class PredictionConfig:
             if model_path:
                 if Path(model_path).exists():
                     self.model_path = os.environ.get("WILDETECT_MODEL_PATH")
+                elif os.environ.get("MLFLOW_DETECTOR_NAME", None) and os.environ.get("MLFLOW_DETECTOR_ALIAS", None):
+                    pass
                 else:
                     logger.warning(
                         "Model path not found in environment variables or config file."
@@ -97,6 +99,8 @@ class PredictionConfig:
             if roi_weights:
                 if Path(roi_weights).exists():
                     self.roi_weights = roi_weights
+            elif os.environ.get("MLFLOW_ROI_NAME", None) and os.environ.get("MLFLOW_ROI_ALIAS", None):
+                pass
             else:
                 logger.warning(
                     "ROI model path not found in environment variables or config file."

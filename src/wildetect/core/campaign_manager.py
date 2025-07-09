@@ -327,7 +327,8 @@ class CampaignManager:
         assert isinstance(image_paths, list), "image_paths must be a list"
         for image_path in image_paths:
             assert isinstance(image_path, str), "image_paths must be a list of strings"
-            assert Path(image_path).is_file(), "image_paths must be file paths"
+            assert Path(image_path).exists(), f"image_paths must be file paths, {image_path} does not exist"
+            assert Path(image_path).is_file(), f"image_paths must be file paths, {image_path} is not a file"
 
         if output_dir is None:
             output_dir = Path("census_campaign_results") / self.campaign_id

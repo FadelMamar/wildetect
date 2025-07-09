@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 
-from ..utils.utils import load_registered_model
 from .config import PredictionConfig
 from .data.detection import Detection
 
@@ -58,25 +57,6 @@ class Detector(ABC):
     def get_class_names(self) -> List[str]:
         """Get list of class names."""
         return self.class_names
-
-    def load_from_mlflow(self) -> Tuple[Any, Dict[str, str]]:
-        """Load the model from MLflow."""
-        mlflow_model_name = os.environ.get("MLFLOW_MODEL_NAME", None)
-        mlflow_model_alias = os.environ.get("MLFLOW_MODEL_ALIAS", None)
-        try:
-            model, metadata = load_registered_model(
-                name=mlflow_model_name,
-                alias=mlflow_model_alias,
-                load_unwrapped=True,
-            )
-            logger.info(
-                f"Loaded YOLO model from MLflow: {mlflow_model_name}/{mlflow_model_alias}"
-            )
-        except Exception:
-            logger.error(f"Error loading model from MLflow: {traceback.format_exc()}")
-            return None, dict()
-
-        return model, metadata
 
     @abstractmethod
     def get_model_info(self) -> Dict[str, Any]:

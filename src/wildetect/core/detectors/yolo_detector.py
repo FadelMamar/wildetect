@@ -13,7 +13,6 @@ import torch
 from PIL import Image
 from ultralytics import YOLO
 
-from ...utils.utils import load_registered_model
 from ..config import PredictionConfig
 from ..data import Detection
 from ..registry import Detector
@@ -28,7 +27,6 @@ class YOLODetector(Detector):
         super().__init__(config)
         self.model_path = getattr(config, "model_path", None)
         self.device = config.device
-        self.metadata = dict()
 
         # Set device
         if self.device == "auto":
@@ -36,15 +34,12 @@ class YOLODetector(Detector):
 
     def load_model(self) -> None:
         """Load the YOLO model."""
-        model, metadata = self.load_from_mlflow()
-        if model and metadata:
-            self.model, self.metadata = model, metadata
-        elif self.model_path and os.path.exists(str(self.model_path)):
+        if self.model_path and os.path.exists(str(self.model_path)):
             self.model = YOLO(self.model_path, task="detect")
             logger.info(f"Loaded YOLO model from {self.model_path}")
         else:
             raise FileNotFoundError(
-                f"Model file not found: {self.model_path} and not found in MLflow. Set env variables MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS"
+                f"Model file not found: {self.model_path}."
             )
         # Get class names from model
         if hasattr(self.model, "names"):

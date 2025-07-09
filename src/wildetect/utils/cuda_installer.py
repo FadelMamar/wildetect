@@ -154,15 +154,15 @@ def install_cuda_torch(cuda_version: Optional[str] = None) -> None:
         if cuda_version == "121":
             logger.info("Installing PyTorch with CUDA 12.1")
             run_subprocess_with_logging([
-                "uv", "pip", "install",
-                "torch>2.6.0", "torchvision",
+                "uv", "pip", "install","--force-reinstall",
+                "torch==2.6.0", "torchvision",
                 "--index-url", "https://download.pytorch.org/whl/cu121"
             ], "Installing PyTorch with CUDA 12.1")
         elif cuda_version == "118":
             logger.info("Installing PyTorch with CUDA 11.8")
             run_subprocess_with_logging([
-                "uv", "pip", "install",
-                "torch>2.6.0", "torchvision",
+                "uv", "pip", "install","--force-reinstall",
+                "torch==2.6.0", "torchvision",
                 "--index-url", "https://download.pytorch.org/whl/cu118"
             ], "Installing PyTorch with CUDA 11.8")
         else:

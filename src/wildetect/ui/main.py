@@ -59,6 +59,10 @@ def initialize_components():
             st.session_state.alias_options = []
         if "selected_alias" not in st.session_state:
             st.session_state.selected_alias = None
+        if "roi_alias_options" not in st.session_state:
+            st.session_state.roi_alias_options = []
+        if "roi_selected_alias" not in st.session_state:
+            st.session_state.roi_selected_alias = None
     except Exception:
         st.error(f"Error initializing components: {traceback.format_exc()}")
 
@@ -182,7 +186,7 @@ def get_model_versions_and_aliases(model_name):
                 version_to_aliases.setdefault(str(v.version), []).append(alias)
     except Exception as e:
         st.error(f"Error fetching model versions/aliases: {e}")
-    return model_versions, alias_to_version, version_to_aliases
+    return alias_to_version
 
 
 def model_settings_tab():
@@ -190,45 +194,47 @@ def model_settings_tab():
     st.info("Set the model to use for detection. This will be used for all detections.")
     with st.form("model_settings_form"):
         registry_name = st.text_input("Registry Name", value="labeler").strip()
-        roi_weights = st.text_input(
-            "ROI Weights",
-            value=r"D:\workspace\repos\wildetect\weights\roi_classifier.torchscript",
-        ).strip()
+        roi_registry_name = st.text_input("ROI Registry Name", value="classifier").strip()
 
         if st.form_submit_button("View available models") and registry_name:
-            (
-                model_versions,
-                alias_to_version,
-                version_to_aliases,
-            ) = get_model_versions_and_aliases(registry_name)
+            alias_to_version = get_model_versions_and_aliases(registry_name)
+            roi_alias_to_version = get_model_versions_and_aliases(roi_registry_name)
+
             alias_options = list(alias_to_version.keys())
+            roi_alias_options = list(roi_alias_to_version.keys())
             st.session_state.alias_options = alias_options
+            st.session_state.roi_alias_options = roi_alias_options
             st.session_state.selected_alias = None
+            st.session_state.roi_selected_alias = None
 
             if st.session_state.alias_options:
                 st.session_state.selected_alias = st.selectbox(
-                    "Select Model Alias", st.session_state.alias_options
+                    "Select Detector Model Alias", st.session_state.alias_options
                 )
             else:
-                st.warning("No versions or aliases found for this model name.")
+                st.warning("No versions or aliases found for Detector model name.")
+                return
+
+            if st.session_state.roi_alias_options:
+                st.session_state.roi_selected_alias = st.selectbox(
+                    "Select ROI Classifier Model Alias", st.session_state.roi_alias_options
+                )
+            else:
+                st.warning("No versions or aliases found for ROI Classifier model name.")
                 return
 
     if st.button(
         "Set Model",
         disabled=st.session_state.selected_alias is None or not registry_name,
     ):
-        os.environ["MLFLOW_MODEL_NAME"] = registry_name
-        os.environ["MLFLOW_MODEL_ALIAS"] = st.session_state.selected_alias
+        os.environ["MLFLOW_DETECTOR_NAME"] = registry_name
+        os.environ["MLFLOW_DETECTOR_ALIAS"] = st.session_state.selected_alias or ""
+
+        os.environ["MLFLOW_ROI_NAME"] = roi_registry_name
+        os.environ["MLFLOW_ROI_ALIAS"] = st.session_state.roi_selected_alias or ""
+
         st.success("Model set successfully")
 
-        if roi_weights:
-            if not os.path.exists(roi_weights):
-                st.error(f"ROI weights file not found: {roi_weights}")
-                return
-            os.environ["ROI_MODEL_PATH"] = roi_weights
-            st.success("ROI weights set successfully")
-        else:
-            st.warning("No ROI weights provided")
 
 
 def upload_and_detect_tab():
@@ -453,7 +459,7 @@ def census_campaign_tab():
 
     campaign_id = st.text_input(
         "Campaign ID",
-        value=f"campaign_{uuid.uuid4()}",
+        value=f"campaign_000",
         help="Unique identifier for the campaign",
     )
     # pilot_name = st.text_input(
@@ -533,23 +539,7 @@ def census_campaign_tab():
             if campaign_result["success"]:
                 st.success("Census campaign completed successfully!")
 
-                # Display campaign results
-            #    results = campaign_result["results"]
-            #    st.write(f"**Campaign ID:** {campaign_id}")
-
-            #    if "statistics" in results:
-            #        stats = results["statistics"]
-            #        if "flight_analysis" in stats:
-            #        flight_stats = stats["flight_analysis"]
-            #        st.write(
-            #            f"**Images with GPS:** {flight_stats.get('num_images_with_gps', 0)}"
-            #        )
-            #        st.write(
-            #            f"**Total Waypoints:** {flight_stats.get('total_waypoints', 0)}"
-            #        )
-            #        st.write(
-            #            f"**Total Distance:** {flight_stats.get('total_distance_km', 0):.2f} km"
-            #        )
+            
 
 
 if __name__ == "__main__":

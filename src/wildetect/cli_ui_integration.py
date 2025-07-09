@@ -20,6 +20,8 @@ from typing import Any, Dict, List, Optional, Union
 import streamlit as st
 from rich.console import Console
 
+from wildetect.core.config import ROOT
+
 console = Console()
 
 
@@ -50,6 +52,12 @@ class CLIUIIntegration:
     ) -> Dict[str, Any]:
         """Run a CLI command through subprocess and return results."""
         try:
+            log_dir = Path(ROOT) / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            log_file = log_dir / f"{command}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            log_file.touch(exist_ok=True)
+            log_file = str(log_file)
+
             # Build the command
             cmd = ["wildetect", command] + args
 
@@ -69,11 +77,13 @@ class CLIUIIntegration:
                 bufsize=1,
                 universal_newlines=True,
             )
-            logs = ""
-            if log_placeholder is not None:
-                for line in process.stdout:
-                    logs += line
-                    log_placeholder.code(logs)
+            with open(log_file, "w", encoding="utf-8") as f:
+                logs = ""
+                if log_placeholder is not None:
+                    for line in process.stdout:
+                        logs += line
+                        log_placeholder.code(logs)
+                        f.write(line)
 
             process.stdout.close()
             return_code = process.wait()

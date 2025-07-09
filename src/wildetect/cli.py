@@ -111,7 +111,7 @@ def detect(
     device: str = typer.Option(
         "auto", "--device", help="Device to run inference on. auto, cpu or cuda"
     ),
-    batch_size: int = typer.Option(8, "--batch-size", "-b", help="Batch size"),
+    batch_size: int = typer.Option(32, "--batch-size", "-b", help="Batch size"),
     tile_size: int = typer.Option(800, "--tile-size", help="Tile size for processing"),
     output: Optional[str] = typer.Option(
         "results", "--output", "-o", help="Output directory for results"
@@ -550,8 +550,8 @@ def census(
     overlap_ratio: float = typer.Option(
         0.2, "--overlap-ratio", help="Tile overlap ratio"
     ),
-    batch_size: int = typer.Option(8, "--batch-size", "-b", help="Batch size"),
-    tile_size: int = typer.Option(640, "--tile-size", help="Tile size for processing"),
+    batch_size: int = typer.Option(32, "--batch-size", "-b", help="Batch size"),
+    tile_size: int = typer.Option(800, "--tile-size", help="Tile size for processing"),
     cls_imgsz: int = typer.Option(96, "--cls-imgsz", help="Image size for classifier"),
     sensor_height: float = typer.Option(
         24.0, "--sensor-height", help="Sensor height in mm"
@@ -591,6 +591,7 @@ def census(
         # Determine if input is directory or file paths
         if len(images) == 1 and Path(images[0]).is_dir():
             image_dir = images[0]
+            assert Path(image_dir).is_dir(), f"Image directory not found: {image_dir}"
             image_paths = get_images_paths(image_dir)
             console.print(f"[green]Processing directory: {image_dir}[/green]")
         else:
@@ -812,7 +813,7 @@ def display_results(drone_images: List[DroneImage], output_dir: Optional[str] = 
 
         console.print(f"Images with detections: {len(images_with_detections)}")
         console.print(
-            f"Images with GPS: {len([img for img in images_with_detections if img.latitude and img.longitude])}"
+            f"Images with GPS: {len([img for img in drone_images if img.latitude and img.longitude])}"
         )
 
         if images_with_detections:
@@ -833,7 +834,7 @@ def display_results(drone_images: List[DroneImage], output_dir: Optional[str] = 
 
                 # Get coverage statistics
                 coverage_stats = visualizer.get_coverage_statistics(
-                    images_with_detections
+                    drone_images
                 )
                 console.print(f"[green]✓ Coverage statistics calculated[/green]")
                 console.print(f"  Images with GPS: {coverage_stats['images_with_gps']}")
