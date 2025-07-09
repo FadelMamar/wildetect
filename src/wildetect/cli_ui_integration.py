@@ -186,13 +186,13 @@ class CLIUIIntegration:
                 return result
 
             # Load campaign results
-            campaign_results = self._load_campaign_results(output, campaign_id)
+            # campaign_results = self._load_campaign_results(output, campaign_id)
 
             return {
                 "success": True,
                 "campaign_id": campaign_id,
-                "results": campaign_results,
-                "output_dir": output,
+                # "results": campaign_results,
+                # "output_dir": output,
             }
 
         except Exception:

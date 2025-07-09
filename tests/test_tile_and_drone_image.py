@@ -270,14 +270,17 @@ def test_drone_image_tile_management():
     logger.info("=" * 60)
 
     # Create test image and drone image
+    flight_specs = FlightSpecs(
+        sensor_height=24.0, focal_length=35.0, flight_height=180.0
+    )
     image_path = create_test_image()
-    drone_image = DroneImage.from_image_path(image_path)
+    drone_image = DroneImage.from_image_path(image_path, flight_specs=flight_specs)
 
     # Create additional tiles
     for i in range(3):
         tile = Tile.from_image_path(image_path)
         offset = (i * 100, i * 100)
-        drone_image.add_tile(tile, offset)
+        drone_image.add_tile(tile, x_offset=offset[0], y_offset=offset[1])
 
     # Test tile management
     assert len(drone_image.tiles) == 4  # Original + 3 added

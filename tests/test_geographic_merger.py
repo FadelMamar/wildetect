@@ -709,11 +709,10 @@ class TestGeographicMerger:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.merger = GeographicMerger(merge_distance_threshold_m=50.0)
+        self.merger = GeographicMerger()
 
     def test_initialization(self):
         """Test GeographicMerger initialization."""
-        assert self.merger.merge_distance_threshold_m == 50.0
         assert isinstance(self.merger.overlap_strategy, GPSOverlapStrategy)
         assert isinstance(
             self.merger.duplicate_removal_strategy, CentroidProximityRemovalStrategy
@@ -743,18 +742,22 @@ class TestGeographicMerger:
         print(predictions)
         drone_image.set_predictions(predictions)
 
-        stats = self.merger.run([drone_image])
+        merged_images = self.merger.run([drone_image])
 
         # Should return statistics
-        assert isinstance(stats, dict)
-        assert "total_image_pairs_processed" in stats
-        assert "total_detections_removed" in stats
+        assert isinstance(
+            merged_images, list
+        ), f"Stats are not a list: {type(merged_images)}"
+        assert (
+            len(merged_images) == 1
+        ), f" merged_images is not a list of length 1: {len(merged_images)}"
 
     def test_run_with_multiple_images(self):
         """Test running merger with multiple images."""
         # Create multiple drone images
         drone_images = []
-        for i in range(5):  # Reduced for faster testing
+        num_images = 5
+        for i in range(num_images):  # Reduced for faster testing
             drone_image = create_test_drone_image()
 
             # Add predictions
@@ -777,21 +780,38 @@ class TestGeographicMerger:
             drone_image.set_predictions(predictions)
             drone_images.append(drone_image)
 
-        stats = self.merger.run(drone_images, iou_threshold=0.5)
+        merged_images = self.merger.run(drone_images, iou_threshold=0.5)
 
         # Should return statistics
-        assert isinstance(stats, dict)
-        assert "total_image_pairs_processed" in stats
-        assert "total_detections_removed" in stats
+        assert isinstance(
+            merged_images, list
+        ), f"merged_images is not a list: {type(merged_images)}"
+        assert (
+            len(merged_images) == num_images
+        ), f"merged_images is not a list of length {num_images}: {len(merged_images)}"
+        for i in range(num_images):
+            assert isinstance(
+                merged_images[i], DroneImage
+            ), f"merged_images[{i}] is not a DroneImage: {type(merged_images[i])}"
 
     def test_run_with_custom_iou_threshold(self):
         """Test running merger with custom IoU threshold."""
         drone_image = create_test_drone_image()
 
-        stats = self.merger.run([drone_image], iou_threshold=0.7)
+        merged_images = self.merger.run([drone_image], iou_threshold=0.7)
 
-        assert isinstance(stats, dict)
-        assert "duplicate_removal_rate" in stats
+        assert isinstance(
+            merged_images, list
+        ), f"merged_images is not a list: {type(merged_images)}"
+        assert (
+            len(merged_images) == 1
+        ), f"merged_images is not a list of length 1: {len(merged_images)}"
+        assert isinstance(
+            merged_images[0], DroneImage
+        ), f"merged_images[0] is not a DroneImage: {type(merged_images[0])}"
+        assert (
+            merged_images[0].predictions == drone_image.predictions
+        ), f"merged_images[0].predictions is not equal to drone_image.predictions: {merged_images[0].predictions} != {drone_image.predictions}"
 
 
 class TestMergedDetection:

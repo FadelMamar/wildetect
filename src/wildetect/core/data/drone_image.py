@@ -51,9 +51,11 @@ class DroneImage(Tile):
 
     def to_dict(self) -> Dict[str, Any]:
         d = dict(vars(self))
+        d.pop("image_data")
         d["tiles"] = [tile.to_dict() for tile in self.tiles]
         d["tile_offsets"] = self.tile_offsets
         d["type"] = "DroneImage"
+        d["flight_specs"] = vars(self.flight_specs)
         d["predictions"] = [det.to_dict() for det in self.get_non_empty_predictions()]
         if self.geographic_footprint is not None:
             d["geographic_footprint"] = self.geographic_footprint.to_dict()
@@ -73,7 +75,9 @@ class DroneImage(Tile):
         # Add it as the first tile with no offset
         self.add_tile(full_tile, 0, 0)
 
-    def add_tile(self, tile: Tile, x_offset: int, y_offset: int) -> None:
+    def add_tile(
+        self, tile: Tile, x_offset: int, y_offset: int, nms_threshold: float = 0.5
+    ) -> None:
         """Add a tile with its offset to the drone image.
 
         Args:
@@ -86,15 +90,30 @@ class DroneImage(Tile):
 
         # Set the tile's parent image and offset
         tile.parent_image = self.image_path
+
         # set offsets
         tile.set_offsets(x_offset, y_offset)
+
         # offset detections -> DrroneImage reference coordinates
         tile.offset_detections()
+
         # add tile to drone image
         self.tiles.append(tile)
         self.tile_offsets.append((x_offset, y_offset))
+
+        # deepcopy predictions
+        predictions = deepcopy(tile.predictions)
+        for det in predictions:
+            if det.parent_image != self.image_path:
+                det.set_distance_to_centroid(self.image_path)
+
         # add predictions to drone image
-        self.predictions.extend(tile.predictions)
+        self.predictions.extend(predictions)
+
+        # filter detections
+        self.filter_detections(
+            method="nms", threshold=nms_threshold, clamp=True, confidence_threshold=0.0
+        )
 
         logger.debug(f"Added tile {tile.id} at offset {x_offset}, {y_offset}")
 
@@ -172,6 +191,7 @@ class DroneImage(Tile):
                     [det for det in tile.predictions if not det.is_empty]
                 )
 
+        # set predictions
         self.predictions = all_detections
         return self.predictions
 

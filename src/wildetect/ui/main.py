@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import traceback
+import uuid
 from pathlib import Path
 from typing import List, Optional
 
@@ -54,6 +55,10 @@ def initialize_components():
             temp_dir = tempfile.TemporaryDirectory()
             st.session_state.temp_dir = temp_dir
             atexit.register(temp_dir.cleanup)
+        if "alias_options" not in st.session_state:
+            st.session_state.alias_options = []
+        if "selected_alias" not in st.session_state:
+            st.session_state.selected_alias = None
     except Exception:
         st.error(f"Error initializing components: {traceback.format_exc()}")
 
@@ -149,7 +154,6 @@ def launch_mlflow():
     return None
 
 
-# TODO: debugg
 def get_registered_model_names():
     """Return a list of all registered model names from MLflow."""
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
@@ -184,31 +188,37 @@ def get_model_versions_and_aliases(model_name):
 def model_settings_tab():
     """Handle model settings."""
     st.info("Set the model to use for detection. This will be used for all detections.")
-    model_name = st.text_input("Model Name", value="labeler").strip()
-    roi_weights = st.text_input(
-        "ROI Weights",
-        value=r"D:\workspace\repos\wildetect\weights\roi_classifier.torchscript",
-    ).strip()
-    if not model_name:
-        st.warning("Please enter a model name")
-        return
-    (
-        model_versions,
-        alias_to_version,
-        version_to_aliases,
-    ) = get_model_versions_and_aliases(model_name)
-    alias_options = list(alias_to_version.keys())
-    selected_alias = None
+    with st.form("model_settings_form"):
+        registry_name = st.text_input("Registry Name", value="labeler").strip()
+        roi_weights = st.text_input(
+            "ROI Weights",
+            value=r"D:\workspace\repos\wildetect\weights\roi_classifier.torchscript",
+        ).strip()
 
-    if alias_options:
-        selected_alias = st.selectbox("Select Model Alias", alias_options)
-    else:
-        st.warning("No versions or aliases found for this model name.")
-        return
+        if st.form_submit_button("View available models") and registry_name:
+            (
+                model_versions,
+                alias_to_version,
+                version_to_aliases,
+            ) = get_model_versions_and_aliases(registry_name)
+            alias_options = list(alias_to_version.keys())
+            st.session_state.alias_options = alias_options
+            st.session_state.selected_alias = None
 
-    if st.button("Set Model", disabled=selected_alias is None):
-        os.environ["MLFLOW_MODEL_NAME"] = model_name
-        os.environ["MLFLOW_MODEL_ALIAS"] = selected_alias
+            if st.session_state.alias_options:
+                st.session_state.selected_alias = st.selectbox(
+                    "Select Model Alias", st.session_state.alias_options
+                )
+            else:
+                st.warning("No versions or aliases found for this model name.")
+                return
+
+    if st.button(
+        "Set Model",
+        disabled=st.session_state.selected_alias is None or not registry_name,
+    ):
+        os.environ["MLFLOW_MODEL_NAME"] = registry_name
+        os.environ["MLFLOW_MODEL_ALIAS"] = st.session_state.selected_alias
         st.success("Model set successfully")
 
         if roi_weights:
@@ -264,7 +274,7 @@ def upload_and_detect_tab():
             st.subheader("Batch Processing")
             batch_dir = st.text_input(
                 "Process Directory",
-                value="data/images",
+                value=r"D:\workspace\data\savmap_dataset_v2\raw\tmp",
                 help="Path to directory containing images to process",
             )
             button = st.form_submit_button("Process Directory")
@@ -443,7 +453,7 @@ def census_campaign_tab():
 
     campaign_id = st.text_input(
         "Campaign ID",
-        value="campaign_001",
+        value=f"campaign_{uuid.uuid4()}",
         help="Unique identifier for the campaign",
     )
     # pilot_name = st.text_input(
@@ -524,22 +534,22 @@ def census_campaign_tab():
                 st.success("Census campaign completed successfully!")
 
                 # Display campaign results
-                results = campaign_result["results"]
-                st.write(f"**Campaign ID:** {campaign_id}")
+            #    results = campaign_result["results"]
+            #    st.write(f"**Campaign ID:** {campaign_id}")
 
-                if "statistics" in results:
-                    stats = results["statistics"]
-                    if "flight_analysis" in stats:
-                        flight_stats = stats["flight_analysis"]
-                        st.write(
-                            f"**Images with GPS:** {flight_stats.get('num_images_with_gps', 0)}"
-                        )
-                        st.write(
-                            f"**Total Waypoints:** {flight_stats.get('total_waypoints', 0)}"
-                        )
-                        st.write(
-                            f"**Total Distance:** {flight_stats.get('total_distance_km', 0):.2f} km"
-                        )
+            #    if "statistics" in results:
+            #        stats = results["statistics"]
+            #        if "flight_analysis" in stats:
+            #        flight_stats = stats["flight_analysis"]
+            #        st.write(
+            #            f"**Images with GPS:** {flight_stats.get('num_images_with_gps', 0)}"
+            #        )
+            #        st.write(
+            #            f"**Total Waypoints:** {flight_stats.get('total_waypoints', 0)}"
+            #        )
+            #        st.write(
+            #            f"**Total Distance:** {flight_stats.get('total_distance_km', 0):.2f} km"
+            #        )
 
 
 if __name__ == "__main__":

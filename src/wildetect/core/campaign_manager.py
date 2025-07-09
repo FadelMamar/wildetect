@@ -5,6 +5,7 @@ This module provides a high-level interface that integrates data management,
 detection processing, flight analysis, and reporting into a unified pipeline.
 """
 
+import json
 import logging
 import time
 from dataclasses import dataclass
@@ -274,6 +275,13 @@ class CampaignManager:
         """
         self.census_manager.export_detection_report(output_path)
 
+        #
+        results = self.get_drone_images(as_dict=True)
+        path = Path(output_path).with_name("detections_and_images.json")
+        with open(path, "w") as f:
+            json.dump(results, f, indent=4)
+        logger.info(f"Images and their detections saved to: {path}")
+
     def get_campaign_statistics(self) -> Dict[str, Any]:
         """Get comprehensive campaign statistics.
 
@@ -363,7 +371,6 @@ class CampaignManager:
         if output_dir:
             report_path = Path(output_dir) / "campaign_report.json"
             self.export_detection_report(str(report_path))
-            # joblib.dump(self.get_drone_images(), f"{output_dir}/drone_images.pkl")
 
         # Compile results
         results = {

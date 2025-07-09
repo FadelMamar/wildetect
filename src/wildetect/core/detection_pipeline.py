@@ -39,6 +39,7 @@ class DetectionPipeline:
         self.config = config
         self.loader_config = loader_config
         self.device = config.device
+        self.metadata = dict()
 
         assert config.model_path is not None, "Model path must be provided"
         assert config.model_type is not None, "Model type must be provided"
@@ -67,6 +68,7 @@ class DetectionPipeline:
                 config=self.config,
             )
             self.detection_system.set_model(detector)
+            self.metadata = detector.metadata
 
             if self.config.roi_weights:
                 roi_processor = RoIPostProcessor(
@@ -101,15 +103,21 @@ class DetectionPipeline:
             progress_bar.update(len(batch["tiles"]))
         return detections
 
-    def _postprocess(self, batches: List[Dict[str, Any]]) -> List[DroneImage]:
+    def _postprocess(
+        self, batches: Union[Dict[str, Any], List[Dict[str, Any]]]
+    ) -> List[DroneImage]:
         """Post-process batch results and convert to DroneImage objects.
 
         Args:
-            batch: Batch containing tiles and detections
+            batches: Single batch or list of batches containing tiles and detections
 
         Returns:
             List of DroneImage objects with detections
         """
+        # Handle both single batch and list of batches
+        if isinstance(batches, dict):
+            batches = [batches]
+
         if len(batches) == 0:
             return []
 
@@ -118,7 +126,9 @@ class DetectionPipeline:
 
         # Process each tile and its detections
         for batch in batches:
-            for tile, tile_detections in zip(batch["tiles"], batch["detections"]):
+            # Handle missing detections key
+            detections = batch.get("detections", [])
+            for tile, tile_detections in zip(batch["tiles"], detections):
                 parent_image = tile.parent_image or tile.image_path
 
                 # Create or get drone image for this parent
@@ -163,6 +173,11 @@ class DetectionPipeline:
             List of processed drone images with detections
         """
         logger.info("Starting detection pipeline")
+
+        b = self.loader_config.batch_size
+        if "batch" in self.metadata:
+            self.loader_config.batch_size = self.metadata.get("batch", b)
+            logger.info(f"Batch size set to {self.loader_config.batch_size}")
 
         data_loader = DataLoader(
             image_paths=image_paths,

@@ -427,7 +427,13 @@ class TestCLI:
 
         # Verify visualizer was called
         mock_visualizer_class.assert_called_once()
-        mock_visualizer.create_map.assert_called_once_with(mock_drone_images)
+        # The function calls create_map with save_path parameter
+        mock_visualizer.create_map.assert_called_once()
+        call_args = mock_visualizer.create_map.call_args
+        assert (
+            call_args[0][0] == mock_drone_images
+        )  # First argument should be drone_images
+        assert "save_path" in call_args[1]  # Should have save_path keyword argument
 
     def test_get_detection_statistics(self):
         """Test detection statistics calculation."""
@@ -438,13 +444,13 @@ class TestCLI:
         mock_detection1 = Mock()
         mock_detection1.is_empty = False
         mock_detection1.class_name = "elephant"
-        mock_drone_image1.get_all_predictions.return_value = [mock_detection1]
+        mock_drone_image1.get_non_empty_predictions.return_value = [mock_detection1]
 
         mock_drone_image2 = Mock()
         mock_detection2 = Mock()
         mock_detection2.is_empty = False
         mock_detection2.class_name = "giraffe"
-        mock_drone_image2.get_all_predictions.return_value = [mock_detection2]
+        mock_drone_image2.get_non_empty_predictions.return_value = [mock_detection2]
 
         drone_images = [mock_drone_image1, mock_drone_image2]
 
