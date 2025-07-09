@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import fiftyone as fo
 import fiftyone.brain as fob
+import fiftyone.utils.geojson as fogeojson
 from fiftyone import ViewField as F
 
 from ..config import get_config
@@ -25,16 +26,22 @@ logger = logging.getLogger(__name__)
 class FiftyOneManager:
     """Manages FiftyOne datasets for wildlife detection."""
 
-    def __init__(self, dataset_name: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        dataset_name: str,
+        config: Optional[Dict[str, Any]] = None,
+        persistent: bool = False,
+    ):
         """Initialize FiftyOne manager.
 
         Args:
             dataset_name: Name of the dataset to use
             config: Optional configuration override
         """
-        self.config = config or get_config()
+        self.config = config
         self.dataset_name = dataset_name
         self.dataset = None
+        self.persistent = persistent
 
         # Initialize dataset
         self._init_dataset()
@@ -47,7 +54,7 @@ class FiftyOneManager:
             logger.info(f"Loaded existing dataset: {self.dataset_name}")
         except ValueError:
             # Create new dataset
-            self.dataset = fo.Dataset(self.dataset_name)
+            self.dataset = fo.Dataset(self.dataset_name, persistent=self.persistent)
             logger.info(f"Created new dataset: {self.dataset_name}")
 
     def _ensure_dataset_initialized(self):
@@ -73,7 +80,9 @@ class FiftyOneManager:
         # Convert to FiftyOne format
         fo_detections = []
         for detection in all_detections:
-            fo_detection = detection.to_fiftyone()
+            fo_detection = detection.to_fiftyone(
+                image_width=drone_image.width, image_height=drone_image.height
+            )
             fo_detections.append(fo_detection)
 
         # Create sample with metadata
@@ -91,20 +100,10 @@ class FiftyOneManager:
         # Add native FiftyOne geolocation if GPS data is available
         if drone_image.latitude is not None and drone_image.longitude is not None:
             # Create GeoLocation with point coordinates
-            sample["location"] = fo.GeoLocation(
-                point=[drone_image.longitude, drone_image.latitude]  # [lon, lat] format
-            )
-
-            # Add polygon if geographic footprint is available
-            if drone_image.geo_polygon_points is not None:
-                # Convert geographic bounds to polygon points
-                polygon = [[lon, lat] for lat, lon in drone_image.geo_polygon_points]
-
-                # Update GeoLocation with polygon
-                sample["location"] = fo.GeoLocation(
-                    point=[drone_image.longitude, drone_image.latitude],
-                    polygon=[polygon],
-                )
+            gps = [drone_image.longitude, drone_image.latitude]
+            geo_json = fogeojson.parse_point(gps)
+            sample["gps"] = fo.GeoLocation.from_geo_json(geo_json)
+            logger.debug(f"adding geo location to sample: {sample['filepath']}")
 
         # Add other metadata
         if drone_image.gsd is not None:
@@ -170,7 +169,7 @@ class FiftyOneManager:
         if self.dataset is None:
             return []
 
-        return self.dataset.match(F("location").exists())
+        return self.dataset.match(F("gps").exists())
 
     @staticmethod
     def launch_app():

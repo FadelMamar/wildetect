@@ -165,7 +165,7 @@ class Detection:
         """Create detection from dictionary."""
         return cls(**data)
 
-    def to_fiftyone(self):
+    def to_fiftyone(self, image_width: int, image_height: int) -> fo.Detection:
         """Convert to FiftyOne detection format.
 
         Returns:
@@ -179,7 +179,12 @@ class Detection:
         fo_detection = fo.Detection(
             label=self.class_name,
             confidence=self.confidence,
-            bounding_box=[x1, y1, x2 - x1, y2 - y1],  # [x, y, width, height]
+            bounding_box=[
+                x1 / image_width,
+                y1 / image_height,
+                (x2 - x1) / image_width,
+                (y2 - y1) / image_height,
+            ],  # [x, y, width, height]
             metadata={
                 "class_id": self.class_id,
                 "area": self.area,
