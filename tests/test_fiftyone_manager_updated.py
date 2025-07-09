@@ -168,17 +168,17 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
     def test_add_detections(self):
         """Test adding Detection objects to dataset."""
         manager = FiftyOneManager(self.test_dataset_name, self.config)
-        detections = self.create_sample_detections()
 
         # Use a consistent image path
-        image_path = load_image_path()
+        image_with_detections = self.create_sample_drone_image()
 
         # Add detections
+        manager.add_drone_images([image_with_detections])
 
         # Verify dataset has the sample
         sample = manager.dataset.first()
         self.assertIsNotNone(sample)
-        self.assertEqual(sample.filepath, image_path)
+        self.assertEqual(sample.filepath, image_with_detections.image_path)
 
         # Verify detections were added
         self.assertIn("detections", sample)
@@ -195,7 +195,7 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         drone_image = self.create_sample_drone_image()
 
         # Add drone image
-        manager.add_drone_image(drone_image)
+        manager.add_drone_images([drone_image])
 
         # Verify dataset has the sample
         sample = manager.dataset.first()
@@ -241,7 +241,7 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         drone_image.set_predictions(detections)
 
         # Add drone image
-        manager.add_drone_image(drone_image)
+        manager.add_drone_images([drone_image])
 
         # Verify dataset has the sample
         sample = manager.dataset.first()
@@ -282,7 +282,7 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         drone_image = self.create_sample_drone_image()
 
         # Add drone image with GPS data
-        manager.add_drone_image(drone_image)
+        manager.add_drone_images([drone_image])
 
         # Get samples with GPS data
         gps_samples = manager.get_detections_with_gps()
@@ -297,14 +297,13 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         manager = FiftyOneManager(self.test_dataset_name, self.config)
 
         # Create drone image without GPS
-        drone_image = DroneImage.from_image_path(
-            image_path=load_image_no_gps_path(), flight_specs=FLIGHT_SPECS
-        )
+        path = load_image_no_gps_path()
+        drone_image = DroneImage.from_image_path(path, flight_specs=FLIGHT_SPECS)
         detections = self.create_sample_detections()
         drone_image.set_predictions(detections)
 
         # Add drone image without GPS
-        manager.add_drone_image(drone_image)
+        manager.add_drone_images([drone_image])
 
         # Get samples with GPS data
         gps_samples = manager.get_detections_with_gps()
@@ -318,7 +317,7 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         drone_image = self.create_sample_drone_image()
 
         # Add drone image
-        manager.add_drone_image(drone_image)
+        manager.add_drone_images([drone_image])
 
         # Get sample
         sample = manager.dataset.first()
@@ -335,14 +334,7 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         """Test coordinate transformation in detections."""
         manager = FiftyOneManager(self.test_dataset_name, self.config)
 
-        # Create detection with relative coordinates
-        detection = Detection(
-            bbox=[10, 20, 50, 80],
-            confidence=0.85,
-            class_id=1,
-            class_name="deer",
-            parent_image=load_image_path(),
-        )
+        manager.add_drone_images([self.create_sample_drone_image()])
 
         # Verify FiftyOne detection format
         sample = manager.dataset.first()
@@ -359,26 +351,25 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         manager = FiftyOneManager(self.test_dataset_name, self.config)
 
         # Create detection with rich metadata
+        path = load_image_path()
         detection = Detection(
             bbox=[10, 20, 50, 80],
             confidence=0.85,
             class_id=1,
             class_name="deer",
-            gps_loc="40.7128,-74.0060",
-            image_gps_loc="40.7128,-74.0060",
-            parent_image=load_image_path(),
             metadata={"custom_field": "custom_value"},
         )
 
         # Add detection
+        drone_image = DroneImage.from_image_path(path, flight_specs=FLIGHT_SPECS)
+        drone_image.set_predictions([detection])
+        manager.add_drone_images([drone_image])
 
         # Verify metadata was preserved
         sample = manager.dataset.first()
         fo_detection = sample.detections.detections[0]  # Use .detections attribute
 
         # Check metadata fields
-        self.assertEqual(fo_detection.metadata["gps_loc"], "40.7128,-74.0060")
-        self.assertEqual(fo_detection.metadata["image_gps_loc"], "40.7128,-74.0060")
         self.assertEqual(fo_detection.metadata["parent_image"], detection.parent_image)
         self.assertEqual(fo_detection.metadata["custom_field"], "custom_value")
 
@@ -387,8 +378,13 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         manager = FiftyOneManager(self.test_dataset_name, self.config)
 
         # Create empty detection
-        empty_detection = Detection.empty(load_image_path())
-        detections = [empty_detection]
+        path = load_image_path()
+        empty_detection = Detection.empty(path)
+        drone_image = DroneImage.from_image_path(
+            image_path=path, flight_specs=FLIGHT_SPECS
+        )
+        drone_image.set_predictions([empty_detection])
+        manager.add_drone_images([drone_image])
 
         # Verify sample was added but no detections
         sample = manager.dataset.first()
@@ -407,7 +403,7 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         drone_image = self.create_sample_drone_image()
 
         # Add sample data
-        manager.add_drone_image(drone_image)
+        manager.add_drone_images([drone_image])
 
         # Save dataset
         manager.save_dataset()
@@ -436,19 +432,13 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             manager.get_dataset_info()
 
-    def test_launch_app_static_method(self):
-        """Test the static launch_app method."""
-        with patch("subprocess.run") as mock_run:
-            FiftyOneManager.launch_app()
-            mock_run.assert_called_once_with(["uv", "run", "fiftyone", "launch", "app"])
-
     def test_get_dataset_info(self):
         """Test getting dataset information."""
         manager = FiftyOneManager(self.test_dataset_name, self.config)
         drone_image = self.create_sample_drone_image()
 
         # Add sample data
-        manager.add_drone_image(drone_image)
+        manager.add_drone_images([drone_image])
 
         # Get dataset info
         info = manager.get_dataset_info()
@@ -469,7 +459,7 @@ class TestFiftyOneManagerUpdated(unittest.TestCase):
         drone_image = self.create_sample_drone_image()
 
         # Add sample data
-        manager.add_drone_image(drone_image)
+        manager.add_drone_images([drone_image])
 
         # Get statistics
         stats = manager.get_annotation_stats()
@@ -539,7 +529,7 @@ class TestFiftyOneManagerIntegrationUpdated(unittest.TestCase):
         drone_image = DroneImage.from_image_path(
             image_path=load_image_path(), flight_specs=FLIGHT_SPECS
         )
-        manager.add_drone_image(drone_image)
+        manager.add_drone_images([drone_image])
 
         # Test filtering by location existence
         gps_samples = manager.get_detections_with_gps()
