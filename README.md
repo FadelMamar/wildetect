@@ -1,8 +1,10 @@
-![PoC](assets/image.png)
+<div align="center">
+  <img src="assets/image.png" alt="PoC" width="200" height="100"/>
+</div>
 
 # WildDetect
 
-WildDetect is a powerful wildlife detection and census system for aerial imagery. It helps conservationists, researchers, and organizations analyze wildlife populations, generate geographic visualizations, and produce actionable reports—all with easy-to-use command-line tools.
+WildDetect is a powerful wildlife detection and **census system** for aerial imagery. It helps conservationists, researchers, and organizations analyze wildlife populations, generate **geographic visualizations**, and produce actionable reports—all with easy-to-use command-line tools.
 
 ## Features
 - **Multi-species detection** (YOLO-based, optimized for aerial images)
