@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/image.png" alt="PoC" width="200" height="100"/>
+  <img src="assets/image.png" alt="PoC"/>
 </div>
 
 # WildDetect
