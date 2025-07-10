@@ -1,30 +1,18 @@
-# WildDetect - Wildlife Detection System
+![PoC](assets/image.png)
 
-A comprehensive wildlife detection and census system designed for aerial imagery analysis, featuring advanced geographic analysis, population estimation, and conservation planning tools.
+# WildDetect
 
-## 🚀 Key Features
+WildDetect is a powerful wildlife detection and census system for aerial imagery. It helps conservationists, researchers, and organizations analyze wildlife populations, generate geographic visualizations, and produce actionable reports—all with easy-to-use command-line tools.
 
-### Core Detection
-- **Multi-species Detection**: YOLO-based detection for elephants, giraffes, zebras, lions, and more
-- **High-accuracy Models**: Pre-trained models optimized for aerial wildlife imagery
-- **Batch Processing**: Efficient processing of large image datasets
-- **GPU Acceleration**: CUDA support for faster inference
+## Features
+- **Multi-species detection** (YOLO-based, optimized for aerial images)
+- **Batch processing** of large image datasets
+- **Geographic analysis**: GPS mapping, coverage, and flight path analysis
+- **Population statistics**: species counts, density, and trends
+- **Interactive maps** and visualizations
+- **Comprehensive reporting** (JSON, CSV)
 
-### Wildlife Census & Analysis
-- **Campaign Management**: Complete census campaign orchestration
-- **Geographic Analysis**: GPS-based coverage mapping and overlap detection
-- **Population Statistics**: Species-specific detection counts and density estimation
-- **Flight Path Analysis**: Survey efficiency and coverage optimization
-- **Interactive Maps**: Folium-based geographic visualizations
-
-### Data Quality & Reporting
-- **Confidence Thresholding**: Configurable detection sensitivity
-- **Quality Metrics**: False positive filtering and validation
-- **Comprehensive Reporting**: JSON exports with statistical summaries
-- **Metadata Management**: Campaign tracking and documentation
-
-## 📋 Installation
-
+## Installation
 ```bash
 # Clone the repository
 git clone https://github.com/your-org/wildetect.git
@@ -32,216 +20,113 @@ cd wildetect
 
 # Install dependencies
 uv sync
-
-# Verify installation
-uv run python -m src.wildetect.cli info
 ```
 
-## 🎯 Quick Start
-
-### Basic Detection
+## Quick Start
+Detect wildlife in images:
 ```bash
-# Detect wildlife in images
 wildetect detect /path/to/images --model model.pt --output results/
 ```
-
-### Wildlife Census Campaign
+Run a census campaign:
 ```bash
-# Run comprehensive census
-wildetect census campaign_2024 /path/to/images \
-  --model model.pt \
-  --pilot "John Doe" \
-  --species elephant giraffe zebra \
-  --output campaign_results/
+wildetect census campaign_2024 /path/to/images --model model.pt --output campaign_results/
 ```
 
-### Analysis & Visualization
+## Main CLI Commands
+- `detect` – Run wildlife detection on images
+- `census` – Orchestrate a full wildlife census campaign
+- `analyze` – Post-process and analyze detection results
+- `visualize` – Create interactive geographic visualizations
+- `info` – Show system and environment info
+
+For all options, run:
 ```bash
-# Analyze detection results
-wildetect analyze results.json --output analysis/ --map
-
-# Create geographic visualizations
-wildetect visualize results.json --output maps/ --map
+wildetect --help
 ```
 
-## 🗺️ CLI Commands
+## 🐾 WildDetect Command-Line Interface (CLI)
 
-### `detect` - Basic Wildlife Detection
+WildDetect provides a powerful and flexible command-line interface (CLI) built with [Typer](https://typer.tiangolo.com/), making it easy to run wildlife detection, census campaigns, analysis, visualization, and more—all from your terminal.
+
+### How to Use
+
+After installing WildDetect, simply run:
+
 ```bash
-wildetect detect [OPTIONS] IMAGES...
-
-Options:
-  --model, -m PATH        Path to model weights
-  --confidence, -c FLOAT  Confidence threshold [default: 0.25]
-  --device, -d TEXT       Device (auto/cpu/cuda) [default: auto]
-  --batch-size, -b INT    Batch size [default: 8]
-  --output, -o PATH       Output directory
-  --verbose, -v           Verbose logging
+wildetect [COMMAND] [OPTIONS]
 ```
 
-### `census` - Wildlife Census Campaign
+You can always see all available commands and options with:
+
 ```bash
-wildetect census [OPTIONS] CAMPAIGN_ID IMAGES...
-
-Options:
-  --model, -m PATH        Path to model weights
-  --pilot TEXT            Pilot name for campaign metadata
-  --species TEXT...       Target species for detection
-  --confidence, -c FLOAT  Confidence threshold [default: 0.25]
-  --output, -o PATH       Output directory
-  --map                   Create geographic visualization [default: true]
-  --verbose, -v           Verbose logging
+wildetect --help
 ```
 
-### `analyze` - Post-processing Analysis
-```bash
-wildetect analyze [OPTIONS] RESULTS_PATH
+### Main Commands
 
-Options:
-  --output, -o PATH       Output directory [default: analysis]
-  --map                   Create geographic visualization [default: true]
-  --verbose, -v           Verbose logging
-```
+- **detect**  
+  Run wildlife detection on images or directories of images.
+  ```bash
+  wildetect detect /path/to/images --model model.pt --output results/
+  ```
+  Options include model type, confidence threshold, device (CPU/GPU), batch size, tiling, and more.
 
-### `visualize` - Geographic Visualization
-```bash
-wildetect visualize [OPTIONS] RESULTS_PATH
+- **census**  
+  Orchestrate a full wildlife census campaign, including detection, statistics, and reporting.
+  ```bash
+  wildetect census campaign_2024 /path/to/images --model model.pt --output campaign_results/
+  ```
+  Supports campaign metadata, pilot info, target species, and advanced analysis.
 
-Options:
-  --output, -o PATH       Output directory [default: visualizations]
-  --map                   Create geographic visualization [default: true]
-  --show-confidence       Show confidence scores [default: true]
-```
+- **analyze**  
+  Analyze detection results for statistics and insights.
+  ```bash
+  wildetect analyze results.json --output analysis/
+  ```
 
-### `info` - System Information
-```bash
-wildetect info
-```
+- **visualize**  
+  Create interactive geographic maps and visualizations from detection results.
+  ```bash
+  wildetect visualize results.json --output maps/
+  ```
 
-## 🔬 Wildlife Census Features
+- **info**  
+  Display system and environment information, including dependencies and hardware support.
+  ```bash
+  wildetect info
+  ```
 
-### Campaign Management
-- **Metadata Tracking**: Flight dates, pilot info, equipment details
-- **Species Targeting**: Configurable target species lists
-- **Mission Objectives**: Survey type and conservation goals
-- **Quality Control**: Confidence thresholds and validation
+- **ui**  
+  Launch the WildDetect web interface (Streamlit-based) for interactive exploration.
+  ```bash
+  wildetect ui
+  ```
 
-### Geographic Analysis
-- **GPS Processing**: Coordinate extraction and validation
-- **Coverage Mapping**: Area calculation and overlap detection
-- **Flight Path Analysis**: Survey efficiency metrics
-- **Interactive Maps**: Folium-based visualizations
+- **fiftyone**  
+  Manage [FiftyOne](https://voxel51.com/docs/fiftyone/) datasets: launch the app, get info, or export data.
+  ```bash
+  wildetect fiftyone --action launch
+  wildetect fiftyone --action info --dataset my_dataset
+  wildetect fiftyone --action export --format coco --output export_dir/
+  ```
 
-### Population Statistics
-- **Species Counts**: Per-species detection tallies
-- **Density Estimation**: Population density calculations
-- **Distribution Mapping**: Geographic species distribution
-- **Trend Analysis**: Temporal population changes
+- **clear-results**  
+  Delete all detection results in a specified directory (with confirmation).
 
-### Conservation Applications
-- **Protected Area Monitoring**: Regular population surveys
-- **Wildlife Corridor Assessment**: Connectivity analysis
-- **Threat Assessment**: Population decline detection
-- **Habitat Suitability**: Environmental factor analysis
+### General CLI Features
 
-## 📊 Output Formats
+- **Rich Output**: Uses [rich](https://rich.readthedocs.io/) for beautiful tables, progress bars, and colored logs.
+- **Flexible Input**: Accepts both individual image files and directories.
+- **Advanced Options**: Fine-tune detection, tiling, device selection, and more.
+- **Batch Processing**: Efficiently processes large datasets.
+- **Integration**: Seamless export to FiftyOne, JSON, and CSV formats.
+- **Help for Every Command**: Use `wildetect [COMMAND] --help` for detailed options.
 
-### Detection Results
-```json
-{
-  "image_path": "sample.jpg",
-  "total_detections": 5,
-  "class_counts": {"elephant": 2, "giraffe": 3},
-  "confidence_scores": [0.85, 0.92, 0.78, 0.88, 0.91],
-  "geographic_bounds": {
-    "min_lat": -1.234567,
-    "max_lat": -1.234000,
-    "min_lon": 36.789000,
-    "max_lon": 36.789567
-  }
-}
-```
+## Configuration
+Edit YAML files in `config/` to adjust model, detection, or system settings. See example configs for details.
 
-### Campaign Reports
-```json
-{
-  "campaign_id": "census_2024",
-  "metadata": {
-    "flight_date": "2024-01-15T10:30:00",
-    "pilot_info": {"name": "John Doe"},
-    "target_species": ["elephant", "giraffe", "zebra"]
-  },
-  "statistics": {
-    "total_images": 150,
-    "total_detections": 45,
-    "coverage_area_km2": 25.5,
-    "flight_efficiency": 0.87
-  }
-}
-```
+## Contributing
+Contributions are welcome! Please fork the repo, create a feature branch, and submit a pull request. See the full README for details.
 
-## 🗺️ Geographic Visualization
-
-The system generates interactive HTML maps showing:
-- **Image Coverage**: Geographic footprints of survey images
-- **Detection Locations**: GPS coordinates of wildlife detections
-- **Species Distribution**: Color-coded species mapping
-- **Coverage Statistics**: Area calculations and efficiency metrics
-- **Flight Paths**: Survey route visualization
-
-## 🔧 Configuration
-
-### Model Settings
-```yaml
-model:
-  type: "yolo"
-  weights: "models/yolo_wildlife.pt"
-  confidence_threshold: 0.5
-  device: "auto"
-```
-
-### Detection Settings
-```yaml
-detection:
-  min_confidence: 0.3
-  species_classes:
-    - "elephant"
-    - "giraffe"
-    - "zebra"
-    - "lion"
-    - "rhino"
-```
-
-## 📈 Performance
-
-- **Processing Speed**: 10-50 images/second (GPU dependent)
-- **Memory Usage**: 2-8GB RAM (batch size dependent)
-- **Accuracy**: 85-95% mAP on wildlife datasets
-- **Scalability**: Supports 1000+ image campaigns
-
-## 🌍 Conservation Impact
-
-WildDetect enables:
-- **Population Monitoring**: Regular wildlife surveys
-- **Habitat Assessment**: Coverage and connectivity analysis
-- **Threat Detection**: Population decline identification
-- **Conservation Planning**: Data-driven decision making
-- **Research Support**: Scientific analysis and reporting
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- YOLO community for detection models
-- Conservation organizations for field testing
-- Open source contributors for geographic libraries 
+## License
+MIT License. See [LICENSE](LICENSE) for details. 
