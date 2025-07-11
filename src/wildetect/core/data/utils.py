@@ -153,7 +153,20 @@ class TileUtils:
             H, W, patch_size, stride, file_name
         )
 
+        # validate tiling
+        TileUtils.validate_results(image, tiles, offset_info)
+
         return tiles, offset_info
+
+    @staticmethod
+    def validate_results(image, tiles, offset_info):
+        for i in range(len(tiles)):
+            x1 = offset_info["x_offset"][i]
+            y1 = offset_info["y_offset"][i]
+            x2 = offset_info["x_end"][i]
+            y2 = offset_info["y_end"][i]
+            check = (tiles[i] - image[:, y1:y2, x1:x2]).sum()
+            assert np.isclose(check, 0.0), "error in tiling"
 
     @staticmethod
     def _calculate_offset_info(
@@ -177,35 +190,37 @@ class TileUtils:
             Dict[str, Any]: Offset information dictionary.
         """
         # Calculate number of patches in each dimension
-        num_patches_h = (height - patch_size) // stride + 1
-        num_patches_w = (width - patch_size) // stride + 1
+        x = torch.arange(0, width).reshape((1, -1))
+        y = torch.arange(0, height).reshape((-1, 1))
 
-        # Generate offset arrays
-        y_offsets = [i * stride for i in range(num_patches_h)]
-        x_offsets = [i * stride for i in range(num_patches_w)]
+        ones = torch.ones((3, height, width))
 
-        # Generate end positions
-        y_ends = [offset + patch_size for offset in y_offsets]
-        x_ends = [offset + patch_size for offset in x_offsets]
+        xx = TileUtils.get_patches(
+            ones * x,
+            patch_size,
+            stride,
+        )
 
-        # Create all combinations for 2D patches
-        y_offset_list = []
-        x_offset_list = []
-        y_end_list = []
-        x_end_list = []
+        yy = TileUtils.get_patches(ones * y, patch_size, stride)
+        x_offset = (
+            xx.min(keepdim=True, dim=1)[0]
+            .min(keepdim=True, dim=2)[0]
+            .min(keepdim=True, dim=3)[0]
+            .squeeze()
+        ).int()
 
-        for y_offset in y_offsets:
-            for x_offset in x_offsets:
-                y_offset_list.append(y_offset)
-                x_offset_list.append(x_offset)
-                y_end_list.append(y_offset + patch_size)
-                x_end_list.append(x_offset + patch_size)
+        y_offset = (
+            yy.min(keepdim=True, dim=1)[0]
+            .min(keepdim=True, dim=2)[0]
+            .min(keepdim=True, dim=3)[0]
+            .squeeze()
+        ).int()
 
         return {
-            "y_offset": y_offset_list,
-            "x_offset": x_offset_list,
-            "y_end": y_end_list,
-            "x_end": x_end_list,
+            "y_offset": y_offset.tolist(),
+            "x_offset": x_offset.tolist(),
+            "y_end": (y_offset + patch_size).tolist(),
+            "x_end": (x_offset + patch_size).tolist(),
             "file_name": file_name or "unknown",
         }
 
@@ -255,10 +270,6 @@ class TileUtils:
         Returns:
             int: Number of patches.
         """
-        if height < patch_size or width < patch_size:
-            return 1  # Return single patch for small images
-
-        num_patches_h = (height - patch_size) // stride + 1
-        num_patches_w = (width - patch_size) // stride + 1
-
-        return num_patches_h * num_patches_w
+        dummy = torch.ones((3, width, height))
+        patch_count = TileUtils.get_patches(dummy, patch_size, stride).shape[0]
+        return patch_count
