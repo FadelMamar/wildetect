@@ -70,6 +70,8 @@ def create_sample_drone_image() -> DroneImage:
     detections = create_sample_detections()
     drone_image.set_predictions(detections,update_gps=True)
 
+    print(drone_image.get_non_empty_predictions())
+
     return drone_image
 
 
@@ -106,15 +108,14 @@ def main():
     demonstrate_native_geolocation()
 
     # Initialize FiftyOne manager
-    fiftyone_manager = FiftyOneManager("wildlife_geolocation_dataset")
+    fiftyone_manager = FiftyOneManager("wildlife_geolocation_dataset_example")
 
     # Create sample data
     drone_image = create_sample_drone_image()
 
     # Add drone image to dataset (now uses native geolocation)
     logger.info("Adding drone image with native geolocation to FiftyOne dataset")
-    fiftyone_manager.add_drone_image(drone_image)
-
+    fiftyone_manager.add_drone_images([drone_image])
  
     # Get samples with GPS data (now uses native location field)
     gps_samples = fiftyone_manager.get_detections_with_gps()

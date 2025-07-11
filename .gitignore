@@ -32,6 +32,9 @@ MANIFEST
 *.torchscript
 
 models/
+results/
+mlruns/
+census_campaign_results/
 
 uv.lock
 

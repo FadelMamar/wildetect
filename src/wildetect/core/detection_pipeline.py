@@ -3,13 +3,14 @@ Detection Pipeline for end-to-end wildlife detection processing.
 """
 
 import logging
+import os
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from tqdm import tqdm
-import os
 
+from ..utils.utils import load_registered_model
 from .config import LoaderConfig, PredictionConfig
 from .data.detection import Detection
 from .data.drone_image import DroneImage
@@ -17,7 +18,6 @@ from .data.loader import DataLoader
 from .detectors.object_detection_system import ObjectDetectionSystem
 from .factory import build_detector
 from .processor.processor import Classifier, RoIPostProcessor
-from ..utils.utils import load_registered_model
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +42,8 @@ class DetectionPipeline:
         self.device = config.device
         self.metadata = dict()
 
-        #assert config.model_path is not None, "Model path must be provided"
-        #assert config.model_type is not None, "Model type must be provided"
+        # assert config.model_path is not None, "Model path must be provided"
+        # assert config.model_type is not None, "Model type must be provided"
 
         # Initialize components
         self.detection_system: Optional[ObjectDetectionSystem] = None
@@ -56,14 +56,14 @@ class DetectionPipeline:
         )
 
         self.error_count = 0
-    
-    def load_registered_model(self,mlflow_model_name,mlflow_model_alias):
+
+    def load_registered_model(self, mlflow_model_name, mlflow_model_alias):
         """Load the models from MLflow."""
 
         if mlflow_model_name is None or mlflow_model_alias is None:
             logger.warning("MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS are not set")
             return None, dict()
-        
+
         try:
             detector_model, metadata = load_registered_model(
                 name=mlflow_model_name,
@@ -73,14 +73,12 @@ class DetectionPipeline:
             logger.info(
                 f"Loaded model from MLflow: {mlflow_model_name}/{mlflow_model_alias}"
             )
-        except Exception:
-            logger.error(f"Error loading model from MLflow: {traceback.format_exc()}")
+        except Exception as e:
+            logger.error(f"Error loading model from MLflow: {e}")
+            logger.debug(traceback.format_exc())
             return None, dict()
-    
 
         return detector_model, metadata
-
-        
 
     def setup(self) -> None:
         """Set up the inference engine with model and processors."""
@@ -90,16 +88,22 @@ class DetectionPipeline:
         mlflow_roi_name = os.environ.get("MLFLOW_ROI_NAME", None)
         mlflow_roi_alias = os.environ.get("MLFLOW_ROI_ALIAS", None)
 
-        detector_model, self.metadata = self.load_registered_model(mlflow_model_name,mlflow_model_alias)
-        roi_model, roi_metadata = self.load_registered_model(mlflow_roi_name,mlflow_roi_alias)
+        detector_model, self.metadata = self.load_registered_model(
+            mlflow_model_name, mlflow_model_alias
+        )
+        roi_model, roi_metadata = self.load_registered_model(
+            mlflow_roi_name, mlflow_roi_alias
+        )
 
         classifier = None
         if roi_model is not None:
-            classifier = Classifier(model=roi_model,
-                                    model_path=None, 
-                                    label_map=self.config.cls_label_map, 
-                                    device=self.config.device, 
-                                    feature_extractor_path=self.config.feature_extractor_path)
+            classifier = Classifier(
+                model=roi_model,
+                model_path=None,
+                label_map=self.config.cls_label_map,
+                device=self.config.device,
+                feature_extractor_path=self.config.feature_extractor_path,
+            )
             box_size = roi_metadata.get("box_size", self.config.cls_imgsz)
             self.config.cls_imgsz = roi_metadata.get("cls_imgsz", self.config.cls_imgsz)
             logger.info(f"ROI box size: {box_size} -> {self.config.cls_imgsz}")
@@ -112,7 +116,7 @@ class DetectionPipeline:
             detector = build_detector(
                 config=self.config,
             )
-            
+
             # Create object detection system
             self.detection_system = ObjectDetectionSystem(
                 config=self.config,
@@ -228,10 +232,12 @@ class DetectionPipeline:
             logger.info(f"Batch size: {b} -> {self.metadata.get('batch', b)}")
             b = self.metadata.get("batch", b)
             self.loader_config.batch_size = int(b)
-        
+
         if "tilesize" in self.metadata:
             tile_size = self.loader_config.tile_size
-            logger.info(f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}")
+            logger.info(
+                f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
+            )
             tile_size = self.metadata.get("tilesize", tile_size)
             self.loader_config.tile_size = int(tile_size)
 
