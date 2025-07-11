@@ -33,8 +33,29 @@ cd wildetect
 # Install dependencies
 uv sync
 
+# Install CUDA-compatible PyTorch (if CUDA is available)
+uv run scripts/install_cuda.py
+
 # Verify installation
-uv run python -m src.wildetect.cli info
+uv run python -m wildetect.cli info
+```
+
+### CUDA Support
+
+For optimal performance on GPU-enabled systems, install CUDA-compatible PyTorch:
+
+```bash
+# Auto-detect and install CUDA PyTorch
+uv run python -m wildetect.cli install-cuda
+
+# Install specific CUDA version
+uv run python -m wildetect.cli install-cuda --cuda-version 121
+
+# Force CPU-only installation
+uv run python -m wildetect.cli install-cuda --cpu-only
+
+# Or use the standalone script
+uv run scripts/install_cuda.py
 ```
 
 ## 🎯 Quick Start
@@ -42,13 +63,13 @@ uv run python -m src.wildetect.cli info
 ### Basic Detection
 ```bash
 # Detect wildlife in images
-wildetect detect /path/to/images --model model.pt --output results/
+uv run python -m wildetect.cli detect /path/to/images --model model.pt --output results/
 ```
 
 ### Wildlife Census Campaign
 ```bash
 # Run comprehensive census
-wildetect census campaign_2024 /path/to/images \
+uv run python -m wildetect.cli census campaign_2024 /path/to/images \
   --model model.pt \
   --pilot "John Doe" \
   --species elephant giraffe zebra \
@@ -58,10 +79,10 @@ wildetect census campaign_2024 /path/to/images \
 ### Analysis & Visualization
 ```bash
 # Analyze detection results
-wildetect analyze results.json --output analysis/ --map
+uv run python -m wildetect.cli analyze results.json --output analysis/ --map
 
 # Create geographic visualizations
-wildetect visualize results.json --output maps/ --map
+uv run python -m wildetect.cli visualize results.json --output maps/ --map
 ```
 
 ## 🗺️ CLI Commands
@@ -116,6 +137,16 @@ Options:
 ### `info` - System Information
 ```bash
 wildetect info
+```
+
+### `install-cuda` - Install CUDA Support
+```bash
+uv run python -m wildetect.cli install-cuda [OPTIONS]
+
+Options:
+  --cuda-version, -c TEXT  Specific CUDA version (118, 121)
+  --cpu-only               Force CPU-only installation
+  --verbose, -v            Verbose logging
 ```
 
 ## 🔬 Wildlife Census Features
