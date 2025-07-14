@@ -1,0 +1,1 @@
+start wildetect.bat ui

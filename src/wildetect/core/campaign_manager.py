@@ -8,11 +8,10 @@ detection processing, flight analysis, and reporting into a unified pipeline.
 import json
 import logging
 import time
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-
-import joblib
 
 from .config import LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
@@ -269,6 +268,27 @@ class CampaignManager:
         self.fiftyone_manager.save_dataset()
         logger.info(f"Exported {len(images)} images to FiftyOne")
 
+    def export_to_labelstudio(self, dotenv_path: Optional[str] = None) -> Optional[str]:
+        """Export campaign data to LabelStudio for annotation/review."""
+
+        if self.fiftyone_manager is None:
+            logger.warning("FiftyOne manager not initialized. Skipping export.")
+            return
+
+        try:
+            annot_key = f"campaign_{self.campaign_id}_review"
+            self.fiftyone_manager.send_predictions_to_labelstudio(
+                annot_key, dotenv_path=dotenv_path
+            )
+            logger.info(
+                f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
+            )
+            return annot_key
+
+        except Exception:
+            logger.error(f"Error exporting to LabelStudio: {traceback.format_exc()}")
+            return None
+
     def export_detection_report(self, output_path: str) -> None:
         """Export a comprehensive detection report.
 
@@ -371,8 +391,10 @@ class CampaignManager:
             )
 
         # Step 7: Export to FiftyOne (optional)
+        annot_key = None
         if export_to_fiftyone:
             self.export_to_fiftyone()
+            annot_key = self.export_to_labelstudio()
 
         # Step 8: Export final report
         if output_dir:
@@ -388,6 +410,7 @@ class CampaignManager:
             "merged_images": self.get_drone_images(as_dict=True),
             "visualization_path": visualization_path,
             "statistics": self.get_campaign_statistics(),
+            "fiftyone_annot_key": annot_key,
         }
 
         logger.info(
