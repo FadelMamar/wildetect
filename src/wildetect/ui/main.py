@@ -81,13 +81,22 @@ def main():
     with st.sidebar:
         st.header("Settings")
 
-        st.subheader("MLflow Server")
+        st.divider()
+        st.subheader("Servers")
         launch_mlflow()
 
+        # st.subheader("LabelStudio Server")
+        launch_labelstudio()
+
+        # st.subheader("LabelStudio Server")
+        launch_fiftyone()
+
+        st.divider()
         # Model settings
         st.subheader("Model settings")
         model_settings_tab()
 
+        st.divider()
         # Dataset settings
         st.subheader("Data visualization")
         with st.form("dataset_form"):
@@ -99,22 +108,17 @@ def main():
                 else:
                     st.session_state.fo_manager.dataset_name = dataset_name
 
-        if st.button("Launch FiftyOne App"):
-            try:
-                with st.expander("Logs"):
-                    log_placeholder = st.empty()
-                    result = st.session_state.cli_integration.fiftyone_ui(
-                        action="launch",
-                        log_placeholder=log_placeholder,
-                        status_text=log_placeholder,
-                    )
-
-                if result["success"]:
-                    st.success("FiftyOne app launched!")
-                else:
-                    st.error(f"Error launching FiftyOne: {result['error']}")
-            except Exception as e:
-                st.error(f"Error launching FiftyOne: {e}")
+        st.divider()
+        st.subheader("Launch annotation job")
+        with st.form("launch_job_form"):
+            dataset_name = st.text_input("Dataset Name", value="campaing-000")
+            annot_key = st.text_input(
+                "Annotation Key",
+                value=f"ls_review_{dataset_name.replace('-','_').replace(' ','_')}",
+            )
+            if st.form_submit_button("Launch Job"):
+                annot_key = annot_key.strip() if len(annot_key.strip()) > 0 else None
+                launch_job(dataset_name.strip(), annot_key=annot_key)
 
     # Main content
     tab1, tab2, tab3, tab4 = st.tabs(
@@ -141,10 +145,29 @@ def main():
     return None
 
 
+def launch_fiftyone():
+    if st.button("Launch FiftyOne"):
+        try:
+            with st.expander("Logs"):
+                log_placeholder = st.empty()
+                result = st.session_state.cli_integration.fiftyone_ui(
+                    action="launch",
+                    log_placeholder=log_placeholder,
+                    status_text=log_placeholder,
+                )
+
+            if result["success"]:
+                st.success("FiftyOne app launched!")
+            else:
+                st.error(f"Error launching FiftyOne: {result['error']}")
+        except Exception as e:
+            st.error(f"Error launching FiftyOne: {e}")
+
+
 def launch_mlflow():
     """Launch MLflow server."""
 
-    if st.button("Launch MLflow Server"):
+    if st.button("Launch MLflow"):
         if sys.platform == "win32":
             creationflags = subprocess.CREATE_NEW_CONSOLE
             path = str(ROOT / "scripts/launch_mlflow.bat")
@@ -156,6 +179,31 @@ def launch_mlflow():
             )
         st.success("MLflow server launched!")
     return None
+
+
+def launch_labelstudio():
+    """Launch LabelStudio"""
+    if st.button("Launch LabelStudio"):
+        if sys.platform == "win32":
+            creationflags = subprocess.CREATE_NEW_CONSOLE
+            path = str(ROOT / "scripts/launch_labelstudio.bat")
+            subprocess.Popen([path], creationflags=creationflags, cwd=str(ROOT))
+        else:
+            raise NotImplementedError(
+                "LabelStudio server is not supported on this platform."
+            )
+        st.success("LabelStudio server launched!")
+
+
+def launch_job(dataset_name: str, annot_key: Optional[str] = None):
+    if annot_key is None:
+        annot_key = f"ls_review_{dataset_name.replace('-','_').replace(' ','_')}"
+    FiftyOneManager(dataset_name).send_predictions_to_labelstudio(
+        annot_key, dotenv_path=str(ROOT / ".env")
+    )
+    st.success(
+        f"Annotation job '{annot_key}' launched for dataset '{dataset_name}' to Label Studio"
+    )
 
 
 def get_registered_model_names():
@@ -194,7 +242,9 @@ def model_settings_tab():
     st.info("Set the model to use for detection. This will be used for all detections.")
     with st.form("model_settings_form"):
         registry_name = st.text_input("Registry Name", value="labeler").strip()
-        roi_registry_name = st.text_input("ROI Registry Name", value="classifier").strip()
+        roi_registry_name = st.text_input(
+            "ROI Registry Name", value="classifier"
+        ).strip()
 
         if st.form_submit_button("View available models") and registry_name:
             alias_to_version = get_model_versions_and_aliases(registry_name)
@@ -217,10 +267,13 @@ def model_settings_tab():
 
             if st.session_state.roi_alias_options:
                 st.session_state.roi_selected_alias = st.selectbox(
-                    "Select ROI Classifier Model Alias", st.session_state.roi_alias_options
+                    "Select ROI Classifier Model Alias",
+                    st.session_state.roi_alias_options,
                 )
             else:
-                st.warning("No versions or aliases found for ROI Classifier model name.")
+                st.warning(
+                    "No versions or aliases found for ROI Classifier model name."
+                )
                 return
 
     if st.button(
@@ -234,7 +287,6 @@ def model_settings_tab():
         os.environ["MLFLOW_ROI_ALIAS"] = st.session_state.roi_selected_alias or ""
 
         st.success("Model set successfully")
-
 
 
 def upload_and_detect_tab():
@@ -538,8 +590,6 @@ def census_campaign_tab():
 
             if campaign_result["success"]:
                 st.success("Census campaign completed successfully!")
-
-            
 
 
 if __name__ == "__main__":

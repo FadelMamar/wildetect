@@ -3,6 +3,7 @@ Utility functions for image tiling and patch extraction.
 """
 
 import logging
+import math
 from itertools import chain
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -64,16 +65,15 @@ class TileUtils:
             squeeze_output = False
 
         C, H, W = image.shape
-
-        # Validate channel count if specified
-        if channels is not None and C != channels:
-            raise ValueError(f"Expected {channels} channels, got {C}")
-
         # Check if image is large enough for patches
         if H < patch_size or W < patch_size:
             raise ValueError(
                 f"Image size ({H}x{W}) is smaller than patch_size ({patch_size})"
             )
+
+        # Validate channel count if specified
+        if channels is not None and C != channels:
+            raise ValueError(f"Expected {channels} channels, got {C}")
 
         # Use unfold to create tiles
         # First unfold along height dimension
@@ -133,40 +133,88 @@ class TileUtils:
 
         # Handle case where image is too small for patches
         if H <= patch_size or W <= patch_size:
-            logger.debug(
-                f"Image size ({H}x{W}) is too small for patch extraction with size {patch_size}"
-            )
             offset_info = {
                 "y_offset": [0],
                 "x_offset": [0],
-                "y_end": [H],
+                "y_end": [H],  # Use original dimensions for annotation clipping
                 "x_end": [W],
                 "file_name": file_name or "unknown",
             }
-            return image.unsqueeze(0), offset_info
+            return image, offset_info
 
-        # Extract patches
-        tiles = TileUtils.get_patches(image, patch_size, stride, channels)
+        padded_image = TileUtils.pad_image_to_patch_size(image, patch_size, stride)
+        C, H, W = padded_image.shape
 
-        # Calculate offset information
+        # Extract patches from padded image
+        tiles = TileUtils.get_patches(padded_image, patch_size, stride, channels)
+
+        # Calculate offset information for original image dimensions
         offset_info = TileUtils._calculate_offset_info(
-            H, W, patch_size, stride, file_name
+            H,
+            W,
+            patch_size,
+            stride,
+            file_name,
         )
 
         # validate tiling
-        TileUtils.validate_results(image, tiles, offset_info)
+        TileUtils.validate_results(padded_image, tiles, offset_info)
 
         return tiles, offset_info
 
     @staticmethod
-    def validate_results(image, tiles, offset_info):
-        for i in range(len(tiles)):
-            x1 = offset_info["x_offset"][i]
-            y1 = offset_info["y_offset"][i]
-            x2 = offset_info["x_end"][i]
-            y2 = offset_info["y_end"][i]
-            check = (tiles[i] - image[:, y1:y2, x1:x2]).sum()
-            assert np.isclose(check, 0.0), "error in tiling"
+    def get_padding_size(height, width, patch_size: int, stride: int):
+        H = height
+        W = width
+
+        # Calculate padding needed to make dimensions multiples of patch_size
+        pad_h = math.ceil((H - patch_size) / stride) * stride - (H - patch_size)
+        pad_w = math.ceil((W - patch_size) / stride) * stride - (W - patch_size)
+
+        return pad_h, pad_w
+
+    @staticmethod
+    def pad_image_to_patch_size(
+        image: torch.Tensor, patch_size: int, stride: int
+    ) -> torch.Tensor:
+        """
+        Pad image with patch_size on right and bottom only to ensure complete tile coverage.
+        """
+        C, H, W = image.shape
+
+        # Calculate padding needed to make dimensions multiples of patch_size
+        pad_h, pad_w = TileUtils.get_padding_size(H, W, patch_size, stride)
+
+        # Pad only on right and bottom with zeros
+        padded_image = torch.nn.functional.pad(
+            image, (0, pad_w, 0, pad_h), mode="constant", value=0
+        )
+
+        return padded_image
+
+    @staticmethod
+    def validate_results(
+        image: torch.Tensor, tiles: torch.Tensor, offset_info: Dict[str, Any]
+    ) -> None:
+        """Validate that tiles match the original image regions using advanced indexing."""
+        # Convert offset info to tensors for vectorized operations
+        x_offsets = torch.tensor(offset_info["x_offset"])
+        y_offsets = torch.tensor(offset_info["y_offset"])
+        x_ends = torch.tensor(offset_info["x_end"])
+        y_ends = torch.tensor(offset_info["y_end"])
+
+        # Extract all regions at once using advanced indexing
+        extracted_regions = torch.stack(
+            [
+                image[:, y_offsets[i] : y_ends[i], x_offsets[i] : x_ends[i]]
+                for i in range(tiles.shape[0])
+            ]
+        )
+
+        # Single vectorized comparison for all tiles
+        assert torch.allclose(
+            tiles, extracted_regions, atol=1e-6
+        ), "error in tiling. Extracted value and offsets don't match"
 
     @staticmethod
     def _calculate_offset_info(
@@ -270,6 +318,7 @@ class TileUtils:
         Returns:
             int: Number of patches.
         """
-        dummy = torch.ones((3, width, height))
-        patch_count = TileUtils.get_patches(dummy, patch_size, stride).shape[0]
+        num_patches_h = ((height - patch_size) // stride) + 1
+        num_patches_w = ((width - patch_size) // stride) + 1
+        patch_count = num_patches_h * num_patches_w
         return patch_count

@@ -5,8 +5,10 @@ This module handles dataset creation, visualization, and annotation collection
 using FiftyOne for wildlife detection datasets.
 """
 
+import json
 import logging
 import os
+import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -15,14 +17,13 @@ import fiftyone.brain as fob
 import fiftyone.utils.geojson as fogeojson
 from fiftyone import ViewField as F
 
-from ..config import get_config
+from ..config import ROOT, get_config
 from ..data.detection import Detection
 from ..data.drone_image import DroneImage
 
 logger = logging.getLogger(__name__)
 
 
-# TODO: debug
 class FiftyOneManager:
     """Manages FiftyOne datasets for wildlife detection."""
 
@@ -43,8 +44,7 @@ class FiftyOneManager:
         self.dataset = None
         self.persistent = persistent
 
-        # Initialize dataset
-        self._init_dataset()
+        self.prediction_field = "detections"
 
     def _init_dataset(self):
         """Initialize or load the FiftyOne dataset."""
@@ -60,7 +60,9 @@ class FiftyOneManager:
     def _ensure_dataset_initialized(self):
         """Ensure dataset is initialized before operations."""
         if self.dataset is None:
-            raise RuntimeError("Dataset not initialized. Call _init_dataset() first.")
+            # Initialize dataset
+            self._init_dataset()
+            # raise RuntimeError("Dataset not initialized. Call _init_dataset() first.")
 
     def _create_fo_sample(self, drone_image: DroneImage):
         """Add a DroneImage to the dataset.
@@ -89,7 +91,7 @@ class FiftyOneManager:
         sample = fo.Sample(filepath=drone_image.image_path)
 
         if fo_detections:
-            sample["detections"] = fo.Detections(detections=fo_detections)
+            sample[self.prediction_field] = fo.Detections(detections=fo_detections)
 
         # Add metadata
         sample["total_count"] = len(fo_detections)
@@ -125,7 +127,6 @@ class FiftyOneManager:
         )
         return sample
 
-    # TODO: debug
     def add_drone_images(self, drone_images: List[DroneImage]):
         """Add multiple DroneImage objects to the dataset.
 
@@ -157,7 +158,6 @@ class FiftyOneManager:
             f"Added {len(samples)} drone images with {total_detections} total detections"
         )
 
-    # TODO: debug
     def get_detections_with_gps(self) -> List[fo.Sample]:
         """Get all samples that have GPS data.
 
@@ -189,6 +189,35 @@ class FiftyOneManager:
                 ["uv", "run", "fiftyone", "app", "launch"],
                 env=os.environ.copy(),
             )
+
+    def send_predictions_to_labelstudio(
+        self, annot_key: str, dotenv_path: Optional[str] = None
+    ):
+        """Launch the FiftyOne annotation app."""
+        if dotenv_path is not None:
+            from dotenv import load_dotenv
+
+            load_dotenv(dotenv_path, override=True)
+
+        with open(ROOT / "config/class_mapping.json", "r", encoding="utf-8") as f:
+            label_map = json.load(f)
+
+        classes = list(label_map.values())
+
+        try:
+            dataset = fo.load_dataset(self.dataset_name)
+            dataset.annotate(
+                annot_key,
+                backend="labelstudio",
+                label_field=self.prediction_field,
+                label_type="detections",
+                classes=classes,
+                api_key=os.environ["FIFTYONE_LABELSTUDIO_API_KEY"],
+                url=os.environ["FIFTYONE_LABELSTUDIO_URL"],
+            )
+        except Exception:
+            logger.error(f"Error exporting to LabelStudio: {traceback.format_exc()}")
+            raise
 
     # TODO: debug
     def get_dataset_info(self) -> Dict[str, Any]:

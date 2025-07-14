@@ -1,12 +1,10 @@
 call c: 
-
 call cd "C:\Users\Machine Learning\Desktop\workspace-wildAI\datalabeling"
 
-call dir
+call d:
+call cd "D:\datalabeling"
 
-@REM cd "D:\datalabeling"
-
-@REM call deactivate
+call deactivate
 
 call .venv-mlflow\Scripts\activate
 

@@ -4,4 +4,4 @@
 
 @REM uv run python -m wildetect.cli %*
 
-uv run --no-sync wildetect %*
+call uv run --no-sync wildetect %*
