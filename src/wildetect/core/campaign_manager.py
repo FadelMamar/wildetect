@@ -12,9 +12,6 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-from uuid import uuid4
-
-import joblib
 
 from .config import LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
