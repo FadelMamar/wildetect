@@ -18,7 +18,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from .core.campaign_manager import CampaignConfig, CampaignManager
-from .core.config import FlightSpecs, LoaderConfig, PredictionConfig
+from .core.config import ROOT, FlightSpecs, LoaderConfig, PredictionConfig
 from .core.data.census import CensusDataManager
 from .core.data.drone_image import DroneImage
 from .core.data.utils import get_images_paths
@@ -28,8 +28,6 @@ from .core.visualization.geographic import (
     GeographicVisualizer,
     VisualizationConfig,
 )
-
-ROOT_DIR = Path(__file__).parent.parent.parent
 
 # Create Typer app
 app = typer.Typer(
@@ -246,6 +244,17 @@ def detect(
                 fo_manager = FiftyOneManager(dataset_name, persistent=True)
                 fo_manager.add_drone_images(drone_images)
                 fo_manager.save_dataset()
+
+                try:
+                    annot_key = f"{dataset_name}_review"
+                    fo_manager.send_predictions_to_labelstudio(
+                        annot_key, dotenv_path=str(Path(ROOT) / ".env")
+                    )
+                    logger.info(
+                        f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
+                    )
+                except Exception as e:
+                    logger.error(f"Error exporting to LabelStudio: {e}")
 
             progress.update(task, completed=True)
 
@@ -591,7 +600,6 @@ def census(
         # Determine if input is directory or file paths
         if len(images) == 1 and Path(images[0]).is_dir():
             image_dir = images[0]
-            assert Path(image_dir).is_dir(), f"Image directory not found: {image_dir}"
             image_paths = get_images_paths(image_dir)
             console.print(f"[green]Processing directory: {image_dir}[/green]")
         else:
