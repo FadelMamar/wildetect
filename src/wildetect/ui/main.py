@@ -97,16 +97,6 @@ def main():
         model_settings_tab()
 
         st.divider()
-        # Dataset settings
-        st.subheader("Data visualization")
-        with st.form("dataset_form"):
-            dataset_name = st.text_input("Dataset Name", value="wildlife_detection")
-            if st.form_submit_button("Create Dataset"):
-                if st.session_state.fo_manager is None:
-                    st.session_state.fo_manager = FiftyOneManager(dataset_name)
-                    st.success("FiftyOne dataset manager initialized")
-                else:
-                    st.session_state.fo_manager.dataset_name = dataset_name
 
         st.divider()
         st.subheader("Launch annotation job")
@@ -292,6 +282,17 @@ def model_settings_tab():
 def upload_and_detect_tab():
     """Handle image upload and detection."""
     st.header("Upload Images & Run Detection")
+
+    # Dataset settings
+    st.subheader("Data visualization")
+    with st.form("dataset_form"):
+        dataset_name = st.text_input("Dataset Name", value="wildlife_detection")
+        if st.form_submit_button("Create Dataset"):
+            if st.session_state.fo_manager is None:
+                st.session_state.fo_manager = FiftyOneManager(dataset_name)
+                st.success("FiftyOne dataset manager initialized")
+            else:
+                st.session_state.fo_manager.dataset_name = dataset_name
 
     # File upload
     with st.form("upload_form"):
