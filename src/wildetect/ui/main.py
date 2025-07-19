@@ -584,8 +584,8 @@ def census_campaign_tab():
     path_to_logs = ROOT / "logs"
     path_to_results = ROOT / "census_campaign_results"
 
-    st.info(f"Logs are located at: {path_to_logs}")
-    st.info(f"Results are located at: {path_to_results}")
+    st.info(f"Logs are located at: `{path_to_logs}`")
+    st.info(f"Results are located at: `{path_to_results}`")
 
     if st.button("Start Census Campaign", type="primary"):
         if not image_paths:
