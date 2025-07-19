@@ -178,7 +178,7 @@ class DetectionPipeline:
         drone_images: Dict[str, DroneImage] = {}
 
         # Process each tile and its detections
-        for batch in batches:
+        for batch in tqdm(batches, desc="Postprocessing batches"):
             # Handle missing detections key
             detections = batch.get("detections", [])
             for tile, tile_detections in zip(batch["tiles"], detections):
