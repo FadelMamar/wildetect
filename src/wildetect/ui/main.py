@@ -596,10 +596,13 @@ def census_campaign_tab():
             with st.spinner("Running census campaign..."):
                 with st.expander("Logs"):
                     if st.session_state.census_logs is None:
-                        st.session_state.census_logs = st.empty()
-                        log_placeholder = st.session_state.census_logs
+                        st.session_state.census_logs = dict(directory_path=st.empty())
+                        log_placeholder = st.session_state.census_logs["directory_path"]
                     else:
-                        log_placeholder = st.session_state.census_logs
+                        log_placeholder = st.session_state.census_logs.get("directory_path")
+                        if log_placeholder is None:
+                            st.session_state.census_logs["directory_path"] = st.empty()
+                            log_placeholder = st.session_state.census_logs["directory_path"]
 
                     campaign_result = st.session_state.cli_integration.run_census_ui(
                         campaign_id=campaign_id,
@@ -611,7 +614,10 @@ def census_campaign_tab():
 
             if campaign_result["success"]:
                 st.success("Census campaign completed successfully!")
-
+    
+    elif isinstance(st.session_state.census_logs, dict):
+        with st.expander("Logs"):
+            st.session_state.census_logs.get("directory_path")
 
 if __name__ == "__main__":
     main()
