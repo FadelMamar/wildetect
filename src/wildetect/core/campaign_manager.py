@@ -325,6 +325,61 @@ class CampaignManager:
         """
         return self.census_manager.get_all_detections()
 
+    def validate_image_paths(self, image_paths: List[str]) -> List[str]:
+        """Validate image paths.
+
+        Args:
+            image_paths: List of image paths to validate
+        Returns:
+            List[str]: List of valid image paths
+        Raises:
+            ValueError: If none of the images have GPS coordinates
+        """
+        from PIL import Image
+
+        from .gps.gps_utils import GPSUtils
+
+        valid_images = []
+        invalid_images = []
+        no_gps_count = 0
+        for image_path in image_paths:
+            reason = None
+            # Check if file is readable as an image
+            assert isinstance(image_path, str), "image_paths must be a list of strings"
+            try:
+                with Image.open(image_path) as img:
+                    img.verify()  # Verify image integrity
+            except Exception as e:
+                reason = f"Unreadable image: {e}"
+                invalid_images.append((image_path, reason))
+                logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
+                continue
+            # Check for GPS coordinates
+            try:
+                gps_result = GPSUtils.get_gps_coord(file_name=image_path)
+                if gps_result is None:
+                    reason = "No GPS coordinates found"
+                    no_gps_count += 1
+                    invalid_images.append((image_path, reason))
+                    logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
+                    continue
+            except Exception as e:
+                reason = f"Error extracting GPS: {e}"
+                invalid_images.append((image_path, reason))
+                logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
+                continue
+            # If both checks pass, add to valid images
+            valid_images.append(image_path)
+
+        logger.info(
+            f"Validation complete: {len(valid_images)} valid images, {len(invalid_images)} invalid images."
+        )
+        if len(valid_images) == 0 or no_gps_count == len(image_paths):
+            raise ValueError(
+                "None of the images have GPS coordinates. Validation failed."
+            )
+        return valid_images
+
     def run_complete_campaign(
         self,
         image_paths: List[str],
@@ -346,15 +401,9 @@ class CampaignManager:
         """
         logger.info(f"Starting complete campaign: {self.campaign_id}")
 
+        # Validate image paths
         assert isinstance(image_paths, list), "image_paths must be a list"
-        for image_path in image_paths:
-            assert isinstance(image_path, str), "image_paths must be a list of strings"
-            assert Path(
-                image_path
-            ).exists(), f"image_paths must be file paths, {image_path} does not exist"
-            assert Path(
-                image_path
-            ).is_file(), f"image_paths must be file paths, {image_path} is not a file"
+        image_paths = self.validate_image_paths(image_paths)
 
         if output_dir is None:
             output_dir = Path("census_campaign_results") / self.campaign_id
@@ -381,7 +430,11 @@ class CampaignManager:
             flight_efficiency = self.calculate_flight_efficiency()
 
         # Step 5: Geographic merging (optional)
-        self.merge_detections_geographically()
+        try:
+            self.merge_detections_geographically()
+        except Exception as e:
+            logger.error(f"Error merging detections: {e}")
+            # logger.error(f"Error merging detections: {traceback.format_exc()}")
 
         # Step 6: Create visualization (optional)
         if output_dir:

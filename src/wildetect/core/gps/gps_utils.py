@@ -12,32 +12,9 @@ from ..config import FlightSpecs
 
 logger = logging.getLogger(__name__)
 
-# Optional imports with graceful fallbacks
-try:
-    import utm
-
-    UTM_AVAILABLE = True
-except ImportError:
-    UTM_AVAILABLE = False
-    logger.warning(
-        "UTM library not available. GPS coordinate conversion will be limited."
-    )
-
-try:
-    import geopy
-
-    GEOPY_AVAILABLE = True
-except ImportError:
-    GEOPY_AVAILABLE = False
-    logger.warning("Geopy library not available. GPS parsing will be limited.")
-
-try:
-    from PIL import Image
-
-    PIL_AVAILABLE = True
-except ImportError:
-    PIL_AVAILABLE = False
-    logger.warning("PIL library not available. Image EXIF extraction will be limited.")
+import geopy
+import utm
+from PIL import Image
 
 
 def get_pixel_gps_coordinates(
