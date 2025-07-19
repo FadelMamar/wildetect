@@ -63,6 +63,10 @@ def initialize_components():
             st.session_state.roi_alias_options = []
         if "roi_selected_alias" not in st.session_state:
             st.session_state.roi_selected_alias = None
+        if "detection_logs" not in st.session_state:
+            st.session_state.detection_logs = None
+        if "census_logs" not in st.session_state:
+            st.session_state.census_logs = None
     except Exception:
         st.error(f"Error initializing components: {traceback.format_exc()}")
 
@@ -284,7 +288,7 @@ def upload_and_detect_tab():
     st.header("Upload Images & Run Detection")
 
     # Dataset settings
-    st.subheader("Data visualization")
+    st.subheader("Set FiftyOne Dataset")
     with st.form("dataset_form"):
         dataset_name = st.text_input("Dataset Name", value="wildlife_detection")
         if st.form_submit_button("Create Dataset"):
@@ -295,6 +299,7 @@ def upload_and_detect_tab():
                 st.session_state.fo_manager.dataset_name = dataset_name
 
     # File upload
+    st.subheader("Upload aerial images")
     with st.form("upload_form"):
         uploaded_files = st.file_uploader(
             "Upload aerial images",
@@ -355,7 +360,12 @@ def run_detection(image_paths: List[str], dataset_name: Optional[str] = None):
 
     # Use CLI integration for detection
     with st.expander("Logs"):
-        log_placeholder = st.empty()
+        if st.session_state.detection_logs is None:
+            st.session_state.detection_logs = st.empty()
+            log_placeholder = st.session_state.detection_logs
+        else:
+            log_placeholder = st.session_state.detection_logs
+
         st.session_state.cli_integration.run_detection_ui(
             images=image_paths,
             dataset_name=dataset_name,
@@ -543,7 +553,7 @@ def census_campaign_tab():
     if input_type == "Upload Images":
         uploaded_images = st.file_uploader(
             "Upload campaign images",
-            type=["jpg", "jpeg", "png", "tiff", "bmp"],
+            type=["jpg", "jpeg", "png",],
             accept_multiple_files=True,
             help="Upload images for the census campaign",
         )
@@ -571,6 +581,11 @@ def census_campaign_tab():
 
     # Campaign Execution
     st.subheader("Run Campaign")
+    path_to_logs = ROOT / "logs"
+    path_to_results = ROOT / "census_campaign_results"
+
+    st.info(f"Logs are located at: {path_to_logs}")
+    st.info(f"Results are located at: {path_to_results}")
 
     if st.button("Start Census Campaign", type="primary"):
         if not image_paths:
@@ -580,7 +595,12 @@ def census_campaign_tab():
         else:
             with st.spinner("Running census campaign..."):
                 with st.expander("Logs"):
-                    log_placeholder = st.empty()
+                    if st.session_state.census_logs is None:
+                        st.session_state.census_logs = st.empty()
+                        log_placeholder = st.session_state.census_logs
+                    else:
+                        log_placeholder = st.session_state.census_logs
+
                     campaign_result = st.session_state.cli_integration.run_census_ui(
                         campaign_id=campaign_id,
                         images=image_paths,
