@@ -1,1 +1,1 @@
-start wildetect.bat ui
+start .\wildetect.bat ui
