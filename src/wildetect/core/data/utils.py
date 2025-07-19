@@ -100,6 +100,7 @@ class TileUtils:
         stride: int,
         channels: Optional[int] = None,
         file_name: Optional[str] = None,
+        validate: bool = False,
     ) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
         Extract patches from an image and compute offset information.
@@ -158,7 +159,8 @@ class TileUtils:
         )
 
         # validate tiling
-        TileUtils.validate_results(padded_image, tiles, offset_info)
+        if validate:
+            TileUtils.validate_results(padded_image, tiles, offset_info)
 
         return tiles, offset_info
 
