@@ -402,7 +402,9 @@ def visualize_geographic_bounds(
     ),
 ) -> None:
     """Convenience function to visualize geographic bounds."""
-    setup_logging()
+    setup_logging(log_file=str(
+            ROOT / f"logs/visualize_geographic_bounds_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        ))
     logger = logging.getLogger(__name__)
     try:
         assert Path(image_dir).is_dir(), f"Image directory not found: {image_dir}"
