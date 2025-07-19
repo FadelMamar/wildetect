@@ -7,6 +7,7 @@ import os
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from concurrent.futures import ThreadPoolExecutor
 
 from tqdm import tqdm
 
@@ -252,21 +253,27 @@ class DetectionPipeline:
         total_batches = len(data_loader)
         batch = None  # Initialize batch variable
 
-        #with tqdm(total=total_batches, desc="Processing batches") as pbar:
-        for batch_idx, batch in tqdm(enumerate(data_loader), desc="Processing batches"):
+        def process_one_batch(batch: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             try:
                 detections = self._process_batch(batch)
                 batch["detections"] = detections
-                all_batches.append(batch)
+                return batch
             except Exception as e:
-                logger.error(f"Failed to process batch {batch_idx}: {e}")
-                self.error_count += 1
-                continue
-            finally:
+                logger.error(f"Failed to process batch: {e}")
+                return None
+
+        #with tqdm(total=total_batches, desc="Processing batches") as pbar:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for batch in tqdm(executor.map(process_one_batch, data_loader), desc="Processing batches", total=total_batches):
+                if batch is not None:
+                    all_batches.append(batch)
+                else:
+                    self.error_count += 1
+
                 if self.error_count > 5:
                     raise RuntimeError("Too many errors. Stopping.")
 
-        # Add detections to the last batch for postprocessing
+        # postprocessing
         all_drone_images = self._postprocess(batches=all_batches)
         if len(all_drone_images) == 0:
             logger.warning("No batches were processed")
