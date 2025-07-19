@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from .config import LoaderConfig, PredictionConfig
+from .config import LoaderConfig, PredictionConfig, ROOT
 from .data.census import CensusDataManager, DetectionResults
 from .data.detection import Detection
 from .data.drone_image import DroneImage
@@ -406,7 +406,7 @@ class CampaignManager:
         image_paths = self.validate_image_paths(image_paths)
 
         if output_dir is None:
-            output_dir = Path("census_campaign_results") / self.campaign_id
+            output_dir = ROOT / "census_campaign_results" / self.campaign_id
             output_dir.mkdir(parents=True, exist_ok=True)
             output_dir = str(output_dir)
             logger.info(f"No output directory provided, using default: {output_dir}")
