@@ -427,25 +427,13 @@ def load_images_as_drone_images(
     Returns:
         List[DroneImage]: List of DroneImage objects.
     """
-    dataset = TileDataset(config, image_paths=image_paths, image_dir=image_dir)
 
-    # Create DroneImage objects
-    drone_images = {}
-    for tile in dataset.tiles:
-        parent_image = tile.parent_image or tile.image_path
+    if image_dir is not None:
+        image_paths = get_images_paths(image_dir)
 
-        if parent_image not in drone_images:
-            drone_image = DroneImage.from_image_path(
-                image_path=parent_image, flight_specs=config.flight_specs
-            )
-            drone_images[parent_image] = drone_image
-
-        # Add tile to drone image with its offset
-        x_offset = tile.x_offset or 0
-        y_offset = tile.y_offset or 0
-        drone_images[parent_image].add_tile(tile, x_offset, y_offset)
-
-    drone_image_list = list(drone_images.values())
+    drone_image_list = [DroneImage.from_image_path(
+                image_path=image_path, flight_specs=config.flight_specs) for image_path in image_paths
+        ]
 
     # Limit number of images if specified
     if max_images and len(drone_image_list) > max_images:
