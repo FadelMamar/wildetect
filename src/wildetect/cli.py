@@ -46,13 +46,20 @@ except importlib.metadata.PackageNotFoundError:
     __version__ = "0.0.1"
 
 
-def setup_logging(verbose: bool = False):
+def setup_logging(verbose: bool = False, log_file: Optional[str] = None):
     """Setup logging configuration."""
     level = logging.DEBUG if verbose else logging.INFO
+    handlers = [
+        logging.StreamHandler(sys.stdout),
+    ]
+    if isinstance(log_file, str):
+        file_handler = logging.FileHandler(log_file)
+        handlers.append(file_handler)
+
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler(sys.stdout)],
+        handlers=handlers,
     )
 
 
@@ -152,7 +159,12 @@ def detect(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
     """Run wildlife detection on images."""
-    setup_logging(verbose)
+    setup_logging(
+        verbose,
+        log_file=str(
+            ROOT / f"logs/detect_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        ),
+    )
     logger = logging.getLogger(__name__)
 
     try:
@@ -589,7 +601,7 @@ def census(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
     """Run wildlife census campaign with enhanced analysis."""
-    setup_logging(verbose)
+    setup_logging(verbose, log_file=str(ROOT / f"logs/{campaign_id}.log"))
     logger = logging.getLogger(__name__)
 
     try:
