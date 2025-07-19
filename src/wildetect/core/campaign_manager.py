@@ -423,11 +423,16 @@ class CampaignManager:
         detection_results = self.run_detection(save_results=True, output_dir=output_dir)
 
         # Step 4: Flight analysis (optional)
-        flight_path = None
-        flight_efficiency = None
-        flight_path = self.analyze_flight_path()
-        if flight_path:
-            flight_efficiency = self.calculate_flight_efficiency()
+        try:
+            flight_path = None
+            flight_efficiency = None
+            flight_path = self.analyze_flight_path()
+            if flight_path:
+                flight_efficiency = self.calculate_flight_efficiency()
+        except Exception as e:
+            logger.error(f"Error analyzing flight path: {e}")
+            flight_path = None
+            flight_efficiency = None
 
         # Step 5: Geographic merging (optional)
         try:
@@ -438,21 +443,33 @@ class CampaignManager:
 
         # Step 6: Create visualization (optional)
         if output_dir:
-            visualization_path = Path(output_dir) / "geographic_visualization.html"
-            visualization_path = self.create_geographic_visualization(
-                str(visualization_path)
-            )
+            try:
+                visualization_path = Path(output_dir) / "geographic_visualization.html"
+                visualization_path = self.create_geographic_visualization(
+                    str(visualization_path)
+                )
+            except Exception as e:
+                logger.error(f"Error creating geographic visualization: {e}")
+                visualization_path = None
 
         # Step 7: Export to FiftyOne (optional)
         annot_key = None
-        if export_to_fiftyone:
-            self.export_to_fiftyone()
-            annot_key = self.export_to_labelstudio()
+        try:
+            if export_to_fiftyone:
+                self.export_to_fiftyone()
+                annot_key = self.export_to_labelstudio()
+        except Exception as e:
+            logger.error(f"Error exporting to FiftyOne: {e}")
+            annot_key = None
 
         # Step 8: Export final report
-        if output_dir:
-            report_path = Path(output_dir) / "campaign_report.json"
-            self.export_detection_report(str(report_path))
+        try:
+            if output_dir:
+                report_path = Path(output_dir) / "campaign_report.json"
+                self.export_detection_report(str(report_path))
+        except Exception as e:
+            logger.error(f"Error exporting detection report: {e}")
+            report_path = None
 
         # Compile results
         results = {

@@ -252,19 +252,19 @@ class DetectionPipeline:
         total_batches = len(data_loader)
         batch = None  # Initialize batch variable
 
-        with tqdm(total=total_batches, desc="Processing batches") as pbar:
-            for batch_idx, batch in enumerate(data_loader):
-                try:
-                    detections = self._process_batch(batch, pbar)
-                    batch["detections"] = detections
-                    all_batches.append(batch)
-                except Exception as e:
-                    logger.error(f"Failed to process batch {batch_idx}: {e}")
-                    self.error_count += 1
-                    continue
-                finally:
-                    if self.error_count > 5:
-                        raise RuntimeError("Too many errors. Stopping.")
+        #with tqdm(total=total_batches, desc="Processing batches") as pbar:
+        for batch_idx, batch in tqdm(enumerate(data_loader), desc="Processing batches"):
+            try:
+                detections = self._process_batch(batch)
+                batch["detections"] = detections
+                all_batches.append(batch)
+            except Exception as e:
+                logger.error(f"Failed to process batch {batch_idx}: {e}")
+                self.error_count += 1
+                continue
+            finally:
+                if self.error_count > 5:
+                    raise RuntimeError("Too many errors. Stopping.")
 
         # Add detections to the last batch for postprocessing
         all_drone_images = self._postprocess(batches=all_batches)
