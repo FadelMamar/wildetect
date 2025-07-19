@@ -294,7 +294,11 @@ def visualize(
     ),
 ):
     """Visualize detection results with geographic maps and statistics."""
-    setup_logging()
+    setup_logging(
+        log_file=str(
+            ROOT / f"logs/visualize_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        ),
+    )
     logger = logging.getLogger(__name__)
 
     try:
@@ -601,7 +605,10 @@ def census(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
     """Run wildlife census campaign with enhanced analysis."""
-    setup_logging(verbose, log_file=str(ROOT / f"logs/{campaign_id}.log"))
+    setup_logging(
+        verbose,
+        log_file=str(ROOT / f"logs/census_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"),
+    )
     logger = logging.getLogger(__name__)
 
     try:
@@ -1016,40 +1023,6 @@ def create_geographic_visualization(
 
     except Exception as e:
         console.print(f"[red]Failed to create geographic visualization: {e}[/red]")
-
-
-def export_campaign_report(census_manager: CensusDataManager, output_dir: str):
-    """Export comprehensive campaign report."""
-    try:
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        # Generate report data
-        report = {
-            "campaign_id": census_manager.campaign_id,
-            "metadata": census_manager.metadata,
-            "statistics": census_manager.get_campaign_statistics(),
-            "timestamp": datetime.now().isoformat(),
-        }
-
-        # Add detection statistics if available
-        if census_manager.drone_images:
-            report["detection_statistics"] = get_detection_statistics(
-                census_manager.drone_images
-            )
-            report["geographic_coverage"] = get_geographic_coverage(
-                census_manager.drone_images
-            )
-
-        # Save report
-        report_file = output_path / "campaign_report.json"
-        with open(report_file, "w") as f:
-            json.dump(report, f, indent=2, default=str)
-
-        console.print(f"[green]Campaign report exported to: {report_file}[/green]")
-
-    except Exception as e:
-        console.print(f"[red]Failed to export campaign report: {e}[/red]")
 
 
 def analyze_detection_results(results: Union[dict, list]) -> dict:

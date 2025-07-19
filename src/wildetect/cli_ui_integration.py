@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Union
 import streamlit as st
 from rich.console import Console
 
-from wildetect.core.config import ROOT
+from .core.config import ROOT
 
 console = Console()
 
@@ -31,18 +31,9 @@ class CLIUIIntegration:
     def __init__(self):
         """Initialize the CLI-UI integration."""
         self.logger = logging.getLogger(__name__)
-        self.setup_logging()
         self.cli_module_path = Path(__file__).parent / "cli.py"
 
-    def setup_logging(self, verbose: bool = False):
-        """Setup logging configuration."""
-        level = logging.DEBUG if verbose else logging.INFO
-        logging.basicConfig(
-            level=level,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.StreamHandler(sys.stdout)],
-        )
-
+    
     def _run_cli_command(
         self,
         command: str,
@@ -195,9 +186,6 @@ class CLIUIIntegration:
             if not result["success"]:
                 return result
 
-            # Load campaign results
-            # campaign_results = self._load_campaign_results(output, campaign_id)
-
             return {
                 "success": True,
                 "campaign_id": campaign_id,
@@ -211,33 +199,6 @@ class CLIUIIntegration:
                 "success": False,
                 "error": traceback.format_exc(),
                 "campaign_id": campaign_id,
-            }
-
-    def _load_campaign_results(
-        self, output_dir: str, campaign_id: str
-    ) -> Dict[str, Any]:
-        """Load campaign results from output directory."""
-        try:
-            campaign_file = Path(output_dir) / "campaign_report.json"
-            if campaign_file.exists():
-                with open(campaign_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            else:
-                self.logger.error(f"Campaign results file not found: {campaign_file}")
-                return {
-                    "campaign_id": campaign_id,
-                    "status": "completed",
-                    "output_dir": output_dir,
-                }
-        except Exception as e:
-            self.logger.error(
-                f"Failed to load campaign results: {traceback.format_exc()}"
-            )
-            return {
-                "campaign_id": campaign_id,
-                "status": "error",
-                "error": e,
-                "output_dir": output_dir,
             }
 
     def clear_results_ui(
