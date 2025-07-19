@@ -19,6 +19,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
 
 from ..config import LoaderConfig
 from .drone_image import DroneImage
@@ -62,51 +63,50 @@ class TileDataset(Dataset):
             f"Created dataset with {len(self.tiles)} tiles from {len(self.image_paths)} images"
         )
 
+    def _create_tiles_for_one_image(self, image_path: str) -> Optional[List[Tile]]:
+        if not self._validate_tile_parameters(image_path):
+            logger.warning(f"Skipping {image_path}: invalid tile parameters")
+            return None
+
+        # Get expected tile count for logging
+        expected_count = self._get_expected_tile_count(image_path)
+        logger.debug(f"Expected {expected_count} tiles for {image_path}")
+
+        # Create base tile
+        drone_image = DroneImage.from_image_path(
+            image_path=image_path, flight_specs=self.config.flight_specs
+        )
+
+        # Extract sub-tiles if image is large enough
+        if (
+            drone_image.width is not None
+            and drone_image.width > self.config.tile_size
+        ) or (
+            drone_image.height is not None
+            and drone_image.height > self.config.tile_size
+        ):
+            sub_tiles = self._extract_sub_tiles(drone_image)
+            #tiles.extend(sub_tiles)
+            logger.debug(
+                f"Created {len(sub_tiles)} sub-tiles from {image_path}"
+            )
+            return sub_tiles
+        else:
+            # Use the original image as a single tile
+            #tiles.append(drone_image)
+            logger.debug(
+                f"Using original image as single tile for {image_path}"
+            )
+            return [drone_image]
+
+
     def _create_tiles(self) -> List[Tile]:
         """Create drone images from all images."""
         tiles = []
-
-        for image_path in tqdm(self.image_paths, desc="Creating tiles"):
-            try:
-                # Validate tile parameters before processing
-                if not self._validate_tile_parameters(image_path):
-                    logger.warning(f"Skipping {image_path}: invalid tile parameters")
-                    continue
-
-                # Get expected tile count for logging
-                expected_count = self._get_expected_tile_count(image_path)
-                logger.debug(f"Expected {expected_count} tiles for {image_path}")
-
-                # Create base tile
-                drone_image = DroneImage.from_image_path(
-                    image_path=image_path, flight_specs=self.config.flight_specs
-                )
-
-                # Extract sub-tiles if image is large enough
-                if (
-                    drone_image.width is not None
-                    and drone_image.width > self.config.tile_size
-                ) or (
-                    drone_image.height is not None
-                    and drone_image.height > self.config.tile_size
-                ):
-                    sub_tiles = self._extract_sub_tiles(drone_image)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for sub_tiles in tqdm(executor.map(self._create_tiles_for_one_image, self.image_paths), desc="Creating tiles"):
+                if isinstance(sub_tiles, list):
                     tiles.extend(sub_tiles)
-                    logger.debug(
-                        f"Created {len(sub_tiles)} sub-tiles from {image_path}"
-                    )
-                else:
-                    # Use the original image as a single tile
-                    tiles.append(drone_image)
-                    logger.debug(
-                        f"Using original image as single tile for {image_path}"
-                    )
-
-            except Exception as e:
-                traceback.print_exc()
-                logger.warning(f"Could not create tiles from {image_path}: {e}")
-                continue
-
         logger.info(
             f"Created {len(tiles)} total tiles from {len(self.image_paths)} drone images"
         )
