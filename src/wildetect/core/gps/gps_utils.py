@@ -134,8 +134,8 @@ class GPSUtils:
         if gps_coord is None:
             return (None, None, None)
 
-        lat, long, alt = geopy.Point.from_string(gps_coord)
-        coords = lat, long, alt * 1e3
+        point = geopy.Point.from_string(gps_coord)
+        coords = point.latitude, point.longitude, point.altitude * 1e3
         return coords
 
     @staticmethod
@@ -190,9 +190,7 @@ class GPSUtils:
         else:
             coords = gps_coords["GPSLatitude"] + " " + gps_coords["GPSLongitude"]
         if return_as_decimal:
-            lat, long, alt = geopy.Point.from_string(coords)
-            coords = lat, long, alt * 1e3
-
+            coords = GPSUtils.to_decimal(coords)
         return coords, gps_info
 
 
