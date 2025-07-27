@@ -1,5 +1,8 @@
-call .venv-ls\Scripts\activate
+call cd /d %~dp0
+call cd ..
 
+call .venv-ls\Scripts\activate && ^
+(
 if exist .env (
     echo Loading .env file...
     for /f "usebackq tokens=1,2 delims==" %%a in (".env") do (
@@ -24,3 +27,7 @@ call set LOCAL_FILES_DOCUMENT_ROOT=%LOCAL_FILES_DOCUMENT_ROOT%
 call label-studio start -p 8080
 
 call deactivate
+) || (
+    echo Failed to start Label Studio. Virtual environment could not be activated. &&
+    pause
+)

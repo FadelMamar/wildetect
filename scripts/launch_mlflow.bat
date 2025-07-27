@@ -1,8 +1,6 @@
-call c: 
-call cd "C:\Users\Machine Learning\Desktop\workspace-wildAI\datalabeling"
+call cd /d "C:\Users\Machine Learning\Desktop\workspace-wildAI\datalabeling"
 
-::call d:
-::call cd "D:\datalabeling"
+::call cd /d "D:\datalabeling"
 ::call deactivate
 
 call .venv-mlflow\Scripts\activate
