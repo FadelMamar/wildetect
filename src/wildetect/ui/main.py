@@ -141,21 +141,15 @@ def main():
 
 def launch_fiftyone():
     if st.button("Launch FiftyOne"):
-        try:
-            with st.expander("Logs"):
-                log_placeholder = st.empty()
-                result = st.session_state.cli_integration.fiftyone_ui(
-                    action="launch",
-                    log_placeholder=log_placeholder,
-                    status_text=log_placeholder,
-                )
-
-            if result["success"]:
-                st.success("FiftyOne app launched!")
-            else:
-                st.error(f"Error launching FiftyOne: {result['error']}")
-        except Exception as e:
-            st.error(f"Error launching FiftyOne: {e}")
+        if sys.platform == "win32":
+            creationflags = subprocess.CREATE_NEW_CONSOLE
+            path = str(ROOT / "scripts/launch_fiftyone.bat")
+            subprocess.Popen([path], creationflags=creationflags, cwd=str(ROOT))
+        else:
+            raise NotImplementedError(
+                "FiftyOne server is not supported on this platform."
+            )
+        st.success("FiftyOne server launched!")
 
 
 def launch_mlflow():
