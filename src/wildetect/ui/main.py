@@ -303,9 +303,9 @@ def upload_and_detect_tab():
         )
 
         if st.session_state.fo_manager is None:
-            st.info(
-                "FiftyOne dataset manager is not initialized. Detections will not be visualized"
-                ". Set the dataset name in the settings."
+            st.warning(
+                "FiftyOne dataset is not initialized. Detections will not be visualized"
+                ". Set the dataset name right above."
             )
 
         button = st.form_submit_button("Run Detection")
@@ -325,7 +325,7 @@ def upload_and_detect_tab():
             # Detection button
             run_detection(saved_paths)
         if not saved_paths:
-            st.warning("No images uploaded")
+            st.info("No images uploaded. Please upload images or select a directory.")
 
     with st.container():
         with st.form("batch_form"):

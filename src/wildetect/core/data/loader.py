@@ -55,13 +55,15 @@ class TileDataset(Dataset):
         else:
             raise ValueError("Either image_paths or image_dir must be provided")
 
-        self.transforms = transforms.PILToTensor()
+        self.pil_to_tensor = transforms.PILToTensor()
 
         self.tiles = self._create_tiles()
 
         logger.info(
             f"Created dataset with {len(self.tiles)} tiles from {len(self.image_paths)} images"
         )
+
+        self.loaded_tiles = dict()
 
     def _create_tiles_for_one_image(self, image_path: str) -> Optional[List[Tile]]:
         if not self._validate_tile_parameters(image_path):
@@ -104,7 +106,8 @@ class TileDataset(Dataset):
         """Create drone images from all images."""
         tiles = []
         with ThreadPoolExecutor(max_workers=3) as executor:
-            for sub_tiles in tqdm(executor.map(self._create_tiles_for_one_image, self.image_paths), desc="Creating tiles"):
+            for sub_tiles in tqdm(executor.map(self._create_tiles_for_one_image, self.image_paths), 
+                                desc="Creating tiles",total=len(self.image_paths),unit="image"):
                 if isinstance(sub_tiles, list):
                     tiles.extend(sub_tiles)
         logger.info(
@@ -122,7 +125,7 @@ class TileDataset(Dataset):
             image = image.convert("RGB")
 
             # Convert to tensor
-            image_tensor = self.transforms(image)
+            image_tensor = self.pil_to_tensor(image)
 
             # Calculate stride based on overlap
             stride = int(self.config.tile_size * (1 - self.config.overlap))
@@ -139,26 +142,26 @@ class TileDataset(Dataset):
             # Convert patches tensor to individual PIL images and create tiles
             for i in range(patches.shape[0]):
                 # Convert tensor patch back to PIL Image
-                patch_tensor = patches[i]
-                if patch_tensor.dim() == 3:  # C, H, W
-                    patch_tensor = patch_tensor.permute(1, 2, 0)  # H, W, C
+                #patch_tensor = patches[i]
+                #if patch_tensor.dim() == 3:  # C, H, W
+                #    patch_tensor = patch_tensor.permute(1, 2, 0)  # H, W, C
 
                 # Convert to numpy and then to PIL
-                patch_numpy = patch_tensor.cpu().numpy()
-                if patch_numpy.max() <= 1.0 and patch_numpy.min() >= 0:  # Normalized
-                    patch_numpy = (patch_numpy * 255).astype(np.uint8)
-                elif patch_numpy.max() <= 255 and patch_numpy.min() >= 0:
-                    patch_numpy = patch_numpy.astype(np.uint8)
-                else:
-                    raise ValueError(
-                        f"Invalid patch numpy: max:{patch_numpy.max()} min:{patch_numpy.min()}. Either 0-1 or 0-255"
-                    )
+                #patch_numpy = patch_tensor.cpu().numpy()
+                #if patch_numpy.max() <= 1.0 and patch_numpy.min() >= 0:  # Normalized
+                #    patch_numpy = (patch_numpy * 255).astype(np.uint8)
+                #elif patch_numpy.max() <= 255 and patch_numpy.min() >= 0:
+                #    patch_numpy = patch_numpy.astype(np.uint8)
+                #else:
+                #    raise ValueError(
+                #    )
 
-                patch_image = Image.fromarray(patch_numpy)
+                #patch_image = Image.fromarray(patch_numpy)
 
                 # Create sub-tile
-                sub_tile = Tile.from_image_data(
-                    image_data=patch_image,
+                sub_tile = Tile(
+                    image_data=None,
+                    image_path=str(base_tile.image_path),
                     flight_specs=self.config.flight_specs,
                     tile_gps_loc=None,
                     latitude=None,
@@ -227,21 +230,40 @@ class TileDataset(Dataset):
 
         except Exception as e:
             logger.warning(f"Failed to calculate tile count for {image_path}: {e}")
-            return 1  # Fallback to single tile
+            raise Exception(f"Failed to calculate tile count for {image_path}")
 
     def __len__(self) -> int:
         return len(self.tiles)
+    
+    def _load_patch(self, tile: Tile) -> torch.Tensor:
+        """Load a patch from an image."""
+        stride = int(self.config.tile_size * (1 - self.config.overlap))
+
+        if tile.image_path in self.loaded_tiles.keys():
+            image = self.loaded_tiles[tile.image_path]
+        else:
+            with Image.open(tile.image_path) as img:
+                image = self.pil_to_tensor(img.convert("RGB"))
+                self.loaded_tiles[tile.image_path] = image
+
+        image = TileUtils.pad_image_to_patch_size(image, self.config.tile_size, stride)
+
+        y1 = tile.y_offset
+        y2 = tile.y_offset + self.config.tile_size
+        x1 = tile.x_offset
+        x2 = tile.x_offset + self.config.tile_size
+        image = image[:, y1:y2, x1:x2]
+
+        return image
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         """Get a tile at the specified index."""
         tile = self.tiles[idx]
-
-        # Load image data
-        image = tile.load_image_data()
-        image = self.transforms(image).float() / 255.0
+        patch = self._load_patch(tile)
+        patch = patch.float() / 255.0
         return {
             "tile": tile,
-            "image": image,
+            "image": patch,
             "image_path": tile.image_path,
             "tile_id": tile.id,
             "width": tile.width,
@@ -283,6 +305,7 @@ class DataLoader:
             shuffle=False,
             num_workers=0,
             collate_fn=self._collate_fn,
+            pin_memory=torch.cuda.is_available(),
         )
 
         logger.info(f"Created DataLoader with {len(self.dataset)} tiles")

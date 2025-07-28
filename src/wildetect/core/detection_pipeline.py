@@ -7,9 +7,10 @@ import os
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tqdm import tqdm
+from tqdm.contrib.concurrent import thread_map
 
 from ..utils.utils import load_registered_model
 from .config import LoaderConfig, PredictionConfig
@@ -242,6 +243,8 @@ class DetectionPipeline:
             tile_size = self.metadata.get("tilesize", tile_size)
             self.loader_config.tile_size = int(tile_size)
 
+        logger.info(f"Creating dataloader")
+
         data_loader = DataLoader(
             image_paths=image_paths,
             image_dir=image_dir,
@@ -251,7 +254,11 @@ class DetectionPipeline:
         # Process batches
         all_batches = []
         total_batches = len(data_loader)
-        batch = None  # Initialize batch variable
+        logger.info(f"Total batches to process: {total_batches}")
+        
+        if total_batches == 0:
+            logger.warning("No batches to process")
+            return []
 
         def process_one_batch(batch: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             try:
@@ -262,16 +269,24 @@ class DetectionPipeline:
                 logger.error(f"Failed to process batch: {e}")
                 return None
 
-        #with tqdm(total=total_batches, desc="Processing batches") as pbar:
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            for batch in tqdm(executor.map(process_one_batch, data_loader), desc="Processing batches", total=total_batches):
-                if batch is not None:
-                    all_batches.append(batch)
+        # Simple and reliable approach with tqdm
+        logger.info("Starting batch processing with progress bar")
+        
+        with tqdm(total=total_batches, desc="Processing batches", unit="batch") as pbar:
+            #with ThreadPoolExecutor(max_workers=1) as executor:
+            # Filter out None results and count errors
+            for result in map(process_one_batch, data_loader):
+                if result is not None:
+                    all_batches.append(result)
                 else:
                     self.error_count += 1
-
+                    
                 if self.error_count > 5:
                     raise RuntimeError("Too many errors. Stopping.")
+            
+                pbar.update(1)
+        
+        logger.info(f"Completed processing {len(all_batches)} batches with {self.error_count} errors")
 
         # postprocessing
         all_drone_images = self._postprocess(batches=all_batches)
