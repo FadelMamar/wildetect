@@ -4,6 +4,7 @@ YOLO-based detector implementation.
 
 import logging
 import os
+import time
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -74,6 +75,8 @@ class YOLODetector(Detector):
 
         assert isinstance(batch, torch.Tensor), "Batch must be a tensor"
 
+        logger.debug(f"Device: {self.device}, CUDA available: {torch.cuda.is_available()}")
+        t = time.perf_counter()
         try:
             # Run inference
             results = self.model.predict(
@@ -81,12 +84,12 @@ class YOLODetector(Detector):
                 imgsz=self.config.tilesize,
                 conf=self.config.confidence_threshold,
                 verbose=self.config.verbose,
+                half=torch.cuda.is_available(),
                 device=self.device,
             )
-
+            logger.debug(f"YOLO prediction time: {time.perf_counter() - t} seconds")
             # Process results
             detections = [self._process_results(result, W, H) for result in results]
-
             return detections
 
         except Exception as e:
