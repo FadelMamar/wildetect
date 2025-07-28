@@ -270,7 +270,6 @@ class DetectionPipeline:
                 return None
 
         # Simple and reliable approach with tqdm
-        logger.info("Starting batch processing with progress bar")
         
         with tqdm(total=total_batches, desc="Processing batches", unit="batch") as pbar:
             #with ThreadPoolExecutor(max_workers=1) as executor:
