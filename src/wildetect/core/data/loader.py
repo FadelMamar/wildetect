@@ -62,7 +62,7 @@ class TileDataset(Dataset):
             f"Created dataset with {len(self.tiles)} tiles from {len(self.image_paths)} images"
         )
 
-        self.loaded_tiles = dict()
+        self.loaded_tiles: dict[str, np.ndarray] = dict()
 
     def _create_tiles_for_one_image(self, image_path: str) -> Optional[List[Tile]]:
         if not self._validate_tile_parameters(image_path):
@@ -244,7 +244,7 @@ class TileDataset(Dataset):
                 image = TileUtils.pad_image_to_patch_size(
                     image, self.config.tile_size, stride
                 )
-                self.loaded_tiles[tile.image_path] = image
+                self.loaded_tiles[tile.image_path] = image.cpu().numpy()
 
         y1 = tile.y_offset
         y2 = tile.y_offset + self.config.tile_size
@@ -252,7 +252,7 @@ class TileDataset(Dataset):
         x2 = tile.x_offset + self.config.tile_size
         image = image[:, y1:y2, x1:x2]
 
-        return image
+        return torch.from_numpy(image)
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         """Get a tile at the specified index."""
