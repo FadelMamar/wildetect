@@ -98,15 +98,15 @@ class TileDataset(Dataset):
     def _create_tiles(self) -> List[Tile]:
         """Create drone images from all images."""
         tiles = []
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            for sub_tiles in tqdm(
-                executor.map(self._create_tiles_for_one_image, self.image_paths),
-                desc="Creating tiles",
-                total=len(self.image_paths),
-                unit="image",
-            ):
-                if isinstance(sub_tiles, list):
-                    tiles.extend(sub_tiles)
+        # with ThreadPoolExecutor(max_workers=3) as executor:
+        for sub_tiles in tqdm(
+            map(self._create_tiles_for_one_image, self.image_paths),
+            desc="Creating tiles",
+            total=len(self.image_paths),
+            unit="image",
+        ):
+            if isinstance(sub_tiles, list):
+                tiles.extend(sub_tiles)
         logger.info(
             f"Created {len(tiles)} total tiles from {len(self.image_paths)} drone images"
         )
