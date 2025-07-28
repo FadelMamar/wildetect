@@ -16,9 +16,12 @@ from wildetect.core.data.drone_image import DroneImage
 from wildetect.core.data.tile import Tile
 from wildetect.core.detection_pipeline import DetectionPipeline
 
-TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
+TEST_IMAGE_DIR = r"D:\PhD\Data per camp\Extra training data\savmap_dataset_v2\raw_data\images"
 FLIGHT_SPECS = FlightSpecs(sensor_height=24.0, focal_length=35.0, flight_height=180.0)
-
+MODEL_PATH=r"D:\PhD\workspace\wildetect\models\labeler\9\artifacts\best.pt"
+ROI_WEIGHTS_PATH = (
+            r"D:\PhD\workspace\wildetect\models\classifier\2\artifacts\best.ckpt-v6.torchscript"
+        )
 
 def create_synthetic_images(num_images=3, size=(1024, 1024)):
     """Create synthetic images for testing.
@@ -108,12 +111,12 @@ class TestDetectionPipeline:
         )
 
         prediction_config = PredictionConfig(
-            model_path=r"D:\workspace\repos\wildetect\weights\best.pt",
+            model_path=MODEL_PATH,
             model_type="yolo",
-            device="cpu",
+            device="auto",
             confidence_threshold=0.5,
             tilesize=loader_config.tile_size,
-            cls_imgsz=96,
+            cls_imgsz=128,
             verbose=False,
         )
 
@@ -640,13 +643,10 @@ class TestDetectionPipeline:
         prediction_config, loader_config = mock_configs
 
         # Set ROI weights path if available
-        roi_weights_path = (
-            r"D:\workspace\repos\wildetect\weights\roi_classifier.torchscript"
-        )
-        if os.path.exists(roi_weights_path):
-            prediction_config.roi_weights = roi_weights_path
+        if os.path.exists(ROI_WEIGHTS_PATH):
+            prediction_config.roi_weights = ROI_WEIGHTS_PATH
         else:
-            pytest.skip(f"ROI weights file not found: {roi_weights_path}")
+            pytest.skip(f"ROI weights file not found: {ROI_WEIGHTS_PATH}")
 
         # Check if model file exists
         if not os.path.exists(prediction_config.model_path):

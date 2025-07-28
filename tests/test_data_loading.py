@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List
 
 from wildetect.core.config import FlightSpecs, LoaderConfig
-
+import traceback
 # Add the project root to the Python path
 from wildetect.core.data import DataLoader, TileDataset, load_images_as_drone_images
 from wildetect.core.data.utils import get_images_paths
@@ -143,7 +143,7 @@ def test_image_tile_dataset():
         logger.info(f"Number of images: {len(dataset.image_paths)}")
 
         # Test dataset iteration
-        for i in range(min(2, len(dataset))):
+        for i in range(len(dataset)):
             item = dataset[i]
             logger.info(
                 f"Item {i}: tile_id={item['tile_id']}, shape={item['image'].shape if hasattr(item['image'], 'shape') else 'N/A'}"
@@ -279,7 +279,7 @@ def run_all_tests():
 
     except Exception as e:
         logger.error(f"Test failed: {e}")
-        import traceback
+        
 
         traceback.print_exc()
         raise
