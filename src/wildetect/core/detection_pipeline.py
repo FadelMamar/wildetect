@@ -272,8 +272,10 @@ class DetectionPipeline:
         # Simple and reliable approach with tqdm
         
         with tqdm(total=total_batches, desc="Processing batches", unit="batch") as pbar:
-            #with ThreadPoolExecutor(max_workers=1) as executor:
+            #with ThreadPoolExecutor(max_workers=3) as executor:
             # Filter out None results and count errors
+            #futures = [executor.submit(process_one_batch, batch) for batch in data_loader]
+
             for result in map(process_one_batch, data_loader):
                 if result is not None:
                     all_batches.append(result)
