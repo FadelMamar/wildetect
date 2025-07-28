@@ -19,7 +19,6 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
 
 from ..config import LoaderConfig
 from .drone_image import DroneImage
@@ -81,33 +80,31 @@ class TileDataset(Dataset):
 
         # Extract sub-tiles if image is large enough
         if (
-            drone_image.width is not None
-            and drone_image.width > self.config.tile_size
+            drone_image.width is not None and drone_image.width > self.config.tile_size
         ) or (
             drone_image.height is not None
             and drone_image.height > self.config.tile_size
         ):
             sub_tiles = self._extract_sub_tiles(drone_image)
-            #tiles.extend(sub_tiles)
-            logger.debug(
-                f"Created {len(sub_tiles)} sub-tiles from {image_path}"
-            )
+            # tiles.extend(sub_tiles)
+            logger.debug(f"Created {len(sub_tiles)} sub-tiles from {image_path}")
             return sub_tiles
         else:
             # Use the original image as a single tile
-            #tiles.append(drone_image)
-            logger.debug(
-                f"Using original image as single tile for {image_path}"
-            )
+            # tiles.append(drone_image)
+            logger.debug(f"Using original image as single tile for {image_path}")
             return [drone_image]
-
 
     def _create_tiles(self) -> List[Tile]:
         """Create drone images from all images."""
         tiles = []
         with ThreadPoolExecutor(max_workers=3) as executor:
-            for sub_tiles in tqdm(executor.map(self._create_tiles_for_one_image, self.image_paths), 
-                                desc="Creating tiles",total=len(self.image_paths),unit="image"):
+            for sub_tiles in tqdm(
+                executor.map(self._create_tiles_for_one_image, self.image_paths),
+                desc="Creating tiles",
+                total=len(self.image_paths),
+                unit="image",
+            ):
                 if isinstance(sub_tiles, list):
                     tiles.extend(sub_tiles)
         logger.info(
@@ -142,21 +139,21 @@ class TileDataset(Dataset):
             # Convert patches tensor to individual PIL images and create tiles
             for i in range(patches.shape[0]):
                 # Convert tensor patch back to PIL Image
-                #patch_tensor = patches[i]
-                #if patch_tensor.dim() == 3:  # C, H, W
+                # patch_tensor = patches[i]
+                # if patch_tensor.dim() == 3:  # C, H, W
                 #    patch_tensor = patch_tensor.permute(1, 2, 0)  # H, W, C
 
                 # Convert to numpy and then to PIL
-                #patch_numpy = patch_tensor.cpu().numpy()
-                #if patch_numpy.max() <= 1.0 and patch_numpy.min() >= 0:  # Normalized
+                # patch_numpy = patch_tensor.cpu().numpy()
+                # if patch_numpy.max() <= 1.0 and patch_numpy.min() >= 0:  # Normalized
                 #    patch_numpy = (patch_numpy * 255).astype(np.uint8)
-                #elif patch_numpy.max() <= 255 and patch_numpy.min() >= 0:
+                # elif patch_numpy.max() <= 255 and patch_numpy.min() >= 0:
                 #    patch_numpy = patch_numpy.astype(np.uint8)
-                #else:
+                # else:
                 #    raise ValueError(
                 #    )
 
-                #patch_image = Image.fromarray(patch_numpy)
+                # patch_image = Image.fromarray(patch_numpy)
 
                 # Create sub-tile
                 sub_tile = Tile(
@@ -234,7 +231,7 @@ class TileDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.tiles)
-    
+
     def _load_patch(self, tile: Tile) -> torch.Tensor:
         """Load a patch from an image."""
         stride = int(self.config.tile_size * (1 - self.config.overlap))
@@ -244,9 +241,10 @@ class TileDataset(Dataset):
         else:
             with Image.open(tile.image_path) as img:
                 image = self.pil_to_tensor(img.convert("RGB"))
+                image = TileUtils.pad_image_to_patch_size(
+                    image, self.config.tile_size, stride
+                )
                 self.loaded_tiles[tile.image_path] = image
-
-        image = TileUtils.pad_image_to_patch_size(image, self.config.tile_size, stride)
 
         y1 = tile.y_offset
         y2 = tile.y_offset + self.config.tile_size
@@ -454,9 +452,12 @@ def load_images_as_drone_images(
     if image_dir is not None:
         image_paths = get_images_paths(image_dir)
 
-    drone_image_list = [DroneImage.from_image_path(
-                image_path=image_path, flight_specs=config.flight_specs) for image_path in image_paths
-        ]
+    drone_image_list = [
+        DroneImage.from_image_path(
+            image_path=image_path, flight_specs=config.flight_specs
+        )
+        for image_path in image_paths
+    ]
 
     # Limit number of images if specified
     if max_images and len(drone_image_list) > max_images:
