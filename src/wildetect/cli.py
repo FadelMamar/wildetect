@@ -16,6 +16,9 @@ import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
+import time
+import cProfile
+import pstats
 
 from .core.campaign_manager import CampaignConfig, CampaignManager
 from .core.config import ROOT, FlightSpecs, LoaderConfig, PredictionConfig
@@ -139,7 +142,7 @@ def detect(
     keep_classes: List[str] = typer.Option(
         ["groundtruth"], "--keep-classes", help="Classes to keep"
     ),
-    cls_imgsz: int = typer.Option(96, "--cls-imgsz", help="Image size for classifier"),
+    cls_imgsz: int = typer.Option(128, "--cls-imgsz", help="Image size for classifier"),
     inference_service_url: Optional[str] = typer.Option(
         None, "--inference-service-url", help="URL for inference service"
     ),
@@ -157,6 +160,10 @@ def detect(
         180.0, "--flight-height", help="Flight height in meters"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+    profile: bool = typer.Option(False, "--profile", help="Enable detailed profiling"),
+    memory_profile: bool = typer.Option(False, "--memory-profile", help="Enable memory profiling"),
+    line_profile: bool = typer.Option(False, "--line-profile", help="Enable line-by-line profiling"),
+    gpu_profile: bool = typer.Option(False, "--gpu-profile", help="Enable GPU profiling (CUDA only)"),
 ):
     """Run wildlife detection on images."""
     setup_logging(
@@ -227,6 +234,8 @@ def detect(
             flight_specs=flight_specs,
         )
 
+        print(pred_config)
+
         # Create detection pipeline
         pipeline = DetectionPipeline(
             config=pred_config,
@@ -237,38 +246,122 @@ def detect(
             output_path = Path(output)
             output_path.mkdir(parents=True, exist_ok=True)
             save_path = str(output_path / "results.json")
-
-        # Run detection
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Running detection...", total=None)
-
-            drone_images = pipeline.run_detection(
+        
+        # Profile the detection pipeline
+        start_time = time.time()
+        
+        if profile:
+            # Enable detailed profiling
+            profiler = cProfile.Profile()
+            profiler.enable()
+        
+        if memory_profile:
+            try:
+                from memory_profiler import profile as memory_profile_decorator
+                print("Memory profiling enabled - this will be slower")
+            except ImportError:
+                print("memory_profiler not installed. Install with: pip install memory_profiler")
+                memory_profile = False
+        
+        if line_profile:
+            try:
+                from line_profiler import LineProfiler
+                print("Line profiling enabled - this will be slower")
+                line_profiler = LineProfiler()
+                # Profile the run_detection method
+                line_profiler.add_function(pipeline.run_detection)
+                line_profiler.enable_by_count()
+            except ImportError:
+                print("line_profiler not installed. Install with: pip install line_profiler")
+                line_profile = False
+        
+        if gpu_profile:
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    print("GPU profiling enabled")
+                    torch.cuda.empty_cache()
+                    torch.cuda.reset_peak_memory_stats()
+                else:
+                    print("CUDA not available, GPU profiling disabled")
+                    gpu_profile = False
+            except ImportError:
+                print("PyTorch not available, GPU profiling disabled")
+                gpu_profile = False
+        
+        drone_images = pipeline.run_detection(
                 image_paths=image_paths,
                 image_dir=image_dir,
                 save_path=save_path,
             )
+        
+        if gpu_profile and torch.cuda.is_available():
+            print(f"GPU Memory Peak: {torch.cuda.max_memory_allocated() / 1024**3:.2f} GB")
+            print(f"GPU Memory Current: {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
+        
+        if line_profile and 'line_profiler' in locals():
+            line_profiler.disable_by_count()
+            line_profiler.print_stats()
+            if output:
+                line_profile_path = Path(output) / "line_profile_results.txt"
+                with open(line_profile_path, 'w') as f:
+                    line_profiler.print_stats(stream=f)
+                print(f"Line profile saved to: {line_profile_path}")
+        
+        if profile:
+            # Disable profiler and save results
+            profiler.disable()
+            stats = pstats.Stats(profiler)
+            
+            # Save profiling results
+            profile_path = Path(output) / "profile_results.prof" if output else Path("profile_results.prof")
+            stats.dump_stats(str(profile_path))
+            
+            # Print top 20 functions by cumulative time
+            print("\n=== PROFILING RESULTS ===")
+            stats.sort_stats('cumulative')
+            stats.print_stats(20)
+            print(f"Detailed profile saved to: {profile_path}")
+            print("To view with snakeviz: pip install snakeviz && snakeviz", profile_path)
+        
+        end_time = time.time()
+        
+        # Log timing information
+        execution_time = end_time - start_time
+        logger.info(f"Detection pipeline execution time: {execution_time:.2f} seconds")
+        print(f"Detection completed in {execution_time:.2f} seconds")
 
-            if dataset_name:
-                fo_manager = FiftyOneManager(dataset_name, persistent=True)
-                fo_manager.add_drone_images(drone_images)
-                fo_manager.save_dataset()
+        # Run detection
+        #with Progress(
+        #    SpinnerColumn(),
+        #    TextColumn("[progress.description]{task.description}"),
+        #    console=console,
+        #) as progress:
+        #    task = progress.add_task("Running detection...", total=None)
 
-                try:
-                    annot_key = f"{dataset_name}_review"
-                    fo_manager.send_predictions_to_labelstudio(
-                        annot_key, dotenv_path=str(Path(ROOT) / ".env")
-                    )
-                    logger.info(
-                        f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
-                    )
-                except Exception as e:
-                    logger.error(f"Error exporting to LabelStudio: {e}")
+        #    drone_images = pipeline.run_detection(
+        #        image_paths=image_paths,
+        #        image_dir=image_dir,
+        #        save_path=save_path,
+        #    )
 
-            progress.update(task, completed=True)
+        #    if dataset_name:
+        #        fo_manager = FiftyOneManager(dataset_name, persistent=True)
+        #        fo_manager.add_drone_images(drone_images)
+        #        fo_manager.save_dataset()
+
+        #    try:
+        #        annot_key = f"{dataset_name}_review"
+        #        fo_manager.send_predictions_to_labelstudio(
+        #            annot_key, dotenv_path=str(Path(ROOT) / ".env")
+        #            )
+        #            logger.info(
+        #                f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
+        #            )
+        #        except Exception as e:
+        #            logger.error(f"Error exporting to LabelStudio: {e}")
+
+        #    progress.update(task, completed=True)
 
         # Display results
         display_results(drone_images, output)
