@@ -236,15 +236,16 @@ class TileDataset(Dataset):
         """Load a patch from an image."""
         stride = int(self.config.tile_size * (1 - self.config.overlap))
 
-        if tile.image_path in self.loaded_tiles.keys():
-            image = self.loaded_tiles[tile.image_path]
-        else:
+        if tile.image_path not in self.loaded_tiles.keys():
             with Image.open(tile.image_path) as img:
                 image = self.pil_to_tensor(img.convert("RGB"))
                 image = TileUtils.pad_image_to_patch_size(
                     image, self.config.tile_size, stride
-                )
-                self.loaded_tiles[tile.image_path] = image.cpu().numpy()
+                ).cpu().numpy()
+                self.loaded_tiles[tile.image_path] = image
+
+        else:
+            image = self.loaded_tiles[tile.image_path]
 
         y1 = tile.y_offset
         y2 = tile.y_offset + self.config.tile_size
@@ -303,7 +304,6 @@ class DataLoader:
             shuffle=False,
             num_workers=0,
             collate_fn=self._collate_fn,
-            pin_memory=torch.cuda.is_available(),
         )
 
         logger.info(f"Created DataLoader with {len(self.dataset)} tiles")
