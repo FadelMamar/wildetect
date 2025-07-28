@@ -143,6 +143,7 @@ class TileDataset(Dataset):
                 stride=stride,
                 channels=3,
                 file_name=str(base_tile.image_path),
+                pad_image=True
             )
 
             # Convert patches tensor to individual PIL images and create tiles
