@@ -23,7 +23,7 @@ from tqdm import tqdm
 from ..config import LoaderConfig
 from .drone_image import DroneImage
 from .tile import Tile
-from .utils import TileUtils, get_images_paths
+from .utils import TileUtilsv2, get_images_paths
 
 logger = logging.getLogger(__name__)
 
@@ -98,15 +98,20 @@ class TileDataset(Dataset):
     def _create_tiles(self) -> List[Tile]:
         """Create drone images from all images."""
         tiles = []
-        # with ThreadPoolExecutor(max_workers=3) as executor:
-        for sub_tiles in tqdm(
-            map(self._create_tiles_for_one_image, self.image_paths),
-            desc="Creating tiles",
-            total=len(self.image_paths),
-            unit="image",
-        ):
-            if isinstance(sub_tiles, list):
-                tiles.extend(sub_tiles)
+        with tqdm(
+            total=len(self.image_paths), desc="Creating tiles", unit="image"
+        ) as pbar:
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                futures = [
+                    executor.submit(self._create_tiles_for_one_image, image_path)
+                    for image_path in self.image_paths
+                ]
+                for future in as_completed(futures):
+                    sub_tiles = future.result()
+                    if isinstance(sub_tiles, list):
+                        tiles.extend(sub_tiles)
+                    pbar.update(1)
+
         logger.info(
             f"Created {len(tiles)} total tiles from {len(self.image_paths)} drone images"
         )
@@ -118,18 +123,22 @@ class TileDataset(Dataset):
 
         try:
             # Load image data and convert to tensor
-            image = base_tile.load_image_data()
-            image = image.convert("RGB")
+            # image = base_tile.load_image_data()
+            width, height = base_tile.width, base_tile.height
+            if width is None or height is None:
+                raise ValueError(f"Width or height is None for {base_tile.image_path}")
+
+            # image = image.convert("RGB")
 
             # Convert to tensor
-            image_tensor = self.pil_to_tensor(image)
+            # image_tensor = self.pil_to_tensor(image)
 
             # Calculate stride based on overlap
             stride = int(self.config.tile_size * (1 - self.config.overlap))
 
             # Use TileUtils to extract patches and offset information
-            patches, offset_info = TileUtils.get_patches_and_offset_info(
-                image=image_tensor,
+            _, offset_info = TileUtilsv2.get_patches_and_offset_info(
+                image=torch.zeros(3, height, width),
                 patch_size=self.config.tile_size,
                 stride=stride,
                 channels=3,
@@ -137,24 +146,7 @@ class TileDataset(Dataset):
             )
 
             # Convert patches tensor to individual PIL images and create tiles
-            for i in range(patches.shape[0]):
-                # Convert tensor patch back to PIL Image
-                # patch_tensor = patches[i]
-                # if patch_tensor.dim() == 3:  # C, H, W
-                #    patch_tensor = patch_tensor.permute(1, 2, 0)  # H, W, C
-
-                # Convert to numpy and then to PIL
-                # patch_numpy = patch_tensor.cpu().numpy()
-                # if patch_numpy.max() <= 1.0 and patch_numpy.min() >= 0:  # Normalized
-                #    patch_numpy = (patch_numpy * 255).astype(np.uint8)
-                # elif patch_numpy.max() <= 255 and patch_numpy.min() >= 0:
-                #    patch_numpy = patch_numpy.astype(np.uint8)
-                # else:
-                #    raise ValueError(
-                #    )
-
-                # patch_image = Image.fromarray(patch_numpy)
-
+            for i in range(len(offset_info["x_offset"])):
                 # Create sub-tile
                 sub_tile = Tile(
                     image_data=None,
@@ -197,7 +189,7 @@ class TileDataset(Dataset):
                 width, height = img.size
 
             # Validate parameters using TileUtils
-            return TileUtils.validate_patch_parameters(
+            return TileUtilsv2.validate_patch_parameters(
                 image_shape=(3, height, width),  # Assume RGB
                 patch_size=self.config.tile_size,
                 stride=int(self.config.tile_size * (1 - self.config.overlap)),
@@ -221,7 +213,7 @@ class TileDataset(Dataset):
                 width, height = img.size
 
             stride = int(self.config.tile_size * (1 - self.config.overlap))
-            return TileUtils.get_patch_count(
+            return TileUtilsv2.get_patch_count(
                 height, width, self.config.tile_size, stride
             )
 
@@ -239,7 +231,7 @@ class TileDataset(Dataset):
         if tile.image_path not in self.loaded_tiles.keys():
             with Image.open(tile.image_path) as img:
                 image = self.pil_to_tensor(img.convert("RGB"))
-                image = TileUtils.pad_image_to_patch_size(
+                image = TileUtilsv2.pad_image_to_patch_size(
                     image, self.config.tile_size, stride
                 )
                 self.loaded_tiles[tile.image_path] = image
