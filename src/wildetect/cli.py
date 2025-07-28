@@ -11,7 +11,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Union
-
+import torch
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -612,6 +612,9 @@ def census(
         log_file=str(ROOT / f"logs/census_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"),
     )
     logger = logging.getLogger(__name__)
+
+    if not torch.cuda.is_available():
+        console.print(f"[bold red]CUDA is not available. It will be very slow...[/bold red]")
 
     try:
         console.print(
