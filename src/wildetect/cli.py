@@ -615,6 +615,8 @@ def census(
 
     if not torch.cuda.is_available():
         console.print(f"[bold red]CUDA is not available. It will be very slow...[/bold red]")
+    else:
+        console.print(f"[bold green]CUDA is available...[/bold green]")
 
     try:
         console.print(
