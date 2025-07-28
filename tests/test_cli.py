@@ -14,7 +14,7 @@ from typer.testing import CliRunner
 
 from src.wildetect.cli import app
 
-TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
+TEST_IMAGE_DIR = r"D:\PhD\Data per camp\Extra training data\savmap_dataset_v2\raw_data\images"
 
 
 def load_image_path():
