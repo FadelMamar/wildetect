@@ -241,9 +241,8 @@ class TileDataset(Dataset):
                 image = self.pil_to_tensor(img.convert("RGB"))
                 image = TileUtils.pad_image_to_patch_size(
                     image, self.config.tile_size, stride
-                ).cpu().numpy()
+                )
                 self.loaded_tiles[tile.image_path] = image
-
         else:
             image = self.loaded_tiles[tile.image_path]
 
@@ -253,7 +252,7 @@ class TileDataset(Dataset):
         x2 = tile.x_offset + self.config.tile_size
         image = image[:, y1:y2, x1:x2]
 
-        return torch.from_numpy(image)
+        return image
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         """Get a tile at the specified index."""
