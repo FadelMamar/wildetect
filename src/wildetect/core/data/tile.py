@@ -70,11 +70,12 @@ class Tile:
             except:
                 pass
 
-        if self.image_data is None:
-            self.width, self.height = Image.open(self.image_path).size
-
-        else:
-            self.width, self.height = self.image_data.size
+        # Only open image if dimensions are not provided
+        if self.width is None or self.height is None:
+            if self.image_data is None:
+                self.width, self.height = Image.open(self.image_path).size
+            else:
+                self.width, self.height = self.image_data.size
 
         self._extract_gps_coords()
         exif = self._extract_exif()
