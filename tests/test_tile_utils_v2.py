@@ -46,7 +46,7 @@ def test_basic_functionality():
         patch_size=patch_size,
         stride=stride,
         channels=3,
-        validate=False,  # Disable validation for this test
+        validate=True,
     )
 
     # Test original TileUtils
@@ -55,7 +55,7 @@ def test_basic_functionality():
         patch_size=patch_size,
         stride=stride,
         channels=3,
-        validate=False,
+        validate=True,
     )
 
     # Compare results

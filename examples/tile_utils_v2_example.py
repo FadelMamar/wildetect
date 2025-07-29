@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from src.wildetect.core.data.utils import TileUtils, TileUtilsv2
+from wildetect.core.data.utils import TileUtils, TileUtilsv2
 
 
 def demonstrate_tile_utils_v2():
@@ -58,6 +58,7 @@ def demonstrate_tile_utils_v2():
             channels=channels,
             file_name="sample_image_v2.jpg",
             validate=True,
+            pad_image=True,
         )
 
         print(f"TileUtilsv2 - Extracted patches shape: {patches_v2.shape}")
@@ -175,22 +176,23 @@ def test_performance_comparison():
     import time
 
     # Create a larger test image
-    large_image = torch.randn(3, 1024, 1024)
+    large_image = torch.randn(3, 8000, 8000)
     large_image = (large_image - large_image.min()) / (large_image.max() - large_image.min())
     
     patch_size = 256
     stride = 128
 
     # Test TileUtils
-    start_time = time.time()
+    start_time = time.perf_counter()
     try:
         patches_original, _ = TileUtils.get_patches_and_offset_info(
             image=large_image,
             patch_size=patch_size,
             stride=stride,
             channels=3,
+            validate=True,
         )
-        original_time = time.time() - start_time
+        original_time = time.perf_counter() - start_time
         print(f"Original TileUtils time: {original_time:.4f}s")
         print(f"Original TileUtils patches: {patches_original.shape[0]}")
     except Exception as e:
@@ -198,7 +200,7 @@ def test_performance_comparison():
         original_time = None
 
     # Test TileUtilsv2
-    start_time = time.time()
+    start_time = time.perf_counter()
     try:
         patches_v2, _ = TileUtilsv2.get_patches_and_offset_info(
             image=large_image,
@@ -206,7 +208,7 @@ def test_performance_comparison():
             stride=stride,
             channels=3,
         )
-        v2_time = time.time() - start_time
+        v2_time = time.perf_counter() - start_time
         print(f"TileUtilsv2 time: {v2_time:.4f}s")
         print(f"TileUtilsv2 patches: {patches_v2.shape[0]}")
         
@@ -218,6 +220,6 @@ def test_performance_comparison():
 
 
 if __name__ == "__main__":
-    demonstrate_tile_utils_v2()
-    test_edge_cases()
+    #demonstrate_tile_utils_v2()
+    #test_edge_cases()
     test_performance_comparison() 
