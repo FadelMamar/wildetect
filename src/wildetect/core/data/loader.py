@@ -23,7 +23,7 @@ from tqdm import tqdm
 from ..config import LoaderConfig
 from .drone_image import DroneImage
 from .tile import Tile
-from .utils import TileUtilsv2, get_images_paths
+from .utils import TileUtils, TileUtilsv2, TileUtilsv3, get_images_paths
 
 logger = logging.getLogger(__name__)
 
@@ -65,39 +65,48 @@ class TileDataset(Dataset):
         self.loaded_tiles: dict[str, np.ndarray] = dict()
 
     def _create_tiles_for_one_image(self, image_path: str) -> Optional[List[Tile]]:
-        if not self._validate_tile_parameters(image_path):
-            logger.warning(f"Skipping {image_path}: invalid tile parameters")
+        """Create tiles for a single image with improved validation."""
+        try:
+            # Quick validation without loading full image
+            if not self._validate_tile_parameters(image_path):
+                logger.warning(f"Skipping {image_path}: invalid tile parameters")
+                return None
+
+            # Create base tile
+            drone_image = DroneImage.from_image_path(
+                image_path=image_path, flight_specs=self.config.flight_specs
+            )
+
+            # Extract sub-tiles if image is large enough
+            if (
+                drone_image.width is not None
+                and drone_image.width > self.config.tile_size
+            ) or (
+                drone_image.height is not None
+                and drone_image.height > self.config.tile_size
+            ):
+                sub_tiles = self._extract_sub_tiles(drone_image)
+                if sub_tiles:
+                    logger.debug(
+                        f"Created {len(sub_tiles)} sub-tiles from {image_path}"
+                    )
+                    return sub_tiles
+                else:
+                    logger.warning(f"No sub-tiles created for {image_path}")
+                    return None
+            else:
+                # Use the original image as a single tile
+                logger.debug(f"Using original image as single tile for {image_path}")
+                return [drone_image]
+
+        except Exception as e:
+            logger.error(f"Failed to create tiles for {image_path}: {e}")
             return None
-
-        # Get expected tile count for logging
-        expected_count = self._get_expected_tile_count(image_path)
-        logger.debug(f"Expected {expected_count} tiles for {image_path}")
-
-        # Create base tile
-        drone_image = DroneImage.from_image_path(
-            image_path=image_path, flight_specs=self.config.flight_specs
-        )
-
-        # Extract sub-tiles if image is large enough
-        if (
-            drone_image.width is not None and drone_image.width > self.config.tile_size
-        ) or (
-            drone_image.height is not None
-            and drone_image.height > self.config.tile_size
-        ):
-            sub_tiles = self._extract_sub_tiles(drone_image)
-            # tiles.extend(sub_tiles)
-            logger.debug(f"Created {len(sub_tiles)} sub-tiles from {image_path}")
-            return sub_tiles
-        else:
-            # Use the original image as a single tile
-            # tiles.append(drone_image)
-            logger.debug(f"Using original image as single tile for {image_path}")
-            return [drone_image]
 
     def _create_tiles(self) -> List[Tile]:
         """Create drone images from all images."""
         tiles = []
+
         with tqdm(
             total=len(self.image_paths), desc="Creating tiles", unit="image"
         ) as pbar:
@@ -106,11 +115,24 @@ class TileDataset(Dataset):
                     executor.submit(self._create_tiles_for_one_image, image_path)
                     for image_path in self.image_paths
                 ]
+
+                # Process completed futures as they finish
                 for future in as_completed(futures):
-                    sub_tiles = future.result()
-                    if isinstance(sub_tiles, list):
-                        tiles.extend(sub_tiles)
-                    pbar.update(1)
+                    try:
+                        sub_tiles = future.result()
+                        if isinstance(sub_tiles, list):
+                            tiles.extend(sub_tiles)
+                        elif sub_tiles is None:
+                            pass
+                        else:
+                            raise ValueError(
+                                f"Sub-tiles is not a list or None: {sub_tiles}"
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to create tiles: {e}")
+                        # Continue processing other images instead of failing completely
+                    finally:
+                        pbar.update(1)
 
         logger.info(
             f"Created {len(tiles)} total tiles from {len(self.image_paths)} drone images"
@@ -118,39 +140,32 @@ class TileDataset(Dataset):
         return tiles
 
     def _extract_sub_tiles(self, base_tile: DroneImage) -> List[Tile]:
-        """Extract sub-tiles from a large image using the TileUtils class."""
-        sub_tiles = []
-
+        """Extract sub-tiles from a large image using the TileUtils class with batch creation."""
         try:
-            # Load image data and convert to tensor
-            # image = base_tile.load_image_data()
             width, height = base_tile.width, base_tile.height
             if width is None or height is None:
                 raise ValueError(f"Width or height is None for {base_tile.image_path}")
-
-            # image = image.convert("RGB")
-
-            # Convert to tensor
-            # image_tensor = self.pil_to_tensor(image)
 
             # Calculate stride based on overlap
             stride = int(self.config.tile_size * (1 - self.config.overlap))
 
             # Use TileUtils to extract patches and offset information
-            _, offset_info = TileUtilsv2.get_patches_and_offset_info(
-                image=torch.zeros(3, height, width),
+            offset_info = TileUtilsv3.get_patches_and_offset_info_only(
+                width=width,
+                height=height,
                 patch_size=self.config.tile_size,
                 stride=stride,
-                channels=3,
                 file_name=str(base_tile.image_path),
-                pad_image=True
             )
 
-            # Convert patches tensor to individual PIL images and create tiles
-            for i in range(len(offset_info["x_offset"])):
-                # Create sub-tile
-                sub_tile = Tile(
-                    image_data=None,
+            # Batch create tiles instead of individual creation
+            num_tiles = len(offset_info["x_offset"])
+
+            # Create tiles in batch
+            sub_tiles = []
+            for i in range(num_tiles):
+                tile = Tile(
+                    image_data=None,  # Lazy loading - load when needed
                     image_path=str(base_tile.image_path),
                     flight_specs=self.config.flight_specs,
                     tile_gps_loc=None,
@@ -161,19 +176,18 @@ class TileDataset(Dataset):
                     parent_image=base_tile.image_path,
                 )
 
-                # Set offsets after creation
-                sub_tile.set_offsets(
-                    offset_info["x_offset"][i], offset_info["y_offset"][i]
-                )
+                # Set offsets immediately
+                tile.set_offsets(offset_info["x_offset"][i], offset_info["y_offset"][i])
 
-                sub_tiles.append(sub_tile)
+                sub_tiles.append(tile)
+
+            logger.debug(f"Created {num_tiles} tiles from {base_tile.image_path}")
+            return sub_tiles
 
         except Exception as e:
-            # logger.warning(f"Failed to extract patches using TileUtils: {e}")
-            traceback.print_exc()
-            raise Exception(f"Failed to extract patches using TileUtils")
-
-        return sub_tiles
+            logger.error(f"Failed to extract patches for {base_tile.image_path}: {e}")
+            # Return empty list instead of raising to allow processing to continue
+            return []
 
     def _validate_tile_parameters(self, image_path: str) -> bool:
         """Validate tile parameters for an image.
@@ -190,7 +204,7 @@ class TileDataset(Dataset):
                 width, height = img.size
 
             # Validate parameters using TileUtils
-            return TileUtilsv2.validate_patch_parameters(
+            return TileUtilsv3.validate_patch_parameters(
                 image_shape=(3, height, width),  # Assume RGB
                 patch_size=self.config.tile_size,
                 stride=int(self.config.tile_size * (1 - self.config.overlap)),
@@ -214,7 +228,7 @@ class TileDataset(Dataset):
                 width, height = img.size
 
             stride = int(self.config.tile_size * (1 - self.config.overlap))
-            return TileUtilsv2.get_patch_count(
+            return TileUtilsv3.get_patch_count(
                 height, width, self.config.tile_size, stride
             )
 
@@ -232,7 +246,7 @@ class TileDataset(Dataset):
         if tile.image_path not in self.loaded_tiles.keys():
             with Image.open(tile.image_path) as img:
                 image = self.pil_to_tensor(img.convert("RGB"))
-                image = TileUtilsv2.pad_image_to_patch_size(
+                image = TileUtilsv3.pad_image_to_patch_size(
                     image, self.config.tile_size, stride
                 )
                 self.loaded_tiles[tile.image_path] = image
