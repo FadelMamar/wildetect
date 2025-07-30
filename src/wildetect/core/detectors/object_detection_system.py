@@ -88,8 +88,11 @@ class ObjectDetectionSystem:
         B, C, H, W = batch.shape
         assert C == 3, "Image must have 3 channels"
         assert B >= 1, "Batch must have at least 1 image"
-        if batch.max() > 1.0 and batch.min() < 0.0:
-            logger.warning("Batch is not normalized. Normalizing it.")
+        if batch.max() > 1.0 and batch.min() >= 0.0:
+            logger.debug(
+                "Batch is not normalized. Normalize it. Expects values in [0, 1]"
+            )
+            batch = batch / 255.0
 
         # Run batch prediction
         detections = self.model.predict(batch)
