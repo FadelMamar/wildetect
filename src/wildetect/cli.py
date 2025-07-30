@@ -2,30 +2,31 @@
 Command Line Interface for WildDetect using Typer.
 """
 
+import cProfile
 import importlib.metadata
 import json
 import logging
+import pstats
 import subprocess
 import sys
+import time
 import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Union
+
 import torch
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-import time
-import cProfile
-import pstats
 
 from .core.campaign_manager import CampaignConfig, CampaignManager
 from .core.config import ROOT, FlightSpecs, LoaderConfig, PredictionConfig
 from .core.data.census import CensusDataManager
 from .core.data.drone_image import DroneImage
 from .core.data.utils import get_images_paths
-from .core.detection_pipeline import DetectionPipeline
+from .core.detection_pipeline import DetectionPipeline, MultiThreadedDetectionPipeline
 from .core.visualization.fiftyone_manager import FiftyOneManager
 from .core.visualization.geographic import (
     GeographicVisualizer,
@@ -161,9 +162,23 @@ def detect(
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
     profile: bool = typer.Option(False, "--profile", help="Enable detailed profiling"),
-    memory_profile: bool = typer.Option(False, "--memory-profile", help="Enable memory profiling"),
-    line_profile: bool = typer.Option(False, "--line-profile", help="Enable line-by-line profiling"),
-    gpu_profile: bool = typer.Option(False, "--gpu-profile", help="Enable GPU profiling (CUDA only)"),
+    memory_profile: bool = typer.Option(
+        False, "--memory-profile", help="Enable memory profiling"
+    ),
+    line_profile: bool = typer.Option(
+        False, "--line-profile", help="Enable line-by-line profiling"
+    ),
+    gpu_profile: bool = typer.Option(
+        False, "--gpu-profile", help="Enable GPU profiling (CUDA only)"
+    ),
+    pipeline_type: str = typer.Option(
+        "single",
+        "--pipeline-type",
+        help="Pipeline type: 'single' or 'multi' for single-threaded vs multi-threaded",
+    ),
+    queue_size: int = typer.Option(
+        3, "--queue-size", help="Queue size for multi-threaded pipeline"
+    ),
 ):
     """Run wildlife detection on images."""
     setup_logging(
@@ -225,6 +240,8 @@ def detect(
             verbose=verbose,
             nms_iou=nms_iou,
             overlap_ratio=overlap_ratio,
+            pipeline_type=pipeline_type,
+            queue_size=queue_size,
         )
 
         loader_config = LoaderConfig(
@@ -236,48 +253,64 @@ def detect(
 
         print(pred_config)
 
-        # Create detection pipeline
-        pipeline = DetectionPipeline(
-            config=pred_config,
-            loader_config=loader_config,
-        )
+        # Create detection pipeline based on configuration
+        if pred_config.pipeline_type == "multi":
+            from .core.detection_pipeline import MultiThreadedDetectionPipeline
+
+            pipeline = MultiThreadedDetectionPipeline(
+                config=pred_config,
+                loader_config=loader_config,
+                queue_size=pred_config.queue_size,
+            )
+        else:
+            pipeline = DetectionPipeline(
+                config=pred_config,
+                loader_config=loader_config,
+            )
         save_path = None
         if output:
             output_path = Path(output)
             output_path.mkdir(parents=True, exist_ok=True)
             save_path = str(output_path / "results.json")
-        
+
         # Profile the detection pipeline
         start_time = time.time()
-        
+
         if profile:
             # Enable detailed profiling
             profiler = cProfile.Profile()
             profiler.enable()
-        
+
         if memory_profile:
             try:
                 from memory_profiler import profile as memory_profile_decorator
+
                 print("Memory profiling enabled - this will be slower")
             except ImportError:
-                print("memory_profiler not installed. Install with: pip install memory_profiler")
+                print(
+                    "memory_profiler not installed. Install with: pip install memory_profiler"
+                )
                 memory_profile = False
-        
+
         if line_profile:
             try:
                 from line_profiler import LineProfiler
+
                 print("Line profiling enabled - this will be slower")
                 line_profiler = LineProfiler()
                 # Profile the run_detection method
                 line_profiler.add_function(pipeline.run_detection)
                 line_profiler.enable_by_count()
             except ImportError:
-                print("line_profiler not installed. Install with: pip install line_profiler")
+                print(
+                    "line_profiler not installed. Install with: pip install line_profiler"
+                )
                 line_profile = False
-        
+
         if gpu_profile:
             try:
                 import torch
+
                 if torch.cuda.is_available():
                     print("GPU profiling enabled")
                     torch.cuda.empty_cache()
@@ -288,55 +321,65 @@ def detect(
             except ImportError:
                 print("PyTorch not available, GPU profiling disabled")
                 gpu_profile = False
-        
+
         drone_images = pipeline.run_detection(
-                image_paths=image_paths,
-                image_dir=image_dir,
-                save_path=save_path,
-            )
-        
+            image_paths=image_paths,
+            image_dir=image_dir,
+            save_path=save_path,
+        )
+
         if gpu_profile and torch.cuda.is_available():
-            print(f"GPU Memory Peak: {torch.cuda.max_memory_allocated() / 1024**3:.2f} GB")
-            print(f"GPU Memory Current: {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
-        
-        if line_profile and 'line_profiler' in locals():
+            print(
+                f"GPU Memory Peak: {torch.cuda.max_memory_allocated() / 1024**3:.2f} GB"
+            )
+            print(
+                f"GPU Memory Current: {torch.cuda.memory_allocated() / 1024**3:.2f} GB"
+            )
+
+        if line_profile and "line_profiler" in locals():
             line_profiler.disable_by_count()
             line_profiler.print_stats()
             if output:
                 line_profile_path = Path(output) / "line_profile_results.txt"
-                with open(line_profile_path, 'w') as f:
+                with open(line_profile_path, "w") as f:
                     line_profiler.print_stats(stream=f)
                 print(f"Line profile saved to: {line_profile_path}")
-        
+
         if profile:
             # Disable profiler and save results
             profiler.disable()
             stats = pstats.Stats(profiler)
-            
+
             # Save profiling results
-            profile_path = Path(output) / "profile_results.prof" if output else Path("profile_results.prof")
+            profile_path = (
+                Path(output) / "profile_results.prof"
+                if output
+                else Path("profile_results.prof")
+            )
             stats.dump_stats(str(profile_path))
-            
+
             # Print top 20 functions by cumulative time
             print("\n=== PROFILING RESULTS ===")
-            stats.sort_stats('cumulative')
+            stats.sort_stats("cumulative")
             stats.print_stats(20)
             print(f"Detailed profile saved to: {profile_path}")
-            print("To view with snakeviz: pip install snakeviz && snakeviz", profile_path)
-        
+            print(
+                "To view with snakeviz: pip install snakeviz && snakeviz", profile_path
+            )
+
         end_time = time.time()
-        
+
         # Log timing information
         execution_time = end_time - start_time
         logger.info(f"Detection pipeline execution time: {execution_time:.2f} seconds")
         print(f"Detection completed in {execution_time:.2f} seconds")
 
         # Run detection
-        #with Progress(
+        # with Progress(
         #    SpinnerColumn(),
         #    TextColumn("[progress.description]{task.description}"),
         #    console=console,
-        #) as progress:
+        # ) as progress:
         #    task = progress.add_task("Running detection...", total=None)
 
         #    drone_images = pipeline.run_detection(
@@ -495,9 +538,12 @@ def visualize_geographic_bounds(
     ),
 ) -> None:
     """Convenience function to visualize geographic bounds."""
-    setup_logging(log_file=str(
-            ROOT / f"logs/visualize_geographic_bounds_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-        ))
+    setup_logging(
+        log_file=str(
+            ROOT
+            / f"logs/visualize_geographic_bounds_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        )
+    )
     logger = logging.getLogger(__name__)
     try:
         assert Path(image_dir).is_dir(), f"Image directory not found: {image_dir}"
@@ -698,16 +744,29 @@ def census(
         True, "--map", help="Create geographic visualization map"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+    pipeline_type: str = typer.Option(
+        "single",
+        "--pipeline-type",
+        help="Pipeline type: 'single' or 'multi' for single-threaded vs multi-threaded",
+    ),
+    queue_size: int = typer.Option(
+        3, "--queue-size", help="Queue size for multi-threaded pipeline"
+    ),
 ):
     """Run wildlife census campaign with enhanced analysis."""
     setup_logging(
         verbose,
-        log_file=str(ROOT / f"logs/census_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"),
+        log_file=str(
+            ROOT
+            / f"logs/census_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        ),
     )
     logger = logging.getLogger(__name__)
 
     if not torch.cuda.is_available():
-        console.print(f"[bold red]CUDA is not available. It will be very slow...[/bold red]")
+        console.print(
+            f"[bold red]CUDA is not available. It will be very slow...[/bold red]"
+        )
     else:
         console.print(f"[bold green]CUDA is available...[/bold green]")
 
@@ -769,6 +828,8 @@ def census(
             verbose=verbose,
             nms_iou=nms_iou,
             overlap_ratio=overlap_ratio,
+            pipeline_type=pipeline_type,
+            queue_size=queue_size,
         )
 
         loader_config = LoaderConfig(
@@ -832,6 +893,14 @@ def analyze(
         True, "--map", help="Create geographic visualization map"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+    pipeline_type: str = typer.Option(
+        "single",
+        "--pipeline-type",
+        help="Pipeline type: 'single' or 'multi' for single-threaded vs multi-threaded",
+    ),
+    queue_size: int = typer.Option(
+        3, "--queue-size", help="Queue size for multi-threaded pipeline"
+    ),
 ):
     """Analyze detection results with geographic and statistical analysis."""
     setup_logging(verbose)
@@ -1244,6 +1313,54 @@ def ui(
         raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red]Error launching UI: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def api(
+    host: str = typer.Option(
+        "0.0.0.0", "--host", "-h", help="Host to run the API server on"
+    ),
+    port: int = typer.Option(
+        8000, "--port", "-p", help="Port to run the API server on"
+    ),
+    reload: bool = typer.Option(
+        False, "--reload", help="Enable auto-reload for development"
+    ),
+):
+    """Launch the WildDetect FastAPI server."""
+    try:
+        import uvicorn
+
+        from .api.main import app
+
+        console.print(
+            f"[green]Starting WildDetect API server on http://{host}:{port}[/green]"
+        )
+        console.print(
+            f"[yellow]API documentation available at: http://{host}:{port}/docs[/yellow]"
+        )
+        console.print(
+            f"[yellow]ReDoc documentation available at: http://{host}:{port}/redoc[/yellow]"
+        )
+        console.print("[yellow]Press Ctrl+C to stop the server[/yellow]")
+
+        uvicorn.run(
+            "wildetect.api.main:app",
+            host=host,
+            port=port,
+            reload=reload,
+            log_level="info",
+        )
+
+    except ImportError:
+        console.print(
+            "[red]FastAPI dependencies not installed. Please install them with:[/red]"
+        )
+        console.print("[yellow]pip install fastapi uvicorn python-multipart[/yellow]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error launching API server: {e}[/red]")
         raise typer.Exit(1)
 
 
