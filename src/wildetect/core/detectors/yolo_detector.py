@@ -39,9 +39,7 @@ class YOLODetector(Detector):
             self.model = YOLO(self.model_path, task="detect")
             logger.info(f"Loaded YOLO model from {self.model_path}")
         else:
-            raise FileNotFoundError(
-                f"Model file not found: {self.model_path}."
-            )
+            raise FileNotFoundError(f"Model file not found: {self.model_path}.")
         # Get class names from model
         if hasattr(self.model, "names"):
             self.class_names = self.model.names
@@ -75,7 +73,9 @@ class YOLODetector(Detector):
 
         assert isinstance(batch, torch.Tensor), "Batch must be a tensor"
 
-        logger.debug(f"Device: {self.device}, CUDA available: {torch.cuda.is_available()}")
+        logger.debug(
+            f"Device: {self.device}, CUDA available: {torch.cuda.is_available()}"
+        )
         t = time.perf_counter()
         try:
             # Run inference
@@ -148,6 +148,11 @@ class YOLODetector(Detector):
             List of detection lists
         """
         assert isinstance(image, torch.Tensor), "Image must be a tensor"
+        if image.max() > 1.0 and image.min() >= 0.0:
+            raise ValueError(
+                "Image is not normalized. Normalize it. Yolo expects values in [0, 1]"
+            )
+
         shape = image.shape
         if len(shape) == 4:
             return self._predict_batch(image)
