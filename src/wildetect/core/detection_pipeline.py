@@ -16,7 +16,6 @@ import torch
 from tqdm import tqdm
 from tqdm.contrib.concurrent import thread_map
 
-from ..utils.utils import load_registered_model
 from .config import LoaderConfig, PredictionConfig
 from .data.detection import Detection
 from .data.drone_image import DroneImage
@@ -161,6 +160,8 @@ class DetectionPipeline:
             return None, dict()
 
         try:
+            from wildetect.utils.utils import load_registered_model
+
             detector_model, metadata = load_registered_model(
                 name=mlflow_model_name,
                 alias=mlflow_model_alias,
@@ -190,6 +191,22 @@ class DetectionPipeline:
         roi_model, roi_metadata = self.load_registered_model(
             mlflow_roi_name, mlflow_roi_alias
         )
+
+        if "batch" in self.metadata:
+            b = self.loader_config.batch_size
+            logger.info(f"Batch size: {b} -> {self.metadata.get('batch', b)}")
+            b = self.metadata.get("batch", b)
+            self.loader_config.batch_size = int(b)
+            self.config.batch_size = int(b)
+
+        if "tilesize" in self.metadata:
+            tile_size = self.loader_config.tile_size
+            logger.info(
+                f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
+            )
+            tile_size = self.metadata.get("tilesize", tile_size)
+            self.loader_config.tile_size = int(tile_size)
+            self.config.tilesize = int(tile_size)
 
         classifier = None
         if roi_model is not None:
@@ -235,9 +252,10 @@ class DetectionPipeline:
 
             logger.info("Detection pipeline setup completed")
 
-        except Exception as e:
-            logger.error(f"Failed to setup inference engine: {traceback.format_exc()}")
-            raise
+        except Exception:
+            raise ValueError(
+                f"Failed to setup inference engine: {traceback.format_exc()}"
+            )
 
     def _process_batch(
         self,
@@ -323,20 +341,6 @@ class DetectionPipeline:
             List of processed drone images with detections
         """
         logger.info("Starting detection pipeline")
-
-        if "batch" in self.metadata:
-            b = self.loader_config.batch_size
-            logger.info(f"Batch size: {b} -> {self.metadata.get('batch', b)}")
-            b = self.metadata.get("batch", b)
-            self.loader_config.batch_size = int(b)
-
-        if "tilesize" in self.metadata:
-            tile_size = self.loader_config.tile_size
-            logger.info(
-                f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
-            )
-            tile_size = self.metadata.get("tilesize", tile_size)
-            self.loader_config.tile_size = int(tile_size)
 
         logger.info(f"Creating dataloader")
 

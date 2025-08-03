@@ -49,6 +49,22 @@ class GeographicBounds:
         d["type"] = "GeographicBounds"
         return d
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "GeographicBounds":
+        attributes = [
+            "north",
+            "south",
+            "east",
+            "west",
+            "lat_center",
+            "lon_center",
+            "width_px",
+            "height_px",
+            "gsd",
+        ]
+        cfg = {k: data.get(k) for k in attributes}
+        return cls(**cfg)
+
     @property
     def area(self) -> float:
         """Calculate area in square degrees covered by the bounding box."""

@@ -2,6 +2,7 @@
 Detection data structures for wildlife detection results.
 """
 
+import json
 import logging
 import math
 from dataclasses import dataclass, field
@@ -77,10 +78,30 @@ class Detection:
             d["y_min"] = y1
             d["x_max"] = x2
             d["y_max"] = y2
-        if d.get("geographic_footprint") is not None:
-            d["geographic_footprint"] = d["geographic_footprint"].box
+        if isinstance(d.get("geographic_footprint"), GeographicBounds):
+            d["geographic_footprint"] = d["geographic_footprint"].to_dict()
         d["type"] = "Detection"
         return d
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Detection":
+        attributes = [
+            "bbox",
+            "confidence",
+            "class_id",
+            "class_name",
+            "metadata",
+            "geographic_footprint",
+            "gps_loc",
+            "image_gps_loc",
+            "parent_image",
+        ]
+        cfg = {k: data.get(k) for k in attributes}
+        if isinstance(cfg.get("geographic_footprint"), dict):
+            cfg["geographic_footprint"] = GeographicBounds.from_dict(
+                cfg["geographic_footprint"]
+            )
+        return cls(**cfg)
 
     @property
     def x_center(self) -> int:

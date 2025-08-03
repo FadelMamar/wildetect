@@ -72,9 +72,13 @@ class CampaignManager:
                 loader_config=config.loader_config,
                 queue_size=config.prediction_config.queue_size,
             )
-        else:
+        elif config.prediction_config.pipeline_type == "single":
             self.detection_pipeline = DetectionPipeline(
                 config=config.prediction_config, loader_config=config.loader_config
+            )
+        else:
+            raise ValueError(
+                f"Invalid pipeline type: {config.prediction_config.pipeline_type}"
             )
 
         # Optional components

@@ -6,7 +6,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Literal, Optional, Sequence, Tuple, Union
 
 import albumentations as A
 import torch
@@ -65,9 +65,7 @@ class PredictionConfig:
     inference_service_url: Optional[str] = None
 
     # Pipeline configuration
-    pipeline_type: str = (
-        "single"  # "single" or "multi" for single-threaded vs multi-threaded
-    )
+    pipeline_type: Literal["single", "multi"] = "single"
     queue_size: int = 3  # Queue size for multi-threaded pipeline
 
     def __post_init__(self):
@@ -89,7 +87,7 @@ class PredictionConfig:
             model_path = os.environ.get("WILDETECT_MODEL_PATH", None)
             if model_path:
                 if Path(model_path).exists():
-                    self.model_path = os.environ.get("WILDETECT_MODEL_PATH")
+                    self.model_path = model_path
                 elif os.environ.get("MLFLOW_DETECTOR_NAME", None) and os.environ.get(
                     "MLFLOW_DETECTOR_ALIAS", None
                 ):
@@ -98,7 +96,6 @@ class PredictionConfig:
                     logger.warning(
                         "Model path not found in environment variables or config file."
                     )
-
         else:
             self.model_path = str(Path(self.model_path).resolve())
 
