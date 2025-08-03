@@ -265,7 +265,9 @@ class DetectionPipeline:
         # Run inference on tiles
         if self.detection_system is None:
             raise ValueError("Detection system not initialized")
-        detections = self.detection_system.predict(batch["images"])
+        detections = self.detection_system.predict(
+            batch["images"], local=self.config.inference_service_url is None
+        )
         if progress_bar:
             progress_bar.update(len(batch["tiles"]))
         return detections
@@ -689,7 +691,9 @@ class MultiThreadedDetectionPipeline:
         if self.detection_system is None:
             raise ValueError("Detection system not initialized")
 
-        detections = self.detection_system.predict(batch["images"])
+        detections = self.detection_system.predict(
+            batch["images"], local=self.config.inference_service_url is None
+        )
         return detections
 
     def _postprocess(self, batches: List[Dict[str, Any]]) -> List[DroneImage]:

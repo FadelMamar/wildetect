@@ -203,7 +203,7 @@ class InferenceService(ls.LitAPI):
 
         try:
             batch = x["images"]
-            results = self.detection_system.predict(batch)
+            results = self.detection_system.predict(batch, local=True)
             return results
         except Exception:
             raise ValueError(f"Prediction failed: {traceback.format_exc()}")

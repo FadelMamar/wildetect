@@ -103,8 +103,15 @@ class ObjectDetectionSystem:
             batch = batch / 255.0
         return batch
 
-    def predict(self, batch: torch.Tensor) -> List[List[Detection]]:
+    def predict(self, batch: torch.Tensor, local: bool = True) -> List[List[Detection]]:
         """Run prediction on a list of tiles."""
+
+        if isinstance(self.config.inference_service_url, str) and not local:
+            return self.predict_inference_service(batch, self.config)
+
+        return self.predict_local(batch)
+
+    def predict_local(self, batch: torch.Tensor) -> List[List[Detection]]:
         if not self.model:
             raise RuntimeError("No model set. Call set_model() first.")
 
