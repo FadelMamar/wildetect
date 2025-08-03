@@ -1,7 +1,9 @@
 import base64
+import datetime
 import logging
 import os
 import sys
+import time
 import traceback
 
 # from PIL import Image
@@ -11,22 +13,42 @@ from pathlib import Path
 from typing import List  # , Optional, Sequence
 
 import litserve as ls
-
-# import numpy as np
 import torch
-
-# from .utils import Detector
-# import json
 from fastapi import HTTPException
-from PIL import Image
 
 from wildetect.utils.utils import load_registered_model
 
-from ..config import PredictionConfig
+from ..config import ROOT, PredictionConfig
 from ..data.detection import Detection
 from ..factory import build_detector
 from ..processor.processor import Classifier, RoIPostProcessor
 from .object_detection_system import ObjectDetectionSystem
+
+
+def setup_logging(verbose: bool = False):
+    """Setup logging configuration."""
+    level = logging.DEBUG if verbose else logging.INFO
+    handlers = [
+        logging.StreamHandler(sys.stdout),
+    ]
+
+    log_file = (
+        ROOT
+        / "logs"
+        / "inference_service"
+        / f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    )
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    file_handler = logging.FileHandler(log_file)
+    handlers.append(file_handler)
+
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=handlers,
+    )
+
 
 logger = logging.getLogger("Inference_service")
 
@@ -104,7 +126,31 @@ def setup_detector(config: PredictionConfig) -> ObjectDetectionSystem:
         raise ValueError(f"Failed to setup inference engine: {traceback.format_exc()}")
 
 
-class MyModelAPI(ls.LitAPI):
+def run_inference_server(port=4141, workers_per_device=1):
+    api = InferenceService(max_batch_size=1, enable_async=False)
+
+    server = ls.LitServer(
+        api,
+        workers_per_device=workers_per_device,
+        accelerator="auto",
+        fast_queue=True,
+        callbacks=[PredictionTimeLogger()],
+    )
+    server.run(port=port, generate_client_file=False)
+
+
+class PredictionTimeLogger(ls.Callback):
+    def on_before_predict(self, lit_api):
+        t0 = time.perf_counter()
+        self._start_time = t0
+
+    def on_after_predict(self, lit_api):
+        t1 = time.perf_counter()
+        elapsed = t1 - self._start_time
+        logger.info(f"Prediction took {elapsed:.3f} seconds")
+
+
+class InferenceService(ls.LitAPI):
     def setup(
         self,
         device,
@@ -118,6 +164,7 @@ class MyModelAPI(ls.LitAPI):
             device=device,
         )
         self.detection_system = setup_detector(config)
+        self.device = device
 
     def decode_request(self, request: dict) -> dict:
         """
@@ -128,6 +175,12 @@ class MyModelAPI(ls.LitAPI):
         output = dict()
 
         try:
+            # Set prediction config
+            config = PredictionConfig.from_dict(request.get("config", {}))
+            config.device = self.device
+            self.detection_system.set_config(config)
+
+            # Set image tensor
             img_tensor = request.get("tensor", None)
             shape = request.get("shape", None)
             if shape is None:
@@ -140,18 +193,16 @@ class MyModelAPI(ls.LitAPI):
             img_tensor = torch.frombuffer(tensor_bytes, dtype=torch.float32).reshape(
                 shape
             )
-
             if len(shape) == 3:
                 img_tensor = img_tensor.unsqueeze(0)
             elif len(shape) < 3:
                 raise ValueError("Invalid shape, expected a 3D or 4D tensor")
 
             output["images"] = img_tensor
+            return output
 
         except Exception:
             raise HTTPException(status_code=400, detail=traceback.format_exc())
-
-        return output
 
     def predict(self, x: dict) -> List[List[Detection]]:
         """

@@ -27,11 +27,10 @@ class YOLODetector(Detector):
     def __init__(self, config: PredictionConfig):
         super().__init__(config)
         self.model_path = getattr(config, "model_path", None)
-        self.device = config.device
 
         # Set device
-        if self.device == "auto":
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        if self.config.device == "auto":
+            self.config.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def load_model(self) -> None:
         """Load the YOLO model."""
@@ -50,7 +49,7 @@ class YOLODetector(Detector):
             self.class_names = {}
 
         self._is_loaded = True
-        logger.info(f"YOLO detector initialized on device: {self.device}")
+        logger.info(f"YOLO detector initialized on device: {self.config.device}")
 
     def _predict_batch(self, batch: torch.Tensor) -> List[List[Detection]]:
         """Run prediction on an image.
@@ -74,7 +73,7 @@ class YOLODetector(Detector):
         assert isinstance(batch, torch.Tensor), "Batch must be a tensor"
 
         logger.debug(
-            f"Device: {self.device}, CUDA available: {torch.cuda.is_available()}"
+            f"Device: {self.config.device}, CUDA available: {torch.cuda.is_available()}"
         )
         t = time.perf_counter()
         try:
@@ -85,7 +84,7 @@ class YOLODetector(Detector):
                 conf=self.config.confidence_threshold,
                 verbose=self.config.verbose,
                 half=torch.cuda.is_available(),
-                device=self.device,
+                device=self.config.device,
             )
             logger.debug(f"YOLO prediction time: {time.perf_counter() - t} seconds")
             # Process results
@@ -166,7 +165,7 @@ class YOLODetector(Detector):
         return {
             "model_type": self.model.__class__.__name__,
             "model_path": self.model_path,
-            "device": self.device,
+            "device": self.config.device,
             "class_names": self.class_names,
             "num_classes": len(self.class_names),
             "metadata": self.metadata,

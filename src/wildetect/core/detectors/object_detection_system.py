@@ -36,7 +36,6 @@ class ObjectDetectionSystem:
             timeout: Timeout for processing operations
         """
         self.config = config
-
         self.model: Optional[Detector] = None
         self.roi_processor: Optional[RoIPostProcessor] = None
 
@@ -48,6 +47,16 @@ class ObjectDetectionSystem:
         """
         self.model = model
         logger.info(f"Set detection model: {model.__class__.__name__}")
+
+    def set_config(self, config: PredictionConfig) -> None:
+        """Set the prediction configuration.
+
+        Args:
+            config: Prediction configuration
+        """
+        self.config = config
+        if hasattr(self.model, "config"):
+            setattr(self.model, "config", config)
 
     def set_processor(self, roi_processor: Optional[RoIPostProcessor] = None) -> None:
         """Set the ROI post-processor.
@@ -145,6 +154,7 @@ class ObjectDetectionSystem:
             "shape": list(batch.shape),
             "iou_nms": config.nms_iou,
             "conf": config.confidence_threshold,
+            "config": config.to_dict(),
         }
 
         res = requests.post(
@@ -155,7 +165,13 @@ class ObjectDetectionSystem:
         if res == "FAILED":
             raise ValueError("Inference service failed")
 
-        return res
+        detections = []
+        for detection_list in res:
+            detections.append(
+                [Detection.from_dict(detection) for detection in detection_list]
+            )
+
+        return detections
 
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the detection system.

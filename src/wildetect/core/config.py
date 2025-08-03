@@ -165,6 +165,25 @@ class PredictionConfig:
         # Convert YAML data to dataclass instance
         return cls(**config_data)
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Save the configuration to a YAML file."""
+        vars_dict = vars(self)
+        vars_dict["flight_specs"] = vars(self.flight_specs)
+        return vars_dict
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PredictionConfig":
+        flight_specs = data.pop("flight_specs")
+        if isinstance(flight_specs, dict):
+            flight_specs = FlightSpecs(**flight_specs)
+        elif isinstance(flight_specs, FlightSpecs):
+            pass
+        else:
+            raise ValueError(f"Invalid flight specs type: {type(flight_specs)}")
+
+        data["flight_specs"] = flight_specs
+        return cls(**data)
+
 
 @dataclass
 class LoaderConfig:

@@ -134,7 +134,6 @@ class DetectionPipeline:
         """
         self.config = config
         self.loader_config = loader_config
-        self.device = config.device
         self.metadata = dict()
 
         # assert config.model_path is not None, "Model path must be provided"
@@ -437,7 +436,7 @@ class DetectionPipeline:
         info = {
             "model_type": self.config.model_type,
             "model_path": self.config.model_path,
-            "device": self.device,
+            "device": self.config.device,
             "has_detection_system": self.detection_system is not None,
             "has_data_loader": self.data_loader is not None,
         }
@@ -469,7 +468,6 @@ class MultiThreadedDetectionPipeline:
         """
         self.config = config
         self.loader_config = loader_config
-        self.device = config.device
         self.metadata = dict()
         self.error_count = 0
 
@@ -675,7 +673,7 @@ class MultiThreadedDetectionPipeline:
         """
         # Ensure images are tensors and on the correct device
         if "images" in batch and isinstance(batch["images"], torch.Tensor):
-            batch["images"] = batch["images"].to(self.device)
+            batch["images"] = batch["images"].to(self.config.device)
 
         return batch
 
@@ -888,7 +886,7 @@ class MultiThreadedDetectionPipeline:
         info = {
             "model_type": self.config.model_type,
             "model_path": self.config.model_path,
-            "device": self.device,
+            "device": self.config.device,
             "has_detection_system": self.detection_system is not None,
             "has_data_loader": self.data_loader is not None,
             "queue_stats": {
