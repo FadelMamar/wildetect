@@ -2,9 +2,11 @@
 Object Detection System for orchestrating detection pipeline.
 """
 
+import base64
 import logging
 from typing import Any, Dict, List, Optional
 
+import requests
 import torch
 from PIL import Image
 from torchvision.transforms import ToPILImage
@@ -79,11 +81,8 @@ class ObjectDetectionSystem:
         else:
             return detections
 
-    def predict(self, batch: torch.Tensor) -> List[List[Detection]]:
-        """Run prediction on a list of tiles."""
-        if not self.model:
-            raise RuntimeError("No model set. Call set_model() first.")
-
+    @staticmethod
+    def preprocess_batch(batch: torch.Tensor) -> torch.Tensor:
         assert batch.ndim == 4, "Image must be a 4D tensor"
         B, C, H, W = batch.shape
         assert C == 3, "Image must have 3 channels"
@@ -93,9 +92,22 @@ class ObjectDetectionSystem:
                 "Batch is not normalized. Normalize it. Expects values in [0, 1]"
             )
             batch = batch / 255.0
+        return batch
+
+    def predict(self, batch: torch.Tensor) -> List[List[Detection]]:
+        """Run prediction on a list of tiles."""
+        if not self.model:
+            raise RuntimeError("No model set. Call set_model() first.")
+
+        batch = self.preprocess_batch(batch)
+        B, C, H, W = batch.shape
 
         # Run batch prediction
-        detections = self.model.predict(batch)
+        batch_padded = self._pad_if_needed(
+            batch,
+            (self.config.batch_size, C, self.config.tilesize, self.config.tilesize),
+        )
+        detections = self.model.predict(batch_padded)[:B]
         detections = self._postprocess(detections=detections, batch=batch)
         if len(detections) != B:
             logger.error(
@@ -106,6 +118,44 @@ class ObjectDetectionSystem:
             )
 
         return detections
+
+    def _pad_if_needed(self, batch: torch.Tensor, out_shape: tuple) -> torch.Tensor:
+        assert len(out_shape) == len(batch.shape)
+        assert len(out_shape) == 4
+
+        condition = any([a < b for a, b in zip(batch.shape, out_shape)])
+
+        if condition:
+            b, c, h, w = batch.shape
+            padded = torch.zeros(out_shape)
+            padded[:b, :c, :h, :w] = batch.clone()
+            batch = padded
+
+        return batch
+
+    @staticmethod
+    def predict_inference_service(
+        batch: torch.Tensor, config: PredictionConfig
+    ) -> List[List[Detection]]:
+        batch = ObjectDetectionSystem.preprocess_batch(batch)
+
+        as_bytes = batch.cpu().numpy().tobytes()
+        payload = {
+            "tensor": base64.b64encode(as_bytes).decode("utf-8"),
+            "shape": list(batch.shape),
+            "iou_nms": config.nms_iou,
+            "conf": config.confidence_threshold,
+        }
+
+        res = requests.post(
+            url=config.inference_service_url, json=payload, timeout=config.timeout
+        ).json()
+
+        res = res.get("detections", "FAILED")
+        if res == "FAILED":
+            raise ValueError("Inference service failed")
+
+        return res
 
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the detection system.
