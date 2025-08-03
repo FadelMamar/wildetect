@@ -50,6 +50,8 @@ def setup_logging(verbose: bool = False):
     )
 
 
+# setup_logging()
+
 logger = logging.getLogger("Inference_service")
 
 
@@ -66,9 +68,11 @@ def setup_detector(config: PredictionConfig) -> ObjectDetectionSystem:
         raise ValueError("MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS are not set")
 
     detector_model, metadata = load_registered_model(
-        mlflow_model_name, mlflow_model_alias
+        name=mlflow_model_name, alias=mlflow_model_alias, load_unwrapped=True
     )
-    roi_model, roi_metadata = load_registered_model(mlflow_roi_name, mlflow_roi_alias)
+    roi_model, roi_metadata = load_registered_model(
+        name=mlflow_roi_name, alias=mlflow_roi_alias, load_unwrapped=True
+    )
 
     if "batch" in metadata:
         config.batch_size = int(metadata.get("batch", config.batch_size))
@@ -124,19 +128,6 @@ def setup_detector(config: PredictionConfig) -> ObjectDetectionSystem:
 
     except Exception:
         raise ValueError(f"Failed to setup inference engine: {traceback.format_exc()}")
-
-
-def run_inference_server(port=4141, workers_per_device=1):
-    api = InferenceService(max_batch_size=1, enable_async=False)
-
-    server = ls.LitServer(
-        api,
-        workers_per_device=workers_per_device,
-        accelerator="auto",
-        fast_queue=True,
-        callbacks=[PredictionTimeLogger()],
-    )
-    server.run(port=port, generate_client_file=False)
 
 
 class PredictionTimeLogger(ls.Callback):
@@ -228,3 +219,16 @@ class InferenceService(ls.LitAPI):
             encoded_output.append(o)
 
         return encoded_output
+
+
+def run_inference_server(port=4141, workers_per_device=1):
+    api = InferenceService(max_batch_size=1, enable_async=False)
+
+    server = ls.LitServer(
+        api,
+        workers_per_device=workers_per_device,
+        accelerator="auto",
+        fast_queue=True,
+        callbacks=[PredictionTimeLogger()],
+    )
+    server.run(port=port, generate_client_file=False)
