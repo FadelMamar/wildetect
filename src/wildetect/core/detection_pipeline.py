@@ -117,7 +117,7 @@ class BatchQueue:
         return self.queue.full()
 
 
-class DetectionPipeline:
+class DetectionPipeline(object):
     """End-to-end detection pipeline combining dataloader with inference engine."""
 
     def __init__(
@@ -134,16 +134,10 @@ class DetectionPipeline:
         """
         self.config = config
         self.loader_config = loader_config
-        self.metadata = dict()
 
-        # assert config.model_path is not None, "Model path must be provided"
-        # assert config.model_type is not None, "Model type must be provided"
-
-        # Initialize components
-        self.detection_system: Optional[ObjectDetectionSystem] = None
         self.data_loader: Optional[DataLoader] = None
-
-        self.setup()
+        self.detection_system = ObjectDetectionSystem.from_config(config)
+        self.metadata = self.detection_system.metadata
 
         logger.info(
             f"Initialized DetectionPipeline with model_type={config.model_type}"
@@ -175,86 +169,6 @@ class DetectionPipeline:
             return None, dict()
 
         return detector_model, metadata
-
-    def setup(self) -> None:
-        """Set up the inference engine with model and processors."""
-
-        mlflow_model_name = os.environ.get("MLFLOW_DETECTOR_NAME", None)
-        mlflow_model_alias = os.environ.get("MLFLOW_DETECTOR_ALIAS", None)
-        mlflow_roi_name = os.environ.get("MLFLOW_ROI_NAME", None)
-        mlflow_roi_alias = os.environ.get("MLFLOW_ROI_ALIAS", None)
-
-        detector_model, self.metadata = self.load_registered_model(
-            mlflow_model_name, mlflow_model_alias
-        )
-        roi_model, roi_metadata = self.load_registered_model(
-            mlflow_roi_name, mlflow_roi_alias
-        )
-
-        if "batch" in self.metadata:
-            b = self.loader_config.batch_size
-            logger.info(f"Batch size: {b} -> {self.metadata.get('batch', b)}")
-            b = self.metadata.get("batch", b)
-            self.loader_config.batch_size = int(b)
-            self.config.batch_size = int(b)
-
-        if "tilesize" in self.metadata:
-            tile_size = self.loader_config.tile_size
-            logger.info(
-                f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
-            )
-            tile_size = self.metadata.get("tilesize", tile_size)
-            self.loader_config.tile_size = int(tile_size)
-            self.config.tilesize = int(tile_size)
-
-        classifier = None
-        if roi_model is not None:
-            classifier = Classifier(
-                model=roi_model,
-                model_path=None,
-                label_map=self.config.cls_label_map,
-                device=self.config.device,
-                feature_extractor_path=self.config.feature_extractor_path,
-            )
-            box_size = roi_metadata.get("box_size", self.config.cls_imgsz)
-            cls_imgsz_value = roi_metadata.get("cls_imgsz", self.config.cls_imgsz)
-            self.config.cls_imgsz = int(cls_imgsz_value)
-            logger.info(f"ROI box size: {box_size} -> {self.config.cls_imgsz}")
-
-        try:
-            # Build detector
-            if detector_model is not None:
-                self.config.model_path = detector_model.ckpt_path
-
-            detector = build_detector(
-                config=self.config,
-            )
-
-            # Create object detection system
-            self.detection_system = ObjectDetectionSystem(
-                config=self.config,
-            )
-            self.detection_system.set_model(detector)
-
-            if self.config.roi_weights or classifier:
-                roi_processor = RoIPostProcessor(
-                    model_path=self.config.roi_weights,
-                    label_map=self.config.cls_label_map,
-                    feature_extractor_path=self.config.feature_extractor_path,
-                    roi_size=self.config.cls_imgsz,
-                    transform=self.config.transform,
-                    device=self.config.device,
-                    classifier=classifier,
-                    keep_classes=self.config.keep_classes,
-                )
-                self.detection_system.set_processor(roi_processor)
-
-            logger.info("Detection pipeline setup completed")
-
-        except Exception:
-            raise ValueError(
-                f"Failed to setup inference engine: {traceback.format_exc()}"
-            )
 
     def _process_batch(
         self,
@@ -452,7 +366,7 @@ class DetectionPipeline:
         return info
 
 
-class MultiThreadedDetectionPipeline:
+class MultiThreadedDetectionPipeline(DetectionPipeline):
     """Multi-threaded detection pipeline with separate data loading and detection threads."""
 
     def __init__(
@@ -468,10 +382,8 @@ class MultiThreadedDetectionPipeline:
             loader_config: Data loader configuration
             queue_size: Maximum number of batches in the queue
         """
-        self.config = config
-        self.loader_config = loader_config
-        self.metadata = dict()
-        self.error_count = 0
+
+        super().__init__(config, loader_config)
 
         # Thread-safe queues
         self.data_queue = BatchQueue(maxsize=queue_size)
@@ -483,95 +395,9 @@ class MultiThreadedDetectionPipeline:
         self.detection_thread: Optional[threading.Thread] = None
         self.detection_result: List[Dict[str, Any]] = []
 
-        # Initialize components
-        self.detection_system: Optional[ObjectDetectionSystem] = None
-        self.data_loader: Optional[DataLoader] = None
-
-        self.setup()
-
         logger.info(
             f"Initialized MultiThreadedDetectionPipeline with model_type={config.model_type}"
         )
-
-    def load_registered_model(self, mlflow_model_name, mlflow_model_alias):
-        """Load the models from MLflow."""
-        if mlflow_model_name is None or mlflow_model_alias is None:
-            logger.warning("MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS are not set")
-            return None, dict()
-
-        try:
-            detector_model, metadata = load_registered_model(
-                name=mlflow_model_name,
-                alias=mlflow_model_alias,
-                load_unwrapped=True,
-            )
-            logger.info(
-                f"Loaded model from MLflow: {mlflow_model_name}/{mlflow_model_alias}"
-            )
-        except Exception as e:
-            logger.error(f"Error loading model from MLflow: {e}")
-            logger.debug(traceback.format_exc())
-            return None, dict()
-
-        return detector_model, metadata
-
-    def setup(self) -> None:
-        """Set up the inference engine with model and processors."""
-        mlflow_model_name = os.environ.get("MLFLOW_DETECTOR_NAME", None)
-        mlflow_model_alias = os.environ.get("MLFLOW_DETECTOR_ALIAS", None)
-        mlflow_roi_name = os.environ.get("MLFLOW_ROI_NAME", None)
-        mlflow_roi_alias = os.environ.get("MLFLOW_ROI_ALIAS", None)
-
-        detector_model, self.metadata = self.load_registered_model(
-            mlflow_model_name, mlflow_model_alias
-        )
-        roi_model, roi_metadata = self.load_registered_model(
-            mlflow_roi_name, mlflow_roi_alias
-        )
-
-        classifier = None
-        if roi_model is not None:
-            classifier = Classifier(
-                model=roi_model,
-                model_path=None,
-                label_map=self.config.cls_label_map,
-                device=self.config.device,
-                feature_extractor_path=self.config.feature_extractor_path,
-            )
-            box_size = roi_metadata.get("box_size", self.config.cls_imgsz)
-            cls_imgsz_value = roi_metadata.get("cls_imgsz", self.config.cls_imgsz)
-            self.config.cls_imgsz = int(cls_imgsz_value)
-            logger.info(f"ROI box size: {box_size} -> {self.config.cls_imgsz}")
-
-        try:
-            # Build detector
-            if detector_model is not None:
-                self.config.model_path = detector_model.ckpt_path
-
-            detector = build_detector(config=self.config)
-
-            # Create object detection system
-            self.detection_system = ObjectDetectionSystem(config=self.config)
-            self.detection_system.set_model(detector)
-
-            if self.config.roi_weights or classifier:
-                roi_processor = RoIPostProcessor(
-                    model_path=self.config.roi_weights,
-                    label_map=self.config.cls_label_map,
-                    feature_extractor_path=self.config.feature_extractor_path,
-                    roi_size=self.config.cls_imgsz,
-                    transform=self.config.transform,
-                    device=self.config.device,
-                    classifier=classifier,
-                    keep_classes=self.config.keep_classes,
-                )
-                self.detection_system.set_processor(roi_processor)
-
-            logger.info("Multi-threaded detection pipeline setup completed")
-
-        except Exception as e:
-            logger.error(f"Failed to setup inference engine: {traceback.format_exc()}")
-            raise
 
     def _data_loading_thread(self, data_loader: DataLoader, progress_bar: tqdm) -> None:
         """Data loading thread that prepares batches and puts them in the queue.
@@ -678,72 +504,6 @@ class MultiThreadedDetectionPipeline:
             batch["images"] = batch["images"].to(self.config.device)
 
         return batch
-
-    def _process_batch(self, batch: Dict[str, Any]) -> List[List[Detection]]:
-        """Process a single batch of tiles.
-
-        Args:
-            batch: Batch containing images and tiles
-
-        Returns:
-            List of detection lists for each image in the batch
-        """
-        if self.detection_system is None:
-            raise ValueError("Detection system not initialized")
-
-        detections = self.detection_system.predict(
-            batch["images"], local=self.config.inference_service_url is None
-        )
-        return detections
-
-    def _postprocess(self, batches: List[Dict[str, Any]]) -> List[DroneImage]:
-        """Post-process batch results and convert to DroneImage objects.
-
-        Args:
-            batches: List of batches containing tiles and detections
-
-        Returns:
-            List of DroneImage objects with detections
-        """
-        if len(batches) == 0:
-            return []
-
-        # Group tiles by parent image
-        drone_images: Dict[str, DroneImage] = {}
-
-        # Process each tile and its detections
-        for batch in tqdm(batches, desc="Postprocessing batches"):
-            detections = batch.get("detections", [])
-            for tile, tile_detections in zip(batch["tiles"], detections):
-                parent_image = tile.get("parent_image", tile.get("image_path", None))
-                if parent_image is None:
-                    logger.warning(f"Parent image is not set for tile: {tile}")
-                    continue
-
-                # Create or get drone image for this parent
-                if parent_image not in drone_images:
-                    drone_image = DroneImage.from_image_path(
-                        image_path=parent_image,
-                        flight_specs=self.loader_config.flight_specs,
-                    )
-                    drone_images[parent_image] = drone_image
-
-                # Set detections on the tile
-                if tile_detections:
-                    tile.set_predictions(tile_detections, update_gps=False)
-                else:
-                    # Set empty detection if no detections found
-                    tile.set_predictions([], update_gps=False)
-
-                # Add tile to drone image with its offset
-                offset = (tile.x_offset or 0, tile.y_offset or 0)
-                drone_images[parent_image].add_tile(tile, offset[0], offset[1])
-
-        # Update detections
-        for drone_image in drone_images.values():
-            drone_image.update_detection_gps("predictions")
-
-        return list(drone_images.values())
 
     def run_detection(
         self,
@@ -855,52 +615,21 @@ class MultiThreadedDetectionPipeline:
 
         return all_drone_images
 
-    def _save_results(
-        self,
-        drone_images: List[DroneImage],
-        save_path: str,
-    ) -> None:
-        """Save detection results.
-
-        Args:
-            drone_images: List of drone images with detections
-            save_path: Path to save results
-        """
-        import json
-
-        results = []
-        for drone_image in drone_images:
-            stats = drone_image.get_statistics()
-            results.append(stats)
-
-        save_path_obj = Path(save_path)
-        save_path_obj.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(save_path_obj, "w", encoding="utf-8") as f:
-            json.dump(results, f, indent=2)
-
-        logger.info(f"Results saved to: {save_path}")
-
     def get_pipeline_info(self) -> Dict[str, Any]:
         """Get information about the pipeline.
 
         Returns:
             Dictionary with pipeline information
         """
-        info = {
-            "model_type": self.config.model_type,
-            "model_path": self.config.model_path,
-            "device": self.config.device,
-            "has_detection_system": self.detection_system is not None,
-            "has_data_loader": self.data_loader is not None,
-            "queue_stats": {
-                "data_queue": self.data_queue.get_stats(),
-                "result_queue": self.result_queue.get_stats(),
-            },
-        }
-
-        if self.detection_system:
-            info["detection_system"] = self.detection_system.get_model_info()
+        info = super().get_pipeline_info()
+        info.update(
+            {
+                "queue_stats": {
+                    "data_queue": self.data_queue.get_stats(),
+                    "result_queue": self.result_queue.get_stats(),
+                },
+            }
+        )
 
         return info
 

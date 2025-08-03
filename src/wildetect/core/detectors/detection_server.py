@@ -16,12 +16,8 @@ import litserve as ls
 import torch
 from fastapi import HTTPException
 
-from wildetect.utils.utils import load_registered_model
-
 from ..config import ROOT, PredictionConfig
 from ..data.detection import Detection
-from ..factory import build_detector
-from ..processor.processor import Classifier, RoIPostProcessor
 from .object_detection_system import ObjectDetectionSystem
 
 
@@ -51,83 +47,7 @@ def setup_logging(verbose: bool = False):
 
 
 # setup_logging()
-
 logger = logging.getLogger("Inference_service")
-
-
-def setup_detector(config: PredictionConfig) -> ObjectDetectionSystem:
-    """Set up the inference engine with model and processors."""
-
-    mlflow_model_name = os.environ.get("MLFLOW_DETECTOR_NAME", None)
-    mlflow_model_alias = os.environ.get("MLFLOW_DETECTOR_ALIAS", None)
-    mlflow_roi_name = os.environ.get("MLFLOW_ROI_NAME", None)
-    mlflow_roi_alias = os.environ.get("MLFLOW_ROI_ALIAS", None)
-
-    if mlflow_model_name is None or mlflow_model_alias is None:
-        logger.warning("MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS are not set")
-        raise ValueError("MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS are not set")
-
-    detector_model, metadata = load_registered_model(
-        name=mlflow_model_name, alias=mlflow_model_alias, load_unwrapped=True
-    )
-    roi_model, roi_metadata = load_registered_model(
-        name=mlflow_roi_name, alias=mlflow_roi_alias, load_unwrapped=True
-    )
-
-    if "batch" in metadata:
-        config.batch_size = int(metadata.get("batch", config.batch_size))
-
-    if "tilesize" in metadata:
-        config.tilesize = int(metadata.get("tilesize", config.tilesize))
-
-    classifier = None
-    if roi_model is not None:
-        classifier = Classifier(
-            model=roi_model,
-            model_path=None,
-            label_map=config.cls_label_map,
-            device=config.device,
-            feature_extractor_path=config.feature_extractor_path,
-        )
-        box_size = roi_metadata.get("box_size", config.cls_imgsz)
-        cls_imgsz_value = roi_metadata.get("cls_imgsz", config.cls_imgsz)
-        config.cls_imgsz = int(cls_imgsz_value)
-        logger.info(f"ROI box size: {box_size} -> {config.cls_imgsz}")
-
-    try:
-        # Build detector
-        if detector_model is not None:
-            config.model_path = detector_model.ckpt_path
-
-        detector = build_detector(
-            config=config,
-        )
-
-        # Create object detection system
-        detection_system = ObjectDetectionSystem(
-            config=config,
-        )
-        detection_system.set_model(detector)
-
-        if config.roi_weights or classifier:
-            roi_processor = RoIPostProcessor(
-                model_path=config.roi_weights,
-                label_map=config.cls_label_map,
-                feature_extractor_path=config.feature_extractor_path,
-                roi_size=config.cls_imgsz,
-                transform=config.transform,
-                device=config.device,
-                classifier=classifier,
-                keep_classes=config.keep_classes,
-            )
-            detection_system.set_processor(roi_processor)
-
-        logger.info("Detection pipeline setup completed")
-
-        return detection_system
-
-    except Exception:
-        raise ValueError(f"Failed to setup inference engine: {traceback.format_exc()}")
 
 
 class PredictionTimeLogger(ls.Callback):
@@ -154,7 +74,7 @@ class InferenceService(ls.LitAPI):
         config = PredictionConfig(
             device=device,
         )
-        self.detection_system = setup_detector(config)
+        self.detection_system = ObjectDetectionSystem.from_config(config)
         self.device = device
 
     def decode_request(self, request: dict) -> dict:
