@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Sequence, Union
 
 import torch
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
@@ -184,7 +185,7 @@ def detect(
     setup_logging(
         verbose,
         log_file=str(
-            ROOT / f"logs/detect_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            ROOT / "logs" / "detect" / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         ),
     )
     logger = logging.getLogger(__name__)
@@ -255,8 +256,6 @@ def detect(
 
         # Create detection pipeline based on configuration
         if pred_config.pipeline_type == "multi":
-            from .core.detection_pipeline import MultiThreadedDetectionPipeline
-
             pipeline = MultiThreadedDetectionPipeline(
                 config=pred_config,
                 loader_config=loader_config,
@@ -432,7 +431,10 @@ def visualize(
     """Visualize detection results with geographic maps and statistics."""
     setup_logging(
         log_file=str(
-            ROOT / f"logs/visualize_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            ROOT
+            / "logs"
+            / "visualize"
+            / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         ),
     )
     logger = logging.getLogger(__name__)
@@ -541,7 +543,9 @@ def visualize_geographic_bounds(
     setup_logging(
         log_file=str(
             ROOT
-            / f"logs/visualize_geographic_bounds_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            / "logs"
+            / "visualize_geographic_bounds"
+            / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         )
     )
     logger = logging.getLogger(__name__)
@@ -758,7 +762,9 @@ def census(
         verbose,
         log_file=str(
             ROOT
-            / f"logs/census_{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            / "logs"
+            / "census"
+            / f"{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         ),
     )
     logger = logging.getLogger(__name__)
@@ -1361,6 +1367,44 @@ def api(
         raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red]Error launching API server: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def inference_server(
+    port: int = typer.Option(
+        4141, "--port", "-p", help="Port to run the inference server on"
+    ),
+    workers_per_device: int = typer.Option(
+        1, "--workers", "-w", help="Number of workers per device"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+):
+    """Launch the inference server for wildlife detection."""
+    log_file = (
+        ROOT
+        / "logs"
+        / "inference_service"
+        / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    )
+    setup_logging(verbose=verbose, log_file=log_file)
+    logger = logging.getLogger(__name__)
+
+    load_dotenv(ROOT / ".env", override=True)
+
+    try:
+        console.print(f"[green]Starting inference server on port {port}...[/green]")
+        console.print(f"[green]Workers per device: {workers_per_device}[/green]")
+
+        # Import the run_inference_server function
+        from .core.detectors.detection_server import run_inference_server
+
+        # Launch the inference server
+        run_inference_server(port=port, workers_per_device=workers_per_device)
+
+    except Exception as e:
+        console.print(f"[red]Error starting inference server: {e}[/red]")
+        logger.error(f"Inference server failed: {e}")
         raise typer.Exit(1)
 
 
