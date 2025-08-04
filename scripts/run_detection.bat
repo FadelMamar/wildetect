@@ -1,13 +1,14 @@
 call cd /d "%~dp0" && cd ..
-call .venv\Scripts\activate
-
+@REM call .venv\Scripts\activate
+@REM "D:\PhD\Data per camp\Dry season\Kapiri\Farm\DJI_202310040946_001_KapiriFarm1"
 @REM --roi-weights "D:\PhD\workspace\wildetect\models\classifier\2\artifacts\best.ckpt-v6.torchscript"^
+@REM "D:\PhD\workspace\wildetect\models\labeler\9\artifacts\best.pt"
+@REM --inference-service-url "http://localhost:4141/predict"^
 
-call wildetect detect "D:\PhD\Data per camp\Dry season\Kapiri\Farm\DJI_202310040946_001_KapiriFarm1"^
+call uv run wildetect detect "D:\PhD\Data per camp\Dry season\Kapiri\Farm\DJI_202310040946_001_KapiriFarm1"^
   --model "D:\PhD\workspace\wildetect\models\labeler\9\artifacts\best.pt"^
   --roi-weights "D:\PhD\workspace\wildetect\models\classifier\2\artifacts\best.ckpt-v6.torchscript"^
   --device "auto"^ 
-  --inference-service-url "http://localhost:4141/predict"^
   --pipeline-type "single" --queue-size 10 ^
   --overlap-ratio 0.2^
   --batch-size 32^
