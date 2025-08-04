@@ -340,8 +340,10 @@ class GeographicVisualizer:
         """
         try:
             return self.overlap_strategy.find_overlapping_images(drone_images)
-        except Exception as e:
-            logger.warning(f"Failed to find overlaps using GPSOverlapStrategy: {e}")
+        except Exception:
+            logger.warning(
+                f"Failed to find overlaps using GPSOverlapStrategy: {traceback.format_exc()}"
+            )
             return {}
 
     def _create_map_center(self, drone_images: List[DroneImage]) -> Tuple[float, float]:
