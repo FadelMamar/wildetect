@@ -839,6 +839,9 @@ def census(
             fiftyone_dataset_name=f"campaign_{campaign_id}",
         )
 
+        console.print(f"[bold green]Campaign configuration:[/bold green]")
+        console.print(campaign_config)
+
         # Initialize campaign manager
         campaign_manager = CampaignManager(campaign_config)
 

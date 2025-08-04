@@ -134,11 +134,8 @@ class CensusDataManager:
         logger.info(f"Creating DroneImages for {len(self.image_paths)} images...")
 
         self.drone_images = load_images_as_drone_images(
-            config=self.loading_config,
             image_paths=self.image_paths,
-            image_dir=None,
-            max_images=None,
-            shuffle=False,
+            flight_specs=self.loading_config.flight_specs,
         )
 
         logger.info(f"Successfully created {len(self.drone_images)} DroneImages")

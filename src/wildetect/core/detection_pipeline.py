@@ -190,7 +190,7 @@ class DetectionPipeline(object):
             # Handle missing detections key
             detections = batch.get("detections", [])
             for tile, tile_detections in zip(batch["tiles"], detections):
-                parent_image = tile.parent_image or tile.image_path
+                parent_image = tile.get("parent_image", tile.get("image_path"))
 
                 # Create or get drone image for this parent
                 if parent_image not in drone_images:
