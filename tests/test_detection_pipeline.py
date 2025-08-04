@@ -20,7 +20,7 @@ from wildetect.core.detection_pipeline import (
     MultiThreadedDetectionPipeline,
 )
 
-TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
+TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\tmp"
 FLIGHT_SPECS = FlightSpecs(sensor_height=24.0, focal_length=35.0, flight_height=180.0)
 MODEL_PATH = r"D:\workspace\repos\wildetect\models\artifacts\best.pt"
 ROI_WEIGHTS_PATH = r"D:\workspace\repos\wildetect\models\classifier\6\artifacts\roi_classifier.torchscript"
