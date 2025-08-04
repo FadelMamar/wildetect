@@ -179,7 +179,7 @@ def detect(
         help="Pipeline type: 'single' or 'multi' for single-threaded vs multi-threaded",
     ),
     queue_size: int = typer.Option(
-        3, "--queue-size", help="Queue size for multi-threaded pipeline"
+        24, "--queue-size", help="Queue size for multi-threaded pipeline"
     ),
 ):
     """Run wildlife detection on images."""
@@ -739,7 +739,7 @@ def census(
         help="Pipeline type: 'single' or 'multi' for single-threaded vs multi-threaded",
     ),
     queue_size: int = typer.Option(
-        3, "--queue-size", help="Queue size for multi-threaded pipeline"
+        24, "--queue-size", help="Queue size for multi-threaded pipeline"
     ),
 ):
     """Run wildlife census campaign with enhanced analysis."""

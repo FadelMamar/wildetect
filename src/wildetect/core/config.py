@@ -66,7 +66,7 @@ class PredictionConfig:
 
     # Pipeline configuration
     pipeline_type: Literal["single", "multi"] = "single"
-    queue_size: int = 3  # Queue size for multi-threaded pipeline
+    queue_size: int = 24  # Queue size for multi-threaded pipeline
 
     def __post_init__(self):
         """Validate that required attributes are not None after initialization."""
