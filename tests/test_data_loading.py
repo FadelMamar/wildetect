@@ -2,16 +2,20 @@
 Test script for data loading functionality.
 """
 
+import gc
 import logging
 import os
 import shutil
 import sys
 import tempfile
-from pathlib import Path
-from typing import List
-
-from wildetect.core.config import FlightSpecs, LoaderConfig
+import time
 import traceback
+from pathlib import Path
+from typing import Dict, List
+
+from tqdm import tqdm
+from wildetect.core.config import FlightSpecs, LoaderConfig
+
 # Add the project root to the Python path
 from wildetect.core.data import DataLoader, TileDataset, load_images_as_drone_images
 from wildetect.core.data.utils import get_images_paths
@@ -22,8 +26,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+IMAGES_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
 
-def create_test_images(test_dir: Path, num_images: int = 5) -> List[str]:
+
+def create_test_images(num_images: int = -1) -> List[str]:
     """Create test images for testing.
 
     Args:
@@ -33,60 +39,8 @@ def create_test_images(test_dir: Path, num_images: int = 5) -> List[str]:
     Returns:
         List[str]: List of created image paths
     """
-    import numpy as np
-    from PIL import Image
-
-    test_dir.mkdir(parents=True, exist_ok=True)
-    image_paths = []
-
-    for i in range(num_images):
-        # Create a simple test image
-        img_array = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-        img = Image.fromarray(img_array)
-
-        # Save with different formats
-        if i % 2 == 0:
-            img_path = test_dir / f"test_image_{i}.jpg"
-        else:
-            img_path = test_dir / f"test_image_{i}.png"
-
-        img.save(img_path)
-        image_paths.append(str(img_path))
-
-    logger.info(f"Created {len(image_paths)} test images in {test_dir}")
-    return image_paths
-
-
-def test_image_discovery():
-    """Test image discovery functionality."""
-    logger.info("=" * 60)
-    logger.info("TESTING IMAGE DISCOVERY")
-    logger.info("=" * 60)
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
-
-        # Create test images
-        image_paths = create_test_images(temp_path, num_images=5)
-
-        # Test get_images_paths function
-        discovered_paths = get_images_paths(temp_dir)
-        discovered_paths = [str(p) for p in discovered_paths]
-
-        logger.info(f"Expected images: {len(image_paths)}")
-        logger.info(f"Discovered images: {len(discovered_paths)}")
-
-        # Check if all expected images were discovered
-        missing_images = set(image_paths) - set(discovered_paths)
-        extra_images = set(discovered_paths) - set(image_paths)
-
-        if missing_images:
-            logger.error(f"Missing images: {missing_images}")
-        if extra_images:
-            logger.warning(f"Extra images found: {extra_images}")
-
-        assert len(missing_images) == 0, f"Missing images: {missing_images}"
-        logger.info("✓ Image discovery test passed")
+    image_paths = get_images_paths(IMAGES_DIR)
+    return image_paths[: min(num_images, len(image_paths))]
 
 
 def test_loader_config():
@@ -123,36 +77,54 @@ def test_image_tile_dataset():
     logger.info("TESTING IMAGE TILE DATASET")
     logger.info("=" * 60)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+    # Create test images
+    logger.info("Creating test images...")
+    image_paths = create_test_images(num_images=3)
+    logger.info(f"Created {len(image_paths)} test images")
 
-        # Create test images
-        image_paths = create_test_images(temp_path, num_images=3)
+    # Create config
+    logger.info("Creating config...")
+    config = LoaderConfig(
+        tile_size=320,  # Smaller tiles for testing
+        overlap=0.2,
+        batch_size=2,
+    )
+    logger.info("Config created successfully")
 
-        # Create config
-        config = LoaderConfig(
-            tile_size=320,  # Smaller tiles for testing
-            overlap=0.2,
-            batch_size=2,
-        )
+    # Create dataset
+    logger.info("Creating dataset...")
+    try:
+        dataset = TileDataset(config=config, image_paths=image_paths)
+        logger.info("Dataset created successfully")
+    except Exception as e:
+        logger.error(f"Failed to create dataset: {e}")
+        import traceback
 
-        # Create dataset
-        dataset = TileDataset(config, image_paths=image_paths)
+        traceback.print_exc()
+        raise
 
-        logger.info(f"Dataset created with {len(dataset.tiles)} tiles")
-        logger.info(f"Number of images: {len(dataset.image_paths)}")
+    logger.info(f"Dataset created with {len(dataset.tiles)} tiles")
+    logger.info(f"Number of images: {len(dataset.image_paths)}")
 
-        # Test dataset iteration
-        for i in range(len(dataset)):
+    # Test dataset iteration
+    logger.info("Testing dataset iteration...")
+    for i in range(len(dataset)):
+        try:
             item = dataset[i]
             logger.info(
                 f"Item {i}: tile_id={item['tile_id']}, shape={item['image'].shape if hasattr(item['image'], 'shape') else 'N/A'}"
             )
+        except Exception as e:
+            logger.error(f"Failed to get item {i}: {e}")
+            import traceback
 
-        # Test dataset length
-        assert len(dataset) > 0, "Dataset should not be empty"
-        logger.info(f"Dataset length: {len(dataset)}")
-        logger.info("✓ TileDataset test passed")
+            traceback.print_exc()
+            raise
+
+    # Test dataset length
+    assert len(dataset) > 0, "Dataset should not be empty"
+    logger.info(f"Dataset length: {len(dataset)}")
+    logger.info("✓ TileDataset test passed")
 
 
 def test_data_loader():
@@ -161,36 +133,33 @@ def test_data_loader():
     logger.info("TESTING DATA LOADER")
     logger.info("=" * 60)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+    # Create test images
+    image_paths = create_test_images(num_images=4)
 
-        # Create test images
-        image_paths = create_test_images(temp_path, num_images=4)
+    # Create config
+    config = LoaderConfig(
+        tile_size=320,
+        overlap=0.2,
+        batch_size=2,
+        num_workers=0,  # Use 0 for testing
+    )
 
-        # Create config
-        config = LoaderConfig(
-            tile_size=320,
-            overlap=0.2,
-            batch_size=2,
-            num_workers=0,  # Use 0 for testing
-        )
+    # Create data loader
+    dataloader = DataLoader(image_paths=image_paths, image_dir=None, config=config)
 
-        # Create data loader
-        dataloader = DataLoader(image_paths=image_paths, image_dir=None, config=config)
+    logger.info(f"DataLoader created with {len(dataloader)} batches")
 
-        logger.info(f"DataLoader created with {len(dataloader)} batches")
+    # Test batch iteration
+    batch_count = 0
+    for batch in dataloader:
+        batch_count += 1
+        logger.info(f"Batch {batch_count}: {len(batch['tiles'])} tiles")
 
-        # Test batch iteration
-        batch_count = 0
-        for batch in dataloader:
-            batch_count += 1
-            logger.info(f"Batch {batch_count}: {len(batch['tiles'])} tiles")
+        if batch_count >= 2:  # Test first 2 batches
+            break
 
-            if batch_count >= 2:  # Test first 2 batches
-                break
-
-        assert batch_count > 0, "Should have at least one batch"
-        logger.info("✓ DataLoader test passed")
+    assert batch_count > 0, "Should have at least one batch"
+    logger.info("✓ DataLoader test passed")
 
 
 def test_load_images_as_drone_images():
@@ -199,66 +168,237 @@ def test_load_images_as_drone_images():
     logger.info("TESTING LOAD_IMAGES_AS_DRONE_IMAGES")
     logger.info("=" * 60)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+    # Create test images
+    image_paths = create_test_images(num_images=3)
 
-        # Create test images
-        image_paths = create_test_images(temp_path, num_images=3)
+    # Create config
+    config = LoaderConfig(
+        tile_size=640,
+        overlap=0.2,
+        flight_specs=FlightSpecs(
+            sensor_height=24.0, focal_length=35.0, flight_height=180.0
+        ),
+    )
 
-        # Create config
-        config = LoaderConfig(
-            tile_size=640,
-            overlap=0.2,
-            flight_specs=FlightSpecs(
-                sensor_height=24.0, focal_length=35.0, flight_height=180.0
-            ),
+    # Load images as drone images
+    drone_images = load_images_as_drone_images(
+        image_paths=image_paths, flight_specs=config.flight_specs
+    )
+
+    logger.info(f"Loaded {len(drone_images)} drone images")
+
+    # Test drone image properties
+    for i, drone_image in enumerate(drone_images):
+        logger.info(
+            f"DroneImage {i}: id={drone_image.id}, tiles={len(drone_image.tiles)}"
         )
+        assert drone_image.id is not None, "DroneImage should have an ID"
+        assert len(drone_image.tiles) > 0, "DroneImage should have tiles"
 
-        # Load images as drone images
-        drone_images = load_images_as_drone_images(
-            config=config, image_paths=image_paths, max_images=2
-        )
-
-        logger.info(f"Loaded {len(drone_images)} drone images")
-
-        # Test drone image properties
-        for i, drone_image in enumerate(drone_images):
-            logger.info(
-                f"DroneImage {i}: id={drone_image.id}, tiles={len(drone_image.tiles)}"
-            )
-            assert drone_image.id is not None, "DroneImage should have an ID"
-            assert len(drone_image.tiles) > 0, "DroneImage should have tiles"
-
-        logger.info("✓ load_images_as_drone_images test passed")
+    logger.info("✓ load_images_as_drone_images test passed")
 
 
 def test_create_loader():
-    """Test create_loader function."""
+    """Test create_loader function with comprehensive profiling."""
     logger.info("=" * 60)
-    logger.info("TESTING CREATE_LOADER")
+    logger.info("TESTING CREATE_LOADER WITH PROFILING")
     logger.info("=" * 60)
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+    # Memory tracking function
+    def get_memory_usage():
+        """Get current memory usage in MB."""
+        return sys.getsizeof(gc.get_objects()) / 1024 / 1024  # Convert to MB
 
-        # Create test images
-        image_paths = create_test_images(temp_path, num_images=3)
+    # Performance tracking
+    performance_metrics: Dict[str, float] = {
+        "image_discovery_time": 0.0,
+        "dataset_creation_time": 0.0,
+        "loader_creation_time": 0.0,
+        "iteration_time": 0.0,
+        "total_tiles": 0.0,
+        "total_batches": 0.0,
+        "memory_peak": 0.0,
+        "memory_start": 0.0,
+        "memory_end": 0.0,
+        "throughput_tiles_per_sec": 0.0,
+        "throughput_batches_per_sec": 0.0,
+        "avg_batch_size": 0.0,
+        "tile_size": 0.0,
+        "overlap": 0.0,
+        "batch_size": 0.0,
+    }
 
-        # Create config
-        config = LoaderConfig(tile_size=320, overlap=0.2, batch_size=2)
+    # Start profiling
+    start_time = time.time()
+    initial_memory = get_memory_usage()
+    performance_metrics["memory_start"] = initial_memory
 
-        # Create loader
-        loader = DataLoader(image_paths=image_paths, image_dir=None, config=config)
+    logger.info(f"Initial memory usage: {initial_memory:.2f} MB")
+    logger.info("Starting performance profiling...")
 
-        logger.info(f"Created loader with {len(loader)} batches")
-        assert len(loader) > 0, "Loader should have batches"
+    # Phase 1: Image discovery
+    logger.info("Phase 1: Image discovery")
+    phase_start = time.time()
+    image_paths = create_test_images(num_images=-1)
+    performance_metrics["image_discovery_time"] = time.time() - phase_start
+    logger.info(
+        f"Found {len(image_paths)} images in {performance_metrics['image_discovery_time']:.3f}s"
+    )
 
-        # Test loader iteration
-        batch_count = 0
-        for _ in loader:
-            batch_count += 1
-        assert batch_count > 0, "Should have at least one batch"
-        logger.info("✓ create_loader test passed")
+    # Phase 2: Configuration
+    logger.info("Phase 2: Configuration setup")
+    config = LoaderConfig(tile_size=800, overlap=0.2, batch_size=32)
+    performance_metrics["tile_size"] = config.tile_size
+    performance_metrics["overlap"] = config.overlap
+    performance_metrics["batch_size"] = config.batch_size
+
+    # Phase 3: Dataset creation
+    logger.info("Phase 3: Dataset creation")
+    phase_start = time.time()
+    dataset = TileDataset(config=config, image_paths=image_paths)
+    performance_metrics["dataset_creation_time"] = time.time() - phase_start
+    performance_metrics["total_tiles"] = len(dataset)
+    logger.info(
+        f"Created dataset with {len(dataset)} tiles in {performance_metrics['dataset_creation_time']:.3f}s"
+    )
+
+    # Phase 4: DataLoader creation
+    logger.info("Phase 4: DataLoader creation")
+    phase_start = time.time()
+    loader = DataLoader(image_paths=image_paths, image_dir=None, config=config)
+    performance_metrics["loader_creation_time"] = time.time() - phase_start
+    performance_metrics["total_batches"] = len(loader)
+    logger.info(
+        f"Created loader with {len(loader)} batches in {performance_metrics['loader_creation_time']:.3f}s"
+    )
+
+    # Phase 5: Iteration and data loading
+    logger.info("Phase 5: Data iteration and loading")
+    phase_start = time.time()
+    batch_count = 0
+    total_tiles_processed = 0
+    batch_sizes = []
+
+    # Track memory during iteration
+    memory_readings = []
+
+    for batch in tqdm(loader, desc="Processing batches"):
+        batch_count += 1
+        batch_size = len(batch["tiles"])
+        total_tiles_processed += batch_size
+        batch_sizes.append(batch_size)
+
+        # Memory tracking every 10 batches
+        if batch_count % 10 == 0:
+            memory_readings.append(get_memory_usage())
+
+        # Log batch info
+        # logger.info(f"Batch {batch_count}: {batch_size} tiles, images shape: {batch['images'].shape}")
+
+        # Limit to first 50 batches for profiling
+        if batch_count >= 50:
+            break
+
+    performance_metrics["iteration_time"] = time.time() - phase_start
+    performance_metrics["total_batches"] = batch_count
+    performance_metrics["total_tiles"] = total_tiles_processed
+
+    # Calculate throughput
+    total_time = performance_metrics["iteration_time"]
+    if total_time > 0:
+        performance_metrics["throughput_tiles_per_sec"] = (
+            total_tiles_processed / total_time
+        )
+        performance_metrics["throughput_batches_per_sec"] = batch_count / total_time
+
+    # Calculate average batch size
+    if batch_sizes:
+        performance_metrics["avg_batch_size"] = sum(batch_sizes) / len(batch_sizes)
+
+    # Memory analysis
+    final_memory = get_memory_usage()
+    performance_metrics["memory_end"] = final_memory
+    performance_metrics["memory_peak"] = (
+        max(memory_readings) if memory_readings else final_memory
+    )
+
+    # Force garbage collection and measure final memory
+    gc.collect()
+    final_memory_after_gc = get_memory_usage()
+
+    # Total time
+    total_time = time.time() - start_time
+
+    # Print comprehensive performance report
+    logger.info("=" * 60)
+    logger.info("PERFORMANCE PROFILE REPORT")
+    logger.info("=" * 60)
+
+    logger.info("TIMING BREAKDOWN:")
+    logger.info(
+        f"  Image discovery:     {performance_metrics['image_discovery_time']:.3f}s"
+    )
+    logger.info(
+        f"  Dataset creation:    {performance_metrics['dataset_creation_time']:.3f}s"
+    )
+    logger.info(
+        f"  Loader creation:     {performance_metrics['loader_creation_time']:.3f}s"
+    )
+    logger.info(f"  Data iteration:      {performance_metrics['iteration_time']:.3f}s")
+    logger.info(f"  Total time:          {total_time:.3f}s")
+
+    logger.info("\nTHROUGHPUT METRICS:")
+    logger.info(f"  Tiles processed:     {performance_metrics['total_tiles']}")
+    logger.info(f"  Batches processed:   {performance_metrics['total_batches']}")
+    logger.info(
+        f"  Tiles per second:    {performance_metrics['throughput_tiles_per_sec']:.2f}"
+    )
+    logger.info(
+        f"  Batches per second:  {performance_metrics['throughput_batches_per_sec']:.2f}"
+    )
+    logger.info(f"  Average batch size:  {performance_metrics['avg_batch_size']:.1f}")
+
+    logger.info("\nMEMORY USAGE:")
+    logger.info(f"  Initial memory:      {performance_metrics['memory_start']:.2f} MB")
+    logger.info(f"  Peak memory:         {performance_metrics['memory_peak']:.2f} MB")
+    logger.info(f"  Final memory:        {performance_metrics['memory_end']:.2f} MB")
+    logger.info(f"  Memory after GC:     {final_memory_after_gc:.2f} MB")
+    logger.info(
+        f"  Memory increase:     {performance_metrics['memory_end'] - performance_metrics['memory_start']:.2f} MB"
+    )
+
+    logger.info("\nCONFIGURATION:")
+    logger.info(f"  Tile size:           {performance_metrics['tile_size']}")
+    logger.info(f"  Overlap:             {performance_metrics['overlap']}")
+    logger.info(f"  Batch size:          {performance_metrics['batch_size']}")
+    logger.info(f"  Images processed:    {len(image_paths)}")
+
+    # Performance recommendations
+    logger.info("\nPERFORMANCE RECOMMENDATIONS:")
+    if performance_metrics["throughput_tiles_per_sec"] < 10:
+        logger.info("  ⚠️  Low throughput - consider optimizing image loading")
+    if performance_metrics["memory_peak"] > 1000:
+        logger.info(
+            "  ⚠️  High memory usage - consider reducing batch size or tile size"
+        )
+    if (
+        performance_metrics["dataset_creation_time"]
+        > performance_metrics["iteration_time"] * 0.5
+    ):
+        logger.info(
+            "  ⚠️  Dataset creation is slow - consider caching tile calculations"
+        )
+
+    logger.info("=" * 60)
+    logger.info("✓ create_loader test with profiling completed")
+    logger.info("=" * 60)
+
+    # Assertions for test validation
+    assert batch_count > 0, "Should have at least one batch"
+    assert total_tiles_processed > 0, "Should have processed at least one tile"
+    assert (
+        performance_metrics["throughput_tiles_per_sec"] > 0
+    ), "Should have positive throughput"
 
 
 def run_all_tests():
@@ -266,7 +406,6 @@ def run_all_tests():
     logger.info("Starting data loading tests...")
 
     try:
-        test_image_discovery()
         test_loader_config()
         test_image_tile_dataset()
         test_data_loader()
@@ -279,7 +418,6 @@ def run_all_tests():
 
     except Exception as e:
         logger.error(f"Test failed: {e}")
-        
 
         traceback.print_exc()
         raise

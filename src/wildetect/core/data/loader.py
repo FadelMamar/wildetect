@@ -2,273 +2,290 @@
 Data loader for loading images from directories as tiles.
 """
 
-import glob
 import logging
 import os
-import random
 import traceback
-import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
-from torchvision import transforms
+from torchvision.transforms import PILToTensor
 from tqdm import tqdm
 
-from ..config import LoaderConfig
-from .drone_image import DroneImage
-from .tile import Tile
-from .utils import TileUtilsv2, get_images_paths
+from wildetect.core.config import LoaderConfig
+from wildetect.core.data.drone_image import DroneImage
+from wildetect.core.data.tile import Tile
+from wildetect.core.data.utils import TileUtilsv3
 
 logger = logging.getLogger(__name__)
 
 
+def load_images_as_drone_images(
+    image_paths: List[str], flight_specs: Optional[Dict] = None
+) -> List[DroneImage]:
+    """Load images as DroneImage objects."""
+    drone_images = []
+
+    with tqdm(
+        total=len(image_paths), desc="Loading drone images", unit="image"
+    ) as pbar:
+        for image_path in image_paths:
+            try:
+                drone_image = DroneImage.from_image_path(
+                    image_path=image_path, flight_specs=flight_specs
+                )
+                drone_images.append(drone_image)
+            except Exception as e:
+                logger.warning(f"Failed to load {image_path}: {e}")
+            finally:
+                pbar.update(1)
+
+    logger.info(
+        f"Loaded {len(drone_images)} drone images from {len(image_paths)} paths"
+    )
+    return drone_images
+
+
+def create_drone_image_loader(
+    image_paths: List[str], config: Optional[LoaderConfig] = None
+) -> "DataLoader":
+    """Create a DataLoader for drone images."""
+    if config is None:
+        config = LoaderConfig()
+
+    return DataLoader(image_paths=image_paths, config=config)
+
+
 class TileDataset(Dataset):
-    """Dataset for loading images as tiles."""
+    """Dataset for handling image tiling with optimized dimension-based offset calculation."""
 
     def __init__(
         self,
+        image_paths: List[str],
         config: LoaderConfig,
-        image_paths: Optional[List[str]] = None,
-        image_dir: Optional[str] = None,
     ):
-        """Initialize the dataset.
-
-        Args:
-            config (LoaderConfig): Loader configuration.
-            image_paths (Optional[List[str]]): List of image paths. If None, will use image_dir.
-            image_dir (Optional[str]): Directory containing images. Used if image_paths is None.
-        """
+        """Initialize the dataset with dimension-based optimization."""
+        self.image_paths = image_paths
         self.config = config
+        self.pil_to_tensor = PILToTensor()
 
-        # Handle image paths - prioritize image_paths over image_dir
-        if image_paths:
-            self.image_paths = image_paths
-        elif image_dir:
-            self.image_paths = get_images_paths(image_dir)
-        else:
-            raise ValueError("Either image_paths or image_dir must be provided")
+        # Dimension cache: maps image_path -> (width, height) or None
+        self.dimension_cache: Dict[str, Optional[Tuple[int, int]]] = {}
 
-        self.pil_to_tensor = transforms.PILToTensor()
+        # Offset cache: maps (width, height) -> offset_info
+        self.offset_cache: Dict[Tuple[int, int], Dict] = {}
 
-        self.tiles = self._create_tiles()
+        # Group images by dimensions for efficient processing
+        self.dimension_groups: Dict[Tuple[int, int], List[str]] = {}
 
-        logger.info(
-            f"Created dataset with {len(self.tiles)} tiles from {len(self.image_paths)} images"
-        )
+        # Image cache for actual pixel data (only loaded when needed)
+        self.image_cache: Dict[str, Optional[torch.Tensor]] = {}
 
-        self.loaded_tiles: dict[str, np.ndarray] = dict()
+        # Create tiles using dimension-based approach
+        self.tiles = self._create_tiles_optimized()
 
-    def _create_tiles_for_one_image(self, image_path: str) -> Optional[List[Tile]]:
-        if not self._validate_tile_parameters(image_path):
-            logger.warning(f"Skipping {image_path}: invalid tile parameters")
+    def _get_image_dimensions(self, image_path: str) -> Optional[Tuple[int, int]]:
+        """Get image dimensions using the fastest possible method."""
+        if image_path in self.dimension_cache:
+            return self.dimension_cache[image_path]
+
+        try:
+            # Use PIL with minimal processing - this is already very fast
+            # as it only reads the header, not the pixel data
+            with Image.open(image_path) as img:
+                width, height = img.size
+                self.dimension_cache[image_path] = (width, height)
+                return (width, height)
+        except Exception as e:
+            logger.warning(f"Failed to get dimensions for {image_path}: {e}")
+            self.dimension_cache[image_path] = None
             return None
 
-        # Get expected tile count for logging
-        expected_count = self._get_expected_tile_count(image_path)
-        logger.debug(f"Expected {expected_count} tiles for {image_path}")
+    def _calculate_offsets_for_dimension(
+        self, width: int, height: int
+    ) -> Optional[Dict]:
+        """Calculate tile offsets for a given dimension, using cache if available."""
+        dimension_key = (width, height)
 
-        # Create base tile
-        drone_image = DroneImage.from_image_path(
-            image_path=image_path, flight_specs=self.config.flight_specs
-        )
-
-        # Extract sub-tiles if image is large enough
-        if (
-            drone_image.width is not None and drone_image.width > self.config.tile_size
-        ) or (
-            drone_image.height is not None
-            and drone_image.height > self.config.tile_size
-        ):
-            sub_tiles = self._extract_sub_tiles(drone_image)
-            # tiles.extend(sub_tiles)
-            logger.debug(f"Created {len(sub_tiles)} sub-tiles from {image_path}")
-            return sub_tiles
-        else:
-            # Use the original image as a single tile
-            # tiles.append(drone_image)
-            logger.debug(f"Using original image as single tile for {image_path}")
-            return [drone_image]
-
-    def _create_tiles(self) -> List[Tile]:
-        """Create drone images from all images."""
-        tiles = []
-        with tqdm(
-            total=len(self.image_paths), desc="Creating tiles", unit="image"
-        ) as pbar:
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                futures = [
-                    executor.submit(self._create_tiles_for_one_image, image_path)
-                    for image_path in self.image_paths
-                ]
-                for future in as_completed(futures):
-                    sub_tiles = future.result()
-                    if isinstance(sub_tiles, list):
-                        tiles.extend(sub_tiles)
-                    pbar.update(1)
-
-        logger.info(
-            f"Created {len(tiles)} total tiles from {len(self.image_paths)} drone images"
-        )
-        return tiles
-
-    def _extract_sub_tiles(self, base_tile: DroneImage) -> List[Tile]:
-        """Extract sub-tiles from a large image using the TileUtils class."""
-        sub_tiles = []
+        if dimension_key in self.offset_cache:
+            return self.offset_cache[dimension_key]
 
         try:
-            # Load image data and convert to tensor
-            # image = base_tile.load_image_data()
-            width, height = base_tile.width, base_tile.height
-            if width is None or height is None:
-                raise ValueError(f"Width or height is None for {base_tile.image_path}")
-
-            # image = image.convert("RGB")
-
-            # Convert to tensor
-            # image_tensor = self.pil_to_tensor(image)
-
-            # Calculate stride based on overlap
+            # Calculate stride
             stride = int(self.config.tile_size * (1 - self.config.overlap))
 
-            # Use TileUtils to extract patches and offset information
-            _, offset_info = TileUtilsv2.get_patches_and_offset_info(
-                image=torch.zeros(3, height, width),
+            # Use TileUtilsv3 to get offset info without loading image
+            offset_info = TileUtilsv3.get_patches_and_offset_info_only(
+                width=width,
+                height=height,
                 patch_size=self.config.tile_size,
                 stride=stride,
-                channels=3,
-                file_name=str(base_tile.image_path),
-                pad_image=True
             )
 
-            # Convert patches tensor to individual PIL images and create tiles
-            for i in range(len(offset_info["x_offset"])):
-                # Create sub-tile
-                sub_tile = Tile(
-                    image_data=None,
-                    image_path=str(base_tile.image_path),
-                    flight_specs=self.config.flight_specs,
-                    tile_gps_loc=None,
-                    latitude=None,
-                    longitude=None,
-                    altitude=None,
-                    gsd=base_tile.gsd,
-                    parent_image=base_tile.image_path,
+            self.offset_cache[dimension_key] = offset_info
+            return offset_info
+
+        except Exception as e:
+            logger.warning(f"Failed to calculate offsets for {width}x{height}: {e}")
+            return None
+
+    def _create_tiles_optimized(self) -> List[Dict]:
+        """Create tiles using dimension-based optimization."""
+
+        # Ultra-fast dimension collection
+        for i, image_path in enumerate(self.image_paths):
+            dimensions = self._get_image_dimensions(image_path)
+            if dimensions:
+                width, height = dimensions
+                if (width, height) not in self.dimension_groups:
+                    self.dimension_groups[(width, height)] = []
+                self.dimension_groups[(width, height)].append(image_path)
+            else:
+                logger.warning(f"Failed to get dimensions for {image_path}")
+
+        # Second pass: create tiles for each dimension group (optimized)
+        tiles = []
+        for (width, height), image_paths in self.dimension_groups.items():
+            # Calculate offsets once for this dimension
+            offset_info = self._calculate_offsets_for_dimension(width, height)
+            if not offset_info:
+                logger.warning(
+                    f"Skipping dimension {width}x{height}: failed to calculate offsets"
+                )
+                continue
+
+            # Create tiles for all images with this dimension (optimized)
+            for image_path in image_paths:
+                try:
+                    # Create tiles directly without DroneImage object
+                    sub_tiles = self._create_tiles_for_image_path(
+                        image_path, width, height, offset_info
+                    )
+                    if sub_tiles:
+                        tiles.extend(sub_tiles)
+                    else:
+                        logger.warning(f"No tiles created for {image_path}")
+
+                except Exception as e:
+                    logger.error(f"Failed to create tiles for {image_path}: {e}")
+                    import traceback
+
+                    traceback.print_exc()
+
+        logger.info(f"Created {len(tiles)} total tiles")
+        return tiles
+
+    def _create_tiles_for_image_path(
+        self, image_path: str, width: int, height: int, offset_info: Dict
+    ) -> List[Dict]:
+        """Create tiles for an image path using pre-calculated offset information."""
+        # Get offset lists
+        x_offsets = offset_info.get("x_offset", [])
+        y_offsets = offset_info.get("y_offset", [])
+
+        if not x_offsets or not y_offsets:
+            logger.warning(f"No offsets found for dimension {width}x{height}")
+            return []
+
+        # Create tiles using list comprehension for efficiency
+        tiles = [
+            {
+                "image_path": image_path,
+                "x_offset": x_offset,
+                "y_offset": y_offset,
+                "width": self.config.tile_size,
+                "height": self.config.tile_size,
+                "flight_specs": self.config.flight_specs,
+            }
+            for x_offset, y_offset in zip(x_offsets, y_offsets)
+        ]
+
+        return tiles
+
+    def _load_image_lazy(self, image_path: str) -> Optional[torch.Tensor]:
+        """Load image data only when needed."""
+        if image_path in self.image_cache:
+            return self.image_cache[image_path]
+
+        try:
+            with Image.open(image_path) as img:
+                # Convert to RGB and then to tensor
+                image_tensor = self.pil_to_tensor(img.convert("RGB"))
+
+                # Calculate stride for padding
+                stride = int(self.config.tile_size * (1 - self.config.overlap))
+
+                # Pad image to patch size
+                padded_image = TileUtilsv3.pad_image_to_patch_size(
+                    image_tensor, self.config.tile_size, stride
                 )
 
-                # Set offsets after creation
-                sub_tile.set_offsets(
-                    offset_info["x_offset"][i], offset_info["y_offset"][i]
-                )
-
-                sub_tiles.append(sub_tile)
+                self.image_cache[image_path] = padded_image
+                return padded_image
 
         except Exception as e:
-            # logger.warning(f"Failed to extract patches using TileUtils: {e}")
-            traceback.print_exc()
-            raise Exception(f"Failed to extract patches using TileUtils")
-
-        return sub_tiles
-
-    def _validate_tile_parameters(self, image_path: str) -> bool:
-        """Validate tile parameters for an image.
-
-        Args:
-            image_path (str): Path to the image to validate.
-
-        Returns:
-            bool: True if parameters are valid for tiling.
-        """
-        try:
-            # Load image to get dimensions
-            with Image.open(image_path) as img:
-                width, height = img.size
-
-            # Validate parameters using TileUtils
-            return TileUtilsv2.validate_patch_parameters(
-                image_shape=(3, height, width),  # Assume RGB
-                patch_size=self.config.tile_size,
-                stride=int(self.config.tile_size * (1 - self.config.overlap)),
-            )
-
-        except Exception as e:
-            logger.warning(f"Failed to validate tile parameters for {image_path}: {e}")
-            return False
-
-    def _get_expected_tile_count(self, image_path: str) -> int:
-        """Get the expected number of tiles for an image.
-
-        Args:
-            image_path (str): Path to the image.
-
-        Returns:
-            int: Expected number of tiles.
-        """
-        try:
-            with Image.open(image_path) as img:
-                width, height = img.size
-
-            stride = int(self.config.tile_size * (1 - self.config.overlap))
-            return TileUtilsv2.get_patch_count(
-                height, width, self.config.tile_size, stride
-            )
-
-        except Exception as e:
-            logger.warning(f"Failed to calculate tile count for {image_path}: {e}")
-            raise Exception(f"Failed to calculate tile count for {image_path}")
+            logger.warning(f"Failed to load {image_path}: {e}")
+            self.image_cache[image_path] = None
+            return None
 
     def __len__(self) -> int:
+        """Return the number of tiles."""
         return len(self.tiles)
 
-    def _load_patch(self, tile: Tile) -> torch.Tensor:
-        """Load a patch from an image."""
-        stride = int(self.config.tile_size * (1 - self.config.overlap))
-
-        if tile.image_path not in self.loaded_tiles.keys():
-            with Image.open(tile.image_path) as img:
-                image = self.pil_to_tensor(img.convert("RGB"))
-                image = TileUtilsv2.pad_image_to_patch_size(
-                    image, self.config.tile_size, stride
-                )
-                self.loaded_tiles[tile.image_path] = image
-        else:
-            image = self.loaded_tiles[tile.image_path]
-
-        y1 = tile.y_offset
-        y2 = tile.y_offset + self.config.tile_size
-        x1 = tile.x_offset
-        x2 = tile.x_offset + self.config.tile_size
-        image = image[:, y1:y2, x1:x2]
-
-        return image
-
-    def __getitem__(self, idx: int) -> Dict[str, Any]:
+    def __getitem__(self, idx: int) -> Dict:
         """Get a tile at the specified index."""
+        if idx >= len(self.tiles):
+            raise IndexError(
+                f"Index {idx} out of range for dataset of size {len(self.tiles)}"
+            )
+
         tile = self.tiles[idx]
-        patch = self._load_patch(tile)
-        patch = patch.float() / 255.0
-        return {
-            "tile": tile,
-            "image": patch,
-            "image_path": tile.image_path,
-            "tile_id": tile.id,
-            "width": tile.width,
-            "height": tile.height,
-            "x_offset": tile.x_offset,
-            "y_offset": tile.y_offset,
-            "parent_image": tile.parent_image,
-            "gps_loc": tile.tile_gps_loc,
-            "geographic_footprint": tile.geographic_footprint,
-        }
+
+        # Load image data only when needed
+        image_data = self._load_image_lazy(tile["image_path"])
+        if image_data is None:
+            raise ValueError(f"Failed to load image data for {tile['image_path']}")
+
+        # Extract the specific tile region
+        y1 = tile["y_offset"]
+        y2 = tile["y_offset"] + self.config.tile_size
+        x1 = tile["x_offset"]
+        x2 = tile["x_offset"] + self.config.tile_size
+
+        try:
+            # Handle different tensor shapes
+            if len(image_data.shape) == 3:
+                # 3D tensor (C, H, W) - standard format
+                patch = image_data[:, y1:y2, x1:x2]
+            elif len(image_data.shape) == 2:
+                # 2D tensor (H, W) - need to add channel dimension
+                patch = image_data[y1:y2, x1:x2].unsqueeze(0)
+            else:
+                logger.error(f"Unexpected tensor shape: {image_data.shape}")
+                raise ValueError(f"Unexpected tensor shape: {image_data.shape}")
+
+            # Return dictionary with tile information
+            return {
+                "tile_id": f"{tile['image_path']}_{idx}",
+                "image": patch,
+                "x_offset": tile["x_offset"],
+                "y_offset": tile["y_offset"],
+                "width": tile["width"],
+                "height": tile["height"],
+                "image_path": tile["image_path"],
+                "flight_specs": tile.get("flight_specs"),
+            }
+
+        except Exception as e:
+            logger.error(f"Error during tensor indexing: {e}")
+            logger.error(f"Tensor shape: {image_data.shape}")
+            logger.error(f"Indices: y1={y1}, y2={y2}, x1={x1}, x2={x2}")
+            raise
 
 
 class DataLoader:
-    """Data loader for loading images as tiles."""
+    """DataLoader for handling image tiling with optimized performance."""
 
     def __init__(
         self,
@@ -276,207 +293,70 @@ class DataLoader:
         image_dir: Optional[str] = None,
         config: Optional[LoaderConfig] = None,
     ):
-        """Initialize the data loader.
-
-        Args:
-            image_paths: List of image paths
-            image_dir: Optional directory containing images
-            config: Loader configuration
-        """
+        """Initialize the DataLoader."""
         if config is None:
-            raise ValueError("LoaderConfig must be provided")
+            config = LoaderConfig()
 
-        self.config = config
-        self.dataset = TileDataset(config, image_paths=image_paths, image_dir=image_dir)
+        if image_paths is None and image_dir is None:
+            raise ValueError("Either image_paths or image_dir must be provided")
 
-        # Create PyTorch DataLoader
+        if image_paths is None:
+            if image_dir is None:
+                raise ValueError("image_dir cannot be None when image_paths is None")
+            image_paths = self._get_image_paths(image_dir)
+
+        self.dataset = TileDataset(image_paths=image_paths, config=config)
+
+        # Create PyTorch DataLoader with Windows-optimized settings
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=config.batch_size,
             shuffle=False,
-            num_workers=0,
+            num_workers=0,  # Keep at 0 for Windows compatibility
             collate_fn=self._collate_fn,
+            pin_memory=False,  # Disable pin_memory for better Windows performance
+            persistent_workers=False,  # Disable for Windows compatibility
         )
 
-        logger.info(f"Created DataLoader with {len(self.dataset)} tiles")
+    def _get_image_paths(self, image_dir: str) -> List[str]:
+        """Get image paths from directory."""
+        if not os.path.exists(image_dir):
+            raise ValueError(f"Image directory {image_dir} does not exist")
 
-    def _collate_fn(self, batch: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Custom collate function for batching."""
-        # Separate tensors and other data
-        images = torch.stack([item["image"] for item in batch])
-        tiles = [item["tile"] for item in batch]
+        image_extensions = (".jpg", ".jpeg", ".png", ".tiff", ".bmp")
+        image_paths = []
 
-        # Create batch dictionary
-        batch_dict = {
-            "images": images,
-            "tiles": tiles,
-            "image_paths": [item["image_path"] for item in batch],
-            "tile_ids": [item["tile_id"] for item in batch],
-            "widths": [item["width"] for item in batch],
-            "heights": [item["height"] for item in batch],
-            "x_offsets": [item["x_offset"] for item in batch],
-            "y_offsets": [item["y_offset"] for item in batch],
-            "parent_images": [item["parent_image"] for item in batch],
-            "gps_locs": [item["gps_loc"] for item in batch],
-            "geographic_footprints": [item["geographic_footprint"] for item in batch],
+        for root, dirs, files in os.walk(image_dir):
+            for file in files:
+                if file.lower().endswith(image_extensions):
+                    image_paths.append(os.path.join(root, file))
+
+        if not image_paths:
+            raise ValueError(f"No image files found in {image_dir}")
+
+        logger.info(f"Found {len(image_paths)} images in {image_dir}")
+        return image_paths
+
+    def _collate_fn(self, batch: List[Dict]) -> Dict:
+        """Custom collate function to handle variable-sized batches."""
+        # Extract images from batch
+        images = [item["image"] for item in batch]
+        # Stack images into a single tensor
+        stacked_images = torch.stack(images)
+
+        # Create a new batch dictionary
+        collated_batch = {
+            "tiles": batch,  # Keep the original batch items
+            "images": stacked_images,  # Stacked image tensor
+            "batch_size": len(batch),
         }
 
-        return batch_dict
-
-    def __iter__(self) -> Iterator[Dict[str, Any]]:
-        """Iterate over batches."""
-        return iter(self.dataloader)
+        return collated_batch
 
     def __len__(self) -> int:
+        """Return the number of batches."""
         return len(self.dataloader)
 
-    def get_tile_by_id(self, tile_id: str) -> Optional[Tile]:
-        """Get a specific tile by ID."""
-        for tile in self.dataset.tiles:
-            if tile.id == tile_id:
-                return tile
-        return None
-
-    def get_tiles_by_image(self, image_path: str) -> List[Tile]:
-        """Get all tiles from a specific image."""
-        return [tile for tile in self.dataset.tiles if tile.parent_image == image_path]
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get dataset statistics."""
-        total_images = len(self.dataset.image_paths)
-        total_tiles = len(self.dataset.tiles)
-
-        # Calculate size statistics
-        widths = [tile.width for tile in self.dataset.tiles if tile.width is not None]
-        heights = [
-            tile.height for tile in self.dataset.tiles if tile.height is not None
-        ]
-
-        # GPS statistics
-        gps_tiles = [
-            tile for tile in self.dataset.tiles if tile.tile_gps_loc is not None
-        ]
-        gps_coverage = len(gps_tiles) / total_tiles if total_tiles > 0 else 0
-
-        return {
-            "total_images": total_images,
-            "total_tiles": total_tiles,
-            "avg_tiles_per_image": total_tiles / total_images
-            if total_images > 0
-            else 0,
-            "width_stats": {
-                "min": min(widths) if widths else 0,
-                "max": max(widths) if widths else 0,
-                "mean": sum(widths) / len(widths) if widths else 0,
-            },
-            "height_stats": {
-                "min": min(heights) if heights else 0,
-                "max": max(heights) if heights else 0,
-                "mean": sum(heights) / len(heights) if heights else 0,
-            },
-            "gps_coverage": gps_coverage,
-            "gps_tiles": len(gps_tiles),
-        }
-
-    def create_drone_images(self) -> List[DroneImage]:
-        """Create DroneImage objects from the loaded tiles.
-
-        Returns:
-            List[DroneImage]: List of DroneImage objects
-        """
-        drone_images: Dict[str, DroneImage] = {}
-
-        # Group tiles by parent image
-        for tile in self.dataset.tiles:
-            parent_image = tile.parent_image or tile.image_path
-
-            if parent_image not in drone_images:
-                # Create new DroneImage
-                drone_image = DroneImage.from_image_path(
-                    image_path=parent_image, flight_specs=self.config.flight_specs
-                )
-                drone_images[parent_image] = drone_image
-
-            # Add tile to drone image with its offset
-            x_offset = tile.x_offset or 0
-            y_offset = tile.y_offset or 0
-            drone_images[parent_image].add_tile(tile, x_offset, y_offset)
-
-        return list(drone_images.values())
-
-    def get_drone_image_by_path(self, image_path: str) -> Union[DroneImage, None]:
-        """Get a specific DroneImage by image path.
-
-        Args:
-            image_path (str): Path to the image
-
-        Returns:
-            Optional[DroneImage]: DroneImage object or None if not found
-        """
-        drone_images = self.create_drone_images()
-        for drone_image in drone_images:
-            if drone_image.image_path == image_path:
-                return drone_image
-        return None
-
-
-def load_images_as_drone_images(
-    config: LoaderConfig,
-    image_paths: List[str],
-    image_dir: Optional[str] = None,
-    max_images: Optional[int] = None,
-    shuffle: bool = False,
-) -> List[DroneImage]:
-    """Load images as DroneImage objects.
-
-    Args:
-        image_dir (str): Directory containing images.
-        tile_size (int): Size of tiles to extract.
-        overlap (float): Overlap ratio between tiles.
-        max_images (Optional[int]): Maximum number of images to load.
-        shuffle (bool): Whether to shuffle the drone images.
-        **kwargs: Additional configuration options.
-
-    Returns:
-        List[DroneImage]: List of DroneImage objects.
-    """
-
-    if image_dir is not None:
-        image_paths = get_images_paths(image_dir)
-
-    drone_image_list = [
-        DroneImage.from_image_path(
-            image_path=image_path, flight_specs=config.flight_specs
-        )
-        for image_path in image_paths
-    ]
-
-    # Limit number of images if specified
-    if max_images and len(drone_image_list) > max_images:
-        drone_image_list = random.sample(drone_image_list, max_images)
-
-    # Shuffle if requested
-    if shuffle:
-        random.shuffle(drone_image_list)
-
-    return drone_image_list
-
-
-def create_drone_image_loader(
-    config: LoaderConfig,
-    image_paths: List[str],
-    image_dir: Optional[str] = None,
-) -> DataLoader:
-    """Create a data loader that returns DroneImage objects.
-
-    Args:
-        image_dir (str): Directory containing images.
-        tile_size (int): Size of tiles to extract.
-        overlap (float): Overlap ratio between tiles.
-        batch_size (int): Batch size for loading.
-        **kwargs: Additional configuration options.
-
-    Returns:
-        DataLoader: Configured data loader for DroneImage objects.
-    """
-    return DataLoader(image_paths=image_paths, image_dir=image_dir, config=config)
+    def __iter__(self):
+        """Iterate over batches."""
+        return iter(self.dataloader)

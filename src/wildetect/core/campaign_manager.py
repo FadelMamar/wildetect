@@ -13,11 +13,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from .config import LoaderConfig, PredictionConfig, ROOT
+from .config import ROOT, LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
 from .data.detection import Detection
 from .data.drone_image import DroneImage
-from .detection_pipeline import DetectionPipeline
+from .detection_pipeline import DetectionPipeline, MultiThreadedDetectionPipeline
 from .flight.flight_analyzer import FlightEfficiency, FlightPath
 from .visualization.fiftyone_manager import FiftyOneManager
 from .visualization.geographic import GeographicVisualizer, VisualizationConfig
@@ -65,9 +65,21 @@ class CampaignManager:
             metadata=config.metadata or {},
         )
 
-        self.detection_pipeline = DetectionPipeline(
-            config=config.prediction_config, loader_config=config.loader_config
-        )
+        # Choose pipeline type based on configuration
+        if config.prediction_config.pipeline_type == "multi":
+            self.detection_pipeline = MultiThreadedDetectionPipeline(
+                config=config.prediction_config,
+                loader_config=config.loader_config,
+                queue_size=config.prediction_config.queue_size,
+            )
+        elif config.prediction_config.pipeline_type == "single":
+            self.detection_pipeline = DetectionPipeline(
+                config=config.prediction_config, loader_config=config.loader_config
+            )
+        else:
+            raise ValueError(
+                f"Invalid pipeline type: {config.prediction_config.pipeline_type}"
+            )
 
         # Optional components
         self.fiftyone_manager = None

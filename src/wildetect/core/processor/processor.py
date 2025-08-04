@@ -11,7 +11,7 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 from transformers import AutoImageProcessor, AutoModel
-import traceback
+
 from ..data.detection import Detection
 
 
@@ -149,14 +149,13 @@ class Classifier(Processor):
     def __init__(
         self,
         label_map: Dict[int, str],
-        model_path: Optional[str]=None,
-        model: Optional[torch.nn.Module]=None,
+        model_path: Optional[str] = None,
+        model: Optional[torch.nn.Module] = None,
         feature_extractor_path: Optional[str] = None,
         transform: Optional[A.Compose] = None,
         device: str = "cpu",
     ):
-        """Initialize the classifier.
-        """
+        """Initialize the classifier."""
         super().__init__()
 
         if not isinstance(label_map, dict):
@@ -174,6 +173,9 @@ class Classifier(Processor):
         self.label_map = label_map
         if feature_extractor_path:
             self.feature_extractor = FeatureExtractor(feature_extractor_path)
+            self.logger.info(
+                f"Feature extractor path provided: {feature_extractor_path}"
+            )
         else:
             self.feature_extractor = None
             self.logger.info(f"No feature extractor path provided")
@@ -189,7 +191,9 @@ class Classifier(Processor):
         # Setup transform
         self.transform = transform
 
-        self.logger.info(f"Classifier initialized with {len(label_map)} classes on {device}")
+        self.logger.info(
+            f"Classifier initialized with {len(label_map)} classes on {device}"
+        )
 
     def _pil_to_numpy(self, image: Image.Image) -> np.ndarray:
         """Convert a PIL Image to a numpy array.
@@ -273,7 +277,7 @@ class RoIPostProcessor(Processor):
     def __init__(
         self,
         label_map: Dict[int, str],
-        model_path: Optional[str]=None,
+        model_path: Optional[str] = None,
         feature_extractor_path: Optional[str] = None,
         roi_size: int = 96,
         transform: Optional[A.Compose] = None,
@@ -291,7 +295,9 @@ class RoIPostProcessor(Processor):
         self.box_size = roi_size
 
         if classifier:
-            assert isinstance(classifier, Classifier), "classifier must be a Classifier instance"
+            assert isinstance(
+                classifier, Classifier
+            ), "classifier must be a Classifier instance"
             self.classifier = classifier
             self.logger.info(f"ROI Classifier initialized with classifier")
         else:

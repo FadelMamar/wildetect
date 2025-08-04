@@ -6,7 +6,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Literal, Optional, Sequence, Tuple, Union
 
 import albumentations as A
 import torch
@@ -64,6 +64,10 @@ class PredictionConfig:
     # inference service
     inference_service_url: Optional[str] = None
 
+    # Pipeline configuration
+    pipeline_type: Literal["single", "multi"] = "single"
+    queue_size: int = 3  # Queue size for multi-threaded pipeline
+
     def __post_init__(self):
         """Validate that required attributes are not None after initialization."""
         for a in [
@@ -83,14 +87,15 @@ class PredictionConfig:
             model_path = os.environ.get("WILDETECT_MODEL_PATH", None)
             if model_path:
                 if Path(model_path).exists():
-                    self.model_path = os.environ.get("WILDETECT_MODEL_PATH")
-                elif os.environ.get("MLFLOW_DETECTOR_NAME", None) and os.environ.get("MLFLOW_DETECTOR_ALIAS", None):
+                    self.model_path = model_path
+                elif os.environ.get("MLFLOW_DETECTOR_NAME", None) and os.environ.get(
+                    "MLFLOW_DETECTOR_ALIAS", None
+                ):
                     pass
                 else:
                     logger.warning(
                         "Model path not found in environment variables or config file."
                     )
-
         else:
             self.model_path = str(Path(self.model_path).resolve())
 
@@ -99,7 +104,9 @@ class PredictionConfig:
             if roi_weights:
                 if Path(roi_weights).exists():
                     self.roi_weights = roi_weights
-            elif os.environ.get("MLFLOW_ROI_NAME", None) and os.environ.get("MLFLOW_ROI_ALIAS", None):
+            elif os.environ.get("MLFLOW_ROI_NAME", None) and os.environ.get(
+                "MLFLOW_ROI_ALIAS", None
+            ):
                 pass
             else:
                 logger.warning(
@@ -157,6 +164,25 @@ class PredictionConfig:
 
         # Convert YAML data to dataclass instance
         return cls(**config_data)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Save the configuration to a YAML file."""
+        vars_dict = vars(self)
+        vars_dict["flight_specs"] = vars(self.flight_specs)
+        return vars_dict
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PredictionConfig":
+        flight_specs = data.pop("flight_specs")
+        if isinstance(flight_specs, dict):
+            flight_specs = FlightSpecs(**flight_specs)
+        elif isinstance(flight_specs, FlightSpecs):
+            pass
+        else:
+            raise ValueError(f"Invalid flight specs type: {type(flight_specs)}")
+
+        data["flight_specs"] = flight_specs
+        return cls(**data)
 
 
 @dataclass
