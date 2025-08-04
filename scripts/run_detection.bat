@@ -4,11 +4,10 @@ call .venv\Scripts\activate
 @REM --roi-weights "D:\PhD\workspace\wildetect\models\classifier\2\artifacts\best.ckpt-v6.torchscript"^
 @REM --inference-service-url "http://localhost:4141/predict"^
 
-call wildetect detect "D:\workspace\data\savmap_dataset_v2\raw\images"^
+call wildetect detect "D:\workspace\data\savmap_dataset_v2\raw\tmp"^
   --model "D:\workspace\repos\wildetect\weights\best.pt"^
   --output "results"^
   --device "auto"^
-  --inference-service-url "http://localhost:4141/predict"^
   --pipeline-type "single" --queue-size 10 ^
   --overlap-ratio 0.2^
   --batch-size 32^
