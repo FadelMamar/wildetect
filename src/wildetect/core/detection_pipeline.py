@@ -16,8 +16,7 @@ import torch
 from tqdm import tqdm
 
 from .config import LoaderConfig, PredictionConfig
-from .data.detection import Detection
-from .data.drone_image import DroneImage
+from .data import Detection, DroneImage, Tile
 from .data.loader import DataLoader
 from .detectors.object_detection_system import ObjectDetectionSystem
 
@@ -158,7 +157,7 @@ class DetectionPipeline(object):
         if self.detection_system is None:
             raise ValueError("Detection system not initialized")
         detections = self.detection_system.predict(
-            batch["images"], local=self.config.inference_service_url is None
+            batch.pop("images"), local=self.config.inference_service_url is None
         )
         if progress_bar:
             progress_bar.update(len(batch["tiles"]))
@@ -189,16 +188,23 @@ class DetectionPipeline(object):
         for batch in tqdm(batches, desc="Postprocessing batches"):
             # Handle missing detections key
             detections = batch.get("detections", [])
-            for tile, tile_detections in zip(batch["tiles"], detections):
-                parent_image = tile.parent_image or tile.image_path
+            for tile_data, tile_detections in zip(batch["tiles"], detections):
+                # print(tile_data)
+                tile = Tile.from_dict(tile_data)
+                # print(tile)
+                assert (
+                    tile.parent_image is not None
+                ), "Parent image is None. Error in dataloader."
 
                 # Create or get drone image for this parent
-                if parent_image not in drone_images:
+                if tile.parent_image not in drone_images:
                     drone_image = DroneImage.from_image_path(
-                        image_path=parent_image,
+                        image_path=tile.parent_image,
                         flight_specs=self.loader_config.flight_specs,
                     )
-                    drone_images[parent_image] = drone_image
+                    drone_images[tile.parent_image] = drone_image
+
+                    logger.info(f"Created drone image {drone_image}")
 
                 # Set detections on the tile
                 if tile_detections:
@@ -209,7 +215,7 @@ class DetectionPipeline(object):
 
                 # Add tile to drone image with its offset
                 offset = (tile.x_offset or 0, tile.y_offset or 0)
-                drone_images[parent_image].add_tile(tile, offset[0], offset[1])
+                drone_images[tile.parent_image].add_tile(tile, offset[0], offset[1])
 
         # Update detections
         for drone_image in drone_images.values():

@@ -119,10 +119,10 @@ class PredictionConfig:
             else:
                 self.roi_weights = str(Path(self.roi_weights).resolve())
 
-        if self.inference_service_url is None:
-            self.inference_service_url = os.environ.get(
-                "WILDETECT_INFERENCE_SERVICE_URL"
-            )
+        # if self.inference_service_url is None:
+        #    self.inference_service_url = os.environ.get(
+        #        "WILDETECT_INFERENCE_SERVICE_URL", None
+        #    )
 
     @classmethod
     def from_yaml(

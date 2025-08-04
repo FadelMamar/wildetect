@@ -1,14 +1,17 @@
 call cd /d "%~dp0" && cd ..
-@REM call .venv\Scripts\activate
-@REM "D:\PhD\Data per camp\Dry season\Kapiri\Farm\DJI_202310040946_001_KapiriFarm1"
-@REM --roi-weights "D:\PhD\workspace\wildetect\models\classifier\2\artifacts\best.ckpt-v6.torchscript"^
-@REM "D:\PhD\workspace\wildetect\models\labeler\9\artifacts\best.pt"
-@REM --inference-service-url "http://localhost:4141/predict"^
 
-call uv run wildetect detect "D:\PhD\Data per camp\Dry season\Kapiri\Farm\DJI_202310040946_001_KapiriFarm1"^
-  --model "D:\PhD\workspace\wildetect\models\labeler\9\artifacts\best.pt"^
-  --roi-weights "D:\PhD\workspace\wildetect\models\classifier\2\artifacts\best.ckpt-v6.torchscript"^
-  --device "auto"^ 
+
+call set "model_path=D:\PhD\workspace\wildetect\models\labeler\9\artifacts\best.pt"
+call set "roi_weights_path=D:\PhD\workspace\wildetect\models\classifier\2\artifacts\best.ckpt-v6.torchscript"
+@REM call set "inference_service_url=http://localhost:4141/predict"
+call set "IMAGE_DIR=D:\PhD\Data per camp\Dry season\Kapiri\Farm\DJI_202310040946_001_KapiriFarm1"
+@REM --inference-service-url %inference_service_url%^
+
+call wildetect detect %IMAGE_DIR%^
+  --model %model_path%^
+  --output "results"^
+  --device "auto"^
+  --roi-weights %roi_weights_path%^
   --pipeline-type "single" --queue-size 10 ^
   --overlap-ratio 0.2^
   --batch-size 32^

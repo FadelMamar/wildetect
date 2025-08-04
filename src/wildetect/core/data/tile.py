@@ -1,4 +1,5 @@
 import logging
+import traceback
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Tuple
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 class Tile:
     """Class representing an image tile."""
 
-    image_path: str
+    image_path: Optional[str] = None
     image_data: Optional[Image.Image] = None
 
     id: Optional[str] = None
@@ -64,7 +65,7 @@ class Tile:
             except:
                 pass
 
-        if self.image_path:
+        elif self.image_path:
             try:
                 self.timestamp = Image.open(self.image_path)._getexif()[36867]
             except:
@@ -77,38 +78,45 @@ class Tile:
             else:
                 self.width, self.height = self.image_data.size
 
-        self._extract_gps_coords()
-        exif = self._extract_exif()
+        # GPS operations >>>>>
+        if self.image_path is None and self.image_data is None:
+            return None
 
-        if self.flight_specs is None:
-            logger.warning("Flight specs are not provided.")
-            return
-        elif isinstance(self.flight_specs, FlightSpecs):
-            pass
-        else:
-            raise ValueError(
-                f"Flight specs is either None or not a 'FlightSpecs' object. Found {type(self.flight_specs)}"
-            )
-
-        sensor_height = self.flight_specs.sensor_height
-        if sensor_height is None:
-            sensor_height = GPSUtils.SENSOR_HEIGHTS.get(exif["Model"])
-            if sensor_height is None:
-                logger.debug("Sensor height not found. Please provide it.")
-
-        # self.gsd = self.flight_specs.gsd
-        if self.flight_specs is not None:
-            self.gsd = get_gsd(
-                image_path=self.image_path,
-                image=self.image_data,
-                flight_specs=self.flight_specs,
-            )
         try:
-            self._set_geographic_footprint()
+            self._extract_gps_coords()
+            exif = self._extract_exif()
+
+            if self.flight_specs is None:
+                logger.warning("Flight specs are not provided.")
+                return
+            elif isinstance(self.flight_specs, FlightSpecs):
+                pass
+            else:
+                raise ValueError(
+                    f"Flight specs is either None or not a 'FlightSpecs' object. Found {type(self.flight_specs)}"
+                )
+
+            sensor_height = self.flight_specs.sensor_height
+            if sensor_height is None:
+                sensor_height = GPSUtils.SENSOR_HEIGHTS.get(exif["Model"])
+                if sensor_height is None:
+                    logger.debug("Sensor height not found. Please provide it.")
+
+            # self.gsd = self.flight_specs.gsd
+            if self.flight_specs is not None:
+                self.gsd = get_gsd(
+                    image_path=self.image_path,
+                    image=self.image_data,
+                    flight_specs=self.flight_specs,
+                )
+            try:
+                self._set_geographic_footprint()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to set geographic footprint for {self.image_path}: {traceback.format_exc()}"
+                )
         except Exception as e:
-            logger.warning(
-                f"Failed to set geographic footprint for {self.image_path}: {e}"
-            )
+            logger.error(f"Failed to initialize tile: {traceback.format_exc()}")
 
         return None
 
@@ -164,6 +172,10 @@ class Tile:
         image = None
         if self.image_path is None:
             image = self.image_data
+            if image is None:
+                raise ValueError(
+                    "Image data is None. Please provide image_path or image_data."
+                )
 
         coords = GPSUtils.get_gps_coord(
             file_name=self.image_path,
@@ -364,6 +376,51 @@ class Tile:
     def from_image_path(cls, image_path: str, **kwargs) -> "Tile":
         """Create tile from image path."""
         return cls(image_path=image_path, **kwargs)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Tile":
+        """Create tile from dictionary."""
+
+        data = {k: v for k, v in data.items() if k in vars(cls)}
+        if "image_path" not in data:
+            data["image_path"] = None
+
+        if "flight_specs" in data:
+            flight_specs = data.pop("flight_specs")
+            if isinstance(flight_specs, dict):
+                data["flight_specs"] = FlightSpecs(**flight_specs)
+            elif isinstance(flight_specs, FlightSpecs):
+                data["flight_specs"] = flight_specs
+            else:
+                logger.error(
+                    f"Invalid flight specs type: {type(flight_specs)}.Skipping..."
+                )
+
+        if "geographic_footprint" in data:
+            geographic_footprint = data.pop("geographic_footprint")
+            if isinstance(geographic_footprint, dict):
+                data["geographic_footprint"] = GeographicBounds.from_dict(
+                    geographic_footprint
+                )
+            elif isinstance(geographic_footprint, GeographicBounds):
+                data["geographic_footprint"] = geographic_footprint
+            else:
+                logger.error(
+                    f"Invalid geographic footprint type: {type(geographic_footprint)}.Skipping..."
+                )
+
+        if "predictions" in data:
+            data["predictions"] = [
+                Detection.from_dict(det) for det in data["predictions"]
+            ]
+        if "annotations" in data:
+            data["annotations"] = [
+                Detection.from_dict(det) for det in data["annotations"]
+            ]
+
+        # print(data)
+
+        return cls(**data)
 
     @classmethod
     def from_image_data(cls, image_data: Image.Image, **kwargs) -> "Tile":
