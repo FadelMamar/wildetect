@@ -452,8 +452,11 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             while (
                 len(processed_batches) < total_batches and not self.stop_event.is_set()
             ):
+                if self.data_queue.is_empty() and not self.stop_event.is_set():
+                    time.sleep(15)  # Wait for data to be available
+
                 # Get batch from queue
-                batch = self.data_queue.get_batch(timeout=15)
+                batch = self.data_queue.get_batch(timeout=5)
 
                 if batch is None:
                     # No batch available, check if we should continue
