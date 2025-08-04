@@ -189,9 +189,9 @@ class DetectionPipeline(object):
             # Handle missing detections key
             detections = batch.get("detections", [])
             for tile_data, tile_detections in zip(batch["tiles"], detections):
-                print(tile_data)
+                # print(tile_data)
                 tile = Tile.from_dict(tile_data)
-                print(tile)
+                # print(tile)
                 assert (
                     tile.parent_image is not None
                 ), "Parent image is None. Error in dataloader."
