@@ -1,4 +1,4 @@
 @echo off
 @REM WildDetect CLI wrapper for Windows
 call cd /d %~dp0
-call uv run --no-sync wildetect %*
+call uv run wildetect %*
