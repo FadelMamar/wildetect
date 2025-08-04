@@ -13,7 +13,7 @@ import time
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Dict, List, Literal, Optional, Sequence, Union
 
 import torch
 import typer
@@ -58,6 +58,7 @@ def setup_logging(verbose: bool = False, log_file: Optional[str] = None):
         logging.StreamHandler(sys.stdout),
     ]
     if isinstance(log_file, str):
+        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(log_file)
         handlers.append(file_handler)
 
@@ -252,7 +253,7 @@ def detect(
             flight_specs=flight_specs,
         )
 
-        print(pred_config)
+        console.print(pred_config)
 
         # Create detection pipeline based on configuration
         if pred_config.pipeline_type == "multi":
@@ -321,11 +322,27 @@ def detect(
                 print("PyTorch not available, GPU profiling disabled")
                 gpu_profile = False
 
+        # Run pipeline
         drone_images = pipeline.run_detection(
             image_paths=image_paths,
             image_dir=image_dir,
             save_path=save_path,
         )
+        if dataset_name:
+            fo_manager = FiftyOneManager(dataset_name, persistent=True)
+            fo_manager.add_drone_images(drone_images)
+            fo_manager.save_dataset()
+
+        try:
+            annot_key = f"{dataset_name}_review"
+            fo_manager.send_predictions_to_labelstudio(
+                annot_key, dotenv_path=str(Path(ROOT) / ".env")
+            )
+            logger.info(
+                f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
+            )
+        except Exception as e:
+            logger.error(f"Error exporting to LabelStudio: {e}")
 
         if gpu_profile and torch.cuda.is_available():
             print(
@@ -372,38 +389,6 @@ def detect(
         execution_time = end_time - start_time
         logger.info(f"Detection pipeline execution time: {execution_time:.2f} seconds")
         print(f"Detection completed in {execution_time:.2f} seconds")
-
-        # Run detection
-        # with Progress(
-        #    SpinnerColumn(),
-        #    TextColumn("[progress.description]{task.description}"),
-        #    console=console,
-        # ) as progress:
-        #    task = progress.add_task("Running detection...", total=None)
-
-        #    drone_images = pipeline.run_detection(
-        #        image_paths=image_paths,
-        #        image_dir=image_dir,
-        #        save_path=save_path,
-        #    )
-
-        #    if dataset_name:
-        #        fo_manager = FiftyOneManager(dataset_name, persistent=True)
-        #        fo_manager.add_drone_images(drone_images)
-        #        fo_manager.save_dataset()
-
-        #    try:
-        #        annot_key = f"{dataset_name}_review"
-        #        fo_manager.send_predictions_to_labelstudio(
-        #            annot_key, dotenv_path=str(Path(ROOT) / ".env")
-        #            )
-        #            logger.info(
-        #                f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
-        #            )
-        #        except Exception as e:
-        #            logger.error(f"Error exporting to LabelStudio: {e}")
-
-        #    progress.update(task, completed=True)
 
         # Display results
         display_results(drone_images, output)

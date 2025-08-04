@@ -181,11 +181,6 @@ class Detection:
             parent_image=parent_image,
         )
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Detection":
-        """Create detection from dictionary."""
-        return cls(**data)
-
     def to_fiftyone(self, image_width: int, image_height: int) -> fo.Detection:
         """Convert to FiftyOne detection format.
 

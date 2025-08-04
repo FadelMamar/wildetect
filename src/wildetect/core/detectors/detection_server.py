@@ -74,7 +74,7 @@ class InferenceService(ls.LitAPI):
         config = PredictionConfig(
             device=device,
         )
-        self.detection_system = ObjectDetectionSystem.from_config(config)
+        self.detection_system = ObjectDetectionSystem.from_mlflow(config)
         self.device = device
 
     def decode_request(self, request: dict) -> dict:
@@ -138,7 +138,7 @@ class InferenceService(ls.LitAPI):
             o = [detection.to_dict() for detection in detection_list]
             encoded_output.append(o)
 
-        return encoded_output
+        return dict(detections=encoded_output)
 
 
 def run_inference_server(port=4141, workers_per_device=1):

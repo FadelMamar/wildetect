@@ -14,15 +14,12 @@ from typing import Any, Dict, List, Optional, Union
 
 import torch
 from tqdm import tqdm
-from tqdm.contrib.concurrent import thread_map
 
 from .config import LoaderConfig, PredictionConfig
 from .data.detection import Detection
 from .data.drone_image import DroneImage
 from .data.loader import DataLoader
 from .detectors.object_detection_system import ObjectDetectionSystem
-from .factory import build_detector
-from .processor.processor import Classifier, RoIPostProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +133,13 @@ class DetectionPipeline(object):
         self.loader_config = loader_config
 
         self.data_loader: Optional[DataLoader] = None
-        self.detection_system = ObjectDetectionSystem.from_config(config)
+        if config.inference_service_url is None:
+            self.detection_system = ObjectDetectionSystem.from_mlflow(config)
+            logger.info("Loading weights from MLFlow")
+        else:
+            self.detection_system = ObjectDetectionSystem(config)
+            logger.info("Using inference service. No weights loaded.")
+
         self.metadata = self.detection_system.metadata
 
         logger.info(
@@ -144,31 +147,6 @@ class DetectionPipeline(object):
         )
 
         self.error_count = 0
-
-    def load_registered_model(self, mlflow_model_name, mlflow_model_alias):
-        """Load the models from MLflow."""
-
-        if mlflow_model_name is None or mlflow_model_alias is None:
-            logger.warning("MLFLOW_MODEL_NAME and MLFLOW_MODEL_ALIAS are not set")
-            return None, dict()
-
-        try:
-            from wildetect.utils.utils import load_registered_model
-
-            detector_model, metadata = load_registered_model(
-                name=mlflow_model_name,
-                alias=mlflow_model_alias,
-                load_unwrapped=True,
-            )
-            logger.info(
-                f"Loaded model from MLflow: {mlflow_model_name}/{mlflow_model_alias}"
-            )
-        except Exception as e:
-            logger.error(f"Error loading model from MLflow: {e}")
-            logger.debug(traceback.format_exc())
-            return None, dict()
-
-        return detector_model, metadata
 
     def _process_batch(
         self,
@@ -255,7 +233,22 @@ class DetectionPipeline(object):
         Returns:
             List of processed drone images with detections
         """
-        logger.info("Starting detection pipeline")
+        logger.info("Starting single-threaded detection pipeline")
+
+        # Update config from metadata if available
+        if "batch" in self.metadata:
+            b = self.loader_config.batch_size
+            logger.info(f"Batch size: {b} -> {self.metadata.get('batch', b)}")
+            b = self.metadata.get("batch", b)
+            self.loader_config.batch_size = int(b)
+
+        if "tilesize" in self.metadata:
+            tile_size = self.loader_config.tile_size
+            logger.info(
+                f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
+            )
+            tile_size = self.metadata.get("tilesize", tile_size)
+            self.loader_config.tile_size = int(tile_size)
 
         logger.info(f"Creating dataloader")
 
@@ -279,8 +272,8 @@ class DetectionPipeline(object):
                 detections = self._process_batch(batch)
                 batch["detections"] = detections
                 return batch
-            except Exception as e:
-                logger.error(f"Failed to process batch: {e}")
+            except Exception:
+                logger.error(f"Failed to process batch: {traceback.format_exc()}")
                 return None
 
         # Simple and reliable approach with tqdm
@@ -289,7 +282,6 @@ class DetectionPipeline(object):
             # with ThreadPoolExecutor(max_workers=3) as executor:
             # Filter out None results and count errors
             # futures = [executor.submit(process_one_batch, batch) for batch in data_loader]
-
             for result in map(process_one_batch, data_loader):
                 if result is not None:
                     all_batches.append(result)

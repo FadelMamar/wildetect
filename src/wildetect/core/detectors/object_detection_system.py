@@ -6,16 +6,17 @@ import base64
 import logging
 import os
 import traceback
+from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
 import requests
 import torch
-from PIL import Image
+from dotenv import load_dotenv
 from torchvision.transforms import ToPILImage
 
 from wildetect.utils.utils import load_registered_model
 
-from ..config import PredictionConfig
+from ..config import ROOT, PredictionConfig
 from ..data.detection import Detection
 from ..factory import build_detector
 from ..processor.processor import Classifier, RoIPostProcessor
@@ -45,12 +46,23 @@ class ObjectDetectionSystem:
         self.metadata: dict[str, str] = dict()
 
     @classmethod
-    def from_config(cls, config: PredictionConfig) -> "ObjectDetectionSystem":
+    def from_mlflow(cls, config: PredictionConfig) -> "ObjectDetectionSystem":
         """Set up the inference engine with model and processors."""
+
+        load_dotenv(ROOT / ".env", override=False)
+
         mlflow_model_name = os.environ.get("MLFLOW_DETECTOR_NAME", None)
         mlflow_model_alias = os.environ.get("MLFLOW_DETECTOR_ALIAS", None)
         mlflow_roi_name = os.environ.get("MLFLOW_ROI_NAME", None)
         mlflow_roi_alias = os.environ.get("MLFLOW_ROI_ALIAS", None)
+
+        if mlflow_model_name is None or mlflow_model_alias is None:
+            raise ValueError(
+                "MLFLOW_DETECTOR_NAME and MLFLOW_DETECTOR_ALIAS are not set"
+            )
+
+        if mlflow_roi_name is None or mlflow_roi_alias is None:
+            logger.warning("MLFLOW_ROI_NAME and MLFLOW_ROI_ALIAS are not set")
 
         detector_model, metadata = load_registered_model(
             name=mlflow_model_name, alias=mlflow_model_alias, load_unwrapped=True
@@ -98,7 +110,7 @@ class ObjectDetectionSystem:
                 )
                 detection_system.set_processor(roi_processor)
 
-            logger.info("Multi-threaded detection pipeline setup completed")
+            logger.info("Detection system setup completed")
 
         except Exception:
             raise ValueError(
@@ -229,7 +241,7 @@ class ObjectDetectionSystem:
             "shape": list(batch.shape),
             "iou_nms": config.nms_iou,
             "conf": config.confidence_threshold,
-            "config": config.to_dict(),
+            "config": deepcopy(config).to_dict(),
         }
 
         res = requests.post(
@@ -238,7 +250,7 @@ class ObjectDetectionSystem:
 
         res = res.get("detections", "FAILED")
         if res == "FAILED":
-            raise ValueError("Inference service failed")
+            raise ValueError(f"Inference service failed: {res}")
 
         detections = []
         for detection_list in res:
