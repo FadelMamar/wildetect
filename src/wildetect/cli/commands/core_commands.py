@@ -274,17 +274,17 @@ def detect(
             fo_manager.add_drone_images(drone_images)
             fo_manager.save_dataset()
 
-        try:
-            annot_key = f"{dataset_name}_review"
-            fo_manager.send_predictions_to_labelstudio(
-                annot_key, dotenv_path=str(Path(ROOT) / ".env")
-            )
-            logger.info(
-                f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
-            )
-        except Exception as e:
-            logger.error(f"Error exporting to LabelStudio: {e}")
-            console.print(f"[red]Error exporting to LabelStudio: {e}[/red]")
+            try:
+                annot_key = f"{dataset_name}_review"
+                fo_manager.send_predictions_to_labelstudio(
+                    annot_key, dotenv_path=str(Path(ROOT) / ".env")
+                )
+                logger.info(
+                    f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
+                )
+            except Exception as e:
+                logger.error(f"Error exporting to LabelStudio: {e}")
+                console.print(f"[red]Error exporting to LabelStudio: {e}[/red]")
 
         if loaded_config.profiling.gpu_profile and torch.cuda.is_available():
             print(
