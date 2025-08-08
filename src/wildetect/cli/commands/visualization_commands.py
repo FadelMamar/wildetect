@@ -31,9 +31,6 @@ def visualize(
     create_map: bool = typer.Option(
         True, "--map", help="Create geographic visualization map"
     ),
-    show_confidence: bool = typer.Option(
-        False, "--show-confidence", help="Show confidence scores in visualization"
-    ),
 ):
     """Visualize detection results with geographic maps and statistics."""
     setup_logging(

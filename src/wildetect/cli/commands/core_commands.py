@@ -21,9 +21,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from ...core.campaign_manager import CampaignConfig, CampaignManager
 from ...core.config import ROOT, FlightSpecs, LoaderConfig, PredictionConfig
 from ...core.config_loader import load_config_from_yaml, load_config_with_pydantic
-from ...core.config_models import CensusConfigModel, DetectConfigModel
-from ...core.data.census import CensusDataManager
-from ...core.data.drone_image import DroneImage
 from ...core.data.utils import get_images_paths
 from ...core.detection_pipeline import DetectionPipeline, MultiThreadedDetectionPipeline
 from ...core.visualization.fiftyone_manager import FiftyOneManager
@@ -33,9 +30,6 @@ from ..utils import (
     display_census_results,
     display_results,
     export_analysis_report,
-    get_detection_statistics,
-    get_geographic_coverage,
-    parse_cls_label_map,
     setup_logging,
 )
 
@@ -45,8 +39,8 @@ console = Console()
 
 @app.command()
 def detect(
-    images: List[str] = typer.Option(
-        [], "--images", "-i", help="Image paths or directory"
+    images: Optional[List[str]] = typer.Option(
+        None, "--images", "-i", help="Image paths or directory"
     ),
     config: Optional[str] = typer.Option(
         None, "--config", "-c", help="Path to YAML configuration file"
@@ -99,8 +93,8 @@ def detect(
         if config:
             loaded_config = load_config_with_pydantic("detect", config)
             # For detect command, we need to get image directory from config or use provided images
-            if hasattr(loaded_config, "image_dir") and loaded_config.image_dir:
-                images = [loaded_config.image_dir]
+            if images is None:
+                images = list(loaded_config.images)
 
             # Apply command-line overrides
             if model_path:
@@ -133,7 +127,7 @@ def detect(
             loader_config = loaded_config.to_loader_config()
 
             # Set output directory
-            output_dir = loaded_config.output.directory
+            output_dir = Path(loaded_config.output.directory)
             dataset_name = loaded_config.output.dataset_name
         else:
             # Use command-line parameters directly
@@ -173,13 +167,12 @@ def detect(
                 ),
             )
 
-            output_dir = output or "results"
-            save_results = True
-            export_to_fiftyone = True
-            dataset_name = dataset_name or "wildlife_detection"
+            output_dir = Path(output or "results")
+            dataset_name = dataset_name
 
         # Determine if input is directory or file paths
         logger.info(f"Processing images: {images}")
+        assert isinstance(images, list), "images must be a list"
         if len(images) == 1 and Path(images[0]).is_dir():
             image_dir = images[0]
             image_paths = None
@@ -199,7 +192,7 @@ def detect(
         console.print(f"Loader config: {loader_config}")
 
         # Create output directory
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize detection pipeline
         if pred_config.pipeline_type == "multi":
@@ -210,10 +203,8 @@ def detect(
             pipeline = DetectionPipeline(pred_config, loader_config)
 
         save_path = None
-        if output:
-            output_path = Path(output)
-            output_path.mkdir(parents=True, exist_ok=True)
-            save_path = str(output_path / "results.json")
+        if output_dir:
+            save_path = str(output_dir / "results.json")
 
         # Profile the detection pipeline
         start_time = time.time()
@@ -260,6 +251,7 @@ def detect(
             image_dir=image_dir,
             save_path=save_path,
         )
+
         if dataset_name:
             fo_manager = FiftyOneManager(dataset_name, persistent=True)
             fo_manager.add_drone_images(drone_images)
@@ -323,6 +315,12 @@ def detect(
         logger.info(f"Detection pipeline execution time: {execution_time:.2f} seconds")
         print(f"Detection completed in {execution_time:.2f} seconds")
 
+        # Display results
+        try:
+            display_results(drone_images, output_dir)
+        except Exception as e:
+            console.print(f"[red]Error displaying results: {e}[/red]")
+
         console.print(f"[bold green]Detection completed successfully![/bold green]")
 
     except Exception as e:
@@ -332,77 +330,48 @@ def detect(
 
 @app.command()
 def census(
-    campaign_id: str = typer.Argument(..., help="Campaign identifier"),
-    images: List[str] = typer.Argument(..., help="Image paths or directory"),
-    model_path: Optional[str] = typer.Option(
-        None, "--model", "-m", help="Path to model weights"
-    ),
-    roi_weights: Optional[str] = typer.Option(
-        None,
-        "--roi-weights",
-        help="Path to ROI weights file. Otherwise uses ROI_MODEL_PATH environment variable",
-    ),
-    feature_extractor_path: str = typer.Option(
-        "facebook/dinov2-with-registers-small",
-        "--feature-extractor-path",
-        help="Path to feature extractor",
-    ),
-    cls_label_map: List[str] = typer.Option(
-        ["0:groundtruth", "1:other"],
-        "--cls-label-map",
-        help="Label map as key:value pairs",
-    ),
-    keep_classes: List[str] = typer.Option(
-        ["groundtruth"], "--keep-classes", help="Classes to keep"
-    ),
-    confidence: float = typer.Option(
-        0.2, "--confidence", "-c", help="Confidence threshold"
-    ),
-    device: str = typer.Option(
-        "auto", "--device", "-d", help="Device to run inference on"
-    ),
-    inference_service_url: Optional[str] = typer.Option(
-        None, "--inference-service-url", help="URL for inference service"
-    ),
-    nms_iou: float = typer.Option(0.5, "--nms-iou", help="NMS IoU threshold"),
-    overlap_ratio: float = typer.Option(
-        0.2, "--overlap-ratio", help="Tile overlap ratio"
-    ),
-    batch_size: int = typer.Option(32, "--batch-size", "-b", help="Batch size"),
-    tile_size: int = typer.Option(800, "--tile-size", help="Tile size for processing"),
-    cls_imgsz: int = typer.Option(96, "--cls-imgsz", help="Image size for classifier"),
-    sensor_height: float = typer.Option(
-        24.0, "--sensor-height", help="Sensor height in mm"
-    ),
-    focal_length: float = typer.Option(
-        35.0, "--focal-length", help="Focal length in mm"
-    ),
-    flight_height: float = typer.Option(
-        180.0, "--flight-height", help="Flight height in meters"
+    campaign_id: str = typer.Option("", help="Campaign identifier"),
+    images: Optional[List[str]] = typer.Option(None, help="Image paths or directory"),
+    config: Optional[str] = typer.Option(
+        None, "--config", "-c", help="Path to YAML configuration file"
     ),
     output: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Output directory for results"
-    ),
-    pilot_name: Optional[str] = typer.Option(
-        None, "--pilot", help="Pilot name for campaign metadata"
-    ),
-    target_species: Optional[List[str]] = typer.Option(
-        None, "--species", help="Target species for detection"
-    ),
-    export_to_fiftyone: bool = typer.Option(
-        True, "--to-fiftyone", help="Export to FiftyOne"
-    ),
-    create_map: bool = typer.Option(
-        True, "--map", help="Create geographic visualization map"
+        None, "--output", "-o", help="Override output directory"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    pipeline_type: str = typer.Option(
-        "single",
-        "--pipeline-type",
-        help="Pipeline type: 'single' or 'multi' for single-threaded vs multi-threaded",
+    # Essential overrides
+    model_path: Optional[str] = typer.Option(
+        None, "--model", "-m", help="Override model path"
     ),
-    queue_size: int = typer.Option(
-        24, "--queue-size", help="Queue size for multi-threaded pipeline"
+    roi_weights: Optional[str] = typer.Option(
+        None, "--roi-weights", help="Override ROI weights path"
+    ),
+    confidence: Optional[float] = typer.Option(
+        0.2, "--confidence", help="Override confidence threshold"
+    ),
+    device: Optional[str] = typer.Option("auto", "--device", help="Override device"),
+    batch_size: Optional[int] = typer.Option(
+        32, "--batch-size", "-b", help="Override batch size"
+    ),
+    tile_size: Optional[int] = typer.Option(
+        800, "--tile-size", help="Override tile size"
+    ),
+    pilot_name: Optional[str] = typer.Option(
+        None, "--pilot", help="Override pilot name"
+    ),
+    target_species: Optional[List[str]] = typer.Option(
+        None, "--species", help="Override target species"
+    ),
+    # Profiling overrides
+    profile: bool = typer.Option(False, "--profile", help="Enable detailed profiling"),
+    memory_profile: bool = typer.Option(
+        False, "--memory-profile", help="Enable memory profiling"
+    ),
+    line_profile: bool = typer.Option(
+        False, "--line-profile", help="Enable line-by-line profiling"
+    ),
+    gpu_profile: bool = typer.Option(
+        False, "--gpu-profile", help="Enable GPU profiling (CUDA only)"
     ),
 ):
     """Run wildlife census campaign with enhanced analysis."""
@@ -429,7 +398,122 @@ def census(
             f"[bold green]Starting Wildlife Census Campaign: {campaign_id}[/bold green]"
         )
 
+        # Load configuration from YAML
+        if config:
+            loaded_config = load_config_with_pydantic("census", config)
+
+            # Apply command-line overrides
+            if images is None:
+                images = list(loaded_config.images)
+
+            if model_path:
+                loaded_config.detection.model.path = model_path
+            if roi_weights:
+                loaded_config.detection.roi_classifier.weights = roi_weights
+            if confidence is not None:
+                loaded_config.detection.model.confidence_threshold = confidence
+            if device:
+                loaded_config.detection.model.device = device
+            if batch_size:
+                loaded_config.detection.model.batch_size = batch_size
+            if tile_size:
+                loaded_config.detection.processing.tile_size = tile_size
+            if pilot_name:
+                loaded_config.campaign.pilot_name = pilot_name
+            if target_species:
+                loaded_config.campaign.target_species = target_species
+            if profile:
+                loaded_config.detection.profiling.enable = True
+            if memory_profile:
+                loaded_config.detection.profiling.memory_profile = True
+            if line_profile:
+                loaded_config.detection.profiling.line_profile = True
+            if gpu_profile:
+                loaded_config.detection.profiling.gpu_profile = True
+            if output:
+                loaded_config.export.output_directory = output
+
+            # Convert to existing dataclasses
+            pred_config = loaded_config.detection.to_prediction_config(verbose=verbose)
+            loader_config = loaded_config.detection.to_loader_config()
+
+            # Set campaign metadata
+            campaign_metadata = {
+                "pilot_info": {
+                    "name": loaded_config.campaign.pilot_name,
+                    "experience": "Unknown",
+                },
+                "weather_conditions": {},
+                "mission_objectives": ["wildlife_survey"],
+                "target_species": loaded_config.campaign.target_species,
+                "flight_parameters": vars(
+                    loaded_config.detection.flight_specs.to_flight_specs()
+                ),
+                "equipment_info": {},
+            }
+
+            # Set output directory
+            output_dir = loaded_config.export.output_directory
+            export_to_fiftyone = loaded_config.export.to_fiftyone
+
+        else:
+            # Use command-line parameters directly (legacy mode)
+            flight_specs = FlightSpecs(
+                sensor_height=24.0,
+                focal_length=35.0,
+                flight_height=180.0,
+            )
+
+            # Parse cls_label_map
+            label_map_dict = {0: "groundtruth", 1: "other"}
+            keep_classes = ["groundtruth"]
+
+            # Create campaign metadata
+            campaign_metadata = {
+                "pilot_info": {
+                    "name": pilot_name or "Unknown",
+                    "experience": "Unknown",
+                },
+                "weather_conditions": {},
+                "mission_objectives": ["wildlife_survey"],
+                "target_species": target_species,
+                "flight_parameters": vars(flight_specs),
+                "equipment_info": {},
+            }
+
+            # Create configurations
+            pred_config = PredictionConfig(
+                model_path=model_path,
+                confidence_threshold=confidence or 0.2,
+                device=device or "auto",
+                batch_size=batch_size or 32,
+                tilesize=tile_size or 800,
+                flight_specs=flight_specs,
+                roi_weights=roi_weights,
+                cls_imgsz=96,
+                keep_classes=keep_classes,
+                feature_extractor_path="facebook/dinov2-with-registers-small",
+                cls_label_map=label_map_dict,
+                inference_service_url=None,
+                verbose=verbose,
+                nms_iou=0.5,
+                overlap_ratio=0.2,
+                pipeline_type="single",
+                queue_size=24,
+            )
+
+            loader_config = LoaderConfig(
+                tile_size=tile_size or 800,
+                batch_size=batch_size or 32,
+                num_workers=0,
+                flight_specs=flight_specs,
+            )
+
+            output_dir = output or f"results/{campaign_id}"
+            export_to_fiftyone = True
+
         # Determine if input is directory or file paths
+        assert isinstance(images, list), "images must be a list"
         if len(images) == 1 and Path(images[0]).is_dir():
             image_dir = images[0]
             image_paths = get_images_paths(image_dir)
@@ -438,60 +522,6 @@ def census(
             image_dir = None
             image_paths = images
             console.print(f"[green]Processing {len(images)} images[/green]")
-
-        flight_specs = FlightSpecs(
-            sensor_height=sensor_height,
-            focal_length=focal_length,
-            flight_height=flight_height,
-        )
-
-        # Parse cls_label_map
-        label_map_dict = parse_cls_label_map(cls_label_map)
-        for class_name in keep_classes:
-            if class_name not in label_map_dict.values():
-                raise ValueError(
-                    f"Class {class_name} not found in cls_label_map. Please check the cls_label_map argument."
-                )
-
-        # Create campaign metadata
-        campaign_metadata = {
-            "pilot_info": {"name": pilot_name or "Unknown", "experience": "Unknown"},
-            "weather_conditions": {},
-            "mission_objectives": [
-                "wildlife_survey",
-            ],
-            "target_species": target_species,
-            "flight_parameters": vars(flight_specs),
-            "equipment_info": {},
-        }
-
-        # Create configurations
-        pred_config = PredictionConfig(
-            model_path=model_path,
-            confidence_threshold=confidence,
-            device=device,
-            batch_size=batch_size,
-            tilesize=tile_size,
-            flight_specs=flight_specs,
-            roi_weights=roi_weights,
-            cls_imgsz=cls_imgsz,
-            keep_classes=keep_classes,
-            feature_extractor_path=feature_extractor_path,
-            cls_label_map=label_map_dict,
-            inference_service_url=inference_service_url,
-            verbose=verbose,
-            nms_iou=nms_iou,
-            overlap_ratio=overlap_ratio,
-            pipeline_type=pipeline_type,
-            queue_size=queue_size,
-        )
-
-        loader_config = LoaderConfig(
-            tile_size=tile_size,
-            batch_size=batch_size,
-            num_workers=0,
-            flight_specs=flight_specs,
-        )
 
         # Create campaign configuration
         campaign_config = CampaignConfig(
@@ -518,7 +548,7 @@ def census(
 
             results = campaign_manager.run_complete_campaign(
                 image_paths=image_paths,
-                output_dir=output,
+                output_dir=output_dir,
                 export_to_fiftyone=export_to_fiftyone,
             )
 
@@ -546,18 +576,7 @@ def analyze(
     output_dir: str = typer.Option(
         "analysis", "--output", "-o", help="Output directory for analysis"
     ),
-    create_map: bool = typer.Option(
-        True, "--map", help="Create geographic visualization map"
-    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    pipeline_type: str = typer.Option(
-        "single",
-        "--pipeline-type",
-        help="Pipeline type: 'single' or 'multi' for single-threaded vs multi-threaded",
-    ),
-    queue_size: int = typer.Option(
-        3, "--queue-size", help="Queue size for multi-threaded pipeline"
-    ),
 ):
     """Analyze detection results with geographic and statistical analysis."""
     setup_logging(verbose)
