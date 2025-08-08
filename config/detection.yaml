@@ -10,7 +10,8 @@ model:
   batch_size: 32
   nms_iou: 0.5
 
-image_dir: null # TODO: update this
+images: 
+ - D:\workspace\data\savmap_dataset_v2\raw\tmp
 
 # Processing Configuration
 processing:
@@ -49,8 +50,6 @@ profiling:
 # Output Configuration
 output:
   directory: "results"
-  save_results: true
-  export_to_fiftyone: true
   dataset_name: null  # Will use default dataset name if null
 
 # Logging Configuration
