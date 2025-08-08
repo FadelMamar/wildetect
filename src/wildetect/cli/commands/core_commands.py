@@ -538,21 +538,11 @@ def census(
         # Initialize campaign manager
         campaign_manager = CampaignManager(campaign_config)
 
-        # Run complete campaign
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Running census campaign...", total=None)
-
-            results = campaign_manager.run_complete_campaign(
-                image_paths=image_paths,
-                output_dir=output_dir,
-                export_to_fiftyone=export_to_fiftyone,
-            )
-
-            progress.update(task, completed=True)
+        results = campaign_manager.run_complete_campaign(
+            image_paths=image_paths,
+            output_dir=output_dir,
+            export_to_fiftyone=export_to_fiftyone,
+        )
 
         # Display results
         display_census_results(
