@@ -132,11 +132,11 @@ class DetectionPipeline(object):
         self.loader_config = loader_config
 
         self.data_loader: Optional[DataLoader] = None
-        if config.inference_service_url is None:
+        if config.inference_service_url is None and config.model_path is None:
             self.detection_system = ObjectDetectionSystem.from_mlflow(config)
             logger.info("Loading weights from MLFlow")
         else:
-            self.detection_system = ObjectDetectionSystem(config)
+            self.detection_system = ObjectDetectionSystem.from_config(config)
             logger.info("Using inference service. No weights loaded.")
 
         self.metadata = self.detection_system.metadata
@@ -203,8 +203,6 @@ class DetectionPipeline(object):
                         flight_specs=self.loader_config.flight_specs,
                     )
                     drone_images[tile.parent_image] = drone_image
-
-                    logger.info(f"Created drone image {drone_image}")
 
                 # Set detections on the tile
                 if tile_detections:

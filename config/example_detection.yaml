@@ -1,0 +1,58 @@
+# Example Detection Configuration
+# This file shows how to customize detection settings for different scenarios
+
+# Model Configuration
+model:
+  path: "models/custom_wildlife_model.pt"  # Custom model path
+  type: "yolo"
+  confidence_threshold: 0.3  # Higher confidence for production
+  device: "cuda"  # Force CUDA usage
+  batch_size: 16  # Smaller batch size for memory constraints
+  nms_iou: 0.45  # Slightly more aggressive NMS
+
+# Processing Configuration
+processing:
+  tile_size: 1024  # Larger tiles for high-resolution images
+  overlap_ratio: 0.3  # More overlap for better coverage
+  pipeline_type: "multi"  # Use multi-threaded pipeline
+  queue_size: 5  # Larger queue for multi-threaded processing
+
+# Flight Specifications
+flight_specs:
+  sensor_height: 35.0  # Different camera specifications
+  focal_length: 50.0
+  flight_height: 150.0  # Lower flight height
+
+# ROI Classifier Configuration
+roi_classifier:
+  weights: "models/custom_roi_classifier.pt"  # Custom ROI classifier
+  feature_extractor_path: "facebook/dinov2-base"  # Larger model
+  cls_label_map:
+    0: "wildlife"
+    1: "background"
+    2: "vehicle"
+  keep_classes: ["wildlife"]
+  cls_imgsz: 224  # Larger input size for classifier
+
+# Inference Service Configuration
+inference_service:
+  url: "http://localhost:4141"  # Local inference service
+
+# Profiling Configuration
+profiling:
+  enable: true  # Enable profiling for performance analysis
+  memory_profile: false
+  line_profile: true  # Enable line profiling
+  gpu_profile: true  # Enable GPU profiling
+
+# Output Configuration
+output:
+  directory: "results/high_confidence_detection"
+  save_results: true
+  export_to_fiftyone: true
+  dataset_name: "high_confidence_dataset"
+
+# Logging Configuration
+logging:
+  verbose: true  # Enable verbose logging
+  log_file: "logs/high_confidence_detection.log"

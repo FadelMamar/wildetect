@@ -1,0 +1,59 @@
+# Detection Pipeline Configuration
+# This file contains all parameters needed for the detection command
+
+# Model Configuration
+model:
+  path: null  # Will use WILDETECT_MODEL_PATH env var if null
+  type: "yolo"  # yolo, ultralytics, etc.
+  confidence_threshold: 0.2
+  device: "auto"  # auto, cpu, cuda
+  batch_size: 32
+  nms_iou: 0.5
+
+image_dir: null # TODO: update this
+
+# Processing Configuration
+processing:
+  tile_size: 800
+  overlap_ratio: 0.2
+  pipeline_type: "single"  # single, multi
+  queue_size: 64  # for multi-threaded pipeline
+
+# Flight Specifications
+flight_specs:
+  sensor_height: 24.0  # mm
+  focal_length: 35.0   # mm
+  flight_height: 180.0  # meters
+
+# ROI Classifier Configuration
+roi_classifier:
+  weights: null
+  feature_extractor_path: "facebook/dinov2-with-registers-small"
+  cls_label_map:
+    0: "groundtruth"
+    1: "other"
+  keep_classes: ["groundtruth"]
+  cls_imgsz: 128
+
+# Inference Service Configuration
+inference_service:
+  url: null  # URL for external inference service
+
+# Profiling Configuration
+profiling:
+  enable: false
+  memory_profile: false
+  line_profile: false
+  gpu_profile: false
+
+# Output Configuration
+output:
+  directory: "results"
+  save_results: true
+  export_to_fiftyone: true
+  dataset_name: null  # Will use default dataset name if null
+
+# Logging Configuration
+logging:
+  verbose: false
+  log_file: null  # Will use default log path if null

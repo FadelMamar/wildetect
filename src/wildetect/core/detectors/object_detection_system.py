@@ -46,6 +46,39 @@ class ObjectDetectionSystem:
         self.metadata: dict[str, str] = dict()
 
     @classmethod
+    def from_config(cls, config: PredictionConfig) -> "ObjectDetectionSystem":
+        try:
+            # Build detector
+            detector = build_detector(config=config)
+
+            # Create object detection system
+            detection_system = cls(config=config)
+            detection_system.set_model(detector)
+
+            if config.roi_weights:
+                assert config.cls_label_map is not None, "cls_label_map is required"
+                assert config.keep_classes is not None, "keep_classes is required"
+                roi_processor = RoIPostProcessor(
+                    model_path=config.roi_weights,
+                    label_map=config.cls_label_map,
+                    feature_extractor_path=config.feature_extractor_path,
+                    roi_size=config.cls_imgsz,
+                    transform=config.transform,
+                    device=config.device,
+                    classifier=None,
+                    keep_classes=list(config.keep_classes),
+                )
+                detection_system.set_processor(roi_processor)
+            logger.info("Detection system setup completed")
+
+        except Exception:
+            raise ValueError(
+                f"Failed to setup inference engine: {traceback.format_exc()}"
+            )
+
+        return detection_system
+
+    @classmethod
     def from_mlflow(cls, config: PredictionConfig) -> "ObjectDetectionSystem":
         """Set up the inference engine with model and processors."""
 
@@ -98,6 +131,8 @@ class ObjectDetectionSystem:
             detection_system.metadata = metadata
 
             if config.roi_weights or classifier:
+                assert config.cls_label_map is not None, "cls_label_map is required"
+                assert config.keep_classes is not None, "keep_classes is required"
                 roi_processor = RoIPostProcessor(
                     model_path=config.roi_weights,
                     label_map=config.cls_label_map,
@@ -106,7 +141,7 @@ class ObjectDetectionSystem:
                     transform=config.transform,
                     device=config.device,
                     classifier=classifier,
-                    keep_classes=config.keep_classes,
+                    keep_classes=list(config.keep_classes),
                 )
                 detection_system.set_processor(roi_processor)
 
