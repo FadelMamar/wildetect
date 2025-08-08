@@ -123,8 +123,6 @@ class OutputConfigModel(BaseModel):
     """Output configuration model."""
 
     directory: str = Field(default="results", description="Output directory")
-    save_results: bool = Field(default=True, description="Save detection results")
-    export_to_fiftyone: bool = Field(default=True, description="Export to FiftyOne")
     dataset_name: Optional[str] = Field(
         default=None, description="FiftyOne dataset name"
     )

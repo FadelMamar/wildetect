@@ -52,7 +52,7 @@ def detect(
         None, "--config", "-c", help="Path to YAML configuration file"
     ),
     output: Optional[str] = typer.Option(
-        "results", "--output", "-o", help="Override output directory"
+        None, "--output", "-o", help="Override output directory"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
     dataset_name: Optional[str] = typer.Option(
@@ -134,9 +134,7 @@ def detect(
 
             # Set output directory
             output_dir = loaded_config.output.directory
-            save_results = loaded_config.output.save_results
-            export_to_fiftyone = loaded_config.output.export_to_fiftyone
-            dataset_name = loaded_config.output.dataset_name or "wildlife_detection"
+            dataset_name = loaded_config.output.dataset_name
         else:
             # Use command-line parameters directly
             pred_config = PredictionConfig(
@@ -198,6 +196,7 @@ def detect(
             console.print(f"[green]Processing {len(images)} images[/green]")
 
         console.print(f"Prediction config: {pred_config}")
+        console.print(f"Loader config: {loader_config}")
 
         # Create output directory
         Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -225,15 +224,7 @@ def detect(
             profiler.enable()
 
         if loaded_config.profiling.memory_profile:
-            try:
-                from memory_profiler import profile as memory_profile_decorator
-
-                print("Memory profiling enabled - this will be slower")
-            except ImportError:
-                print(
-                    "memory_profiler not installed. Install with: pip install memory_profiler"
-                )
-                memory_profile = False
+            raise NotImplementedError("Memory profiling is not implemented yet")
 
         if loaded_config.profiling.line_profile:
             try:
