@@ -7,6 +7,9 @@ campaign:
   pilot_name: "Unknown"
   target_species: null  # List of target species for detection
 
+images: 
+ - D:\workspace\data\savmap_dataset_v2\raw\tmp
+
 # Detection Configuration (inherits from detection.yaml)
 detection:
   # Model Configuration
