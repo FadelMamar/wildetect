@@ -295,14 +295,14 @@ class DetectionPipeline(object):
         # Update config from metadata if available
         if "batch" in self.metadata:
             b = self.loader_config.batch_size
-            logger.info(f"Batch size: {b} -> {self.metadata.get('batch', b)}")
+            logger.info(f"Updating Loader Batch size: {b} -> {self.metadata.get('batch', b)}")
             b = self.metadata.get("batch", b)
             self.loader_config.batch_size = int(b)
 
         if "tilesize" in self.metadata:
             tile_size = self.loader_config.tile_size
             logger.info(
-                f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
+                f"Updating Loader Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
             )
             tile_size = self.metadata.get("tilesize", tile_size)
             self.loader_config.tile_size = int(tile_size)
@@ -505,8 +505,11 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             while (
                 len(processed_batches) < total_batches and not self.stop_event.is_set()
             ):
+                if self.data_queue.is_empty() and not self.stop_event.is_set():
+                    time.sleep(15)  # Wait for data to be available
+
                 # Get batch from queue
-                batch = self.data_queue.get_batch(timeout=15)
+                batch = self.data_queue.get_batch(timeout=5)
 
                 if batch is None:
                     # No batch available, check if we should continue

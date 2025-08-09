@@ -21,7 +21,6 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
-from wildetect.cli_ui_integration import cli_ui_integration
 from wildetect.core.config import ROOT
 from wildetect.core.visualization.fiftyone_manager import FiftyOneManager
 
@@ -34,8 +33,6 @@ st.set_page_config(
 )
 
 # Initialize session state
-if "cli_integration" not in st.session_state:
-    st.session_state.cli_integration = cli_ui_integration
 if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = []
 if "detection_results" not in st.session_state:

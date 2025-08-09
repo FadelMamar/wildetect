@@ -134,6 +134,17 @@ class ObjectDetectionSystem:
             detection_system.set_model(detector)
             detection_system.metadata = metadata
 
+            if detection_system.metadata.get("batch",None) is not None:
+                logger.info(
+                    f"Updating Batch size using detector metadata: {detection_system.metadata['batch']}"
+                )
+                config.batch_size = detection_system.metadata.get("batch")
+            if detection_system.metadata.get("tilesize",None) is not None:
+                logger.info(
+                    f"Updating Tile size using  detector metadata: {detection_system.metadata['tilesize']}"
+                )
+                config.tilesize = detection_system.metadata.get("tilesize")
+
             if config.roi_weights or classifier:
                 assert config.cls_label_map is not None, "cls_label_map is required"
                 assert config.keep_classes is not None, "keep_classes is required"
@@ -255,9 +266,12 @@ class ObjectDetectionSystem:
             )
 
         # Run batch prediction
+        out_shape = (self.config.batch_size, C, self.config.tilesize, self.config.tilesize)
+        #out_shape = [max(a,b) for a, b in zip(batch.shape, out_shape)]
+        #print(f"Output shape: {out_shape}")
+        #print(f"Batch shape: {batch.shape}")
         batch_padded = self._pad_if_needed(
-            batch,
-            (self.config.batch_size, C, self.config.tilesize, self.config.tilesize),
+            batch,out_shape=out_shape,
         )
         detections = self.model.predict(batch_padded)[:B]
         detections = self._postprocess(detections=detections, batch=batch)
@@ -287,7 +301,7 @@ class ObjectDetectionSystem:
         assert len(out_shape) == 4
 
         condition = any([a < b for a, b in zip(batch.shape, out_shape)])
-
+        
         if condition:
             b, c, h, w = batch.shape
             padded = torch.zeros(out_shape)
