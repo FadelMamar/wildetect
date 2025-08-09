@@ -348,7 +348,6 @@ async def detect_wildlife(request: DetectionRequest, background_tasks: Backgroun
                 pipeline = MultiThreadedDetectionPipeline(
                     config=pred_config,
                     loader_config=loader_config,
-                    queue_size=pred_config.queue_size,
                 )
             else:
                 pipeline = DetectionPipeline(

@@ -3,7 +3,7 @@ name = "wildetect"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = "~=3.11"
+requires-python = "~=3.11.0"
 dependencies = [
     "fiftyone==1.2.0",
     "folium>=0.20.0",
@@ -46,6 +46,7 @@ dependencies = [
     "omegaconf>=2.3.0",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.10.1",
+    "aiohttp>=3.12.15",
 ]
 
 [tool.ruff]

@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Sequence, Tuple, Union
 
-import albumentations as A
 import torch
 import yaml
 
@@ -50,7 +49,7 @@ class PredictionConfig:
     )
     feature_extractor_path: Optional[str] = "facebook/dinov2-with-registers-small"
     roi_weights: Optional[str] = None
-    transform: Optional[A.Compose] = None
+    transform = None
 
     # Image classifier imgsz
     cls_imgsz: int = 96
@@ -65,8 +64,9 @@ class PredictionConfig:
     inference_service_url: Optional[str] = None
 
     # Pipeline configuration
-    pipeline_type: Literal["single", "multi"] = "single"
+    pipeline_type: Literal["single", "multi", "async"] = "single"
     queue_size: int = 24  # Queue size for multi-threaded pipeline
+    max_concurrent: int = 10  # Maximum concurrent requests for async pipeline
 
     def __post_init__(self):
         """Validate that required attributes are not None after initialization."""
@@ -226,7 +226,7 @@ def get_config(
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
-    return config
+    return config if config is not None else _get_default_config()
 
 
 def _get_default_config() -> Dict[str, Any]:

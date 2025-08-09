@@ -18,8 +18,9 @@ images:
 processing:
   tile_size: 800
   overlap_ratio: 0.2
-  pipeline_type: "single"  # single, multi
+  pipeline_type: "single"  # single, multi, async
   queue_size: 64  # for multi-threaded pipeline
+  max_concurrent: 4  # for async pipeline
 
 # Flight Specifications
 flight_specs:
@@ -39,7 +40,7 @@ roi_classifier:
 
 # Inference Service Configuration
 inference_service:
-  url: null  # URL for external inference service
+  url: null  # URL for external inference service (set to null for local inference)
 
 # Profiling Configuration
 profiling:

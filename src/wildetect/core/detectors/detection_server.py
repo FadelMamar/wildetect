@@ -5,12 +5,11 @@ import os
 import sys
 import time
 import traceback
-
-# from PIL import Image
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import List  # , Optional, Sequence
+from typing import List, Tuple
 
 import litserve as ls
 import torch
@@ -62,18 +61,13 @@ class PredictionTimeLogger(ls.Callback):
 
 
 class InferenceService(ls.LitAPI):
-    def setup(
-        self,
-        device,
-    ):
+    def setup(self, device):
         """
         One-time initialization: load your model here.
         `device` is e.g. 'cuda:0' or 'cpu'.
         """
         logger.info(f"Device: {device}")
-        config = PredictionConfig(
-            device=device,
-        )
+        config = PredictionConfig(device=device)
         self.detection_system = ObjectDetectionSystem.from_mlflow(config)
         self.device = device
 
@@ -82,9 +76,6 @@ class InferenceService(ls.LitAPI):
         Convert the JSON payload into model inputs.
         For example, extract and preprocess an image or numeric data.
         """
-
-        output = dict()
-
         try:
             # Set prediction config
             config = PredictionConfig.from_dict(request.get("config", {}))
@@ -109,40 +100,84 @@ class InferenceService(ls.LitAPI):
             elif len(shape) < 3:
                 raise ValueError("Invalid shape, expected a 3D or 4D tensor")
 
-            output["images"] = img_tensor
-            return output
+            return {"images": img_tensor}
 
         except Exception:
             raise HTTPException(status_code=400, detail=traceback.format_exc())
 
-    def predict(self, x: dict) -> List[List[Detection]]:
+    def batch(self, inputs):
+        """
+        Process a batch of inputs efficiently using ThreadPoolExecutor.
+        This method is called by LitServe when batching is enabled.
+        """
+
+        def process_single_input(input_data):
+            """Process a single input from the batch."""
+            try:
+                # Extract tensor data from input
+                img_tensor = input_data["images"]
+                return img_tensor
+            except Exception as e:
+                logger.error(f"Error processing input in batch: {e}")
+                raise
+
+        # Use ThreadPoolExecutor for parallel processing
+        max_workers = max(len(inputs), os.cpu_count() // 2 or 1)
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            processed_inputs = list(pool.map(process_single_input, inputs))
+
+        # Stack all tensors into a single batch
+        batched_tensor = torch.stack(processed_inputs)
+        lengths = [input_data.shape[0] for input_data in processed_inputs]
+        return {"images": batched_tensor, "lengths": lengths}
+
+    def predict(self, x: dict):
         """
         Run the model forward pass.
-        Input `x` is the output of decode_request.
+        Input `x` is the output of decode_request or batch.
         """
 
         try:
             batch = x["images"]
-            results = self.detection_system.predict(batch, local=True)
-            return results
+            lengths = x.get("lengths", None)
+            with torch.inference_mode():
+                results = self.detection_system.predict(batch, local=True)
+                results = [
+                    [detection.to_dict() for detection in detection_list]
+                    for detection_list in results
+                ]
+            if lengths is None:
+                return results
+            else:
+                return results, lengths
         except Exception:
-            raise ValueError(f"Prediction failed: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=traceback.format_exc())
 
-    def encode_response(self, output: List[List[Detection]]) -> dict:
+    def unbatch(self, output: tuple):
+        """
+        Convert batch output back to individual outputs.
+        This method is called by LitServe when batching is enabled.
+        """
+        assert isinstance(output, tuple), "Output must be a tuple"
+        results, lengths = output
+        detections = []
+        i = 0
+        for length in lengths:
+            detections.append(results[i : i + length])
+            i += length
+        return detections
+
+    def encode_response(self, output):
         """
         Wrap the model output in a JSON-serializable dict.
         """
+        print(output)
         logger.debug("sending response...")
-        encoded_output = []
-        for detection_list in output:
-            o = [detection.to_dict() for detection in detection_list]
-            encoded_output.append(o)
-
-        return dict(detections=encoded_output)
+        return dict(detections=output)
 
 
-def run_inference_server(port=4141, workers_per_device=1):
-    api = InferenceService(max_batch_size=1, enable_async=False)
+def run_inference_server(port=4141, workers_per_device=1, max_batch_size=1):
+    api = InferenceService(max_batch_size=max_batch_size, batch_timeout=0.01)
 
     server = ls.LitServer(
         api,

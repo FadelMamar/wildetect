@@ -72,16 +72,17 @@ class ModelConfigModel(BaseModel):
 class ProcessingConfigModel(BaseModel):
     """Processing configuration model."""
 
-    tile_size: int = Field(default=800, gt=0, description="Tile size for processing")
-    overlap_ratio: float = Field(
-        default=0.2, ge=0.0, le=1.0, description="Tile overlap ratio"
-    )
-    pipeline_type: Literal["single", "multi"] = Field(
+    tile_size: int = Field(default=800, description="Tile size for processing")  # type: ignore
+    overlap_ratio: float = Field(default=0.2, description="Tile overlap ratio")  # type: ignore
+    pipeline_type: Literal["single", "multi", "async"] = Field(
         default="single", description="Pipeline type"
-    )
+    )  # type: ignore
     queue_size: int = Field(
-        default=64, gt=0, description="Queue size for multi-threaded pipeline"
-    )
+        default=64, description="Queue size for multi-threaded pipeline"
+    )  # type: ignore
+    max_concurrent: int = Field(
+        default=10, description="Maximum concurrent requests for async pipeline"
+    )  # type: ignore
 
 
 class ROIClassifierConfigModel(BaseModel):
@@ -230,6 +231,7 @@ class DetectConfigModel(BaseModel):
             overlap_ratio=self.processing.overlap_ratio,
             pipeline_type=self.processing.pipeline_type,
             queue_size=self.processing.queue_size,
+            max_concurrent=self.processing.max_concurrent,
         )
 
     def to_loader_config(self) -> LoaderConfig:

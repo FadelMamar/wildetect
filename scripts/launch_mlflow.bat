@@ -5,7 +5,7 @@ call cd /d "D:\datalabeling"
 
 call .venv-mlflow\Scripts\activate
 
-call mlflow server --backend-store-uri runs\mlflow
+call mlflow server --backend-store-uri runs\mlflow --host 0.0.0.0 --port 5000
 
 call pause
 @REM call deactivate

@@ -22,7 +22,11 @@ from ...core.campaign_manager import CampaignConfig, CampaignManager
 from ...core.config import ROOT, FlightSpecs, LoaderConfig, PredictionConfig
 from ...core.config_loader import load_config_from_yaml, load_config_with_pydantic
 from ...core.data.utils import get_images_paths
-from ...core.detection_pipeline import DetectionPipeline, MultiThreadedDetectionPipeline
+from ...core.detection_pipeline import (
+    AsyncDetectionPipeline,
+    DetectionPipeline,
+    MultiThreadedDetectionPipeline,
+)
 from ...core.visualization.fiftyone_manager import FiftyOneManager
 from ..utils import (
     analyze_detection_results,
@@ -93,33 +97,33 @@ def detect(
         if config:
             loaded_config = load_config_with_pydantic("detect", config)
             # For detect command, we need to get image directory from config or use provided images
-            if images is None:
+            if images is None and hasattr(loaded_config, "images"):
                 images = list(loaded_config.images)
 
             # Apply command-line overrides
-            if model_path:
+            if model_path and hasattr(loaded_config, "model"):
                 loaded_config.model.path = model_path
-            if confidence is not None:
+            if confidence is not None and hasattr(loaded_config, "model"):
                 loaded_config.model.confidence_threshold = confidence
-            if device:
+            if device and hasattr(loaded_config, "model"):
                 loaded_config.model.device = device
-            if batch_size:
+            if batch_size and hasattr(loaded_config, "model"):
                 loaded_config.model.batch_size = batch_size
-            if tile_size:
+            if tile_size and hasattr(loaded_config, "processing"):
                 loaded_config.processing.tile_size = tile_size
-            if roi_weights:
+            if roi_weights and hasattr(loaded_config, "roi_classifier"):
                 loaded_config.roi_classifier.weights = roi_weights
-            if profile:
+            if profile and hasattr(loaded_config, "profiling"):
                 loaded_config.profiling.enable = True
-            if memory_profile:
+            if memory_profile and hasattr(loaded_config, "profiling"):
                 loaded_config.profiling.memory_profile = True
-            if line_profile:
+            if line_profile and hasattr(loaded_config, "profiling"):
                 loaded_config.profiling.line_profile = True
-            if gpu_profile:
+            if gpu_profile and hasattr(loaded_config, "profiling"):
                 loaded_config.profiling.gpu_profile = True
-            if output:
+            if output and hasattr(loaded_config, "output"):
                 loaded_config.output.directory = output
-            if dataset_name:
+            if dataset_name and hasattr(loaded_config, "output"):
                 loaded_config.output.dataset_name = dataset_name
 
             # Convert to existing dataclasses
@@ -127,8 +131,16 @@ def detect(
             loader_config = loaded_config.to_loader_config()
 
             # Set output directory
-            output_dir = Path(loaded_config.output.directory)
-            dataset_name = loaded_config.output.dataset_name
+            output_dir = (
+                Path(loaded_config.output.directory)
+                if hasattr(loaded_config, "output")
+                else Path(output or "results")
+            )
+            dataset_name = (
+                loaded_config.output.dataset_name
+                if hasattr(loaded_config, "output")
+                else dataset_name
+            )
         else:
             # Use command-line parameters directly
             pred_config = PredictionConfig(
@@ -148,23 +160,17 @@ def detect(
                 keep_classes=["groundtruth"],
                 feature_extractor_path="facebook/dinov2-with-registers-small",
                 cls_label_map={0: "groundtruth", 1: "other"},
-                inference_service_url=None,
                 verbose=verbose,
                 nms_iou=0.5,
                 overlap_ratio=0.2,
-                pipeline_type="single",
                 queue_size=32,
             )
 
             loader_config = LoaderConfig(
-                tile_size=tile_size or 800,
-                batch_size=batch_size or 32,
+                tile_size=pred_config.tilesize,
+                batch_size=pred_config.batch_size,
                 num_workers=0,
-                flight_specs=FlightSpecs(
-                    sensor_height=24.0,
-                    focal_length=35.0,
-                    flight_height=180.0,
-                ),
+                flight_specs=pred_config.flight_specs,
             )
 
             output_dir = Path(output or "results")
@@ -197,8 +203,12 @@ def detect(
         # Initialize detection pipeline
         if pred_config.pipeline_type == "multi":
             pipeline = MultiThreadedDetectionPipeline(
-                pred_config, loader_config, queue_size=pred_config.queue_size
+                pred_config,
+                loader_config,
             )
+        elif pred_config.pipeline_type == "async":
+            # NEW: Support for async pipeline
+            pipeline = AsyncDetectionPipeline(pred_config, loader_config)
         else:
             pipeline = DetectionPipeline(pred_config, loader_config)
 
@@ -246,11 +256,23 @@ def detect(
                 gpu_profile = False
 
         # Run pipeline
-        drone_images = pipeline.run_detection(
-            image_paths=image_paths,
-            image_dir=image_dir,
-            save_path=save_path,
-        )
+        if pred_config.pipeline_type == "async":
+            import asyncio
+
+            async def run_async_detection():
+                return await pipeline.run_detection_async(
+                    image_paths=image_paths,
+                    image_dir=image_dir,
+                    save_path=save_path,
+                )
+
+            drone_images = asyncio.run(run_async_detection())
+        else:
+            drone_images = pipeline.run_detection(
+                image_paths=image_paths,
+                image_dir=image_dir,
+                save_path=save_path,
+            )
 
         if dataset_name:
             fo_manager = FiftyOneManager(dataset_name, persistent=True)

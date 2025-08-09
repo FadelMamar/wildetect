@@ -129,6 +129,9 @@ def inference_server(
     workers_per_device: int = typer.Option(
         1, "--workers", "-w", help="Number of workers per device"
     ),
+    max_batch_size: int = typer.Option(
+        1, "--max-batch-size", "-b", help="Maximum batch size"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
 ):
     """Launch the inference server for wildlife detection."""
@@ -148,7 +151,11 @@ def inference_server(
         console.print(f"[green]Workers per device: {workers_per_device}[/green]")
 
         # Launch the inference server
-        run_inference_server(port=port, workers_per_device=workers_per_device)
+        run_inference_server(
+            port=port,
+            workers_per_device=workers_per_device,
+            max_batch_size=max_batch_size,
+        )
 
     except Exception as e:
         console.print(f"[red]Error starting inference server: {e}[/red]")

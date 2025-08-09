@@ -2,6 +2,8 @@
 Object Detection System for orchestrating detection pipeline.
 """
 
+# Add async imports
+import asyncio
 import base64
 import logging
 import os
@@ -9,6 +11,7 @@ import traceback
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
+import aiohttp
 import requests
 import torch
 from dotenv import load_dotenv
@@ -227,6 +230,17 @@ class ObjectDetectionSystem:
 
         return self.predict_local_batch(batch)
 
+    async def predict_async(
+        self, batch: torch.Tensor, local: bool = False
+    ) -> List[List[Detection]]:
+        """Async version of predict method."""
+        if isinstance(self.config.inference_service_url, str) and not local:
+            return await self.predict_inference_service_async(batch, self.config)
+
+        # For local prediction, run in thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.predict_local_batch, batch)
+
     def predict_local(self, batch: torch.Tensor) -> List[List[Detection]]:
         if not self.model:
             raise RuntimeError("No model set. Call set_model() first.")
@@ -300,6 +314,45 @@ class ObjectDetectionSystem:
         res = requests.post(
             url=config.inference_service_url, json=payload, timeout=config.timeout
         ).json()
+
+        res = res.get("detections", "FAILED")
+        if res == "FAILED":
+            raise ValueError(f"Inference service failed: {res}")
+
+        detections = []
+        for detection_list in res:
+            detections.append(
+                [Detection.from_dict(detection) for detection in detection_list]
+            )
+
+        return detections
+
+    @staticmethod
+    async def predict_inference_service_async(
+        batch: torch.Tensor, config: PredictionConfig
+    ) -> List[List[Detection]]:
+        """Async version of predict_inference_service."""
+        if not config.inference_service_url:
+            raise ValueError("Inference service URL is not configured")
+
+        batch = ObjectDetectionSystem.preprocess_batch(batch)
+
+        as_bytes = batch.cpu().numpy().tobytes()
+        payload = {
+            "tensor": base64.b64encode(as_bytes).decode("utf-8"),
+            "shape": list(batch.shape),
+            "iou_nms": config.nms_iou,
+            "conf": config.confidence_threshold,
+            "config": deepcopy(config).to_dict(),
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url=str(config.inference_service_url),
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=config.timeout),
+            ) as response:
+                res = await response.json()
 
         res = res.get("detections", "FAILED")
         if res == "FAILED":
