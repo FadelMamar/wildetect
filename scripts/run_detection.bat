@@ -1,5 +1,4 @@
 call cd /d "%~dp0" && cd ..
-call .venv\Scripts\activate
 
 
 call wildetect detection detect  -c config/detection.yaml -m weights\best.pt ^

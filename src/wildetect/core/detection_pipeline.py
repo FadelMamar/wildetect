@@ -369,7 +369,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         self,
         config: PredictionConfig,
         loader_config: LoaderConfig,
-        queue_size: int = 3,
+        queue_size: int = 24,
     ):
         """Initialize the multi-threaded detection pipeline.
 
@@ -415,12 +415,12 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
 
                 # Put batch in queue with timeout
                 while not self.stop_event.is_set():
-                    if self.data_queue.put_batch(prepared_batch, timeout=0.5):
+                    if self.data_queue.put_batch(prepared_batch, timeout=15):
                         progress_bar.update(1)
                         break
                     else:
                         # Queue is full, wait a bit
-                        time.sleep(0.1)
+                        time.sleep(5)
 
                 if self.stop_event.is_set():
                     break
@@ -451,7 +451,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
                 len(processed_batches) < total_batches and not self.stop_event.is_set()
             ):
                 # Get batch from queue
-                batch = self.data_queue.get_batch(timeout=1.0)
+                batch = self.data_queue.get_batch(timeout=15)
 
                 if batch is None:
                     # No batch available, check if we should continue
@@ -476,7 +476,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
 
         except Exception as e:
             logger.error(f"Error in detection thread: {e}")
-            logger.debug(traceback.format_exc())
+            logger.info(traceback.format_exc())
         finally:
             logger.info("Detection thread finished")
 
