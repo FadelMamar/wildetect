@@ -286,19 +286,28 @@ class CampaignManager:
         if self.fiftyone_manager is None:
             logger.warning("FiftyOne manager not initialized. Skipping export.")
             return
+        
+        failed = False
+        error_msg = ""
+        for i in range(3):
+            
+            try:
+                annot_key = f"{self.campaign_id}{i}"
+                self.fiftyone_manager.send_predictions_to_labelstudio(
+                    annot_key, dotenv_path=dotenv_path
+                )
+                logger.info(
+                    f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
+                )
+                return annot_key
 
-        try:
-            annot_key = f"{self.campaign_id}"
-            self.fiftyone_manager.send_predictions_to_labelstudio(
-                annot_key, dotenv_path=dotenv_path
+            except Exception as e:
+                failed = True
+                error_msg = traceback.format_exc()
+        if failed:
+            logger.error(
+                f"Failed to export to LabelStudio after multiple attempts. {error_msg}"
             )
-            logger.info(
-                f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
-            )
-            return annot_key
-
-        except Exception:
-            logger.error(f"Error exporting to LabelStudio: {traceback.format_exc()}")
             return None
 
     def export_detection_report(self, output_path: str) -> None:
