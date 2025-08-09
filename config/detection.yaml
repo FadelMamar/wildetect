@@ -10,6 +10,7 @@ model:
   batch_size: 32
   nms_iou: 0.5
 
+# Include only one directory path or a list of image paths
 images: 
  - D:\workspace\data\savmap_dataset_v2\raw\tmp
 
@@ -50,7 +51,7 @@ profiling:
 # Output Configuration
 output:
   directory: "results"
-  dataset_name: null  # Will use default dataset name if null
+  dataset_name: null  # if null, fiftyone dataset upload is disabled
 
 # Logging Configuration
 logging:

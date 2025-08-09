@@ -7,11 +7,14 @@ campaign:
   pilot_name: "Unknown"
   target_species: null  # List of target species for detection
 
-images: 
- - D:\workspace\data\savmap_dataset_v2\raw\tmp
 
 # Detection Configuration (inherits from detection.yaml)
 detection:
+
+  # Include only one directory path or a list of image paths
+  images: 
+    - D:\workspace\data\savmap_dataset_v2\raw\tmp
+
   # Model Configuration
   model:
     path: null  # Will use WILDETECT_MODEL_PATH env var if null

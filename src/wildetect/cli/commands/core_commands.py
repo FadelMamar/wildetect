@@ -385,7 +385,7 @@ def census(
 
             # Apply command-line overrides
             if images is None:
-                images = list(loaded_config.images)
+                images = list(loaded_config.detection.images)
 
             if model_path:
                 loaded_config.detection.model.path = model_path
@@ -557,9 +557,8 @@ def census(
             f"[bold green]Census campaign completed successfully![/bold green]"
         )
 
-    except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
-        logger.error(f"Census campaign failed: {traceback.format_exc()}")
+    except Exception:
+        console.print(f"[red]Error: {traceback.format_exc()}[/red]")
         raise typer.Exit(1)
 
 

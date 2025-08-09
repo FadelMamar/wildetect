@@ -4,7 +4,6 @@ call .venv\Scripts\activate
 
 call wildetect detection detect  -c config/detection.yaml -m weights\best.pt ^
                                  --roi-weights weights\roi_classifier.torchscript ^
-                                 --images D:\workspace\data\savmap_dataset_v2\raw\tmp
 
 call pause
 

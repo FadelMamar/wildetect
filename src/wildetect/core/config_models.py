@@ -192,54 +192,6 @@ class OutputFormatConfigModel(BaseModel):
     auto_open: bool = Field(default=False, description="Auto-open output")
 
 
-class DetectionConfigModel(BaseModel):
-    """Detection configuration model for census command."""
-
-    model: ModelConfigModel = Field(default_factory=ModelConfigModel)
-    processing: ProcessingConfigModel = Field(default_factory=ProcessingConfigModel)
-    flight_specs: FlightSpecsModel = Field(default_factory=FlightSpecsModel)
-    roi_classifier: ROIClassifierConfigModel = Field(
-        default_factory=ROIClassifierConfigModel
-    )
-    inference_service: InferenceServiceConfigModel = Field(
-        default_factory=InferenceServiceConfigModel
-    )
-    profiling: ProfilingConfigModel = Field(default_factory=ProfilingConfigModel)
-
-    def to_prediction_config(self, verbose: bool = False) -> PredictionConfig:
-        """Convert to existing PredictionConfig dataclass."""
-        return PredictionConfig(
-            model_path=self.model.path,
-            model_type=self.model.type,
-            confidence_threshold=self.model.confidence_threshold,
-            device=self.model.device,
-            batch_size=self.model.batch_size,
-            tilesize=self.processing.tile_size,
-            flight_specs=self.flight_specs.to_flight_specs(),
-            roi_weights=self.roi_classifier.weights,
-            cls_imgsz=self.roi_classifier.cls_imgsz,
-            keep_classes=self.roi_classifier.keep_classes,
-            feature_extractor_path=self.roi_classifier.feature_extractor_path,
-            cls_label_map=self.roi_classifier.cls_label_map,
-            inference_service_url=self.inference_service.url,
-            verbose=verbose,
-            nms_iou=self.model.nms_iou,
-            overlap_ratio=self.processing.overlap_ratio,
-            pipeline_type=self.processing.pipeline_type,
-            queue_size=self.processing.queue_size,
-        )
-
-    def to_loader_config(self) -> LoaderConfig:
-        """Convert to existing LoaderConfig dataclass."""
-        return LoaderConfig(
-            tile_size=self.processing.tile_size,
-            batch_size=self.model.batch_size,
-            num_workers=0,
-            overlap=self.processing.overlap_ratio,
-            flight_specs=self.flight_specs.to_flight_specs(),
-        )
-
-
 class DetectConfigModel(BaseModel):
     """Configuration model for detect command."""
 
@@ -295,7 +247,7 @@ class CensusConfigModel(BaseModel):
     """Configuration model for census command."""
 
     campaign: CampaignConfigModel = Field(description="Campaign configuration")
-    detection: DetectionConfigModel = Field(default_factory=DetectionConfigModel)
+    detection: DetectConfigModel = Field(default_factory=DetectConfigModel)
     export: ExportConfigModel = Field(default_factory=ExportConfigModel)
     logging: LoggingConfigModel = Field(default_factory=LoggingConfigModel)
 
