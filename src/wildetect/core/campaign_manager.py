@@ -288,7 +288,7 @@ class CampaignManager:
             return
 
         try:
-            annot_key = f"campaign_{self.campaign_id}_review"
+            annot_key = f"{self.campaign_id}"
             self.fiftyone_manager.send_predictions_to_labelstudio(
                 annot_key, dotenv_path=dotenv_path
             )
