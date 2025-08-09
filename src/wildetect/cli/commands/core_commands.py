@@ -375,32 +375,13 @@ def census(
     ),
 ):
     """Run wildlife census campaign with enhanced analysis."""
-    setup_logging(
-        verbose,
-        log_file=str(
-            ROOT
-            / "logs"
-            / "census"
-            / f"{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-        ),
-    )
-    logger = logging.getLogger(__name__)
-
-    if not torch.cuda.is_available():
-        console.print(
-            f"[bold red]CUDA is not available. It will be very slow...[/bold red]"
-        )
-    else:
-        console.print(f"[bold green]CUDA is available...[/bold green]")
 
     try:
-        console.print(
-            f"[bold green]Starting Wildlife Census Campaign: {campaign_id}[/bold green]"
-        )
-
         # Load configuration from YAML
         if config:
             loaded_config = load_config_with_pydantic("census", config)
+
+            campaign_id = loaded_config.campaign.id
 
             # Apply command-line overrides
             if images is None:
@@ -511,6 +492,28 @@ def census(
 
             output_dir = output or f"results/{campaign_id}"
             export_to_fiftyone = True
+
+        console.print(
+            f"[bold green]Starting Wildlife Census Campaign: {campaign_id}[/bold green]"
+        )
+
+        setup_logging(
+            verbose,
+            log_file=str(
+                ROOT
+                / "logs"
+                / "census"
+                / f"{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            ),
+        )
+        logger = logging.getLogger(__name__)
+
+        if not torch.cuda.is_available():
+            console.print(
+                f"[bold red]CUDA is not available. It will be very slow...[/bold red]"
+            )
+        else:
+            console.print(f"[bold green]CUDA is available...[/bold green]")
 
         # Determine if input is directory or file paths
         assert isinstance(images, list), "images must be a list"

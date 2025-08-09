@@ -6,7 +6,7 @@ geographic:
   create_map: true
   show_confidence: false
   output_directory: "visualizations"
-  map_type: "folium"  # folium, plotly, etc.
+  map_type: "OpenStreetMap"  # OpenStreetMap, folium, etc.
   zoom_level: 12
   center_on_data: true
 

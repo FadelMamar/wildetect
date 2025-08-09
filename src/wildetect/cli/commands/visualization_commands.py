@@ -12,10 +12,11 @@ import typer
 from rich.console import Console
 
 from ...core.config import FlightSpecs
-from ...core.config_loader import ROOT
+from ...core.config_loader import ROOT, load_config_with_pydantic
+from ...core.config_models import VisualizeConfigModel
 from ...core.data.drone_image import DroneImage
 from ...core.data.utils import get_images_paths
-from ...core.visualization.geographic import GeographicVisualizer
+from ...core.visualization.geographic import GeographicVisualizer, VisualizationConfig
 from ..utils import create_geographic_visualization, setup_logging
 
 app = typer.Typer(name="visualization", help="Visualization commands")
@@ -25,15 +26,34 @@ console = Console()
 @app.command()
 def visualize(
     results_path: str = typer.Argument(..., help="Path to detection results"),
-    output_dir: str = typer.Option(
-        "results", "--output", "-o", help="Output directory for visualizations"
+    config: Optional[str] = typer.Option(
+        None, "--config", "-c", help="Path to YAML configuration file"
     ),
-    create_map: bool = typer.Option(
-        True, "--map", help="Create geographic visualization map"
+    output_dir: str = typer.Option(
+        "results", "--output", "-o", help="Override output directory"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+    # Essential overrides
+    create_map: Optional[bool] = typer.Option(
+        None, "--map", help="Override create map setting"
+    ),
+    show_confidence: Optional[bool] = typer.Option(
+        None, "--show-confidence", help="Override show confidence setting"
+    ),
+    confidence_threshold: Optional[float] = typer.Option(
+        None, "--confidence", help="Override confidence threshold"
+    ),
+    # Output format overrides
+    format: Optional[str] = typer.Option(
+        None, "--format", help="Override output format"
+    ),
+    auto_open: Optional[bool] = typer.Option(
+        None, "--auto-open", help="Override auto-open setting"
     ),
 ):
     """Visualize detection results with geographic maps and statistics."""
     setup_logging(
+        verbose,
         log_file=str(
             ROOT
             / "logs"
@@ -49,13 +69,55 @@ def visualize(
             console.print(f"[red]Results file not found: {results_path}[/red]")
             raise typer.Exit(1)
 
+        # Load configuration from YAML
+        if config:
+            loaded_config = load_config_with_pydantic("visualize", config)
+
+            # Ensure we have the correct config type for visualization
+            if not isinstance(loaded_config, VisualizeConfigModel):
+                console.print(
+                    f"[red]Error: Configuration file is not a valid visualization config[/red]"
+                )
+                raise typer.Exit(1)
+
+            # Apply command-line overrides
+            if create_map is not None:
+                loaded_config.geographic.create_map = create_map
+            if show_confidence is not None:
+                loaded_config.geographic.show_confidence = show_confidence
+            if confidence_threshold is not None:
+                loaded_config.visualization.confidence_threshold = confidence_threshold
+            if output_dir:
+                loaded_config.geographic.output_directory = output_dir
+            if format:
+                loaded_config.output.format = format
+            if auto_open is not None:
+                loaded_config.output.auto_open = auto_open
+
+            # Set output directory
+            output_dir_obj = Path(loaded_config.geographic.output_directory)
+            create_map = loaded_config.geographic.create_map
+            show_confidence = loaded_config.geographic.show_confidence
+            confidence_threshold = loaded_config.visualization.confidence_threshold
+            output_format = loaded_config.output.format
+            auto_open_browser = loaded_config.output.auto_open
+        else:
+            # Use command-line parameters directly (legacy mode)
+            output_dir_obj = Path(output_dir)
+            create_map = create_map if create_map is not None else True
+            show_confidence = show_confidence if show_confidence is not None else False
+            confidence_threshold = (
+                confidence_threshold if confidence_threshold is not None else 0.2
+            )
+            output_format = format if format else "html"
+            auto_open_browser = auto_open if auto_open is not None else False
+
+        # Create output directory
+        output_dir_obj.mkdir(parents=True, exist_ok=True)
+
         # Load results
         with open(results_path_obj, "r") as f:
             results = json.load(f)
-
-        # Create output directory
-        output_dir_obj = Path(output_dir)
-        output_dir_obj.mkdir(parents=True, exist_ok=True)
 
         console.print(f"[green]Visualizing results from: {results_path}[/green]")
 
@@ -91,7 +153,7 @@ def visualize(
                 # If results contain drone_images, use them directly
                 if isinstance(results, dict) and "drone_images" in results:
                     drone_images = results["drone_images"]
-                    create_geographic_visualization(drone_images, output_dir)
+                    create_geographic_visualization(drone_images, str(output_dir_obj))
                 else:
                     console.print(
                         "[yellow]No geographic data found in results for map creation[/yellow]"
@@ -130,47 +192,139 @@ def visualize(
 @app.command()
 def visualize_geographic_bounds(
     image_dir: str = typer.Argument(..., help="Image directory"),
-    output_dir: str = typer.Option(
-        "visualizations", "--output", "-o", help="Output directory for visualizations"
+    config: Optional[str] = typer.Option(
+        None, "--config", "-c", help="Path to YAML configuration file"
     ),
-    sensor_height: float = typer.Option(
-        24.0, "--sensor-height", help="Sensor height in mm"
+    output_dir: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Override output directory"
     ),
-    focal_length: float = typer.Option(
-        35.0, "--focal-length", help="Focal length in mm"
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+    # Essential overrides
+    sensor_height: Optional[float] = typer.Option(
+        None, "--sensor-height", help="Override sensor height in mm"
     ),
-    flight_height: float = typer.Option(
-        180.0, "--flight-height", help="Flight height in meters"
+    focal_length: Optional[float] = typer.Option(
+        None, "--focal-length", help="Override focal length in mm"
+    ),
+    flight_height: Optional[float] = typer.Option(
+        None, "--flight-height", help="Override flight height in meters"
+    ),
+    # Visualization overrides
+    show_confidence: Optional[bool] = typer.Option(
+        None, "--show-confidence", help="Override show confidence setting"
+    ),
+    confidence_threshold: Optional[float] = typer.Option(
+        None, "--confidence", help="Override confidence threshold"
+    ),
+    # Output format overrides
+    format: Optional[str] = typer.Option(
+        None, "--format", help="Override output format"
+    ),
+    auto_open: Optional[bool] = typer.Option(
+        None, "--auto-open", help="Override auto-open setting"
     ),
 ) -> None:
     """Convenience function to visualize geographic bounds."""
     setup_logging(
+        verbose,
         log_file=str(
             ROOT
             / "logs"
             / "visualize_geographic_bounds"
             / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-        )
+        ),
     )
     logger = logging.getLogger(__name__)
+
     try:
         assert Path(image_dir).is_dir(), f"Image directory not found: {image_dir}"
 
-        flight_specs = FlightSpecs(
-            sensor_height=sensor_height,
-            focal_length=focal_length,
-            flight_height=flight_height,
-        )
+        # Load configuration from YAML
+        if config:
+            loaded_config = load_config_with_pydantic("visualize", config)
+
+            # Ensure we have the correct config type for visualization
+            if not isinstance(loaded_config, VisualizeConfigModel):
+                console.print(
+                    f"[red]Error: Configuration file is not a valid visualization config[/red]"
+                )
+                raise typer.Exit(1)
+
+            # Apply command-line overrides
+            if sensor_height is not None:
+                loaded_config.flight_specs.sensor_height = sensor_height
+            if focal_length is not None:
+                loaded_config.flight_specs.focal_length = focal_length
+            if flight_height is not None:
+                loaded_config.flight_specs.flight_height = flight_height
+            if show_confidence is not None:
+                loaded_config.geographic.show_confidence = show_confidence
+            if confidence_threshold is not None:
+                loaded_config.visualization.confidence_threshold = confidence_threshold
+            if output_dir:
+                loaded_config.geographic.output_directory = output_dir
+            if format:
+                loaded_config.output.format = format
+            if auto_open is not None:
+                loaded_config.output.auto_open = auto_open
+
+            # Convert to existing dataclasses
+            flight_specs = loaded_config.flight_specs.to_flight_specs()
+            visualization_config = VisualizationConfig(
+                show_detections=loaded_config.visualization.show_detections,
+                show_statistics=loaded_config.visualization.show_statistics,
+                show_image_bounds=loaded_config.visualization.show_footprints,
+                map_center=None,  # Will be auto-calculated
+                zoom_start=loaded_config.geographic.zoom_level,
+                tiles=loaded_config.geographic.map_type,
+            )
+
+            # Set output directory
+            output_dir_obj = Path(loaded_config.geographic.output_directory)
+            output_format = loaded_config.output.format
+            auto_open_browser = loaded_config.output.auto_open
+        else:
+            # Use command-line parameters directly (legacy mode)
+            flight_specs = FlightSpecs(
+                sensor_height=sensor_height or 24.0,
+                focal_length=focal_length or 35.0,
+                flight_height=flight_height or 180.0,
+            )
+            visualization_config = VisualizationConfig(
+                show_detections=True,
+                show_statistics=True,
+                show_image_bounds=True,
+                map_center=None,  # Will be auto-calculated
+                zoom_start=12,
+                tiles="OpenStreetMap",
+            )
+
+            output_dir_obj = Path(output_dir or "visualizations")
+            output_format = format if format else "html"
+            auto_open_browser = auto_open if auto_open is not None else False
+
         drone_images = [
             DroneImage.from_image_path(image, flight_specs=flight_specs)
             for image in get_images_paths(image_dir)
         ]
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        output_path = str(Path(output_dir) / "geographic_visualization.html")
-        GeographicVisualizer().create_map(drone_images, output_path)
+
+        output_dir_obj.mkdir(parents=True, exist_ok=True)
+        output_path = str(output_dir_obj / f"geographic_visualization.{output_format}")
+
+        GeographicVisualizer(config=visualization_config).create_map(
+            drone_images, output_path
+        )
+
         console.print(
             f"[green]Geographic visualization saved to: {output_path}[/green]"
         )
+
+        if auto_open_browser:
+            import webbrowser
+
+            webbrowser.open(output_path)
+            console.print(f"[green]Opened visualization in browser[/green]")
+
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         logger.error(f"Visualization failed: {e}")
