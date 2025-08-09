@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 import requests
 import torch
 from dotenv import load_dotenv
+from torch.utils.data import DataLoader, TensorDataset
 from torchvision.transforms import ToPILImage
 
 from wildetect.utils.utils import load_registered_model
@@ -224,7 +225,7 @@ class ObjectDetectionSystem:
         if isinstance(self.config.inference_service_url, str) and not local:
             return self.predict_inference_service(batch, self.config)
 
-        return self.predict_local(batch)
+        return self.predict_local_batch(batch)
 
     def predict_local(self, batch: torch.Tensor) -> List[List[Detection]]:
         if not self.model:
@@ -232,6 +233,12 @@ class ObjectDetectionSystem:
 
         batch = self.preprocess_batch(batch)
         B, C, H, W = batch.shape
+
+        if B > self.config.batch_size:
+            raise ValueError(
+                f"Batch size {B} is greater than the model's batch size {self.config.batch_size}."
+                "Use predict_local_batch instead."
+            )
 
         # Run batch prediction
         batch_padded = self._pad_if_needed(
@@ -248,6 +255,17 @@ class ObjectDetectionSystem:
                 f"Number of detections and images must match. {len(detections)} != {B}"
             )
 
+        return detections
+
+    def predict_local_batch(self, batch: torch.Tensor) -> List[List[Detection]]:
+        if batch.shape[0] <= self.config.batch_size:
+            return self.predict_local(batch)
+
+        data = TensorDataset(batch)
+        dataloader = DataLoader(data, batch_size=self.config.batch_size, shuffle=False)
+        detections = []
+        for (batch,) in dataloader:
+            detections.extend(self.predict_local(batch))
         return detections
 
     def _pad_if_needed(self, batch: torch.Tensor, out_shape: tuple) -> torch.Tensor:
