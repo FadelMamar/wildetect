@@ -140,7 +140,7 @@ class Detection:
     ) -> float:
         """Compute the distance from the detection to the centroid of the parent image."""
         if self.parent_image is None:
-            return np.nan
+            return 99999
 
         with Image.open(self.parent_image) as image:
             width, height = image.size

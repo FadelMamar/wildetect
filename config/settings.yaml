@@ -1,6 +1,24 @@
-# WildDetect Configuration
+# WildDetect Global Configuration
+# This file contains global settings that apply across all commands
 
-# Model Settings
+# Application Information
+app:
+  name: "WildDetect"
+  version: "1.0.0"
+  description: "Wildlife Detection System"
+
+# File Paths
+paths:
+  data_dir: "data"
+  images_dir: "data/images"
+  annotations_dir: "data/annotations"
+  models_dir: "models"
+  datasets_dir: "data/datasets"
+  logs_dir: "logs"
+  results_dir: "results"
+  visualizations_dir: "visualizations"
+
+# Model Settings (Global defaults)
 model:
   type: "yolo"  # yolo, faster_rcnn, etc.
   weights: "models/yolo_wildlife.pt"
@@ -9,7 +27,7 @@ model:
   input_size: [640, 640]
   device: "auto"  # auto, cpu, cuda
 
-# Detection Settings
+# Detection Settings (Global defaults)
 detection:
   min_confidence: 0.3
   max_detections: 100
@@ -29,15 +47,6 @@ detection:
     - "rabbit"
     - "bird"
     - "other"
-
-# File Paths
-paths:
-  data_dir: "data"
-  images_dir: "data/images"
-  annotations_dir: "data/annotations"
-  models_dir: "models"
-  datasets_dir: "data/datasets"
-  logs_dir: "logs"
 
 # FiftyOne Settings
 fiftyone:
@@ -75,7 +84,7 @@ ui:
   theme: "light"
   page_icon: "🦁"
 
-# Processing Settings
+# Processing Settings (Global defaults)
 processing:
   batch_size: 4
   num_workers: 2
@@ -86,4 +95,10 @@ processing:
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  file: "logs/wildetect.log" 
+  file: "logs/wildetect.log"
+
+# Environment Variables (for reference)
+environment:
+  WILDETECT_MODEL_PATH: null  # Path to detection model
+  ROI_MODEL_PATH: null  # Path to ROI classifier model
+  WILDETECT_INFERENCE_SERVICE_URL: null  # URL for inference service 

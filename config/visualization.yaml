@@ -1,0 +1,37 @@
+# Visualization Configuration
+# This file contains all parameters needed for visualization commands
+
+# Geographic Visualization Configuration
+geographic:
+  create_map: true
+  show_confidence: false
+  output_directory: "visualizations"
+  map_type: "OpenStreetMap"  # OpenStreetMap, folium, etc.
+  zoom_level: 12
+  center_on_data: true
+
+# Flight Specifications for Geographic Visualization
+flight_specs:
+  sensor_height: 24.0  # mm
+  focal_length: 35.0   # mm
+  flight_height: 180.0  # meters
+
+# Visualization Options
+visualization:
+  show_detections: true
+  show_footprints: true
+  show_statistics: true
+  color_by_confidence: false
+  confidence_threshold: 0.2
+
+# Output Configuration
+output:
+  format: "html"  # html, png, pdf
+  include_legend: true
+  include_statistics: true
+  auto_open: false  # Open in browser automatically
+
+# Logging Configuration
+logging:
+  verbose: false
+  log_file: null  # Will use default log path if null

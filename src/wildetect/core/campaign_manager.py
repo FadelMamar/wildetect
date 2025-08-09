@@ -469,9 +469,15 @@ class CampaignManager:
         try:
             if export_to_fiftyone:
                 self.export_to_fiftyone()
-                annot_key = self.export_to_labelstudio()
         except Exception as e:
             logger.error(f"Error exporting to FiftyOne: {e}")
+            annot_key = None
+
+        try:
+            if export_to_fiftyone:
+                annot_key = self.export_to_labelstudio()
+        except Exception as e:
+            logger.error(f"Error exporting to LabelStudio: {e}")
             annot_key = None
 
         # Step 8: Export final report
