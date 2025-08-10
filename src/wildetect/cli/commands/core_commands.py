@@ -1,34 +1,20 @@
 """
-Core detection and analysis commands.
+Core CLI commands for the wildetect application.
 """
-
-import cProfile
+import asyncio
 import json
 import logging
 import os
-import pstats
-import time
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional
 
 import torch
 import typer
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from ...core.campaign_manager import CampaignConfig, CampaignManager
-from ...core.config import ROOT, FlightSpecs, LoaderConfig, PredictionConfig
-from ...core.config_loader import load_config_from_yaml, load_config_with_pydantic
-from ...core.data.utils import get_images_paths
-from ...core.detection_pipeline import (
-    AsyncDetectionPipeline,
-    DetectionPipeline,
-    MultiThreadedDetectionPipeline,
-)
-from ...core.visualization.fiftyone_manager import FiftyOneManager
-from ..utils import (
+from wildetect.cli.utils import (
     analyze_detection_results,
     display_analysis_results,
     display_census_results,
@@ -36,8 +22,20 @@ from ..utils import (
     export_analysis_report,
     setup_logging,
 )
+from wildetect.core.campaign_manager import CampaignConfig, CampaignManager
+from wildetect.core.config_loader import load_config_with_pydantic
+from wildetect.core.config_models import FlightSpecs, LoaderConfig, PredictionConfig
+from wildetect.core.data.utils import get_images_paths
+from wildetect.core.detection_pipeline import (
+    AsyncDetectionPipeline,
+    DetectionPipeline,
+    MultiThreadedDetectionPipeline,
+)
+from wildetect.core.visualization.fiftyone_manager import FiftyOneManager
+from wildetect.utils.profiler import profile_command
+from wildetect.utils.utils import ROOT
 
-app = typer.Typer(name="detection", help="Detection and analysis commands")
+app = typer.Typer()
 console = Console()
 
 
@@ -68,7 +66,7 @@ def detect(
     ),
     device: Optional[str] = typer.Option("auto", "--device", help="Override device"),
     batch_size: Optional[int] = typer.Option(
-        32, "--batch-size", "-b", help="Override batch size"
+        16, "--batch-size", "-b", help="Override batch size"
     ),
     tile_size: Optional[int] = typer.Option(
         800, "--tile-size", help="Override tile size"
@@ -89,7 +87,12 @@ def detect(
     ),
 ):
     """Detect wildlife in images using AI models."""
-    setup_logging(verbose)
+
+    log_file = str(
+        ROOT / "logs" / "detect" / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    )
+
+    setup_logging(verbose, log_file)
     logger = logging.getLogger(__name__)
 
     try:
@@ -174,7 +177,6 @@ def detect(
             )
 
             output_dir = Path(output or "results")
-            dataset_name = dataset_name
 
         # Determine if input is directory or file paths
         logger.info(f"Processing images: {images}")
@@ -216,63 +218,64 @@ def detect(
         if output_dir:
             save_path = str(output_dir / "results.json")
 
-        # Profile the detection pipeline
-        start_time = time.time()
+        # Determine profiling settings from config or command line
+        profiling_enabled = (
+            loaded_config.profiling.enable
+            if config and hasattr(loaded_config, "profiling")
+            else profile
+        )
+        memory_profiling_enabled = (
+            loaded_config.profiling.memory_profile
+            if config and hasattr(loaded_config, "profiling")
+            else memory_profile
+        )
+        line_profiling_enabled = (
+            loaded_config.profiling.line_profile
+            if config and hasattr(loaded_config, "profiling")
+            else line_profile
+        )
+        gpu_profiling_enabled = (
+            loaded_config.profiling.gpu_profile
+            if config and hasattr(loaded_config, "profiling")
+            else gpu_profile
+        )
 
-        if loaded_config.profiling.enable:
-            # Enable detailed profiling
-            profiler = cProfile.Profile()
-            profiler.enable()
+        profiling_dir = Path(log_file).parent / f"{Path(log_file).stem}_profiling"
+        profiling_dir.mkdir(parents=True, exist_ok=True)
 
-        if loaded_config.profiling.memory_profile:
-            raise NotImplementedError("Memory profiling is not implemented yet")
+        with profile_command(
+            output_dir=profiling_dir,
+            profile=profiling_enabled,
+            memory_profile=memory_profiling_enabled,
+            line_profile=line_profiling_enabled,
+            gpu_profile=gpu_profiling_enabled,
+        ) as profiler:
+            # Run pipeline with profiling
+            if pred_config.pipeline_type == "async":
 
-        if loaded_config.profiling.line_profile:
-            try:
-                from line_profiler import LineProfiler
+                async def run_async_detection():
+                    return await pipeline.run_detection_async(
+                        image_paths=image_paths,
+                        image_dir=image_dir,
+                        save_path=save_path,
+                    )
 
-                print("Line profiling enabled - this will be slower")
-                line_profiler = LineProfiler()
-                # Profile the run_detection method
-                line_profiler.add_function(pipeline.run_detection)
-                line_profiler.enable_by_count()
-            except ImportError:
-                print(
-                    "line_profiler not installed. Install with: pip install line_profiler"
-                )
-                line_profile = False
-
-        if loaded_config.profiling.gpu_profile:
-            try:
-                if torch.cuda.is_available():
-                    print("GPU profiling enabled")
-                    torch.cuda.empty_cache()
-                    torch.cuda.reset_peak_memory_stats()
+                drone_images = asyncio.run(run_async_detection())
+            else:
+                # Use line profiling if enabled
+                if line_profiling_enabled:
+                    drone_images = profiler.profile_function(
+                        pipeline.run_detection,
+                        image_paths=image_paths,
+                        image_dir=image_dir,
+                        save_path=save_path,
+                    )
                 else:
-                    print("CUDA not available, GPU profiling disabled")
-                    gpu_profile = False
-            except ImportError:
-                print("PyTorch not available, GPU profiling disabled")
-                gpu_profile = False
-
-        # Run pipeline
-        if pred_config.pipeline_type == "async":
-            import asyncio
-
-            async def run_async_detection():
-                return await pipeline.run_detection_async(
-                    image_paths=image_paths,
-                    image_dir=image_dir,
-                    save_path=save_path,
-                )
-
-            drone_images = asyncio.run(run_async_detection())
-        else:
-            drone_images = pipeline.run_detection(
-                image_paths=image_paths,
-                image_dir=image_dir,
-                save_path=save_path,
-            )
+                    drone_images = pipeline.run_detection(
+                        image_paths=image_paths,
+                        image_dir=image_dir,
+                        save_path=save_path,
+                    )
 
         if dataset_name:
             fo_manager = FiftyOneManager(dataset_name, persistent=True)
@@ -290,52 +293,6 @@ def detect(
             except Exception as e:
                 logger.error(f"Error exporting to LabelStudio: {e}")
                 console.print(f"[red]Error exporting to LabelStudio: {e}[/red]")
-
-        if loaded_config.profiling.gpu_profile and torch.cuda.is_available():
-            print(
-                f"GPU Memory Peak: {torch.cuda.max_memory_allocated() / 1024**3:.2f} GB"
-            )
-            print(
-                f"GPU Memory Current: {torch.cuda.memory_allocated() / 1024**3:.2f} GB"
-            )
-
-        if loaded_config.profiling.line_profile and "line_profiler" in locals():
-            line_profiler.disable_by_count()
-            line_profiler.print_stats()
-            if output:
-                line_profile_path = Path(output) / "line_profile_results.txt"
-                with open(line_profile_path, "w") as f:
-                    line_profiler.print_stats(stream=f)
-                print(f"Line profile saved to: {line_profile_path}")
-
-        if loaded_config.profiling.enable:
-            # Disable profiler and save results
-            profiler.disable()
-            stats = pstats.Stats(profiler)
-
-            # Save profiling results
-            profile_path = (
-                Path(output) / "profile_results.prof"
-                if output
-                else Path("profile_results.prof")
-            )
-            stats.dump_stats(str(profile_path))
-
-            # Print top 20 functions by cumulative time
-            print("\n=== PROFILING RESULTS ===")
-            stats.sort_stats("cumulative")
-            stats.print_stats(20)
-            print(f"Detailed profile saved to: {profile_path}")
-            print(
-                "To view with snakeviz: pip install snakeviz && snakeviz", profile_path
-            )
-
-        end_time = time.time()
-
-        # Log timing information
-        execution_time = end_time - start_time
-        logger.info(f"Detection pipeline execution time: {execution_time:.2f} seconds")
-        print(f"Detection completed in {execution_time:.2f} seconds")
 
         # Display results
         try:
@@ -519,16 +476,14 @@ def census(
             f"[bold green]Starting Wildlife Census Campaign: {campaign_id}[/bold green]"
         )
 
-        setup_logging(
-            verbose,
-            log_file=str(
-                ROOT
-                / "logs"
-                / "census"
-                / f"{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-            ),
+        log_file = str(
+            ROOT
+            / "logs"
+            / "census"
+            / f"{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         )
-        logger = logging.getLogger(__name__)
+
+        setup_logging(verbose, log_file)
 
         if not torch.cuda.is_available():
             console.print(
@@ -538,7 +493,7 @@ def census(
             console.print(f"[bold green]CUDA is available...[/bold green]")
 
         # Determine if input is directory or file paths
-        assert isinstance(images, list), "images must be a list"
+        assert isinstance(images, list), f"images must be a list. Received: {images}"
         if len(images) == 1 and Path(images[0]).is_dir():
             image_dir = images[0]
             image_paths = get_images_paths(image_dir)
@@ -563,11 +518,43 @@ def census(
         # Initialize campaign manager
         campaign_manager = CampaignManager(campaign_config)
 
-        results = campaign_manager.run_complete_campaign(
-            image_paths=image_paths,
-            output_dir=output_dir,
-            export_to_fiftyone=export_to_fiftyone,
-        )
+        # Determine profiling settings from config or command line
+        if config and hasattr(loaded_config, "profiling"):
+            profiling_enabled = loaded_config.profiling.enable
+            memory_profiling_enabled = loaded_config.profiling.memory_profile
+            line_profiling_enabled = loaded_config.profiling.line_profile
+            gpu_profiling_enabled = loaded_config.profiling.gpu_profile
+        else:
+            # Use command-line parameters directly
+            profiling_enabled = profile
+            memory_profiling_enabled = memory_profile
+            line_profiling_enabled = line_profile
+            gpu_profiling_enabled = gpu_profile
+
+        profiling_dir = Path(log_file).parent / f"{Path(log_file).stem}_profiling"
+        profiling_dir.mkdir(parents=True, exist_ok=True)
+
+        with profile_command(
+            output_dir=profiling_dir,
+            profile=profiling_enabled,
+            memory_profile=memory_profiling_enabled,
+            line_profile=line_profiling_enabled,
+            gpu_profile=gpu_profiling_enabled,
+        ) as profiler:
+            # Run campaign with profiling
+            if line_profiling_enabled:
+                results = profiler.profile_function(
+                    campaign_manager.run_complete_campaign,
+                    image_paths=image_paths,
+                    output_dir=output_dir,
+                    export_to_fiftyone=export_to_fiftyone,
+                )
+            else:
+                results = campaign_manager.run_complete_campaign(
+                    image_paths=image_paths,
+                    output_dir=output_dir,
+                    export_to_fiftyone=export_to_fiftyone,
+                )
 
         # Display results
         display_census_results(
