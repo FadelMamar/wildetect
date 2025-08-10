@@ -294,20 +294,3 @@ def _get_default_config() -> Dict[str, Any]:
             "file": "logs/wildetect.log",
         },
     }
-
-
-def create_directories():
-    """Create necessary directories for the application."""
-    config = get_config()
-
-    directories = [
-        config["paths"]["data_dir"],
-        config["paths"]["images_dir"],
-        config["paths"]["annotations_dir"],
-        config["paths"]["models_dir"],
-        config["paths"]["datasets_dir"],
-        config["paths"]["logs_dir"],
-    ]
-
-    for directory in directories:
-        Path(directory).mkdir(parents=True, exist_ok=True)
