@@ -2,20 +2,15 @@
 Profiling utilities for CLI commands.
 """
 import cProfile
-import logging
 import pstats
-import sys
 import time
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
-# Import Rich logging utilities
-from wildetect.utils.rich_logging import (
-    RichLogger,
+from .rich_logging import (
     console,
     create_table,
-    logger,
     print_error,
     print_info,
     print_success,
@@ -528,30 +523,6 @@ class NullProfilerManager:
         return None
 
 
-# Convenience functions for typer integration
-def add_profiling_options(func):
-    """Decorator to add profiling options to a typer command."""
-    from functools import wraps
-
-    import typer
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    # Add profiling parameters
-    wrapper.__annotations__.update(
-        {
-            "profile": bool,
-            "memory_profile": bool,
-            "line_profile": bool,
-            "gpu_profile": bool,
-        }
-    )
-
-    return wrapper
-
-
 @contextmanager
 def profile_command(
     output_dir: Optional[Path] = None,
@@ -581,21 +552,3 @@ def profile_command(
 
     with profiler_manager as pm:
         yield pm
-
-
-def create_profiling_options():
-    """Create typer.Option instances for profiling parameters."""
-    import typer
-
-    return {
-        "profile": typer.Option(False, "--profile", help="Enable detailed profiling"),
-        "memory_profile": typer.Option(
-            False, "--memory-profile", help="Enable memory profiling"
-        ),
-        "line_profile": typer.Option(
-            False, "--line-profile", help="Enable line-by-line profiling"
-        ),
-        "gpu_profile": typer.Option(
-            False, "--gpu-profile", help="Enable GPU profiling (CUDA only)"
-        ),
-    }
