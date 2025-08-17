@@ -13,6 +13,7 @@ from .rich_logging import (
     create_table,
     print_error,
     print_info,
+    print_section_header,
     print_success,
     print_warning,
 )
