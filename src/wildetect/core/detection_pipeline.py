@@ -10,17 +10,19 @@ import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-import aiohttp
+import supervision as sv
 import torch
 from tqdm import tqdm
+from wildtrain.models.detector import Detector
+from wildtrain.utils.mlflow import load_registered_model
 
 from .config import LoaderConfig, PredictionConfig
 from .data import Detection, DroneImage, Tile
 from .data.loader import DataLoader
-from .detectors.object_detection_system import ObjectDetectionSystem
 
 logger = logging.getLogger(__name__)
 
@@ -178,42 +180,50 @@ class DetectionPipeline(object):
         self.loader_config = loader_config
 
         self.data_loader: Optional[DataLoader] = None
-        if config.inference_service_url is not None:
-            self.detection_system = ObjectDetectionSystem(config)
-            logger.info("Using inference service. No weights loaded.")
-        elif config.inference_service_url is None and config.model_path is None:
-            self.detection_system = ObjectDetectionSystem.from_mlflow(config)
-            logger.info("Loading weights from MLFlow")
-        elif config.inference_service_url is None and config.model_path is not None:
-            self.detection_system = ObjectDetectionSystem.from_config(config)
-            logger.info("Loading weights from local path.")
-        else:
-            raise ValueError(
-                "Invalid configuration. Please provide a model path or an inference service url."
+        if config.inference_service_url is None:
+            self.detection_system, self.metadata = load_registered_model(
+                alias=config.mlflow_model_alias,
+                name=config.mlflow_model_name,
+                load_unwrapped=True,
             )
-
-        self.metadata = self.detection_system.metadata
-
-        logger.info(
-            f"Initialized DetectionPipeline with model_type={config.model_type}"
-        )
+            logger.info("Loading weights from MLFlow")
+        else:
+            self.detection_system = partial(
+                Detector.predict_inference_service,
+                url=config.inference_service_url,
+                timeout=config.timeout,
+            )
+            logger.info(f"Using inference service @ {config.inference_service_url}")
+            self.metadata = dict()
 
         self.error_count = 0
 
+    def _convert_to_detection(
+        self, detections: List[sv.Detections]
+    ) -> List[List[Detection]]:
+        """Convert a list of detections to a list of Detection objects."""
+        return [Detection.from_supervision(det) for det in detections]
+
     def _process_batch(
         self,
-        batch: Dict[str, Any],
+        batch: torch.Tensor,
         progress_bar: Optional[tqdm] = None,
     ) -> List[List[Detection]]:
         """Process a single batch of tiles."""
         # Run inference on tiles
         if self.detection_system is None:
             raise ValueError("Detection system not initialized")
-        detections = self.detection_system.predict(
-            batch.pop("images"), local=self.config.inference_service_url is None
-        )
+        if self.config.inference_service_url is None:
+            detections = self.detection_system.predict(batch, return_as_dict=False)
+        else:
+            detections = self.detection_system(batch)
+
         if progress_bar:
-            progress_bar.update(len(batch["tiles"]))
+            progress_bar.update(batch.shape[0])
+
+        # Convert to Detection objects
+        detections = self._convert_to_detection(detections)
+
         return detections
 
     def _postprocess(
@@ -293,19 +303,22 @@ class DetectionPipeline(object):
         logger.info("Starting single-threaded detection pipeline")
 
         # Update config from metadata if available
-        if "batch" in self.metadata:
-            b = self.loader_config.batch_size
-            logger.info(f"Updating Loader Batch size: {b} -> {self.metadata.get('batch', b)}")
-            b = self.metadata.get("batch", b)
-            self.loader_config.batch_size = int(b)
+        if self.metadata is not None:
+            if "batch" in self.metadata:
+                b = self.loader_config.batch_size
+                logger.info(
+                    f"Updating Loader Batch size: {b} -> {self.metadata.get('batch', b)}"
+                )
+                b = self.metadata.get("batch", b)
+                self.loader_config.batch_size = int(b)
 
-        if "tilesize" in self.metadata:
-            tile_size = self.loader_config.tile_size
-            logger.info(
-                f"Updating Loader Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
-            )
-            tile_size = self.metadata.get("tilesize", tile_size)
-            self.loader_config.tile_size = int(tile_size)
+            if "tilesize" in self.metadata:
+                tile_size = self.loader_config.tile_size
+                logger.info(
+                    f"Updating Loader Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
+                )
+                tile_size = self.metadata.get("tilesize", tile_size)
+                self.loader_config.tile_size = int(tile_size)
 
         logger.info(f"Creating dataloader")
 
@@ -326,19 +339,14 @@ class DetectionPipeline(object):
 
         def process_one_batch(batch: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             try:
-                detections = self._process_batch(batch)
+                detections = self._process_batch(batch.pop("images"))
                 batch["detections"] = detections
                 return batch
             except Exception:
                 logger.error(f"Failed to process batch: {traceback.format_exc()}")
                 return None
 
-        # Simple and reliable approach with tqdm
-
         with tqdm(total=total_batches, desc="Processing batches", unit="batch") as pbar:
-            # with ThreadPoolExecutor(max_workers=3) as executor:
-            # Filter out None results and count errors
-            # futures = [executor.submit(process_one_batch, batch) for batch in data_loader]
             for result in map(process_one_batch, data_loader):
                 if result is not None:
                     all_batches.append(result)

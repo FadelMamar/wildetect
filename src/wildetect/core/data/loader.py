@@ -384,6 +384,7 @@ class TileDataset(Dataset):
             with Image.open(image_path) as img:
                 # Convert to RGB and then to tensor
                 image_tensor = self.pil_to_tensor(img.convert("RGB"))
+                image_tensor = image_tensor / 255.0  # normalize to [0,1]
 
                 # Calculate stride for padding
                 stride = int(self.config.tile_size * (1 - self.config.overlap))
@@ -485,7 +486,7 @@ class DataLoader:
             self.dataset,
             batch_size=config.batch_size,
             shuffle=False,
-            num_workers=0,  # Keep at 0 for Windows compatibility
+            num_workers=config.num_workers,  # Keep at 0 for Windows compatibility
             collate_fn=self._collate_fn,
             pin_memory=False,  # Disable pin_memory for better Windows performance
             persistent_workers=False,  # Disable for Windows compatibility

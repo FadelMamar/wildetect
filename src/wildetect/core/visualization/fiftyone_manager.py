@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import traceback
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import fiftyone as fo
@@ -17,8 +16,7 @@ import fiftyone.brain as fob
 import fiftyone.utils.geojson as fogeojson
 from fiftyone import ViewField as F
 
-from ..config import ROOT, get_config
-from ..data.detection import Detection
+from ..config import ROOT
 from ..data.drone_image import DroneImage
 
 logger = logging.getLogger(__name__)
