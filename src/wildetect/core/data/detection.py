@@ -10,9 +10,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import fiftyone as fo
 import numpy as np
-from PIL import Image
-
 import supervision as sv
+from PIL import Image
 
 from wildetect.core.gps.geographic_bounds import GeographicBounds
 from wildetect.core.gps.gps_utils import GPSUtils
@@ -107,19 +106,26 @@ class Detection:
 
     @classmethod
     def from_supervision(cls, detection: sv.Detections) -> List["Detection"]:
+        assert isinstance(
+            detection, sv.Detections
+        ), f"detection must be a supervision.Detections, but got {type(detection)}"
 
-        assert isinstance(detection, sv.Detections), f"detection must be a supervision.Detections, but got {type(detection)}"
-
-        class_mapping = detection.metadata.get("class_mapping",{})
+        class_mapping = detection.metadata.get("class_mapping", {})
         detections = []
-        for bbox, confidence, class_id in zip(detection.xyxy.tolist(),detection.confidence.tolist(),detection.class_id.tolist()):
-            class_name = class_mapping.get(class_id,f"class_{class_id}")
-            detections.append(cls(
-                bbox=bbox,
-                confidence=confidence,
-                class_id=class_id,
-                class_name=class_name,
-            ))
+        for bbox, confidence, class_id in zip(
+            detection.xyxy.astype(int).tolist(),
+            detection.confidence.tolist(),
+            detection.class_id.tolist(),
+        ):
+            class_name = class_mapping.get(class_id, f"class_{class_id}")
+            detections.append(
+                cls(
+                    bbox=bbox,
+                    confidence=confidence,
+                    class_id=class_id,
+                    class_name=class_name,
+                )
+            )
         if len(detections) == 0:
             return [Detection.empty()]
         return detections

@@ -5,7 +5,7 @@ import torch
 model,metadata = load_registered_model(alias='demo',name='detector',load_unwrapped=True)
 
 print(metadata)
-print(model.classifier)
+#print(model.classifier)
 
 batch = metadata['batch']
 imgsz = metadata['imgsz']

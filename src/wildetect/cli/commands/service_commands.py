@@ -5,18 +5,14 @@ Service management commands.
 import logging
 import os
 import subprocess
-import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import typer
-from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
 from ...core.config import ROOT
-from ...core.detectors.detection_server import run_inference_server
 from ...core.visualization.fiftyone_manager import FiftyOneManager
 from ..utils import setup_logging
 
@@ -118,41 +114,6 @@ def api(
         raise typer.Exit(1)
     except Exception as e:
         console.print(f"[red]Error launching API server: {e}[/red]")
-        raise typer.Exit(1)
-
-
-@app.command()
-def inference_server(
-    port: int = typer.Option(
-        4141, "--port", "-p", help="Port to run the inference server on"
-    ),
-    workers_per_device: int = typer.Option(
-        1, "--workers", "-w", help="Number of workers per device"
-    ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-):
-    """Launch the inference server for wildlife detection."""
-    log_file = (
-        ROOT
-        / "logs"
-        / "inference_service"
-        / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-    )
-    setup_logging(verbose=verbose, log_file=log_file)
-    logger = logging.getLogger(__name__)
-
-    load_dotenv(ROOT / ".env", override=True)
-
-    try:
-        console.print(f"[green]Starting inference server on port {port}...[/green]")
-        console.print(f"[green]Workers per device: {workers_per_device}[/green]")
-
-        # Launch the inference server
-        run_inference_server(port=port, workers_per_device=workers_per_device)
-
-    except Exception as e:
-        console.print(f"[red]Error starting inference server: {e}[/red]")
-        logger.error(f"Inference server failed: {e}")
         raise typer.Exit(1)
 
 

@@ -9,16 +9,16 @@ model:
 
 # Include only one directory path or a list of image paths
 images: 
- - /mnt/d/workspace/data/savmap_dataset_v2/raw/tmp
+ - d:/workspace/data/savmap_dataset_v2/raw/tmp
 
 # Processing Configuration
 processing:
-  batch_size: 32
+  batch_size: 8
   tile_size: 800
   overlap_ratio: 0.2
   pipeline_type: "single"  # single, multi
   queue_size: 64  # for multi-threaded pipeline
-  num_workers: 0
+  num_workers: 4
 
 # Flight Specifications
 flight_specs:
@@ -29,7 +29,7 @@ flight_specs:
 
 # Inference Service Configuration
 inference_service:
-  url: null  # URL for external inference service
+  url: http://localhost:4141/predict  # URL for external inference service
   timeout: 60
 
 # Profiling Configuration
