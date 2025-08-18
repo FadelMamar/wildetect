@@ -46,6 +46,7 @@ dependencies = [
     "omegaconf>=2.3.0",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.10.1",
+    "supervision>=0.26.1",
 ]
 
 [tool.ruff]

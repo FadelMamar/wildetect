@@ -12,6 +12,8 @@ import fiftyone as fo
 import numpy as np
 from PIL import Image
 
+import supervision as sv
+
 from wildetect.core.gps.geographic_bounds import GeographicBounds
 from wildetect.core.gps.gps_utils import GPSUtils
 
@@ -103,6 +105,25 @@ class Detection:
             )
         return cls(**cfg)
 
+    @classmethod
+    def from_supervision(cls, detection: sv.Detections) -> List["Detection"]:
+
+        assert isinstance(detection, sv.Detections), f"detection must be a supervision.Detections, but got {type(detection)}"
+
+        class_mapping = detection.metadata.get("class_mapping",{})
+        detections = []
+        for bbox, confidence, class_id in zip(detection.xyxy.tolist(),detection.confidence.tolist(),detection.class_id.tolist()):
+            class_name = class_mapping.get(class_id,f"class_{class_id}")
+            detections.append(cls(
+                bbox=bbox,
+                confidence=confidence,
+                class_id=class_id,
+                class_name=class_name,
+            ))
+        if len(detections) == 0:
+            return [Detection.empty()]
+        return detections
+
     @property
     def x_center(self) -> int:
         return int((self.bbox[0] + self.bbox[2]) / 2)
@@ -122,7 +143,7 @@ class Detection:
     @property
     def is_empty(self) -> bool:
         """Check if detection is empty."""
-        return sum(self.bbox) == 0
+        return sum(self.bbox) == 0 or self.class_name == "EMPTY" or len(self.bbox) == 0
 
     @property
     def gps_as_decimals(self) -> Optional[Tuple[float, float, float]]:
@@ -171,7 +192,7 @@ class Detection:
         self.bbox = [x1, y1, x2, y2]
 
     @classmethod
-    def empty(cls, parent_image: str) -> "Detection":
+    def empty(cls, parent_image: Optional[str] = None) -> "Detection":
         """Create an empty detection."""
         return cls(
             bbox=[0, 0, 0, 0],

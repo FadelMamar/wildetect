@@ -11,14 +11,18 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-
+from functools import partial
 import torch
 from tqdm import tqdm
+import supervision as sv
 
 from .config import LoaderConfig, PredictionConfig
 from .data import Detection, DroneImage, Tile
 from .data.loader import DataLoader
 from .detectors.object_detection_system import ObjectDetectionSystem
+
+from wildtrain.utils.mlflow import load_registered_model
+from wildtrain.models.detector import Detector
 
 logger = logging.getLogger(__name__)
 
@@ -132,20 +136,23 @@ class DetectionPipeline(object):
         self.loader_config = loader_config
 
         self.data_loader: Optional[DataLoader] = None
-        if config.inference_service_url is None and config.model_path is None:
-            self.detection_system = ObjectDetectionSystem.from_mlflow(config)
+        if config.inference_service_url is None:
+            self.detection_system,self.metadata = load_registered_model(alias=config.mlflow_model_alias,name=config.mlflow_model_name,load_unwrapped=True)
             logger.info("Loading weights from MLFlow")
         else:
-            self.detection_system = ObjectDetectionSystem.from_config(config)
-            logger.info("Using inference service. No weights loaded.")
-
-        self.metadata = self.detection_system.metadata
+            self.detection_system = partial(Detector.predict_inference_service,
+                                            url=config.inference_service_url,
+                                            timeout=config.timeout)
+            self.metadata = None
 
         logger.info(
             f"Initialized DetectionPipeline with model_type={config.model_type}"
         )
-
         self.error_count = 0
+    
+    def _convert_to_detection(self, detections: List[sv.Detections]) -> List[List[Detection]]:
+        """Convert a list of detections to a list of Detection objects."""
+        return [Detection.from_supervision(det) for det in detections]
 
     def _process_batch(
         self,
@@ -156,11 +163,21 @@ class DetectionPipeline(object):
         # Run inference on tiles
         if self.detection_system is None:
             raise ValueError("Detection system not initialized")
-        detections = self.detection_system.predict(
-            batch.pop("images"), local=self.config.inference_service_url is None
-        )
+        if self.config.inference_service_url is None:
+            detections = self.detection_system.predict(
+                batch.pop("images"),return_as_dict=False
+            )
+        else:
+            detections = self.detection_system(
+                batch.pop("images")
+            )
+            
         if progress_bar:
             progress_bar.update(len(batch["tiles"]))
+        
+        # Convert to Detection objects
+        detections = self._convert_to_detection(detections)
+
         return detections
 
     def _postprocess(

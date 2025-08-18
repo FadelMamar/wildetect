@@ -16,10 +16,9 @@ from typing import Any, Dict, List, Optional, Union
 import torch
 import typer
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from ...core.campaign_manager import CampaignConfig, CampaignManager
-from ...core.config import ROOT, FlightSpecs, LoaderConfig, PredictionConfig
+from ...core.config import ROOT
 from ...core.config_loader import load_config_from_yaml, load_config_with_pydantic
 from ...core.data.utils import get_images_paths
 from ...core.detection_pipeline import DetectionPipeline, MultiThreadedDetectionPipeline
@@ -45,33 +44,6 @@ def detect(
     config: Optional[str] = typer.Option(
         None, "--config", "-c", help="Path to YAML configuration file"
     ),
-    output: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Override output directory"
-    ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    dataset_name: Optional[str] = typer.Option(
-        None,
-        "--dataset",
-        "-d",
-        help="Name of the FiftyOne dataset to save detections to",
-    ),
-    # Essential overrides
-    model_path: Optional[str] = typer.Option(
-        None, "--model", "-m", help="Override model path"
-    ),
-    confidence: Optional[float] = typer.Option(
-        0.2, "--confidence", help="Override confidence threshold"
-    ),
-    device: Optional[str] = typer.Option("auto", "--device", help="Override device"),
-    batch_size: Optional[int] = typer.Option(
-        32, "--batch-size", "-b", help="Override batch size"
-    ),
-    tile_size: Optional[int] = typer.Option(
-        800, "--tile-size", help="Override tile size"
-    ),
-    roi_weights: Optional[str] = typer.Option(
-        None, "--roi-weights", help="Override ROI weights path"
-    ),
     # Profiling overrides
     profile: bool = typer.Option(False, "--profile", help="Enable detailed profiling"),
     memory_profile: bool = typer.Option(
@@ -85,90 +57,33 @@ def detect(
     ),
 ):
     """Detect wildlife in images using AI models."""
-    setup_logging(verbose)
+    setup_logging()
     logger = logging.getLogger(__name__)
 
     try:
         # Load configuration from YAML
-        if config:
-            loaded_config = load_config_with_pydantic("detect", config)
-            # For detect command, we need to get image directory from config or use provided images
-            if images is None:
-                images = list(loaded_config.images)
+        loaded_config = load_config_with_pydantic("detect", config)
+        if images is None:
+            images = list(loaded_config.images)
 
-            # Apply command-line overrides
-            if model_path:
-                loaded_config.model.path = model_path
-            if confidence is not None:
-                loaded_config.model.confidence_threshold = confidence
-            if device:
-                loaded_config.model.device = device
-            if batch_size:
-                loaded_config.model.batch_size = batch_size
-            if tile_size:
-                loaded_config.processing.tile_size = tile_size
-            if roi_weights:
-                loaded_config.roi_classifier.weights = roi_weights
-            if profile:
-                loaded_config.profiling.enable = True
-            if memory_profile:
-                loaded_config.profiling.memory_profile = True
-            if line_profile:
-                loaded_config.profiling.line_profile = True
-            if gpu_profile:
-                loaded_config.profiling.gpu_profile = True
-            if output:
-                loaded_config.output.directory = output
-            if dataset_name:
-                loaded_config.output.dataset_name = dataset_name
+        if profile:
+            loaded_config.profiling.enable = True
+        if memory_profile:
+            loaded_config.profiling.memory_profile = True
+        if line_profile:
+            loaded_config.profiling.line_profile = True
+        if gpu_profile:
+            loaded_config.profiling.gpu_profile = True
+       
 
-            # Convert to existing dataclasses
-            pred_config = loaded_config.to_prediction_config(verbose=verbose)
-            loader_config = loaded_config.to_loader_config()
+        # Convert to existing dataclasses
+        pred_config = loaded_config.to_prediction_config()
+        loader_config = loaded_config.to_loader_config()
 
-            # Set output directory
-            output_dir = Path(loaded_config.output.directory)
-            dataset_name = loaded_config.output.dataset_name
-        else:
-            # Use command-line parameters directly
-            pred_config = PredictionConfig(
-                model_path=model_path,
-                model_type="yolo",
-                confidence_threshold=confidence or 0.2,
-                device=device or "auto",
-                batch_size=batch_size or 32,
-                tilesize=tile_size or 800,
-                flight_specs=FlightSpecs(
-                    sensor_height=24.0,
-                    focal_length=35.0,
-                    flight_height=180.0,
-                ),
-                roi_weights=roi_weights,
-                cls_imgsz=128,
-                keep_classes=["groundtruth"],
-                feature_extractor_path="facebook/dinov2-with-registers-small",
-                cls_label_map={0: "groundtruth", 1: "other"},
-                inference_service_url=None,
-                verbose=verbose,
-                nms_iou=0.5,
-                overlap_ratio=0.2,
-                pipeline_type="single",
-                queue_size=32,
-            )
+        # Set output directory
+        output_dir = Path(loaded_config.output.directory)
+        dataset_name = loaded_config.output.dataset_name
 
-            loader_config = LoaderConfig(
-                tile_size=tile_size or 800,
-                batch_size=batch_size or 32,
-                num_workers=0,
-                flight_specs=FlightSpecs(
-                    sensor_height=24.0,
-                    focal_length=35.0,
-                    flight_height=180.0,
-                ),
-            )
-
-            output_dir = Path(output or "results")
-            dataset_name = dataset_name
 
         # Determine if input is directory or file paths
         logger.info(f"Processing images: {images}")
@@ -280,8 +195,8 @@ def detect(
         if loaded_config.profiling.line_profile and "line_profiler" in locals():
             line_profiler.disable_by_count()
             line_profiler.print_stats()
-            if output:
-                line_profile_path = Path(output) / "line_profile_results.txt"
+            if output_dir:
+                line_profile_path = Path(output_dir) / "line_profile_results.txt"
                 with open(line_profile_path, "w") as f:
                     line_profiler.print_stats(stream=f)
                 print(f"Line profile saved to: {line_profile_path}")
@@ -293,8 +208,8 @@ def detect(
 
             # Save profiling results
             profile_path = (
-                Path(output) / "profile_results.prof"
-                if output
+                Path(output_dir) / "profile_results.prof"
+                if output_dir
                 else Path("profile_results.prof")
             )
             stats.dump_stats(str(profile_path))
@@ -330,37 +245,8 @@ def detect(
 
 @app.command()
 def census(
-    campaign_id: str = typer.Option("", help="Campaign identifier"),
-    images: Optional[List[str]] = typer.Option(None, help="Image paths or directory"),
     config: Optional[str] = typer.Option(
         None, "--config", "-c", help="Path to YAML configuration file"
-    ),
-    output: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Override output directory"
-    ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-    # Essential overrides
-    model_path: Optional[str] = typer.Option(
-        None, "--model", "-m", help="Override model path"
-    ),
-    roi_weights: Optional[str] = typer.Option(
-        None, "--roi-weights", help="Override ROI weights path"
-    ),
-    confidence: Optional[float] = typer.Option(
-        0.2, "--confidence", help="Override confidence threshold"
-    ),
-    device: Optional[str] = typer.Option("auto", "--device", help="Override device"),
-    batch_size: Optional[int] = typer.Option(
-        32, "--batch-size", "-b", help="Override batch size"
-    ),
-    tile_size: Optional[int] = typer.Option(
-        800, "--tile-size", help="Override tile size"
-    ),
-    pilot_name: Optional[str] = typer.Option(
-        None, "--pilot", help="Override pilot name"
-    ),
-    target_species: Optional[List[str]] = typer.Option(
-        None, "--species", help="Override target species"
     ),
     # Profiling overrides
     profile: bool = typer.Option(False, "--profile", help="Enable detailed profiling"),
@@ -378,127 +264,49 @@ def census(
 
     try:
         # Load configuration from YAML
-        if config:
-            loaded_config = load_config_with_pydantic("census", config)
+        loaded_config = load_config_with_pydantic("census", config)
+        campaign_id = loaded_config.campaign.id
+        images = loaded_config.detection.images
 
-            campaign_id = loaded_config.campaign.id
+        if profile:
+            loaded_config.detection.profiling.enable = True
+        if memory_profile:
+            loaded_config.detection.profiling.memory_profile = True
+        if line_profile:
+            loaded_config.detection.profiling.line_profile = True
+        if gpu_profile:
+            loaded_config.detection.profiling.gpu_profile = True
+        
 
-            # Apply command-line overrides
-            if images is None:
-                images = list(loaded_config.detection.images)
+        # Convert to existing dataclasses
+        pred_config = loaded_config.detection.to_prediction_config()
+        loader_config = loaded_config.detection.to_loader_config()
 
-            if model_path:
-                loaded_config.detection.model.path = model_path
-            if roi_weights:
-                loaded_config.detection.roi_classifier.weights = roi_weights
-            if confidence is not None:
-                loaded_config.detection.model.confidence_threshold = confidence
-            if device:
-                loaded_config.detection.model.device = device
-            if batch_size:
-                loaded_config.detection.model.batch_size = batch_size
-            if tile_size:
-                loaded_config.detection.processing.tile_size = tile_size
-            if pilot_name:
-                loaded_config.campaign.pilot_name = pilot_name
-            if target_species:
-                loaded_config.campaign.target_species = target_species
-            if profile:
-                loaded_config.detection.profiling.enable = True
-            if memory_profile:
-                loaded_config.detection.profiling.memory_profile = True
-            if line_profile:
-                loaded_config.detection.profiling.line_profile = True
-            if gpu_profile:
-                loaded_config.detection.profiling.gpu_profile = True
-            if output:
-                loaded_config.export.output_directory = output
+        # Set campaign metadata
+        campaign_metadata = {
+            "pilot_info": {
+                "name": loaded_config.campaign.pilot_name,
+                "experience": "Unknown",
+            },
+            "weather_conditions": {},
+            "mission_objectives": ["wildlife_survey"],
+            "target_species": loaded_config.campaign.target_species,
+            "flight_parameters": vars(
+                loaded_config.detection.flight_specs.to_flight_specs()
+            ),
+            "equipment_info": {},
+        }
 
-            # Convert to existing dataclasses
-            pred_config = loaded_config.detection.to_prediction_config(verbose=verbose)
-            loader_config = loaded_config.detection.to_loader_config()
-
-            # Set campaign metadata
-            campaign_metadata = {
-                "pilot_info": {
-                    "name": loaded_config.campaign.pilot_name,
-                    "experience": "Unknown",
-                },
-                "weather_conditions": {},
-                "mission_objectives": ["wildlife_survey"],
-                "target_species": loaded_config.campaign.target_species,
-                "flight_parameters": vars(
-                    loaded_config.detection.flight_specs.to_flight_specs()
-                ),
-                "equipment_info": {},
-            }
-
-            # Set output directory
-            output_dir = loaded_config.export.output_directory
-            export_to_fiftyone = loaded_config.export.to_fiftyone
-
-        else:
-            # Use command-line parameters directly (legacy mode)
-            flight_specs = FlightSpecs(
-                sensor_height=24.0,
-                focal_length=35.0,
-                flight_height=180.0,
-            )
-
-            # Parse cls_label_map
-            label_map_dict = {0: "groundtruth", 1: "other"}
-            keep_classes = ["groundtruth"]
-
-            # Create campaign metadata
-            campaign_metadata = {
-                "pilot_info": {
-                    "name": pilot_name or "Unknown",
-                    "experience": "Unknown",
-                },
-                "weather_conditions": {},
-                "mission_objectives": ["wildlife_survey"],
-                "target_species": target_species,
-                "flight_parameters": vars(flight_specs),
-                "equipment_info": {},
-            }
-
-            # Create configurations
-            pred_config = PredictionConfig(
-                model_path=model_path,
-                confidence_threshold=confidence or 0.2,
-                device=device or "auto",
-                batch_size=batch_size or 32,
-                tilesize=tile_size or 800,
-                flight_specs=flight_specs,
-                roi_weights=roi_weights,
-                cls_imgsz=96,
-                keep_classes=keep_classes,
-                feature_extractor_path="facebook/dinov2-with-registers-small",
-                cls_label_map=label_map_dict,
-                inference_service_url=None,
-                verbose=verbose,
-                nms_iou=0.5,
-                overlap_ratio=0.2,
-                pipeline_type="single",
-                queue_size=24,
-            )
-
-            loader_config = LoaderConfig(
-                tile_size=tile_size or 800,
-                batch_size=batch_size or 32,
-                num_workers=0,
-                flight_specs=flight_specs,
-            )
-
-            output_dir = output or f"results/{campaign_id}"
-            export_to_fiftyone = True
+        # Set output directory
+        output_dir = loaded_config.export.output_directory
+        export_to_fiftyone = loaded_config.export.to_fiftyone
 
         console.print(
             f"[bold green]Starting Wildlife Census Campaign: {campaign_id}[/bold green]"
         )
 
         setup_logging(
-            verbose,
+            loaded_config.logging.verbose,
             log_file=str(
                 ROOT
                 / "logs"
@@ -506,7 +314,6 @@ def census(
                 / f"{campaign_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
             ),
         )
-        logger = logging.getLogger(__name__)
 
         if not torch.cuda.is_available():
             console.print(
