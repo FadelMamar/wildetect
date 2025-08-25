@@ -19,7 +19,6 @@ dependencies = [
     "ultralytics>=8.3.162",
     "utm>=0.8.1",
     "tqdm>=4.65.0",
-    "numpy>=1.24.0",
     "python-dotenv>=1.0.0",
     "transformers>=4.53.1",
     "accelerate>=1.8.1",

@@ -291,6 +291,45 @@ class Detection:
             )
             return None
 
+    @classmethod
+    def from_ls(cls, detections: list[dict], image_path: str) -> List["Detection"]:
+        """Create a list of Detection objects from Label Studio format annotations.
+        Args:
+            detections (list): List of Label Studio detection dicts.
+            image_path (str): Path to the image.
+        Returns:
+            list: List of Detection objects.
+        """
+        det_objects = []
+        for detection in detections:
+            for det in detection.result:
+                image_height = det["original_height"]
+                image_width = det["original_width"]
+                value = det["value"]
+                class_name = value["rectanglelabels"]  # size 1
+                x_min = value["x"] * image_width / 100
+                y_min = value["y"] * image_height / 100
+                w = value["width"] * image_width / 100
+                h = value["height"] * image_height / 100
+
+                assert len(class_name) == 1, "Error. Check out code or Labeling format."
+                class_name = class_name[0]
+                confidence = det.get("score", 1.0)
+                det = cls(
+                    bbox=[int(x_min), int(y_min), int(x_min + w), int(y_min + h)],
+                    class_id=0,
+                    class_name=class_name,
+                    confidence=confidence,
+                    parent_image=image_path,
+                )
+                det_objects.append(det)
+
+        # if empty, add empty detection
+        if len(det_objects) == 0:
+            det_objects.append(Detection.empty(parent_image=image_path))
+
+        return det_objects
+
     def set_gps_location(
         self,
         gps_loc: str,

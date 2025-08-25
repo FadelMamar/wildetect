@@ -59,6 +59,15 @@ class ModelConfigModel(BaseModel):
     device: str = Field(default="auto", description="Device to run inference on")
 
 
+class LabelStudioConfigModel(BaseModel):
+    """Label Studio configuration model."""
+
+    url: str = Field(default="http://localhost:8080", description="Label Studio URL")
+    api_key: str = Field(default="1234567890", description="Label Studio API key")
+    download_resources: bool = Field(default=True, description="Download resources")
+    project_id: int = Field(default=1, description="Label Studio project ID")
+
+
 class ProcessingConfigModel(BaseModel):
     """Processing configuration model."""
 
@@ -229,6 +238,12 @@ class VisualizeConfigModel(BaseModel):
     )
     output: OutputFormatConfigModel = Field(default_factory=OutputFormatConfigModel)
     logging: LoggingConfigModel = Field(default_factory=LoggingConfigModel)
+    labelstudio: LabelStudioConfigModel = Field(default_factory=LabelStudioConfigModel)
+    image_dir: Optional[str] = Field(default=None, description="Image directory")
+    csv_output_path: Optional[str] = Field(default=None, description="CSV output path")
+    detection_type: Literal["annotations", "predictions"] = Field(
+        default="annotations", description="Detection type"
+    )
 
 
 # Union type for all configuration models

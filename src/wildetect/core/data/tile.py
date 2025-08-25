@@ -288,7 +288,7 @@ class Tile:
         if update_gps:
             self.update_detection_gps(detection_type="predictions")
 
-    def set_annotations(self, data: List[Detection]) -> None:
+    def set_annotations(self, data: List[Detection], update_gps: bool = True) -> None:
         """Set annotations with proper validation."""
         if not isinstance(data, list):
             raise TypeError(f"Expected 'list' but received {type(data)}")
@@ -303,7 +303,8 @@ class Tile:
             self.annotations = [Detection.empty(parent_image=self.image_path)]
 
         self.validate_detections(predictions=False, annotations=True)
-        self.update_detection_gps(detection_type="annotations")
+        if update_gps:
+            self.update_detection_gps(detection_type="annotations")
 
     def remove_predictions(self, indices: List[int]) -> None:
         """Remove predictions at specified indices."""

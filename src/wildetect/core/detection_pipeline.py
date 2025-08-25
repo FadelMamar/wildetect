@@ -9,11 +9,11 @@ import queue
 import threading
 import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import partial
+from functools import partial, wraps
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import aiohttp
 import supervision as sv
 import torch
 from tqdm import tqdm
@@ -707,6 +707,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             self.detection_thread.join(timeout=5.0)
 
 
+# TODO: try out with inference service
 class AsyncDetectionPipeline(DetectionPipeline):
     """Asynchronous detection pipeline optimized for inference server usage."""
 
@@ -733,10 +734,19 @@ class AsyncDetectionPipeline(DetectionPipeline):
                 "AsyncDetectionPipeline requires either inference_service_url to be configured "
                 "or local detection_system to be available"
             )
-
+        self.detection_system = self.awaitify(self.detection_system)
         logger.info(
             f"Initialized AsyncDetectionPipeline with max_concurrent={self.config.max_concurrent}"
         )
+
+    def awaitify(self, sync_func):
+        """Wrap a synchronous callable to allow ``await``'ing it"""
+
+        @wraps(sync_func)
+        async def async_func(*args, **kwargs):
+            return sync_func(*args, **kwargs)
+
+        return async_func
 
     async def run_detection_async(
         self,
@@ -821,9 +831,7 @@ class AsyncDetectionPipeline(DetectionPipeline):
         if self.detection_system is None:
             raise ValueError("Detection system not initialized")
 
-        detections = await self.detection_system.predict_async(
-            batch.pop("images"), local=False
-        )
+        detections = await self.detection_system(batch.pop("images"))
 
         if progress_bar:
             progress_bar.update(1)

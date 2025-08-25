@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import pandas as pd
 from rich.console import Console
 from rich.table import Table
 
@@ -258,47 +259,6 @@ def get_geographic_coverage(drone_images: List) -> dict:
     return coverage
 
 
-def create_geographic_visualization(
-    drone_images: List[DroneImage], output_dir: Optional[str] = None
-):
-    """Create geographic visualization of drone images."""
-    if not drone_images:
-        console.print("[yellow]No drone images available for visualization[/yellow]")
-        return
-
-    try:
-        # Create visualizer
-        config = VisualizationConfig()
-        visualizer = GeographicVisualizer(config)
-        map_file = None
-        if output_dir:
-            output_path = Path(output_dir)
-            output_path.mkdir(parents=True, exist_ok=True)
-            map_file = str(output_path / "geographic_visualization.html")
-
-        # Create map
-        visualizer.create_map(drone_images, save_path=map_file)
-
-        if map_file:
-            console.print(
-                f"[green]Geographic visualization saved to: {map_file}[/green]"
-            )
-
-        # Display coverage statistics
-        coverage_stats = visualizer.get_coverage_statistics(drone_images)
-        console.print(f"\n[bold green]Coverage Statistics:[/bold green]")
-        console.print(f"  Total images: {coverage_stats['total_images']}")
-        console.print(f"  Images with GPS: {coverage_stats['images_with_gps']}")
-        console.print(
-            f"  Images with footprints: {coverage_stats['images_with_footprints']}"
-        )
-        console.print(f"  Total detections: {coverage_stats['total_detections']}")
-        console.print(f"  Detections with GPS: {coverage_stats['detections_with_gps']}")
-
-    except Exception as e:
-        console.print(f"[red]Failed to create geographic visualization: {e}[/red]")
-
-
 def analyze_detection_results(results: Union[dict, list]) -> dict:
     """Analyze detection results and generate insights."""
     analysis = {
@@ -367,3 +327,24 @@ def export_analysis_report(analysis_results: dict, output_dir: str):
 
     except Exception as e:
         console.print(f"[red]Failed to export analysis report: {e}[/red]")
+
+
+def export_detection_report(
+    drone_images: List[DroneImage],
+    output_path: str,
+    detection_type: str = "annotations",
+):
+    all_detections = []
+    for drone_image in drone_images:
+        assert isinstance(
+            drone_image, DroneImage
+        ), f"Drone image must be a DroneImage object, got {type(drone_image)}"
+        if detection_type == "annotations":
+            all_detections.extend(drone_image.get_non_empty_annotations())
+        elif detection_type == "predictions":
+            all_detections.extend(drone_image.get_non_empty_predictions())
+        else:
+            raise ValueError(f"Invalid detection type: {detection_type}")
+    gps_coords = [detection.gps_as_decimals for detection in all_detections]
+    df = pd.DataFrame(gps_coords, columns=["latitude", "longitude", "altitude"])
+    df.to_csv(Path(output_path), index=False)

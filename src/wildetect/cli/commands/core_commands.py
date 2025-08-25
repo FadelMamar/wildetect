@@ -14,25 +14,18 @@ import torch
 import typer
 from rich.console import Console
 
-from wildetect.core.campaign_manager import CampaignConfig, CampaignManager
-from wildetect.core.config_loader import load_config_with_pydantic
-from wildetect.core.config_models import FlightSpecs, LoaderConfig, PredictionConfig
-from wildetect.core.data.utils import get_images_paths
-from wildetect.core.detection_pipeline import (
-    AsyncDetectionPipeline,
-    DetectionPipeline,
-    MultiThreadedDetectionPipeline,
-)
-from wildetect.core.visualization.fiftyone_manager import FiftyOneManager
-from wildetect.utils.profiler import profile_command
-from wildetect.utils.utils import ROOT
-
 from ...core.campaign_manager import CampaignConfig, CampaignManager
 from ...core.config import ROOT
 from ...core.config_loader import load_config_from_yaml, load_config_with_pydantic
 from ...core.data.utils import get_images_paths
-from ...core.detection_pipeline import DetectionPipeline, MultiThreadedDetectionPipeline
+from ...core.detection_pipeline import (
+    AsyncDetectionPipeline,
+    DetectionPipeline,
+    MultiThreadedDetectionPipeline,
+)
 from ...core.visualization.fiftyone_manager import FiftyOneManager
+from ...utils.profiler import profile_command
+from ...utils.utils import ROOT
 from ..utils import (
     analyze_detection_results,
     display_analysis_results,

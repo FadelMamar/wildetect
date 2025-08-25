@@ -1,16 +1,27 @@
 # Visualization Configuration
 # This file contains all parameters needed for visualization commands
 
-# Geographic Visualization Configuration
+labelstudio:
+  url: "http://localhost:8080"
+  api_key: "edc3c4539d7b0708a2c189be47ff94708d1de3cc"
+  download_resources: false
+  project_id: 7
+
+
+image_dir: null
+csv_output_path: "detection_report.csv"
+detection_type: "annotations" # annotations, predictions
+
+# Geographic Visualization of predictions
 geographic:
-  create_map: true
+  create_map: false
   show_confidence: false
   output_directory: "visualizations"
   map_type: "OpenStreetMap"  # OpenStreetMap, folium, etc.
   zoom_level: 12
   center_on_data: true
 
-# Flight Specifications for Geographic Visualization
+# Flight Specifications
 flight_specs:
   sensor_height: 24.0  # mm
   focal_length: 35.0   # mm
