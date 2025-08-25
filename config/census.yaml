@@ -30,6 +30,7 @@ detection:
     overlap_ratio: 0.2
     pipeline_type: "single"  # single, multi
     queue_size: 64  # for multi-threaded pipeline
+    max_concurrent: 4  # for async pipeline
   
   # Flight Specifications
   flight_specs:

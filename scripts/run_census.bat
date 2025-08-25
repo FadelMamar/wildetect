@@ -4,5 +4,3 @@ call .venv\Scripts\activate
 call uv run wildetect detection census -c config/census.yaml
 
 call pause
-
-@REM --profile --gpu-profile

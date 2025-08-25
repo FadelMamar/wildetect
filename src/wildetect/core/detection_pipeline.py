@@ -2,25 +2,73 @@
 Detection Pipeline for end-to-end wildlife detection processing.
 """
 
+import asyncio
 import logging
 import os
 import queue
 import threading
 import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial, wraps
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import aiohttp
+import supervision as sv
 import torch
 from tqdm import tqdm
+from wildtrain.models.detector import Detector
+from wildtrain.utils.mlflow import load_registered_model
 
 from .config import LoaderConfig, PredictionConfig
 from .data import Detection, DroneImage, Tile
 from .data.loader import DataLoader
-from .detectors.object_detection_system import ObjectDetectionSystem
 
 logger = logging.getLogger(__name__)
+
+
+async def ping_inference_service(url: str, timeout: float = 5.0) -> bool:
+    """Ping the inference service to check if it's available.
+
+    Args:
+        url: The inference service URL to ping
+        timeout: Timeout for the ping request in seconds
+
+    Returns:
+        True if the service is available, False otherwise
+    """
+    # Try different endpoints in order of preference
+    endpoints_to_try = [
+        url.rstrip("/") + "/health",  # Health endpoint
+        url.rstrip("/") + "/ping",  # Ping endpoint
+        url.rstrip("/") + "/",  # Root endpoint
+        url,  # Original URL
+    ]
+
+    for endpoint in endpoints_to_try:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    endpoint, timeout=aiohttp.ClientTimeout(total=timeout)
+                ) as response:
+                    # Accept 2xx status codes as success
+                    if 200 <= response.status < 300:
+                        logger.debug(
+                            f"Successfully pinged inference service at {endpoint}"
+                        )
+                        return True
+                    elif response.status < 500:
+                        # Accept 4xx status codes as "service is running but endpoint not found"
+                        logger.debug(
+                            f"Inference service at {endpoint} responded with {response.status} - service is available"
+                        )
+                        return True
+        except Exception as e:
+            logger.debug(f"Failed to ping {endpoint}: {e}")
+            continue
+
+    logger.warning(f"Failed to ping inference service at {url} - all endpoints tried")
+    return False
 
 
 class BatchQueue:
@@ -132,35 +180,50 @@ class DetectionPipeline(object):
         self.loader_config = loader_config
 
         self.data_loader: Optional[DataLoader] = None
-        if config.inference_service_url is None and config.model_path is None:
-            self.detection_system = ObjectDetectionSystem.from_mlflow(config)
+        if config.inference_service_url is None:
+            self.detection_system, self.metadata = load_registered_model(
+                alias=config.mlflow_model_alias,
+                name=config.mlflow_model_name,
+                load_unwrapped=True,
+            )
             logger.info("Loading weights from MLFlow")
         else:
-            self.detection_system = ObjectDetectionSystem.from_config(config)
-            logger.info("Using inference service. No weights loaded.")
-
-        self.metadata = self.detection_system.metadata
-
-        logger.info(
-            f"Initialized DetectionPipeline with model_type={config.model_type}"
-        )
+            self.detection_system = partial(
+                Detector.predict_inference_service,
+                url=config.inference_service_url,
+                timeout=config.timeout,
+            )
+            logger.info(f"Using inference service @ {config.inference_service_url}")
+            self.metadata = dict()
 
         self.error_count = 0
 
+    def _convert_to_detection(
+        self, detections: List[sv.Detections]
+    ) -> List[List[Detection]]:
+        """Convert a list of detections to a list of Detection objects."""
+        return [Detection.from_supervision(det) for det in detections]
+
     def _process_batch(
         self,
-        batch: Dict[str, Any],
+        batch: torch.Tensor,
         progress_bar: Optional[tqdm] = None,
     ) -> List[List[Detection]]:
         """Process a single batch of tiles."""
         # Run inference on tiles
         if self.detection_system is None:
             raise ValueError("Detection system not initialized")
-        detections = self.detection_system.predict(
-            batch.pop("images"), local=self.config.inference_service_url is None
-        )
+        if self.config.inference_service_url is None:
+            detections = self.detection_system.predict(batch, return_as_dict=False)
+        else:
+            detections = self.detection_system(batch)
+
         if progress_bar:
-            progress_bar.update(len(batch["tiles"]))
+            progress_bar.update(batch.shape[0])
+
+        # Convert to Detection objects
+        detections = self._convert_to_detection(detections)
+
         return detections
 
     def _postprocess(
@@ -240,19 +303,22 @@ class DetectionPipeline(object):
         logger.info("Starting single-threaded detection pipeline")
 
         # Update config from metadata if available
-        if "batch" in self.metadata:
-            b = self.loader_config.batch_size
-            logger.info(f"Updating Loader Batch size: {b} -> {self.metadata.get('batch', b)}")
-            b = self.metadata.get("batch", b)
-            self.loader_config.batch_size = int(b)
+        if self.metadata is not None:
+            if "batch" in self.metadata:
+                b = self.loader_config.batch_size
+                logger.info(
+                    f"Updating Loader Batch size: {b} -> {self.metadata.get('batch', b)}"
+                )
+                b = self.metadata.get("batch", b)
+                self.loader_config.batch_size = int(b)
 
-        if "tilesize" in self.metadata:
-            tile_size = self.loader_config.tile_size
-            logger.info(
-                f"Updating Loader Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
-            )
-            tile_size = self.metadata.get("tilesize", tile_size)
-            self.loader_config.tile_size = int(tile_size)
+            if "tilesize" in self.metadata:
+                tile_size = self.loader_config.tile_size
+                logger.info(
+                    f"Updating Loader Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
+                )
+                tile_size = self.metadata.get("tilesize", tile_size)
+                self.loader_config.tile_size = int(tile_size)
 
         logger.info(f"Creating dataloader")
 
@@ -273,19 +339,14 @@ class DetectionPipeline(object):
 
         def process_one_batch(batch: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             try:
-                detections = self._process_batch(batch)
+                detections = self._process_batch(batch.pop("images"))
                 batch["detections"] = detections
                 return batch
             except Exception:
                 logger.error(f"Failed to process batch: {traceback.format_exc()}")
                 return None
 
-        # Simple and reliable approach with tqdm
-
         with tqdm(total=total_batches, desc="Processing batches", unit="batch") as pbar:
-            # with ThreadPoolExecutor(max_workers=3) as executor:
-            # Filter out None results and count errors
-            # futures = [executor.submit(process_one_batch, batch) for batch in data_loader]
             for result in map(process_one_batch, data_loader):
                 if result is not None:
                     all_batches.append(result)
@@ -345,7 +406,7 @@ class DetectionPipeline(object):
         Returns:
             Dictionary with pipeline information
         """
-        info = {
+        info: Dict[str, Any] = {
             "model_type": self.config.model_type,
             "model_path": self.config.model_path,
             "device": self.config.device,
@@ -357,7 +418,10 @@ class DetectionPipeline(object):
             info["detection_system"] = self.detection_system.get_model_info()
 
         if self.data_loader:
-            info["data_loader"] = self.data_loader.get_statistics()
+            info["data_loader"] = {
+                "total_batches": len(self.data_loader) if self.data_loader else 0,
+                "config": vars(self.loader_config) if self.loader_config else {},
+            }
 
         return info
 
@@ -369,7 +433,6 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         self,
         config: PredictionConfig,
         loader_config: LoaderConfig,
-        queue_size: int = 24,
     ):
         """Initialize the multi-threaded detection pipeline.
 
@@ -382,8 +445,8 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         super().__init__(config, loader_config)
 
         # Thread-safe queues
-        self.data_queue = BatchQueue(maxsize=queue_size)
-        self.result_queue = BatchQueue(maxsize=queue_size * 2)
+        self.data_queue = BatchQueue(maxsize=config.queue_size)
+        self.result_queue = BatchQueue(maxsize=config.queue_size * 2)
 
         # Thread control
         self.stop_event = threading.Event()
@@ -642,3 +705,188 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
 
         if self.detection_thread and self.detection_thread.is_alive():
             self.detection_thread.join(timeout=5.0)
+
+
+# TODO: try out with inference service
+class AsyncDetectionPipeline(DetectionPipeline):
+    """Asynchronous detection pipeline optimized for inference server usage."""
+
+    def __init__(
+        self,
+        config: PredictionConfig,
+        loader_config: LoaderConfig,
+    ):
+        """Initialize the async detection pipeline.
+
+        Args:
+            config: Prediction configuration
+            loader_config: Data loader configuration
+            max_concurrent: Maximum number of concurrent requests to inference server
+        """
+        super().__init__(config, loader_config)
+        self.max_concurrent = self.config.max_concurrent
+
+        # Validate that either inference service URL is configured or local inference is available
+        if not self.config.inference_service_url and not hasattr(
+            self, "detection_system"
+        ):
+            raise ValueError(
+                "AsyncDetectionPipeline requires either inference_service_url to be configured "
+                "or local detection_system to be available"
+            )
+        self.detection_system = self.awaitify(self.detection_system)
+        logger.info(
+            f"Initialized AsyncDetectionPipeline with max_concurrent={self.config.max_concurrent}"
+        )
+
+    def awaitify(self, sync_func):
+        """Wrap a synchronous callable to allow ``await``'ing it"""
+
+        @wraps(sync_func)
+        async def async_func(*args, **kwargs):
+            return sync_func(*args, **kwargs)
+
+        return async_func
+
+    async def run_detection_async(
+        self,
+        image_paths: Optional[List[str]] = None,
+        image_dir: Optional[str] = None,
+        save_path: Optional[str] = None,
+    ) -> List[DroneImage]:
+        """Run detection asynchronously with optimized concurrent processing."""
+        logger.info("Starting async detection pipeline")
+
+        # Initialize data loader
+        if image_paths:
+            self.data_loader = DataLoader(
+                image_paths=image_paths,
+                config=self.loader_config,
+            )
+        elif image_dir:
+            self.data_loader = DataLoader(
+                image_dir=image_dir,
+                config=self.loader_config,
+            )
+        else:
+            raise ValueError("Either image_paths or image_dir must be provided")
+
+        # check if inference service is available
+        if self.config.inference_service_url is not None:
+            is_available = await ping_inference_service(
+                self.config.inference_service_url
+            )
+            if not is_available:
+                raise ValueError(
+                    f"Inference service at {self.config.inference_service_url} is not available"
+                )
+        else:
+            raise ValueError(
+                f"Inference service at {self.config.inference_service_url} is not available"
+            )
+
+        # Load all batches
+        all_batches = list(self.data_loader)
+        total_batches = len(all_batches)
+        logger.info(f"Total batches to process: {total_batches}")
+
+        if total_batches == 0:
+            logger.warning("No batches to process")
+            return []
+
+        # Process batches concurrently
+        progress_bar = tqdm(
+            total=total_batches, desc="Processing batches", unit="batch"
+        )
+
+        try:
+            processed_batches = await self._process_batches_concurrent(
+                all_batches, self.max_concurrent, progress_bar
+            )
+        finally:
+            progress_bar.close()
+
+        logger.info(
+            f"Completed processing {len(processed_batches)} batches with {self.error_count} errors"
+        )
+
+        # Post-processing
+        all_drone_images = self._postprocess(batches=processed_batches)
+        if len(all_drone_images) == 0:
+            logger.warning("No batches were processed")
+            return []
+
+        # Save results if path provided
+        if save_path:
+            self._save_results(all_drone_images, save_path)
+
+        return all_drone_images
+
+    async def _process_batch_async(
+        self,
+        batch: Dict[str, Any],
+        progress_bar: Optional[tqdm] = None,
+    ) -> List[List[Detection]]:
+        """Async version of _process_batch."""
+        if self.detection_system is None:
+            raise ValueError("Detection system not initialized")
+
+        detections = await self.detection_system(batch.pop("images"))
+
+        if progress_bar:
+            progress_bar.update(1)
+
+        return detections
+
+    async def _process_batches_concurrent(
+        self,
+        batches: List[Dict[str, Any]],
+        max_concurrent: int = 10,
+        progress_bar: Optional[tqdm] = None,
+    ) -> List[Dict[str, Any]]:
+        """Process multiple batches concurrently using semaphore to limit concurrency."""
+
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def process_batch_with_semaphore(batch: Dict[str, Any]) -> Dict[str, Any]:
+            async with semaphore:
+                try:
+                    detections = await self._process_batch_async(batch, progress_bar)
+                    batch["detections"] = detections
+                    return batch
+                except Exception as e:
+                    logger.error(f"Error processing batch: {e}")
+                    self.error_count += 1
+                    batch["detections"] = []
+                    return batch
+
+        # Create tasks for all batches
+        tasks = [process_batch_with_semaphore(batch) for batch in batches]
+
+        # Execute all tasks concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Handle any exceptions
+        processed_results: List[Dict[str, Any]] = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Error processing batch {i}: {result}")
+                self.error_count += 1
+                processed_results.append(
+                    {"detections": [], "tiles": batches[i]["tiles"]}
+                )
+            else:
+                processed_results.append(result)  # type: ignore
+
+        return processed_results
+
+    def get_pipeline_info(self) -> Dict[str, Any]:
+        """Get information about the async pipeline."""
+        info = super().get_pipeline_info()
+        info.update(
+            {
+                "pipeline_type": "async",
+                "max_concurrent": self.max_concurrent,
+            }
+        )
+        return info

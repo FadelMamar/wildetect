@@ -10,7 +10,6 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
-import torch
 from pydantic import BaseModel, Field, field_validator
 
 from .config import FlightSpecs, LoaderConfig, PredictionConfig
@@ -51,61 +50,46 @@ class FlightSpecsModel(BaseModel):
 class ModelConfigModel(BaseModel):
     """Model configuration model."""
 
-    path: Optional[str] = Field(default=None, description="Path to model weights")
-    type: str = Field(default="yolo", description="Model type")
-    confidence_threshold: float = Field(
-        default=0.2, ge=0.0, le=1.0, description="Confidence threshold"
+    mlflow_model_name: Optional[str] = Field(
+        default=None, description="MLFlow model name"
+    )
+    mlflow_model_alias: Optional[str] = Field(
+        default=None, description="MLFlow model alias"
     )
     device: str = Field(default="auto", description="Device to run inference on")
-    batch_size: int = Field(default=32, gt=0, description="Batch size for inference")
-    nms_iou: float = Field(default=0.5, ge=0.0, le=1.0, description="NMS IoU threshold")
 
-    @field_validator("device")
-    @classmethod
-    def validate_device(cls, v: str) -> str:
-        """Validate and set device."""
-        if v == "auto":
-            return "cuda" if torch.cuda.is_available() else "cpu"
-        return v
+
+class LabelStudioConfigModel(BaseModel):
+    """Label Studio configuration model."""
+
+    url: str = Field(default="http://localhost:8080", description="Label Studio URL")
+    api_key: str = Field(default="1234567890", description="Label Studio API key")
+    download_resources: bool = Field(default=True, description="Download resources")
+    project_id: int = Field(default=1, description="Label Studio project ID")
 
 
 class ProcessingConfigModel(BaseModel):
     """Processing configuration model."""
 
-    tile_size: int = Field(default=800, gt=0, description="Tile size for processing")
-    overlap_ratio: float = Field(
-        default=0.2, ge=0.0, le=1.0, description="Tile overlap ratio"
-    )
-    pipeline_type: Literal["single", "multi"] = Field(
+    tile_size: int = Field(default=800, description="Tile size for processing")  # type: ignore
+    overlap_ratio: float = Field(default=0.2, description="Tile overlap ratio")  # type: ignore
+    pipeline_type: Literal["single", "multi", "async"] = Field(
         default="single", description="Pipeline type"
-    )
+    )  # type: ignore
     queue_size: int = Field(
         default=64, gt=0, description="Queue size for multi-threaded pipeline"
     )
-
-
-class ROIClassifierConfigModel(BaseModel):
-    """ROI Classifier configuration model."""
-
-    weights: Optional[str] = Field(default=None, description="Path to ROI weights")
-    feature_extractor_path: str = Field(
-        default="facebook/dinov2-with-registers-small",
-        description="Feature extractor path",
+    batch_size: int = Field(default=32, gt=0, description="Batch size for inference")
+    num_workers: int = Field(
+        default=0, ge=0, description="Number of workers for inference"
     )
-    cls_label_map: Dict[int, str] = Field(
-        default_factory=lambda: {0: "groundtruth", 1: "other"},
-        description="Classification label mapping",
-    )
-    keep_classes: List[str] = Field(
-        default_factory=lambda: ["groundtruth"], description="Classes to keep"
-    )
-    cls_imgsz: int = Field(default=128, gt=0, description="Image size for classifier")
 
 
 class InferenceServiceConfigModel(BaseModel):
     """Inference service configuration model."""
 
     url: Optional[str] = Field(default=None, description="Inference service URL")
+    timeout: int = Field(default=60, ge=0, description="Timeout for inference")
 
 
 class ProfilingConfigModel(BaseModel):
@@ -199,9 +183,6 @@ class DetectConfigModel(BaseModel):
     model: ModelConfigModel = Field(default_factory=ModelConfigModel)
     processing: ProcessingConfigModel = Field(default_factory=ProcessingConfigModel)
     flight_specs: FlightSpecsModel = Field(default_factory=FlightSpecsModel)
-    roi_classifier: ROIClassifierConfigModel = Field(
-        default_factory=ROIClassifierConfigModel
-    )
     inference_service: InferenceServiceConfigModel = Field(
         default_factory=InferenceServiceConfigModel
     )
@@ -212,32 +193,27 @@ class DetectConfigModel(BaseModel):
     def to_prediction_config(self, verbose: bool = False) -> PredictionConfig:
         """Convert to existing PredictionConfig dataclass."""
         return PredictionConfig(
-            model_path=self.model.path,
-            model_type=self.model.type,
-            confidence_threshold=self.model.confidence_threshold,
+            mlflow_model_name=self.model.mlflow_model_name,
+            mlflow_model_alias=self.model.mlflow_model_alias,
+            inference_service_url=self.inference_service.url,
+            timeout=self.inference_service.timeout,
             device=self.model.device,
-            batch_size=self.model.batch_size,
+            batch_size=self.processing.batch_size,
             tilesize=self.processing.tile_size,
             flight_specs=self.flight_specs.to_flight_specs(),
-            roi_weights=self.roi_classifier.weights,
-            cls_imgsz=self.roi_classifier.cls_imgsz,
-            keep_classes=self.roi_classifier.keep_classes,
-            feature_extractor_path=self.roi_classifier.feature_extractor_path,
-            cls_label_map=self.roi_classifier.cls_label_map,
-            inference_service_url=self.inference_service.url,
             verbose=verbose,
-            nms_iou=self.model.nms_iou,
             overlap_ratio=self.processing.overlap_ratio,
             pipeline_type=self.processing.pipeline_type,
             queue_size=self.processing.queue_size,
+            max_concurrent=self.processing.max_concurrent,
         )
 
     def to_loader_config(self) -> LoaderConfig:
         """Convert to existing LoaderConfig dataclass."""
         return LoaderConfig(
             tile_size=self.processing.tile_size,
-            batch_size=self.model.batch_size,
-            num_workers=0,
+            batch_size=self.processing.batch_size,
+            num_workers=self.processing.num_workers,
             overlap=self.processing.overlap_ratio,
             flight_specs=self.flight_specs.to_flight_specs(),
         )
@@ -262,6 +238,12 @@ class VisualizeConfigModel(BaseModel):
     )
     output: OutputFormatConfigModel = Field(default_factory=OutputFormatConfigModel)
     logging: LoggingConfigModel = Field(default_factory=LoggingConfigModel)
+    labelstudio: LabelStudioConfigModel = Field(default_factory=LabelStudioConfigModel)
+    image_dir: Optional[str] = Field(default=None, description="Image directory")
+    csv_output_path: Optional[str] = Field(default=None, description="CSV output path")
+    detection_type: Literal["annotations", "predictions"] = Field(
+        default="annotations", description="Detection type"
+    )
 
 
 # Union type for all configuration models

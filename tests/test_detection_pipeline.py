@@ -461,7 +461,6 @@ class TestMultiThreadedDetectionPipeline:
         pipeline = MultiThreadedDetectionPipeline(
             config=prediction_config,
             loader_config=loader_config,
-            queue_size=3,
         )
 
         # Verify basic attributes
@@ -540,7 +539,6 @@ class TestMultiThreadedDetectionPipeline:
         pipeline = MultiThreadedDetectionPipeline(
             config=prediction_config,
             loader_config=loader_config,
-            queue_size=3,  # Conservative queue size for testing
         )
 
         # Test pipeline info
@@ -645,7 +643,6 @@ class TestMultiThreadedDetectionPipeline:
         pipeline = MultiThreadedDetectionPipeline(
             config=prediction_config,
             loader_config=loader_config,
-            queue_size=2,
         )
 
         # Test queue operations

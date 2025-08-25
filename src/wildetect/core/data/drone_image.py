@@ -65,6 +65,10 @@ class DroneImage(Tile):
         """Get all non-empty predictions from all tiles."""
         return [det for det in self.get_all_predictions() if not det.is_empty]
 
+    def get_non_empty_annotations(self) -> List[Detection]:
+        """Get all non-empty annotations from all tiles."""
+        return [det for det in self.get_all_annotations() if not det.is_empty]
+
     def _create_initial_tile(self):
         """Create initial tile from the drone image itself."""
         # Create a tile representing the full image
@@ -180,20 +184,29 @@ class DroneImage(Tile):
         """
         if self.predictions:
             return self.predictions
-
         all_detections = []
-
-        # self.offset_detections()
-        # self.update_detection_gps("predictions")
         for tile in self.tiles:
             if tile.predictions:
                 all_detections.extend(
                     [det for det in tile.predictions if not det.is_empty]
                 )
-
         # set predictions
         self.predictions = all_detections
         return self.predictions
+
+    def get_all_annotations(self) -> List[Detection]:
+        """Get all annotations from all tiles."""
+        if self.annotations:
+            return self.annotations
+        all_detections = []
+        for tile in self.tiles:
+            if tile.annotations:
+                all_detections.extend(
+                    [det for det in tile.annotations if not det.is_empty]
+                )
+        # set annotations
+        self.annotations = all_detections
+        return self.annotations
 
     def get_predictions_in_region(
         self, x1: int, y1: int, x2: int, y2: int

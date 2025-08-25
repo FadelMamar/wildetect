@@ -17,7 +17,11 @@ from .config import ROOT, LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
 from .data.detection import Detection
 from .data.drone_image import DroneImage
-from .detection_pipeline import DetectionPipeline, MultiThreadedDetectionPipeline
+from .detection_pipeline import (
+    AsyncDetectionPipeline,
+    DetectionPipeline,
+    MultiThreadedDetectionPipeline,
+)
 from .flight.flight_analyzer import FlightEfficiency, FlightPath
 from .visualization.fiftyone_manager import FiftyOneManager
 from .visualization.geographic import GeographicVisualizer, VisualizationConfig
@@ -67,14 +71,31 @@ class CampaignManager:
 
         # Choose pipeline type based on configuration
         if config.prediction_config.pipeline_type == "multi":
-            self.detection_pipeline = MultiThreadedDetectionPipeline(
+            self.detection_pipeline: Union[
+                DetectionPipeline,
+                MultiThreadedDetectionPipeline,
+                AsyncDetectionPipeline,
+            ] = MultiThreadedDetectionPipeline(
                 config=config.prediction_config,
                 loader_config=config.loader_config,
-                queue_size=config.prediction_config.queue_size,
             )
         elif config.prediction_config.pipeline_type == "single":
-            self.detection_pipeline = DetectionPipeline(
+            self.detection_pipeline: Union[
+                DetectionPipeline,
+                MultiThreadedDetectionPipeline,
+                AsyncDetectionPipeline,
+            ] = DetectionPipeline(
                 config=config.prediction_config, loader_config=config.loader_config
+            )
+        elif config.prediction_config.pipeline_type == "async":
+            # NEW: Support for async pipeline
+            self.detection_pipeline: Union[
+                DetectionPipeline,
+                MultiThreadedDetectionPipeline,
+                AsyncDetectionPipeline,
+            ] = AsyncDetectionPipeline(
+                config=config.prediction_config,
+                loader_config=config.loader_config,
             )
         else:
             raise ValueError(
@@ -82,7 +103,7 @@ class CampaignManager:
             )
 
         # Optional components
-        self.fiftyone_manager = None
+        self.fiftyone_manager: Optional[FiftyOneManager] = None
         if config.fiftyone_dataset_name:
             self.fiftyone_manager = FiftyOneManager(
                 config.fiftyone_dataset_name, persistent=True
@@ -100,7 +121,11 @@ class CampaignManager:
         """Get the drone images for the campaign."""
         drone_images = self.census_manager.drone_images
         if as_dict:
-            return {img.image_path: img.to_dict() for img in drone_images}
+            return {
+                img.image_path: img.to_dict()
+                for img in drone_images
+                if img.image_path is not None
+            }
         else:
             return drone_images
 
@@ -163,7 +188,14 @@ class CampaignManager:
         start_time = time.time()
 
         # Run detection using the pipeline
-        image_paths = [img.image_path for img in images]
+        if isinstance(images, list):
+            image_paths = [
+                str(img.image_path)
+                for img in images
+                if hasattr(img, "image_path") and img.image_path is not None
+            ]
+        else:
+            image_paths = []
         processed_drone_images = self.detection_pipeline.run_detection(
             image_paths=image_paths,
             save_path=output_dir + "/detection_results.json"
@@ -176,7 +208,7 @@ class CampaignManager:
 
         # Calculate detection statistics
         total_detections = 0
-        detection_by_class = {}
+        detection_by_class: Dict[str, int] = {}
         confidence_scores = []
 
         for drone_image in processed_drone_images:
@@ -185,9 +217,8 @@ class CampaignManager:
 
             for detection in detections:
                 class_name = detection.class_name
-                detection_by_class[class_name] = (
-                    detection_by_class.get(class_name, 0) + 1
-                )
+                current_count = detection_by_class.get(class_name, 0)
+                detection_by_class[class_name] = current_count + 1
                 confidence_scores.append(detection.confidence)
 
         # Create detection results
@@ -261,7 +292,10 @@ class CampaignManager:
         if output_path is None:
             output_path = f"campaign_{self.campaign_id}_visualization.html"
 
-        self.geographic_visualizer.create_map(images, save_path=output_path)
+        if isinstance(images, list):
+            self.geographic_visualizer.create_map(images, save_path=output_path)
+        else:
+            raise ValueError("Invalid images format for visualization")
 
         logger.info(f"Geographic visualization saved to: {output_path}")
         return output_path
@@ -276,9 +310,13 @@ class CampaignManager:
         if not images:
             logger.warning("No drone images available for FiftyOne export.")
             return
-        self.fiftyone_manager.add_drone_images(images)
-        self.fiftyone_manager.save_dataset()
-        logger.info(f"Exported {len(images)} images to FiftyOne")
+
+        if isinstance(images, list):
+            self.fiftyone_manager.add_drone_images(images)
+            self.fiftyone_manager.save_dataset()
+            logger.info(f"Exported {len(images)} images to FiftyOne")
+        else:
+            logger.warning("Invalid images format for FiftyOne export.")
 
     def export_to_labelstudio(self, dotenv_path: Optional[str] = None) -> Optional[str]:
         """Export campaign data to LabelStudio for annotation/review."""
@@ -427,9 +465,8 @@ class CampaignManager:
         image_paths = self.validate_image_paths(image_paths)
 
         if output_dir is None:
-            output_dir = ROOT / "census_campaign_results" / self.campaign_id
-            output_dir.mkdir(parents=True, exist_ok=True)
-            output_dir = str(output_dir)
+            output_dir = str(ROOT / "census_campaign_results" / self.campaign_id)
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
             logger.info(f"No output directory provided, using default: {output_dir}")
         else:
             Path(output_dir).mkdir(parents=True, exist_ok=True)

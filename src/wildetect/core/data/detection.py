@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import fiftyone as fo
 import numpy as np
+import supervision as sv
 from PIL import Image
 
 from wildetect.core.gps.geographic_bounds import GeographicBounds
@@ -103,6 +104,32 @@ class Detection:
             )
         return cls(**cfg)
 
+    @classmethod
+    def from_supervision(cls, detection: sv.Detections) -> List["Detection"]:
+        assert isinstance(
+            detection, sv.Detections
+        ), f"detection must be a supervision.Detections, but got {type(detection)}"
+
+        class_mapping = detection.metadata.get("class_mapping", {})
+        detections = []
+        for bbox, confidence, class_id in zip(
+            detection.xyxy.astype(int).tolist(),
+            detection.confidence.tolist(),
+            detection.class_id.tolist(),
+        ):
+            class_name = class_mapping.get(class_id, f"class_{class_id}")
+            detections.append(
+                cls(
+                    bbox=bbox,
+                    confidence=confidence,
+                    class_id=class_id,
+                    class_name=class_name,
+                )
+            )
+        if len(detections) == 0:
+            return [Detection.empty()]
+        return detections
+
     @property
     def x_center(self) -> int:
         return int((self.bbox[0] + self.bbox[2]) / 2)
@@ -122,7 +149,7 @@ class Detection:
     @property
     def is_empty(self) -> bool:
         """Check if detection is empty."""
-        return sum(self.bbox) == 0
+        return sum(self.bbox) == 0 or self.class_name == "EMPTY" or len(self.bbox) == 0
 
     @property
     def gps_as_decimals(self) -> Optional[Tuple[float, float, float]]:
@@ -171,7 +198,7 @@ class Detection:
         self.bbox = [x1, y1, x2, y2]
 
     @classmethod
-    def empty(cls, parent_image: str) -> "Detection":
+    def empty(cls, parent_image: Optional[str] = None) -> "Detection":
         """Create an empty detection."""
         return cls(
             bbox=[0, 0, 0, 0],
@@ -263,6 +290,45 @@ class Detection:
                 "FiftyOne not available, cannot convert from FiftyOne format"
             )
             return None
+
+    @classmethod
+    def from_ls(cls, detections: list[dict], image_path: str) -> List["Detection"]:
+        """Create a list of Detection objects from Label Studio format annotations.
+        Args:
+            detections (list): List of Label Studio detection dicts.
+            image_path (str): Path to the image.
+        Returns:
+            list: List of Detection objects.
+        """
+        det_objects = []
+        for detection in detections:
+            for det in detection.result:
+                image_height = det["original_height"]
+                image_width = det["original_width"]
+                value = det["value"]
+                class_name = value["rectanglelabels"]  # size 1
+                x_min = value["x"] * image_width / 100
+                y_min = value["y"] * image_height / 100
+                w = value["width"] * image_width / 100
+                h = value["height"] * image_height / 100
+
+                assert len(class_name) == 1, "Error. Check out code or Labeling format."
+                class_name = class_name[0]
+                confidence = det.get("score", 1.0)
+                det = cls(
+                    bbox=[int(x_min), int(y_min), int(x_min + w), int(y_min + h)],
+                    class_id=0,
+                    class_name=class_name,
+                    confidence=confidence,
+                    parent_image=image_path,
+                )
+                det_objects.append(det)
+
+        # if empty, add empty detection
+        if len(det_objects) == 0:
+            det_objects.append(Detection.empty(parent_image=image_path))
+
+        return det_objects
 
     def set_gps_location(
         self,
