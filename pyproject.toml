@@ -48,6 +48,7 @@ dependencies = [
     "aiohttp>=3.12.15",
     "tenacity>=9.1.2",
     "supervision>=0.26.1",
+    "label-studio-tools>=0.0.4",
 ]
 
 [tool.ruff]

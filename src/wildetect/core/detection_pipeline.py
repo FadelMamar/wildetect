@@ -181,12 +181,14 @@ class DetectionPipeline(object):
 
         self.data_loader: Optional[DataLoader] = None
         if config.inference_service_url is None:
-            self.detection_system, self.metadata = load_registered_model(
+            self.detection_system = load_registered_model(
                 alias=config.mlflow_model_alias,
                 name=config.mlflow_model_name,
                 load_unwrapped=True,
             )
+            self.metadata = self.detection_system.metadata
             logger.info("Loading weights from MLFlow")
+            self.detection_system.set_device(config.device)
         else:
             self.detection_system = partial(
                 Detector.predict_inference_service,
@@ -835,6 +837,8 @@ class AsyncDetectionPipeline(DetectionPipeline):
 
         if progress_bar:
             progress_bar.update(1)
+
+        detections = self._convert_to_detection(detections)
 
         return detections
 
