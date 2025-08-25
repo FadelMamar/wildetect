@@ -3,7 +3,7 @@
 
 # Campaign Configuration
 campaign:
-  id: "campaign_001"
+  id: "LetabaBasaltA"
   pilot_name: "Unknown"
   target_species: null  # List of target species for detection
 
@@ -13,7 +13,7 @@ detection:
 
   # Include only one directory path or a list of image paths
   images: 
-    - D:\workspace\data\savmap_dataset_v2\raw\tmp
+    - D:\PhD\Harvard Kruger River Surveys\20231017_LetabaRiver_BasaltA\LetabaBasaltAGPS
 
   # Model Configuration
   model:
@@ -33,9 +33,9 @@ detection:
   
   # Flight Specifications
   flight_specs:
-    sensor_height: 24.0  # mm
-    focal_length: 35.0   # mm
-    flight_height: 180.0  # meters
+    sensor_height: 15.6  # mm
+    focal_length: 16.0   # mm
+    flight_height: 120.0  # meters
   
   # ROI Classifier Configuration
   roi_classifier:
