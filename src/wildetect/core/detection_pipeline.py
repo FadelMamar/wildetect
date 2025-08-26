@@ -3,6 +3,7 @@ Detection Pipeline for end-to-end wildlife detection processing.
 """
 
 import asyncio
+import json
 import logging
 import os
 import queue
@@ -25,50 +26,6 @@ from .data import Detection, DroneImage, Tile
 from .data.loader import DataLoader
 
 logger = logging.getLogger(__name__)
-
-
-async def ping_inference_service(url: str, timeout: float = 5.0) -> bool:
-    """Ping the inference service to check if it's available.
-
-    Args:
-        url: The inference service URL to ping
-        timeout: Timeout for the ping request in seconds
-
-    Returns:
-        True if the service is available, False otherwise
-    """
-    # Try different endpoints in order of preference
-    endpoints_to_try = [
-        url.rstrip("/") + "/health",  # Health endpoint
-        url.rstrip("/") + "/ping",  # Ping endpoint
-        url.rstrip("/") + "/",  # Root endpoint
-        url,  # Original URL
-    ]
-
-    for endpoint in endpoints_to_try:
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    endpoint, timeout=aiohttp.ClientTimeout(total=timeout)
-                ) as response:
-                    # Accept 2xx status codes as success
-                    if 200 <= response.status < 300:
-                        logger.debug(
-                            f"Successfully pinged inference service at {endpoint}"
-                        )
-                        return True
-                    elif response.status < 500:
-                        # Accept 4xx status codes as "service is running but endpoint not found"
-                        logger.debug(
-                            f"Inference service at {endpoint} responded with {response.status} - service is available"
-                        )
-                        return True
-        except Exception as e:
-            logger.debug(f"Failed to ping {endpoint}: {e}")
-            continue
-
-    logger.warning(f"Failed to ping inference service at {url} - all endpoints tried")
-    return False
 
 
 class BatchQueue:
@@ -251,12 +208,9 @@ class DetectionPipeline(object):
 
         # Process each tile and its detections
         for batch in tqdm(batches, desc="Postprocessing batches"):
-            # Handle missing detections key
             detections = batch.get("detections", [])
             for tile_data, tile_detections in zip(batch["tiles"], detections):
-                # print(tile_data)
                 tile = Tile.from_dict(tile_data)
-                # print(tile)
                 assert (
                     tile.parent_image is not None
                 ), "Parent image is None. Error in dataloader."
@@ -273,7 +227,6 @@ class DetectionPipeline(object):
                 if tile_detections:
                     tile.set_predictions(tile_detections, update_gps=False)
                 else:
-                    # Set empty detection if no detections found
                     tile.set_predictions([], update_gps=False)
 
                 # Add tile to drone image with its offset
@@ -291,6 +244,7 @@ class DetectionPipeline(object):
         image_paths: Optional[List[str]] = None,
         image_dir: Optional[str] = None,
         save_path: Optional[str] = None,
+        override_loading_config: bool = True,
     ) -> List[DroneImage]:
         """Run detection on images.
 
@@ -305,7 +259,7 @@ class DetectionPipeline(object):
         logger.info("Starting single-threaded detection pipeline")
 
         # Update config from metadata if available
-        if self.metadata is not None:
+        if (self.metadata is not None) and override_loading_config:
             if "batch" in self.metadata:
                 b = self.loader_config.batch_size
                 logger.info(
@@ -387,7 +341,6 @@ class DetectionPipeline(object):
             drone_images: List of drone images with detections
             save_path: Path to save results
         """
-        import json
 
         results = []
         for drone_image in drone_images:
@@ -480,12 +433,12 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
 
                 # Put batch in queue with timeout
                 while not self.stop_event.is_set():
-                    if self.data_queue.put_batch(prepared_batch, timeout=15):
+                    if self.data_queue.put_batch(prepared_batch, timeout=1):
                         progress_bar.update(1)
                         break
                     else:
                         # Queue is full, wait a bit
-                        time.sleep(5)
+                        time.sleep(0.1)
 
                 if self.stop_event.is_set():
                     break
@@ -565,7 +518,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         """
         # Ensure images are tensors and on the correct device
         if "images" in batch and isinstance(batch["images"], torch.Tensor):
-            batch["images"] = batch["images"].to(self.config.device)
+            batch["images"] = batch["images"].to(self.config.device, non_blocking=True)
 
         return batch
 
@@ -709,7 +662,6 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             self.detection_thread.join(timeout=5.0)
 
 
-# TODO: try out with inference service
 class AsyncDetectionPipeline(DetectionPipeline):
     """Asynchronous detection pipeline optimized for inference server usage."""
 
@@ -774,15 +726,7 @@ class AsyncDetectionPipeline(DetectionPipeline):
             raise ValueError("Either image_paths or image_dir must be provided")
 
         # check if inference service is available
-        if self.config.inference_service_url is not None:
-            is_available = await ping_inference_service(
-                self.config.inference_service_url
-            )
-            if not is_available:
-                raise ValueError(
-                    f"Inference service at {self.config.inference_service_url} is not available"
-                )
-        else:
+        if self.config.inference_service_url is None:
             raise ValueError(
                 f"Inference service at {self.config.inference_service_url} is not available"
             )

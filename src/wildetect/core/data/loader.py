@@ -490,6 +490,7 @@ class DataLoader:
             collate_fn=self._collate_fn,
             pin_memory=False,  # Disable pin_memory for better Windows performance
             persistent_workers=False,  # Disable for Windows compatibility
+            drop_last=False,
         )
 
     def _get_image_paths(self, image_dir: str) -> List[str]:
@@ -522,7 +523,7 @@ class DataLoader:
         collated_batch = {
             "tiles": batch,  # Keep the original batch items
             "images": stacked_images,  # Stacked image tensor
-            "batch_size": len(batch),
+            # "batch_size": len(batch),
         }
 
         return collated_batch
