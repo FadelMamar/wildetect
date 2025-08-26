@@ -14,6 +14,7 @@ from rich.console import Console
 
 # Import command groups
 from .commands import (
+    benchmarking,
     core_commands,
     service_commands,
     utility_commands,
@@ -70,6 +71,11 @@ app.add_typer(
 )
 app.add_typer(service_commands.app, name="services", help="Service management commands")
 app.add_typer(utility_commands.app, name="utils", help="Utility commands")
+app.add_typer(
+    benchmarking.app,
+    name="benchmarking",
+    help="Benchmarking and performance testing commands",
+)
 
 if __name__ == "__main__":
     app()

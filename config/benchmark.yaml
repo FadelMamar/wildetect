@@ -1,0 +1,97 @@
+# Benchmark Configuration for WildDetect
+# This file configures the benchmarking of the detection pipeline
+
+# Core benchmark execution settings
+execution:
+  n_trials: 30                    # Number of optimization trials
+  timeout: 3600                   # Maximum time for optimization in seconds
+  direction: "minimize"           # Optimization direction: "minimize" or "maximize"
+  sampler: "TPE"                  # Optuna sampler: "TPE", "Random", or "Grid"
+  seed: 42                        # Random seed for reproducibility
+
+# Test data configuration
+test_images:
+  path: "test_images"             # Path to test images directory
+  recursive: true                 # Search recursively for images
+  max_images: 100                # Maximum number of images to use
+  supported_formats:              # Supported image formats
+    - ".jpg"
+    - ".jpeg"
+    - ".png"
+    - ".tiff"
+    - ".tif"
+    - ".bmp"
+
+# Hyperparameter search space
+hyperparameters:
+  batch_size:                     # Batch sizes to test
+    - 8
+    - 16
+    - 32
+    - 64
+    - 128
+    - 256
+    - 512
+  num_workers:                    # Number of workers to test
+    - 0
+    - 2
+    - 4
+    - 8
+    - 16
+  tile_size:                      # Tile sizes to test
+    - 400
+    - 800
+    - 1200
+    - 1600
+  overlap_ratio:                  # Overlap ratios to test
+    - 0.1
+    - 0.2
+    - 0.3
+
+# Output configuration
+output:
+  directory: "results/benchmarks" # Output directory for results
+  save_plots: true               # Save performance plots
+  save_results: true             # Save detailed results
+  format: "json"                 # Output format: "json", "csv", or "both"
+  include_optimization_history: true  # Include optimization history
+  auto_open: false               # Auto-open results after completion
+
+# Model configuration (inherits from existing models)
+model:
+  mlflow_model_name: null        # Will use environment variable if null
+  mlflow_model_alias: null       # Will use environment variable if null
+  device: "auto"                 # Device to run inference on
+
+# Processing configuration
+processing:
+  tile_size: 800                 # Default tile size for processing
+  overlap_ratio: 0.2             # Default overlap ratio
+  pipeline_type: "single"        # Pipeline type: "single", "multi", or "async"
+  queue_size: 64                 # Queue size for multi-threaded pipeline
+  batch_size: 32                 # Default batch size for inference
+  num_workers: 0                 # Default number of workers
+  max_concurrent: 4              # Maximum concurrent inference tasks
+
+# Flight specifications
+flight_specs:
+  sensor_height: 24.0            # Sensor height in mm
+  focal_length: 35.0             # Focal length in mm
+  flight_height: 180.0           # Flight height in meters
+
+# Inference service configuration
+inference_service:
+  url: null                      # Inference service URL (if using external service)
+  timeout: 60                    # Timeout for inference in seconds
+
+# Logging configuration
+logging:
+  verbose: false                 # Verbose logging
+  log_file: null                 # Log file path
+
+# Profiling configuration
+profiling:
+  enable: false                  # Enable profiling
+  memory_profile: false          # Enable memory profiling
+  line_profile: false            # Enable line-by-line profiling
+  gpu_profile: false             # Enable GPU profiling

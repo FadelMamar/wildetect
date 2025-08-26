@@ -249,8 +249,171 @@ class VisualizeConfigModel(BaseModel):
     )
 
 
-# Union type for all configuration models
-ConfigModel = Union[DetectConfigModel, CensusConfigModel, VisualizeConfigModel]
+class TestImagesConfigModel(BaseModel):
+    """Test images configuration for benchmarking."""
+
+    path: str = Field(description="Path to test images directory")
+    recursive: bool = Field(default=True, description="Search recursively for images")
+    max_images: int = Field(
+        default=100, gt=0, le=10000, description="Maximum number of images to use"
+    )
+    supported_formats: List[str] = Field(
+        default=[".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp"],
+        description="Supported image formats",
+    )
+
+
+class HyperparameterSearchConfigModel(BaseModel):
+    """Hyperparameter search space configuration for benchmarking."""
+
+    batch_size: List[int] = Field(
+        default=[8, 16, 32, 64, 128, 256, 512], description="Batch sizes to test"
+    )
+    num_workers: List[int] = Field(
+        default=[0, 2, 4, 8, 16], ge=0, description="Number of workers to test"
+    )
+    tile_size: List[int] = Field(
+        default=[400, 800, 1200, 1600], gt=0, description="Tile sizes to test"
+    )
+    overlap_ratio: List[float] = Field(
+        default=[0.1, 0.2, 0.3], ge=0.0, le=0.5, description="Overlap ratios to test"
+    )
+
+
+class BenchmarkOutputConfigModel(BaseModel):
+    """Output configuration for benchmark results."""
+
+    directory: str = Field(
+        default="results/benchmarks", description="Output directory for results"
+    )
+    save_plots: bool = Field(default=True, description="Save performance plots")
+    save_results: bool = Field(default=True, description="Save detailed results")
+    format: Literal["json", "csv", "both"] = Field(
+        default="json", description="Output format"
+    )
+    include_optimization_history: bool = Field(
+        default=True, description="Include optimization history"
+    )
+    auto_open: bool = Field(
+        default=False, description="Auto-open results after completion"
+    )
+
+
+class BenchmarkExecutionConfigModel(BaseModel):
+    """Benchmark execution configuration."""
+
+    n_trials: int = Field(
+        default=30, gt=1, le=1000, description="Number of optimization trials"
+    )
+    timeout: int = Field(
+        default=3600, gt=0, description="Maximum time for optimization in seconds"
+    )
+    direction: Literal["minimize", "maximize"] = Field(
+        default="minimize",
+        description="Optimization direction (minimize latency, maximize throughput)",
+    )
+    sampler: Literal["TPE", "Random", "Grid"] = Field(
+        default="TPE", description="Optuna sampler type"
+    )
+    seed: int = Field(default=42, description="Random seed for reproducibility")
+
+
+class BenchmarkConfigModel(BaseModel):
+    """Configuration model for benchmark command."""
+
+    # Core benchmark settings
+    execution: BenchmarkExecutionConfigModel = Field(
+        default_factory=BenchmarkExecutionConfigModel
+    )
+
+    # Test data configuration
+    test_images: TestImagesConfigModel = Field(description="Test images configuration")
+
+    # Hyperparameter search space
+    hyperparameters: HyperparameterSearchConfigModel = Field(
+        default_factory=HyperparameterSearchConfigModel
+    )
+
+    # Output configuration
+    output: BenchmarkOutputConfigModel = Field(
+        default_factory=BenchmarkOutputConfigModel
+    )
+
+    # Detection pipeline configuration (reuses existing models)
+    model: ModelConfigModel = Field(default_factory=ModelConfigModel)
+    processing: ProcessingConfigModel = Field(default_factory=ProcessingConfigModel)
+    flight_specs: FlightSpecsModel = Field(default_factory=FlightSpecsModel)
+    inference_service: InferenceServiceConfigModel = Field(
+        default_factory=InferenceServiceConfigModel
+    )
+
+    # Logging and profiling
+    logging: LoggingConfigModel = Field(default_factory=LoggingConfigModel)
+    profiling: ProfilingConfigModel = Field(default_factory=ProfilingConfigModel)
+
+    @field_validator("test_images")
+    @classmethod
+    def validate_test_images_path(
+        cls, v: TestImagesConfigModel
+    ) -> TestImagesConfigModel:
+        """Validate that test images path exists."""
+        if not Path(v.path).exists():
+            raise ValueError(f"Test images path does not exist: {v.path}")
+        return v
+
+    @field_validator("hyperparameters")
+    @classmethod
+    def validate_hyperparameter_ranges(
+        cls, v: HyperparameterSearchConfigModel
+    ) -> HyperparameterSearchConfigModel:
+        """Validate hyperparameter search ranges are reasonable."""
+        if not v.batch_size:
+            raise ValueError("At least one batch size must be specified")
+        if not v.num_workers:
+            raise ValueError("At least one num_workers value must be specified")
+        if max(v.batch_size) > 1024:
+            raise ValueError("Batch size values should be reasonable (max 1024)")
+        return v
+
+    def to_prediction_config(self, verbose: bool = False) -> PredictionConfig:
+        """Convert to existing PredictionConfig dataclass."""
+        return PredictionConfig(
+            mlflow_model_name=self.model.mlflow_model_name,
+            mlflow_model_alias=self.model.mlflow_model_alias,
+            inference_service_url=self.inference_service.url,
+            timeout=self.inference_service.timeout,
+            device=self.model.device,
+            batch_size=self.processing.batch_size,
+            tilesize=self.processing.tile_size,
+            flight_specs=self.flight_specs.to_flight_specs(),
+            verbose=verbose,
+            overlap_ratio=self.processing.overlap_ratio,
+            pipeline_type=self.processing.pipeline_type,
+            queue_size=self.processing.queue_size,
+            max_concurrent=self.processing.max_concurrent,
+        )
+
+    def to_loader_config(self) -> LoaderConfig:
+        """Convert to existing LoaderConfig dataclass."""
+        return LoaderConfig(
+            tile_size=self.processing.tile_size,
+            batch_size=self.processing.batch_size,
+            num_workers=self.processing.num_workers,
+            overlap=self.processing.overlap_ratio,
+            flight_specs=self.flight_specs.to_flight_specs(),
+        )
+
+    def get_image_paths(self) -> List[str]:
+        """Get list of image paths for benchmarking."""
+        # This would be implemented to scan the test_images.path directory
+        # and return a list of image file paths up to max_images
+        # For now, return the path as a placeholder
+        return [self.test_images.path]
+
+
+ConfigModel = Union[
+    DetectConfigModel, CensusConfigModel, VisualizeConfigModel, BenchmarkConfigModel
+]
 
 
 def create_default_config(command_type: str) -> ConfigModel:
@@ -274,6 +437,8 @@ def validate_config_dict(config_dict: Dict[str, Any], command_type: str) -> Conf
             return CensusConfigModel(**config_dict)
         elif command_type == "visualize":
             return VisualizeConfigModel(**config_dict)
+        elif command_type == "benchmark":
+            return BenchmarkConfigModel(**config_dict)
         else:
             raise ValueError(f"Unknown command type: {command_type}")
     except Exception as e:
