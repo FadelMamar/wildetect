@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import fiftyone as fo
 import numpy as np
 import supervision as sv
+from tqdm import tqdm
 
 from ..gps.geographic_bounds import GeographicBounds
 from ..gps.gps_utils import GPSUtils
@@ -292,7 +293,7 @@ class Detection:
             return None
 
     @classmethod
-    def from_ls(cls, detections: list[dict], image_path: str) -> List["Detection"]:
+    def from_ls(cls, detections: list, image_path: str) -> List["Detection"]:
         """Create a list of Detection objects from Label Studio format annotations.
         Args:
             detections (list): List of Label Studio detection dicts.
@@ -343,6 +344,66 @@ class Detection:
         if len(det_objects) == 0:
             det_objects.append(Detection.empty(parent_image=image_path))
 
+        return det_objects
+
+    @classmethod
+    def from_coco(cls, coco_data: dict) -> Dict[str, List["Detection"]]:
+        """Create a list of Detection objects from COCO format data produced by Label Studio converter.
+
+        Args:
+            coco_data (dict): COCO format data with 'annotations', 'categories', and 'images' keys.
+        Returns:
+            list: List of Detection objects.
+        """
+        # Extract data from COCO format
+        annotations = coco_data.get("annotations", [])
+        categories = coco_data.get("categories", [])
+        images = coco_data.get("images", [])
+
+        category_map = {cat["id"]: cat["name"] for cat in categories}
+        image_map = {img["id"]: img["file_name"] for img in images}
+
+        det_objects = {image_id: [] for image_id in image_map.keys()}
+
+        for annotation in tqdm(
+            annotations, desc="Converting COCO data to Detection objects"
+        ):
+            if len(annotation) == 0:
+                continue
+
+            # Extract annotation data
+            category_id = annotation["category_id"]
+            bbox = annotation["bbox"]  # COCO format: [x, y, width, height]
+            image_id = annotation["image_id"]
+
+            # Convert COCO bbox format [x, y, width, height] to [x1, y1, x2, y2]
+            assert (
+                len(bbox) == 4
+            ), f"Error. Check out code or Labeling format. bbox: {bbox}"
+
+            x, y, width, height = bbox
+            x1, y1, x2, y2 = int(x), int(y), int(x + width), int(y + height)
+
+            # Create detection object
+            det = cls(
+                bbox=[x1, y1, x2, y2],
+                class_id=category_id,
+                class_name=category_map[category_id],
+                confidence=1.0,
+                parent_image=image_map[image_id],
+                metadata=annotation,
+            )
+            det_objects[image_id].append(det)
+
+        # if empty, add empty detection
+        for image_id in det_objects.keys():
+            if len(det_objects[image_id]) == 0:
+                det_objects[image_id].append(
+                    Detection.empty(parent_image=image_map[image_id])
+                )
+
+        # Remap image_id to image_path
+        det_objects = {image_map[k]: v for k, v in det_objects.items()}
         return det_objects
 
     def set_gps_location(

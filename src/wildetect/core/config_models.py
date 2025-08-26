@@ -66,6 +66,14 @@ class LabelStudioConfigModel(BaseModel):
     api_key: str = Field(default="1234567890", description="Label Studio API key")
     download_resources: bool = Field(default=True, description="Download resources")
     project_id: int = Field(default=1, description="Label Studio project ID")
+    json_path: Optional[str] = Field(default=None, description="Label Studio JSON path")
+    dotenv_path: Optional[str] = Field(
+        default=None, description="Label Studio dotenv path"
+    )
+    parse_ls_config: bool = Field(default=True, description="Parse Label Studio config")
+    ls_xml_config: Optional[str] = Field(
+        default=None, description="Label Studio XML config"
+    )
 
 
 class ProcessingConfigModel(BaseModel):

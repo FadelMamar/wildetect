@@ -5,11 +5,16 @@ Drone image representation with tiles and geographic footprint.
 import logging
 from copy import deepcopy
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from PIL import Image
+from wildata.converters import LabelstudioConverter
 
+from ..config import ROOT, FlightSpecs
+from ..config_models import LabelStudioConfigModel
+from ..visualization.labelstudio_manager import LabelStudioManager
 from .detection import Detection
 from .tile import Tile
 
@@ -384,3 +389,77 @@ class DroneImage(Tile):
     def from_image_data(cls, image_data: Image.Image, **kwargs) -> "DroneImage":
         """Create drone image from image data."""
         return cls(image_data=image_data, **kwargs)
+
+    @classmethod
+    def from_ls(
+        cls,
+        flight_specs: FlightSpecs,
+        labelstudio_config: Optional[LabelStudioConfigModel] = None,
+        json_path: Optional[str] = None,
+        project_id: Optional[int] = None,
+        dotenv_path: Optional[str] = None,
+        parse_ls_config: bool = True,
+        ls_xml_config: Optional[str] = None,
+    ) -> List["DroneImage"]:
+        """Extract GPS coordinates from Label Studio JSON and convert to Detection objects.
+
+        Args:
+            label_studio_json_path (str): Path to Label Studio JSON file
+            flight_specs (FlightSpecs): Flight specs
+            dotenv_path (Optional[str]): Path to .env file
+            parse_ls_config (bool): Whether to parse Label Studio config
+            ls_xml_config (Optional[str]): Label Studio XML config path
+            image_path (Optional[str]): Path to the image file (if not provided, will use first image from COCO data)
+            confidence_threshold (float): Minimum confidence threshold for detections
+
+        Returns:
+            List[Detection]: List of Detection objects
+        """
+
+        assert (
+            (project_id is not None) ^ (json_path is not None)
+        ), "Either project_id and labelstudio_config or json_path and dotenv_path must be provided"
+
+        if isinstance(project_id, int) and isinstance(
+            labelstudio_config, LabelStudioConfigModel
+        ):
+            ls_client = LabelStudioManager(
+                url=labelstudio_config.url,
+                api_key=labelstudio_config.api_key,
+                download_resources=labelstudio_config.download_resources,
+            )
+            outputs = ls_client.get_all_project_detections(project_id)
+            all_drone_images = []
+            for output in outputs:
+                image = cls(image_path=output["image_path"], flight_specs=flight_specs)
+                image.set_annotations(output["annotations"], update_gps=True)
+                image.set_predictions(
+                    output["predictions"],
+                    update_gps=True,
+                )
+                all_drone_images.append(image)
+            return all_drone_images
+
+        elif isinstance(json_path, str):
+            ls_converter = LabelstudioConverter(
+                dotenv_path=dotenv_path or Path(ROOT).joinpath(".env")
+            )
+            _, coco_data = ls_converter.convert(
+                json_path,
+                dataset_name="loading-images",
+                parse_ls_config=parse_ls_config,
+                ls_xml_config=ls_xml_config,
+            )
+
+            images_and_annotations = Detection.from_coco(coco_data)
+            all_drone_images = []
+            for image_path, annotations in images_and_annotations.items():
+                image = cls(image_path=image_path, flight_specs=flight_specs)
+                image.set_annotations(annotations, update_gps=True)
+                all_drone_images.append(image)
+            return all_drone_images
+
+        else:
+            raise ValueError(
+                "Invalid input type. Please provide a valid Label Studio JSON path or project ID."
+            )

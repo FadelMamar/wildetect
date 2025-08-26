@@ -134,3 +134,57 @@ def visualize(
         console.print(f"[red]Error: {e}[/red]")
         logger.error(f"Visualization failed: {traceback.format_exc()}")
         raise typer.Exit(1)
+
+
+@app.command()
+def extract_gps_coordinates(
+    config: Optional[str] = typer.Option(
+        None, "--config", "-c", help="Path to YAML configuration file"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
+) -> None:
+    """Extract GPS coordinates from a geographic visualization."""
+    setup_logging(
+        verbose,
+        log_file=str(
+            ROOT
+            / "logs"
+            / "extract_gps_coordinates"
+            / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        ),
+    )
+
+    # Load configuration from YAML
+    loaded_config = load_config_with_pydantic("visualize", config)
+
+    if loaded_config.csv_output_path is not None:
+        raise ValueError("CSV output path is required")
+
+    image_dir = loaded_config.image_dir
+    flight_specs = loaded_config.flight_specs.to_flight_specs()
+
+    if image_dir is None:
+        drone_images = DroneImage.from_ls(
+            json_path=loaded_config.labelstudio.json_path,
+            flight_specs=flight_specs,
+            labelstudio_config=loaded_config.labelstudio,
+            project_id=loaded_config.labelstudio.project_id,
+            dotenv_path=loaded_config.labelstudio.dotenv_path,
+            parse_ls_config=loaded_config.labelstudio.parse_ls_config,
+            ls_xml_config=loaded_config.labelstudio.ls_xml_config,
+        )
+    else:
+        drone_images = [
+            DroneImage.from_image_path(image, flight_specs=flight_specs)
+            for image in get_images_paths(image_dir)
+        ]
+
+    # Save detection gps coordinates to csv
+    export_detection_report(
+        drone_images,
+        loaded_config.csv_output_path,
+        detection_type=loaded_config.detection_type,
+    )
+    console.print(
+        f"[green]{loaded_config.detection_type.capitalize()} report exported to: {loaded_config.csv_output_path}[/green]"
+    )
