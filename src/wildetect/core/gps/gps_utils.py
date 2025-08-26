@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 import geopy
 import utm
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 def get_pixel_gps_coordinates(
@@ -205,15 +205,15 @@ def get_gsd(
         return None
 
     if image:
-        _, image_height = image.size
+        image_height = ImageOps.exif_transpose(image).height
     else:
         try:
             if exif and "ExifImageHeight" in exif:
                 image_height = exif["ExifImageHeight"]
             else:
-                image_height = Image.open(image_path).size[1]
+                image_height = ImageOps.exif_transpose(Image.open(image_path)).height
         except:
-            image_height = Image.open(image_path).size[1]
+            image_height = ImageOps.exif_transpose(Image.open(image_path)).height
 
     # Initialize focal_length - use flight_specs if available, otherwise from exif
     if flight_specs.focal_length is not None:

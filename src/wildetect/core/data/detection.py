@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import fiftyone as fo
 import numpy as np
 import supervision as sv
-from PIL import Image
+from PIL import Image, ImageOps
 
 from wildetect.core.gps.geographic_bounds import GeographicBounds
 from wildetect.core.gps.gps_utils import GPSUtils
@@ -313,6 +313,13 @@ class Detection:
                 h = value["height"] * image_height / 100
 
                 assert len(class_name) == 1, "Error. Check out code or Labeling format."
+                assert int(x_min + w) <= image_width, "Error. Check out code or Labeling format."
+                assert int(y_min + h) <= image_height, "Error. Check out code or Labeling format."
+                image = ImageOps.exif_transpose(Image.open(image_path))
+                width, height = image.size
+                assert image_width == width, f"Error. Check out code or Labeling format. ls_width: {image_width} != image_width: {width}"
+                assert image_height == height, f"Error. Check out code or Labeling format. ls_height: {image_height} != image_height: {height}"
+
                 class_name = class_name[0]
                 confidence = det.get("score", 1.0)
                 det = cls(
