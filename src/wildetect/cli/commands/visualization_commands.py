@@ -164,6 +164,11 @@ def extract_gps_coordinates(
     flight_specs = loaded_config.flight_specs.to_flight_specs()
 
     if image_dir is None:
+        if loaded_config.labelstudio.json_path is not None:
+            assert (
+                loaded_config.detection_type == "annotations"
+            ), "Detection type must be annotations when using Label Studio JSON path"
+
         drone_images = DroneImage.from_ls(
             json_path=loaded_config.labelstudio.json_path,
             flight_specs=flight_specs,
