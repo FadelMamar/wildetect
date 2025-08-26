@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import fiftyone as fo
 import numpy as np
 import supervision as sv
-from PIL import Image, ImageOps
 
-from wildetect.core.gps.geographic_bounds import GeographicBounds
-from wildetect.core.gps.gps_utils import GPSUtils
+from ..gps.geographic_bounds import GeographicBounds
+from ..gps.gps_utils import GPSUtils
+from .utils import read_image
 
 if TYPE_CHECKING:
     from .tile import Tile
@@ -169,11 +169,11 @@ class Detection:
         if self.parent_image is None:
             return 99999
 
-        with Image.open(self.parent_image) as image:
-            width, height = image.size
-            distance_to_centroid = math.sqrt(
-                (self.x_center - width / 2) ** 2 + (self.y_center - height / 2) ** 2
-            )
+        image = read_image(self.parent_image)
+        width, height = image.size
+        distance_to_centroid = math.sqrt(
+            (self.x_center - width / 2) ** 2 + (self.y_center - height / 2) ** 2
+        )
 
         return distance_to_centroid
 
@@ -313,12 +313,20 @@ class Detection:
                 h = value["height"] * image_height / 100
 
                 assert len(class_name) == 1, "Error. Check out code or Labeling format."
-                assert int(x_min + w) <= image_width, "Error. Check out code or Labeling format."
-                assert int(y_min + h) <= image_height, "Error. Check out code or Labeling format."
-                image = ImageOps.exif_transpose(Image.open(image_path))
+                assert (
+                    int(x_min + w) <= image_width
+                ), "Error. Check out code or Labeling format."
+                assert (
+                    int(y_min + h) <= image_height
+                ), "Error. Check out code or Labeling format."
+                image = read_image(image_path)
                 width, height = image.size
-                assert image_width == width, f"Error. Check out code or Labeling format. ls_width: {image_width} != image_width: {width}"
-                assert image_height == height, f"Error. Check out code or Labeling format. ls_height: {image_height} != image_height: {height}"
+                assert (
+                    image_width == width
+                ), f"Error. Check out code or Labeling format. ls_width: {image_width} != image_width: {width}"
+                assert (
+                    image_height == height
+                ), f"Error. Check out code or Labeling format. ls_height: {image_height} != image_height: {height}"
 
                 class_name = class_name[0]
                 confidence = det.get("score", 1.0)

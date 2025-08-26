@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from PIL import Image
+
 from .config import ROOT, LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
 from .data.detection import Detection
@@ -324,11 +326,10 @@ class CampaignManager:
         if self.fiftyone_manager is None:
             logger.warning("FiftyOne manager not initialized. Skipping export.")
             return
-        
+
         failed = False
         error_msg = ""
         for i in range(3):
-            
             try:
                 annot_key = f"{self.campaign_id}{i}"
                 self.fiftyone_manager.send_predictions_to_labelstudio(
@@ -394,8 +395,6 @@ class CampaignManager:
         Raises:
             ValueError: If none of the images have GPS coordinates
         """
-        from PIL import Image
-
         from .gps.gps_utils import GPSUtils
 
         valid_images = []

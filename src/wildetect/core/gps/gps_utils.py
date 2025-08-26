@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
 from ..config import FlightSpecs
+from ..data.utils import read_image
 
 logger = logging.getLogger(__name__)
 
@@ -207,13 +208,11 @@ def get_gsd(
     if image:
         image_height = ImageOps.exif_transpose(image).height
     else:
-        try:
-            if exif and "ExifImageHeight" in exif:
-                image_height = exif["ExifImageHeight"]
-            else:
-                image_height = ImageOps.exif_transpose(Image.open(image_path)).height
-        except:
-            image_height = ImageOps.exif_transpose(Image.open(image_path)).height
+        if exif and "ExifImageHeight" in exif:
+            image_height = exif["ExifImageHeight"]
+        else:
+            image = read_image(image_path)
+            image_height = image.height
 
     # Initialize focal_length - use flight_specs if available, otherwise from exif
     if flight_specs.focal_length is not None:

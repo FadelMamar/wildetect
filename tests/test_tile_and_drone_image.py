@@ -14,9 +14,10 @@ from typing import List
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.wildetect.core.config import FlightSpecs
-from src.wildetect.core.data import DroneImage, Tile
-from src.wildetect.core.data.detection import Detection
+from wildetect.core.config import FlightSpecs
+from wildetect.core.data import DroneImage, Tile
+from wildetect.core.data.detection import Detection
+from wildetect.core.data.utils import load_image
 
 # Configure logging
 logging.basicConfig(
@@ -41,10 +42,8 @@ def create_test_detections(image_path: str) -> List[Detection]:
     detections = []
 
     # Load the image to get its dimensions
-    from PIL import Image
-
-    with Image.open(image_path) as img:
-        img_width, img_height = img.size
+    image = load_image(image_path)
+    img_width, img_height = image.size
 
     # Create some test detections within image boundaries
     for i in range(3):

@@ -9,15 +9,15 @@ import geopy
 import numpy as np
 import pandas as pd
 import torch
-from PIL import Image,ImageOps
+from PIL import Image, ImageOps
 from torchvision.ops import nms
-from torchvision.transforms import PILToTensor
 
 from ..config import FlightSpecs
 from ..gps.geographic_bounds import GeographicBounds
 from ..gps.gps_service import GPSDetectionService, create_geographic_footprint
 from ..gps.gps_utils import GPSUtils, get_gsd
 from .detection import Detection
+from .utils import read_image
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,9 @@ class Tile:
         if self.id is None:
             self.id = str(uuid.uuid4())
 
+        if self.image_data is not None:
+            self.image_data = ImageOps.exif_transpose(self.image_data)
+
         if self.parent_image:
             try:
                 self.timestamp = Image.open(self.parent_image)._getexif()[36867]
@@ -74,12 +77,10 @@ class Tile:
         # Only open image if dimensions are not provided
         if self.width is None or self.height is None:
             if self.image_data is None:
-                image = Image.open(self.image_path)
-                image = ImageOps.exif_transpose(image)
+                image = read_image(self.image_path)
                 self.width, self.height = image.size
             else:
-                image = ImageOps.exif_transpose(self.image_data)
-                self.width, self.height = image.size
+                self.width, self.height = self.image_data.size
 
         # GPS operations >>>>>
         if self.image_path is None and self.image_data is None:
@@ -125,9 +126,9 @@ class Tile:
 
     def load_image_data(self) -> Image.Image:
         if self.image_data is not None:
-            return ImageOps.exif_transpose(self.image_data)
+            return self.image_data
         else:
-            return ImageOps.exif_transpose(Image.open(self.image_path))
+            return read_image(self.image_path)
 
     @property
     def geo_box(self):
@@ -338,7 +339,9 @@ class Tile:
             if detection.x_center < 0 or detection.x_center >= self.width:
                 raise ValueError(f"Detection: x_center out of bounds (0, {self.width})")
             if detection.y_center < 0 or detection.y_center >= self.height:
-                raise ValueError(f"Detection : y_center out of bounds (0, {self.height})")
+                raise ValueError(
+                    f"Detection : y_center out of bounds (0, {self.height})"
+                )
 
     def validate_detections(
         self, predictions: bool = True, annotations: bool = True

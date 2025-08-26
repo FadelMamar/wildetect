@@ -9,15 +9,14 @@ from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
 
 import torch
-from PIL import Image, ImageOps
+from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor
 from tqdm import tqdm
 
-from wildetect.core.config import LoaderConfig
-from wildetect.core.data.drone_image import DroneImage
-from wildetect.core.data.tile import Tile
-from wildetect.core.data.utils import TileUtilsv3
+from ..config import LoaderConfig
+from .drone_image import DroneImage
+from .utils import TileUtilsv3, read_image
 
 logger = logging.getLogger(__name__)
 
@@ -263,10 +262,10 @@ class TileDataset(Dataset):
         try:
             # Use PIL with minimal processing - this is already very fast
             # as it only reads the header, not the pixel data
-            with Image.open(image_path) as img:
-                width, height = ImageOps.exif_transpose(img).size
-                self.dimension_cache[image_path] = (width, height)
-                return (width, height)
+            image = read_image(image_path)
+            width, height = image.size
+            self.dimension_cache[image_path] = (width, height)
+            return (width, height)
         except Exception as e:
             logger.warning(f"Failed to get dimensions for {image_path}: {e}")
             self.dimension_cache[image_path] = None
@@ -381,21 +380,21 @@ class TileDataset(Dataset):
             return cached_image
 
         try:
-            with Image.open(image_path) as img:
-                # Convert to RGB and then to tensor
-                image_tensor = self.pil_to_tensor(img.convert("RGB"))
-                image_tensor = image_tensor / 255.0  # normalize to [0,1]
+            image = read_image(image_path)
+            # Convert to RGB and then to tensor
+            image_tensor = self.pil_to_tensor(image.convert("RGB"))
+            image_tensor = image_tensor / 255.0  # normalize to [0,1]
 
-                # Calculate stride for padding
-                stride = int(self.config.tile_size * (1 - self.config.overlap))
+            # Calculate stride for padding
+            stride = int(self.config.tile_size * (1 - self.config.overlap))
 
-                # Pad image to patch size
-                padded_image = TileUtilsv3.pad_image_to_patch_size(
-                    image_tensor, self.config.tile_size, stride
-                )
+            # Pad image to patch size
+            padded_image = TileUtilsv3.pad_image_to_patch_size(
+                image_tensor, self.config.tile_size, stride
+            )
 
-                self.image_cache.put(image_path, padded_image)
-                return padded_image
+            self.image_cache.put(image_path, padded_image)
+            return padded_image
 
         except Exception as e:
             logger.warning(f"Failed to load {image_path}: {traceback.format_exc()}")

@@ -18,6 +18,7 @@ from PIL import Image
 from wildetect.core.config import FlightSpecs
 from wildetect.core.data.detection import Detection
 from wildetect.core.data.drone_image import DroneImage
+from wildetect.core.data.utils import read_image
 
 # Add the project root to the Python path
 from wildetect.core.flight.geographic_merger import (
@@ -85,9 +86,8 @@ def create_test_detection(
     Returns:
         Detection object with properly bounded coordinates
     """
-
-    with Image.open(image_path) as img:
-        image_width, image_height = img.size
+    image = read_image(image_path)
+    image_width, image_height = image.size
 
     # Sample random coordinates if not provided
     x = random.randint(50, image_width - 50)
