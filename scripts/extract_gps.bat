@@ -1,4 +1,4 @@
 
 call cd /d %~dp0 && cd ..
 
-call uv run wildtect visualization visualize -c config/visualization.yaml
+call uv run wildetect visualization visualize -c config/visualization.yaml
