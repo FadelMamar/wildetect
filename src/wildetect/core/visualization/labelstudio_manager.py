@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from typing import List, Optional
 from urllib.parse import unquote
 
@@ -45,12 +47,10 @@ class LabelStudioManager:
         self,
         project_id: int,
     ) -> List[dict]:
-        tasks = self.get_tasks(project_id)
+        tasks = [task.id for task in self.get_tasks(project_id)]
         detections = []
-        for task in tqdm(tasks, desc="Getting Label Studio annotations"):
-            dets = self.get_detections(
-                task.id,
-            )
-            if dets is not None:
-                detections.append(dets)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for dets in executor.map(self.get_detections, tasks):
+                if dets is not None:
+                    detections.append(dets)
         return detections
