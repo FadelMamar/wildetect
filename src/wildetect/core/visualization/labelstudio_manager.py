@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from typing import List, Optional
 from urllib.parse import unquote
 
@@ -60,14 +62,12 @@ class LabelStudioManager:
         load_as_drone_image: bool = False,
         flight_specs: Optional[FlightSpecs] = None,
     ) -> List[dict | DroneImage]:
-        tasks = self.get_tasks(project_id)
+        tasks = [task.id for task in self.get_tasks(project_id)]
         detections = []
-        for task in tqdm(tasks, desc="Getting Label Studio annotations"):
-            dets = self.get_detections(
-                task.id,
-                load_as_drone_image=load_as_drone_image,
-                flight_specs=flight_specs,
-            )
-            if dets is not None:
-                detections.append(dets)
+        func = partial(self.get_detections, load_as_drone_image=load_as_drone_image, flight_specs=flight_specs)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for dets in executor.map(func, tasks):
+                if dets is not None:
+                    detections.append(dets)
+
         return detections
