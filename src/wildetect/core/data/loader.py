@@ -9,7 +9,7 @@ from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
 
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor
 from tqdm import tqdm
@@ -264,7 +264,7 @@ class TileDataset(Dataset):
             # Use PIL with minimal processing - this is already very fast
             # as it only reads the header, not the pixel data
             with Image.open(image_path) as img:
-                width, height = img.size
+                width, height = ImageOps.exif_transpose(img).size
                 self.dimension_cache[image_path] = (width, height)
                 return (width, height)
         except Exception as e:

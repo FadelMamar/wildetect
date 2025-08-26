@@ -9,7 +9,7 @@ import geopy
 import numpy as np
 import pandas as pd
 import torch
-from PIL import Image
+from PIL import Image,ImageOps
 from torchvision.ops import nms
 from torchvision.transforms import PILToTensor
 
@@ -74,9 +74,12 @@ class Tile:
         # Only open image if dimensions are not provided
         if self.width is None or self.height is None:
             if self.image_data is None:
-                self.width, self.height = Image.open(self.image_path).size
+                image = Image.open(self.image_path)
+                image = ImageOps.exif_transpose(image)
+                self.width, self.height = image.size
             else:
-                self.width, self.height = self.image_data.size
+                image = ImageOps.exif_transpose(self.image_data)
+                self.width, self.height = image.size
 
         # GPS operations >>>>>
         if self.image_path is None and self.image_data is None:
@@ -122,9 +125,9 @@ class Tile:
 
     def load_image_data(self) -> Image.Image:
         if self.image_data is not None:
-            return self.image_data
+            return ImageOps.exif_transpose(self.image_data)
         else:
-            return Image.open(self.image_path)
+            return ImageOps.exif_transpose(Image.open(self.image_path))
 
     @property
     def geo_box(self):
@@ -333,9 +336,9 @@ class Tile:
         """Validate a single detection."""
         if not detection.is_empty:
             if detection.x_center < 0 or detection.x_center >= self.width:
-                raise ValueError(f"Detection: x_center out of bounds")
+                raise ValueError(f"Detection: x_center out of bounds (0, {self.width})")
             if detection.y_center < 0 or detection.y_center >= self.height:
-                raise ValueError(f"Detection : y_center out of bounds")
+                raise ValueError(f"Detection : y_center out of bounds (0, {self.height})")
 
     def validate_detections(
         self, predictions: bool = True, annotations: bool = True

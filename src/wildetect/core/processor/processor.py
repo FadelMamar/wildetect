@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import albumentations as A
 import numpy as np
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 from tqdm import tqdm
 from transformers import AutoImageProcessor, AutoModel
 
@@ -344,7 +344,7 @@ class RoIPostProcessor(Processor):
         self.logger.debug(f"Filtering {len(detections)} detections...")
 
         try:
-            image = image.convert("RGB")
+            image = ImageOps.exif_transpose(image).convert("RGB")
             img_width, img_height = image.size
 
             # Extract crops from detections
