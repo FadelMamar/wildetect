@@ -16,7 +16,7 @@ from ...core.config_models import VisualizeConfigModel
 from ...core.data.drone_image import DroneImage
 from ...core.data.utils import get_images_paths
 from ...core.visualization.geographic import GeographicVisualizer, VisualizationConfig
-from ..utils import setup_logging
+from ..utils import export_detection_report, setup_logging
 
 app = typer.Typer(name="visualization", help="Visualization commands")
 console = Console()
@@ -117,29 +117,22 @@ def extract_gps_coordinates(
     if loaded_config.csv_output_path is not None:
         raise ValueError("CSV output path is required")
 
-    image_dir = loaded_config.image_dir
     flight_specs = loaded_config.flight_specs.to_flight_specs()
 
-    if image_dir is None:
-        if loaded_config.labelstudio.json_path is not None:
-            assert (
-                loaded_config.detection_type == "annotations"
-            ), "Detection type must be annotations when using Label Studio JSON path"
+    if loaded_config.labelstudio.json_path is not None:
+        assert (
+            loaded_config.detection_type == "annotations"
+        ), "Detection type must be annotations when using Label Studio JSON path"
 
-        drone_images = DroneImage.from_ls(
-            json_path=loaded_config.labelstudio.json_path,
-            flight_specs=flight_specs,
-            labelstudio_config=loaded_config.labelstudio,
-            project_id=loaded_config.labelstudio.project_id,
-            dotenv_path=loaded_config.labelstudio.dotenv_path,
-            parse_ls_config=loaded_config.labelstudio.parse_ls_config,
-            ls_xml_config=loaded_config.labelstudio.ls_xml_config,
-        )
-    else:
-        drone_images = [
-            DroneImage.from_image_path(image, flight_specs=flight_specs)
-            for image in get_images_paths(image_dir)
-        ]
+    drone_images = DroneImage.from_ls(
+        json_path=loaded_config.labelstudio.json_path,
+        flight_specs=flight_specs,
+        labelstudio_config=loaded_config.labelstudio,
+        project_id=loaded_config.labelstudio.project_id,
+        dotenv_path=loaded_config.labelstudio.dotenv_path,
+        parse_ls_config=loaded_config.labelstudio.parse_ls_config,
+        ls_xml_config=loaded_config.labelstudio.ls_xml_config,
+    )
 
     # Save detection gps coordinates to csv
     export_detection_report(

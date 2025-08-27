@@ -13,6 +13,7 @@ from typing import List, Optional
 import torch
 import typer
 from rich.console import Console
+from tqdm import tqdm
 
 from ...core.campaign_manager import CampaignConfig, CampaignManager
 from ...core.config import ROOT
@@ -23,7 +24,7 @@ from ...core.detection_pipeline import (
     DetectionPipeline,
     MultiThreadedDetectionPipeline,
 )
-from ...core.visualization.fiftyone_manager import FiftyOneManager
+from ...core.visualization import FiftyOneManager, LabelStudioManager
 from ...utils.profiler import profile_command
 from ...utils.utils import ROOT
 from ..utils import (
@@ -47,17 +48,6 @@ def detect(
     config: Optional[str] = typer.Option(
         None, "--config", "-c", help="Path to YAML configuration file"
     ),
-    # Profiling overrides
-    profile: bool = typer.Option(False, "--profile", help="Enable detailed profiling"),
-    memory_profile: bool = typer.Option(
-        False, "--memory-profile", help="Enable memory profiling"
-    ),
-    line_profile: bool = typer.Option(
-        False, "--line-profile", help="Enable line-by-line profiling"
-    ),
-    gpu_profile: bool = typer.Option(
-        False, "--gpu-profile", help="Enable GPU profiling (CUDA only)"
-    ),
 ):
     """Detect wildlife in images using AI models."""
     setup_logging()
@@ -74,15 +64,6 @@ def detect(
         if images is None:
             images = list(loaded_config.images)
 
-        if profile:
-            loaded_config.profiling.enable = True
-        if memory_profile:
-            loaded_config.profiling.memory_profile = True
-        if line_profile:
-            loaded_config.profiling.line_profile = True
-        if gpu_profile:
-            loaded_config.profiling.gpu_profile = True
-
         # Convert to existing dataclasses
         pred_config = loaded_config.to_prediction_config()
         loader_config = loaded_config.to_loader_config()
@@ -91,23 +72,37 @@ def detect(
         output_dir = Path(loaded_config.output.directory)
         dataset_name = loaded_config.output.dataset_name
 
-        # Determine if input is directory or file paths
-        logger.info(f"Processing images: {images}")
-        assert isinstance(images, list), "images must be a list"
-        if len(images) == 1 and Path(images[0]).is_dir():
-            image_dir = images[0]
-            image_paths = None
-            console.print(f"[green]Processing directory: {image_dir}[/green]")
-        else:
-            for image in images:
-                if not Path(image).exists():
-                    raise FileNotFoundError(f"Image not found: {image}")
-                if not Path(image).is_file():
-                    raise FileNotFoundError(f"Image is not a file: {image}")
-
+        # load image paths from label studio
+        if loaded_config.labelstudio.project_id is not None:
+            ls_manager = LabelStudioManager(
+                url=loaded_config.labelstudio.url,
+                api_key=loaded_config.labelstudio.api_key,
+                download_resources=loaded_config.labelstudio.download_resources,
+            )
+            image_paths_task_ids = ls_manager.get_tasks_paths(
+                loaded_config.labelstudio.project_id
+            )
+            image_paths = list(image_paths_task_ids.keys())
             image_dir = None
-            image_paths = images
-            console.print(f"[green]Processing {len(images)} images[/green]")
+            console.print(f"[green]Processing {len(image_paths)} images[/green]")
+        else:
+            # Determine if input is directory or file paths
+            logger.info(f"Processing images: {images}")
+            assert isinstance(images, list), "images must be a list"
+            if len(images) == 1 and Path(images[0]).is_dir():
+                image_dir = images[0]
+                image_paths = None
+                console.print(f"[green]Processing directory: {image_dir}[/green]")
+            else:
+                for image in images:
+                    if not Path(image).exists():
+                        raise FileNotFoundError(f"Image not found: {image}")
+                    if not Path(image).is_file():
+                        raise FileNotFoundError(f"Image is not a file: {image}")
+
+                image_dir = None
+                image_paths = images
+                console.print(f"[green]Processing {len(images)} images[/green]")
 
         console.print(f"Prediction config: {pred_config}")
         console.print(f"Loader config: {loader_config}")
@@ -131,37 +126,15 @@ def detect(
         if output_dir:
             save_path = str(output_dir / "results.json")
 
-        # Determine profiling settings from config or command line
-        profiling_enabled = (
-            loaded_config.profiling.enable
-            if config and hasattr(loaded_config, "profiling")
-            else profile
-        )
-        memory_profiling_enabled = (
-            loaded_config.profiling.memory_profile
-            if config and hasattr(loaded_config, "profiling")
-            else memory_profile
-        )
-        line_profiling_enabled = (
-            loaded_config.profiling.line_profile
-            if config and hasattr(loaded_config, "profiling")
-            else line_profile
-        )
-        gpu_profiling_enabled = (
-            loaded_config.profiling.gpu_profile
-            if config and hasattr(loaded_config, "profiling")
-            else gpu_profile
-        )
-
         profiling_dir = Path(log_file).parent / f"{Path(log_file).stem}_profiling"
         profiling_dir.mkdir(parents=True, exist_ok=True)
 
         with profile_command(
             output_dir=profiling_dir,
-            profile=profiling_enabled,
-            memory_profile=memory_profiling_enabled,
-            line_profile=line_profiling_enabled,
-            gpu_profile=gpu_profiling_enabled,
+            profile=loaded_config.profiling.enable,
+            memory_profile=loaded_config.profiling.memory_profile,
+            line_profile=loaded_config.profiling.line_profile,
+            gpu_profile=loaded_config.profiling.gpu_profile,
         ) as profiler:
             # Run pipeline with profiling
             if pred_config.pipeline_type == "async":
@@ -176,7 +149,7 @@ def detect(
                 drone_images = asyncio.run(run_async_detection())
             else:
                 # Use line profiling if enabled
-                if line_profiling_enabled:
+                if loaded_config.profiling.line_profile:
                     drone_images = profiler.profile_function(
                         pipeline.run_detection,
                         image_paths=image_paths,
@@ -223,8 +196,34 @@ def detect(
 
         console.print(f"[bold green]Detection completed successfully![/bold green]")
 
+        # upload detections to label studio
+        if loaded_config.labelstudio.project_id is not None:
+            failed_uploads = []
+            for image in tqdm(
+                drone_images, desc="Uploading detections to Label Studio"
+            ):
+                task_id = image_paths_task_ids.get(image.image_path)
+                if task_id is None:
+                    failed_uploads.append(image.image_path)
+                else:
+                    ls_manager.upload_detections(
+                        task_id=task_id,
+                        detections=image.get_non_empty_predictions(),
+                        model_tag=loaded_config.model.mlflow_model_alias,
+                        from_name=loaded_config.labelstudio.from_name,
+                        to_name=loaded_config.labelstudio.to_name,
+                        label_type=loaded_config.labelstudio.label_type,
+                        img_height=image.height,
+                        img_width=image.width,
+                    )
+            if failed_uploads:
+                console.print(
+                    f"[red]Failed to upload detections for {len(failed_uploads)}/{len(drone_images)} images:[/red]"
+                )
+            else:
+                console.print("[green]Uploaded detections to Label Studio[/green]")
+
     except Exception as e:
-        console.print(f"[red]Error during detection: {e}[/red]")
         console.print(traceback.format_exc())
 
 

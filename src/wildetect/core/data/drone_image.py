@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 from wildata.converters import LabelstudioConverter
 
 from ..config import ROOT, FlightSpecs
@@ -430,7 +431,9 @@ class DroneImage(Tile):
             )
             outputs = ls_client.get_all_project_detections(project_id)
             all_drone_images = []
-            for output in outputs:
+            for output in tqdm(
+                outputs, total=len(outputs), desc="Loading images from Label Studio"
+            ):
                 image = cls(image_path=output["image_path"], flight_specs=flight_specs)
                 image.set_annotations(output["annotations"], update_gps=True)
                 image.set_predictions(
@@ -453,7 +456,11 @@ class DroneImage(Tile):
 
             images_and_annotations = Detection.from_coco(coco_data)
             all_drone_images = []
-            for image_path, annotations in images_and_annotations.items():
+            for image_path, annotations in tqdm(
+                images_and_annotations.items(),
+                total=len(images_and_annotations),
+                desc="Loading images from Label Studio",
+            ):
                 image = cls(image_path=image_path, flight_specs=flight_specs)
                 image.set_annotations(annotations, update_gps=True)
                 all_drone_images.append(image)

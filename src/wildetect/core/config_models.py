@@ -65,7 +65,9 @@ class LabelStudioConfigModel(BaseModel):
     url: str = Field(default="http://localhost:8080", description="Label Studio URL")
     api_key: str = Field(default="1234567890", description="Label Studio API key")
     download_resources: bool = Field(default=True, description="Download resources")
-    project_id: int = Field(default=1, description="Label Studio project ID")
+    project_id: Optional[int] = Field(
+        default=None, description="Label Studio project ID"
+    )
     json_path: Optional[str] = Field(default=None, description="Label Studio JSON path")
     dotenv_path: Optional[str] = Field(
         default=None, description="Label Studio dotenv path"
@@ -73,6 +75,11 @@ class LabelStudioConfigModel(BaseModel):
     parse_ls_config: bool = Field(default=True, description="Parse Label Studio config")
     ls_xml_config: Optional[str] = Field(
         default=None, description="Label Studio XML config"
+    )
+    from_name: str = Field(default="label", description="Label Studio from name")
+    to_name: str = Field(default="image", description="Label Studio to name")
+    label_type: str = Field(
+        default="rectanglelabels", description="Label Studio label type"
     )
 
 
@@ -200,6 +207,7 @@ class DetectConfigModel(BaseModel):
     profiling: ProfilingConfigModel = Field(default_factory=ProfilingConfigModel)
     output: OutputConfigModel = Field(default_factory=OutputConfigModel)
     logging: LoggingConfigModel = Field(default_factory=LoggingConfigModel)
+    labelstudio: LabelStudioConfigModel = Field(default_factory=LabelStudioConfigModel)
 
     def to_prediction_config(self, verbose: bool = False) -> PredictionConfig:
         """Convert to existing PredictionConfig dataclass."""
