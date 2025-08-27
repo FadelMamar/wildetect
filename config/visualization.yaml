@@ -15,9 +15,9 @@ geographic:
 
 # Flight Specifications
 flight_specs:
-  sensor_height: 24.0  # mm
-  focal_length: 35.0   # mm
-  flight_height: 180.0  # meters
+  sensor_height: 15.6  # mm
+  focal_length: 16.0   # mm
+  flight_height: 120.0  # meters
 
 # Visualization Options
 visualization:

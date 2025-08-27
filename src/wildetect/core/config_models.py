@@ -82,6 +82,16 @@ class LabelStudioConfigModel(BaseModel):
         default="rectanglelabels", description="Label Studio label type"
     )
 
+    @field_validator("json_path")
+    @classmethod
+    def validate_json_path(cls, v: str) -> str:
+        """Validate that json_path exists."""
+        if v is None:
+            return v
+        if not Path(v).exists():
+            raise ValueError(f"JSON path does not exist: {v}")
+        return v
+
 
 class ProcessingConfigModel(BaseModel):
     """Processing configuration model."""

@@ -2,12 +2,12 @@
 # This file contains all parameters needed for visualization commands
 
 labelstudio:
-  url: "http://localhost:8080"
-  api_key: "edc3c4539d7b0708a2c189be47ff94708d1de3cc"
+  url: http://localhost:8080
+  api_key: 4f3c25bad9334596c5b2c3b270a2d3105c8b5d4a
   download_resources: false
-  project_id: 7
-  json_path: null
-  dotenv_path: null
+  project_id: null
+  json_path: "D:/PhD/Data per camp/Exported annotations and labels/April 25-July25/train/110 FiftyOne_campaign_LR_Farm_north.json"
+  dotenv_path: .env
   parse_ls_config: true
   ls_xml_config: null
 
@@ -16,35 +16,12 @@ image_dir: null
 csv_output_path: "detection_report.csv"
 detection_type: "annotations" # annotations, predictions
 
-# Geographic Visualization of predictions
-geographic:
-  create_map: false
-  show_confidence: false
-  output_directory: "visualizations"
-  map_type: "OpenStreetMap"  # OpenStreetMap, folium, etc.
-  zoom_level: 12
-  center_on_data: true
 
 # Flight Specifications
 flight_specs:
-  sensor_height: 24.0  # mm
-  focal_length: 35.0   # mm
-  flight_height: 180.0  # meters
-
-# Visualization Options
-visualization:
-  show_detections: true
-  show_footprints: true
-  show_statistics: true
-  color_by_confidence: false
-  confidence_threshold: 0.2
-
-# Output Configuration
-output:
-  format: "html"  # html, png, pdf
-  include_legend: true
-  include_statistics: true
-  auto_open: false  # Open in browser automatically
+  sensor_height: 15.6  # mm
+  focal_length: 16.0   # mm
+  flight_height: 120.0  # meters
 
 # Logging Configuration
 logging:

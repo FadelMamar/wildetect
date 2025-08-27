@@ -410,6 +410,9 @@ class DroneImage(Tile):
         Returns:
             List[Detection]: List of Detection objects
         """
+        from label_studio_sdk.client import LabelStudio
+
+        from ..visualization.labelstudio_manager import LabelStudioManager
 
         assert (
             (labelstudio_config.project_id is not None)

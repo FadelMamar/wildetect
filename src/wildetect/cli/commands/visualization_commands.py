@@ -114,7 +114,9 @@ def extract_gps_coordinates(
     # Load configuration from YAML
     loaded_config = load_config_with_pydantic("visualize", config)
 
-    if loaded_config.csv_output_path is not None:
+    console.print(loaded_config)
+
+    if loaded_config.csv_output_path is None:
         raise ValueError("CSV output path is required")
 
     flight_specs = loaded_config.flight_specs.to_flight_specs()
@@ -127,6 +129,16 @@ def extract_gps_coordinates(
     drone_images = DroneImage.from_ls(
         flight_specs=flight_specs,
         labelstudio_config=loaded_config.labelstudio,
+    )
+
+    drone_images = DroneImage.from_ls(
+        json_path=loaded_config.labelstudio.json_path,
+        flight_specs=flight_specs,
+        labelstudio_config=loaded_config.labelstudio,
+        project_id=loaded_config.labelstudio.project_id,
+        dotenv_path=loaded_config.labelstudio.dotenv_path,
+        parse_ls_config=loaded_config.labelstudio.parse_ls_config,
+        ls_xml_config=loaded_config.labelstudio.ls_xml_config,
     )
 
     # Save detection gps coordinates to csv
