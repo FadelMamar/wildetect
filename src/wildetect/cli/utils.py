@@ -346,5 +346,9 @@ def export_detection_report(
         else:
             raise ValueError(f"Invalid detection type: {detection_type}")
     gps_coords = [detection.gps_as_decimals for detection in all_detections]
+    image_paths = [detection.parent_image for detection in all_detections]
+    class_names = [detection.class_name for detection in all_detections]
     df = pd.DataFrame(gps_coords, columns=["latitude", "longitude", "altitude"])
+    df["image_path"] = image_paths
+    df["class_name"] = class_names
     df.to_csv(Path(output_path), index=False)

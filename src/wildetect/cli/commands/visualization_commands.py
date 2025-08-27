@@ -16,7 +16,7 @@ from ...core.config_models import VisualizeConfigModel
 from ...core.data.drone_image import DroneImage
 from ...core.data.utils import get_images_paths
 from ...core.visualization.geographic import GeographicVisualizer, VisualizationConfig
-from ..utils import setup_logging
+from ..utils import setup_logging,export_detection_report
 
 app = typer.Typer(name="visualization", help="Visualization commands")
 console = Console()
@@ -114,7 +114,9 @@ def extract_gps_coordinates(
     # Load configuration from YAML
     loaded_config = load_config_with_pydantic("visualize", config)
 
-    if loaded_config.csv_output_path is not None:
+    console.print(loaded_config)
+
+    if loaded_config.csv_output_path is None:
         raise ValueError("CSV output path is required")
 
     image_dir = loaded_config.image_dir
@@ -122,6 +124,7 @@ def extract_gps_coordinates(
 
     if image_dir is None:
         if loaded_config.labelstudio.json_path is not None:
+            assert Path(loaded_config.labelstudio.json_path).exists(), "JSON path does not exist"
             assert (
                 loaded_config.detection_type == "annotations"
             ), "Detection type must be annotations when using Label Studio JSON path"

@@ -65,7 +65,7 @@ class LabelStudioConfigModel(BaseModel):
     url: str = Field(default="http://localhost:8080", description="Label Studio URL")
     api_key: str = Field(default="1234567890", description="Label Studio API key")
     download_resources: bool = Field(default=True, description="Download resources")
-    project_id: int = Field(default=1, description="Label Studio project ID")
+    project_id: Optional[int] = Field(default=None, description="Label Studio project ID")
     json_path: Optional[str] = Field(default=None, description="Label Studio JSON path")
     dotenv_path: Optional[str] = Field(
         default=None, description="Label Studio dotenv path"
@@ -74,6 +74,16 @@ class LabelStudioConfigModel(BaseModel):
     ls_xml_config: Optional[str] = Field(
         default=None, description="Label Studio XML config"
     )
+
+    @field_validator("json_path")
+    @classmethod
+    def validate_json_path(cls, v: str) -> str:
+        """Validate that json_path exists."""
+        if v is None:
+            return v
+        if not Path(v).exists():
+            raise ValueError(f"JSON path does not exist: {v}")
+        return v
 
 
 class ProcessingConfigModel(BaseModel):

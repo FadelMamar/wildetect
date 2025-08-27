@@ -11,10 +11,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from PIL import Image
 from wildata.converters import LabelstudioConverter
+from tqdm import tqdm
 
 from ..config import ROOT, FlightSpecs
 from ..config_models import LabelStudioConfigModel
-from ..visualization.labelstudio_manager import LabelStudioManager
 from .detection import Detection
 from .tile import Tile
 
@@ -415,6 +415,8 @@ class DroneImage(Tile):
         Returns:
             List[Detection]: List of Detection objects
         """
+        from ..visualization.labelstudio_manager import LabelStudioManager
+        from label_studio_sdk.client import LabelStudio
 
         assert (
             (project_id is not None) ^ (json_path is not None)
@@ -442,7 +444,8 @@ class DroneImage(Tile):
 
         elif isinstance(json_path, str):
             ls_converter = LabelstudioConverter(
-                dotenv_path=dotenv_path or Path(ROOT).joinpath(".env")
+                dotenv_path=dotenv_path or Path(ROOT).joinpath(".env"),
+                client = LabelStudio(base_url=labelstudio_config.url, api_key=labelstudio_config.api_key)
             )
             _, coco_data = ls_converter.convert(
                 json_path,
@@ -453,7 +456,7 @@ class DroneImage(Tile):
 
             images_and_annotations = Detection.from_coco(coco_data)
             all_drone_images = []
-            for image_path, annotations in images_and_annotations.items():
+            for image_path, annotations in tqdm(images_and_annotations.items(),desc="Creating drone images"):
                 image = cls(image_path=image_path, flight_specs=flight_specs)
                 image.set_annotations(annotations, update_gps=True)
                 all_drone_images.append(image)
