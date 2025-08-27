@@ -125,13 +125,8 @@ def extract_gps_coordinates(
         ), "Detection type must be annotations when using Label Studio JSON path"
 
     drone_images = DroneImage.from_ls(
-        json_path=loaded_config.labelstudio.json_path,
         flight_specs=flight_specs,
         labelstudio_config=loaded_config.labelstudio,
-        project_id=loaded_config.labelstudio.project_id,
-        dotenv_path=loaded_config.labelstudio.dotenv_path,
-        parse_ls_config=loaded_config.labelstudio.parse_ls_config,
-        ls_xml_config=loaded_config.labelstudio.ls_xml_config,
     )
 
     # Save detection gps coordinates to csv
