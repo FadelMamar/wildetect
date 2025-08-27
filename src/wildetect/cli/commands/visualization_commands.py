@@ -2,14 +2,12 @@
 Visualization commands.
 """
 
-import json
 import logging
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
-import pandas as pd
 import typer
 from rich.console import Console
 
@@ -18,8 +16,7 @@ from ...core.config_models import VisualizeConfigModel
 from ...core.data.drone_image import DroneImage
 from ...core.data.utils import get_images_paths
 from ...core.visualization.geographic import GeographicVisualizer, VisualizationConfig
-from ...core.visualization.labelstudio_manager import LabelStudioManager
-from ..utils import export_detection_report, setup_logging
+from ..utils import setup_logging
 
 app = typer.Typer(name="visualization", help="Visualization commands")
 console = Console()
