@@ -1,12 +1,24 @@
 # Visualization Configuration
 # This file contains all parameters needed for visualization commands
 
+labelstudio:
+  url: "http://localhost:8080"
+  api_key: "edc3c4539d7b0708a2c189be47ff94708d1de3cc"
+  download_resources: false
+  project_id: 7
+  json_path: null
+  dotenv_path: null
+  parse_ls_config: true
+  ls_xml_config: null
+
 
 image_dir: null
+csv_output_path: "detection_report.csv"
+detection_type: "annotations" # annotations, predictions
 
 # Geographic Visualization of predictions
 geographic:
-  create_map: true
+  create_map: false
   show_confidence: false
   output_directory: "visualizations"
   map_type: "OpenStreetMap"  # OpenStreetMap, folium, etc.
