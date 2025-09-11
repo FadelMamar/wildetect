@@ -16,7 +16,7 @@ from ...core.config_models import VisualizeConfigModel
 from ...core.data.drone_image import DroneImage
 from ...core.data.utils import get_images_paths
 from ...core.visualization.geographic import GeographicVisualizer, VisualizationConfig
-from ..utils import setup_logging,export_detection_report
+from ..utils import export_detection_report, setup_logging
 
 app = typer.Typer(name="visualization", help="Visualization commands")
 console = Console()
@@ -122,10 +122,14 @@ def extract_gps_coordinates(
     flight_specs = loaded_config.flight_specs.to_flight_specs()
 
     if loaded_config.labelstudio.json_path is not None:
-        assert Path(loaded_config.labelstudio.json_path).exists(), "JSON path does not exist"
         assert (
             loaded_config.detection_type == "annotations"
         ), "Detection type must be annotations when using Label Studio JSON path"
+
+    drone_images = DroneImage.from_ls(
+        flight_specs=flight_specs,
+        labelstudio_config=loaded_config.labelstudio,
+    )
 
     drone_images = DroneImage.from_ls(
         json_path=loaded_config.labelstudio.json_path,
@@ -136,7 +140,7 @@ def extract_gps_coordinates(
         parse_ls_config=loaded_config.labelstudio.parse_ls_config,
         ls_xml_config=loaded_config.labelstudio.ls_xml_config,
     )
-   
+
     # Save detection gps coordinates to csv
     export_detection_report(
         drone_images,

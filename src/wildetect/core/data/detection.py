@@ -244,6 +244,33 @@ class Detection:
 
         return fo_detection
 
+    def to_ls(
+        self, from_name, to_name, label_type, img_height: int, img_width: int
+    ) -> dict:
+        x1, y1, x2, y2 = self.bbox
+        w = x2 - x1
+        h = y2 - y1
+        template = {
+            "from_name": from_name,
+            "to_name": to_name,
+            "type": label_type,
+            "original_width": img_width,
+            "original_height": img_height,
+            "image_rotation": 0,
+            "value": {
+                label_type: [
+                    self.class_name,
+                ],
+                "x": x1 / img_width * 100,
+                "y": y1 / img_height * 100,
+                "width": w / img_width * 100,
+                "height": h / img_height * 100,
+                "rotation": 0,
+            },
+            "score": self.confidence,
+        }
+        return template
+
     @classmethod
     def from_fiftyone(
         cls, fo_detection, class_id: Optional[int] = None

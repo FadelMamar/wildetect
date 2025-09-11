@@ -10,8 +10,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from PIL import Image
-from wildata.converters import LabelstudioConverter
 from tqdm import tqdm
+from wildata.converters import LabelstudioConverter
 
 from ..config import ROOT, FlightSpecs
 from ..config_models import LabelStudioConfigModel
@@ -395,11 +395,6 @@ class DroneImage(Tile):
         cls,
         flight_specs: FlightSpecs,
         labelstudio_config: Optional[LabelStudioConfigModel] = None,
-        json_path: Optional[str] = None,
-        project_id: Optional[int] = None,
-        dotenv_path: Optional[str] = None,
-        parse_ls_config: bool = True,
-        ls_xml_config: Optional[str] = None,
     ) -> List["DroneImage"]:
         """Extract GPS coordinates from Label Studio JSON and convert to Detection objects.
 
@@ -415,24 +410,32 @@ class DroneImage(Tile):
         Returns:
             List[Detection]: List of Detection objects
         """
-        from ..visualization.labelstudio_manager import LabelStudioManager
         from label_studio_sdk.client import LabelStudio
 
+        from ..visualization.labelstudio_manager import LabelStudioManager
+
         assert (
-            (project_id is not None) ^ (json_path is not None)
+            (labelstudio_config.project_id is not None)
+            ^ (labelstudio_config.json_path is not None)
         ), "Either project_id and labelstudio_config or json_path and dotenv_path must be provided"
 
-        if isinstance(project_id, int) and isinstance(
+        if isinstance(labelstudio_config.project_id, int) and isinstance(
             labelstudio_config, LabelStudioConfigModel
         ):
+            from ..visualization.labelstudio_manager import LabelStudioManager
+
             ls_client = LabelStudioManager(
                 url=labelstudio_config.url,
                 api_key=labelstudio_config.api_key,
                 download_resources=labelstudio_config.download_resources,
             )
-            outputs = ls_client.get_all_project_detections(project_id)
+            outputs = ls_client.get_all_project_detections(
+                labelstudio_config.project_id
+            )
             all_drone_images = []
-            for output in outputs:
+            for output in tqdm(
+                outputs, total=len(outputs), desc="Loading images from Label Studio"
+            ):
                 image = cls(image_path=output["image_path"], flight_specs=flight_specs)
                 image.set_annotations(output["annotations"], update_gps=True)
                 image.set_predictions(
@@ -442,21 +445,25 @@ class DroneImage(Tile):
                 all_drone_images.append(image)
             return all_drone_images
 
-        elif isinstance(json_path, str):
+        elif isinstance(labelstudio_config.json_path, str):
             ls_converter = LabelstudioConverter(
-                dotenv_path=dotenv_path or Path(ROOT).joinpath(".env"),
-                client = LabelStudio(base_url=labelstudio_config.url, api_key=labelstudio_config.api_key)
+                dotenv_path=labelstudio_config.dotenv_path
+                or Path(ROOT).joinpath(".env")
             )
             _, coco_data = ls_converter.convert(
-                json_path,
+                labelstudio_config.json_path,
                 dataset_name="loading-images",
-                parse_ls_config=parse_ls_config,
-                ls_xml_config=ls_xml_config,
+                parse_ls_config=labelstudio_config.parse_ls_config,
+                ls_xml_config=labelstudio_config.ls_xml_config,
             )
 
             images_and_annotations = Detection.from_coco(coco_data)
             all_drone_images = []
-            for image_path, annotations in tqdm(images_and_annotations.items(),desc="Creating drone images"):
+            for image_path, annotations in tqdm(
+                images_and_annotations.items(),
+                total=len(images_and_annotations),
+                desc="Loading images from Label Studio",
+            ):
                 image = cls(image_path=image_path, flight_specs=flight_specs)
                 image.set_annotations(annotations, update_gps=True)
                 all_drone_images.append(image)

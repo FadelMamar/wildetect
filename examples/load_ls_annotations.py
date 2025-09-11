@@ -6,7 +6,7 @@ client = LabelStudioManager(url="http://localhost:8080",
                             )
 
 annotations = client.get_all_project_detections(project_id=7,load_as_drone_image=True,
-                                                flight_specs=FlightSpecs(sensor_height=0.003,focal_length=0.003,flight_height=100))
+                                                flight_specs=FlightSpecs(sensor_height=24,focal_length=35,flight_height=180))
 
 annot = annotations[1]
 

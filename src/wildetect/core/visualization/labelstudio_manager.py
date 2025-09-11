@@ -1,11 +1,16 @@
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from typing import List, Optional
+from typing import Dict, List, Optional
 from urllib.parse import unquote
 
 from label_studio_sdk.client import LabelStudio
 from label_studio_tools.core.utils.io import get_local_path
 from tqdm import tqdm
+
+from ..data import Detection
+
+logger = logging.getLogger(__name__)
 
 
 class LabelStudioManager:
@@ -28,6 +33,10 @@ class LabelStudioManager:
     def get_tasks(self, project_id: int):
         return self.client.tasks.list(project=project_id)
 
+    def get_tasks_paths(self, project_id: int) -> Dict[str, int]:
+        tasks = self.get_tasks(project_id)
+        return {self.get_image_path(task.id): task.id for task in tasks}
+
     def get_detections(
         self,
         task_id: int,
@@ -49,8 +58,45 @@ class LabelStudioManager:
     ) -> List[dict]:
         tasks = [task.id for task in self.get_tasks(project_id)]
         detections = []
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            for dets in executor.map(self.get_detections, tasks):
-                if dets is not None:
-                    detections.append(dets)
+
+        logger.info(f"Getting detections for {len(tasks)} tasks...")
+
+        # with ThreadPoolExecutor(max_workers=3) as executor:
+        for dets in tqdm(
+            map(self.get_detections, tasks),
+            total=len(tasks),
+            desc="Getting detections from Label Studio",
+        ):
+            if dets is not None:
+                detections.append(dets)
         return detections
+
+    def upload_detections(
+        self,
+        task_id: int,
+        detections: List[Detection],
+        model_tag: str,
+        from_name: str,
+        to_name: str,
+        label_type: str,
+        img_height: int,
+        img_width: int,
+    ):
+        formatted_pred = [
+            detection.to_ls(
+                from_name=from_name,
+                to_name=to_name,
+                label_type=label_type,
+                img_height=img_height,
+                img_width=img_width,
+            )
+            for detection in detections
+        ]
+
+        max_score = max([pred["score"] for pred in formatted_pred] + [0.0])
+        self.client.predictions.create(
+            task=task_id,
+            score=max_score,
+            result=formatted_pred,
+            model_version=model_tag,
+        )

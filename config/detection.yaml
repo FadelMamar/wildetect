@@ -11,6 +11,16 @@ model:
 images: 
  - D:\PhD\Data per camp\tmp
 
+# Label Studio Configuration
+labelstudio:
+  url: "http://localhost:8080"
+  api_key: "edc3c4539d7b0708a2c189be47ff94708d1de3cc"
+  project_id: 13
+  download_resources: false
+  from_name: "label"
+  to_name: "image"
+  label_type: "rectanglelabels"
+
 # Processing Configuration
 processing:
   batch_size: 32
