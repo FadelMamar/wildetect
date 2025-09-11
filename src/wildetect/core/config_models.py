@@ -62,8 +62,8 @@ class ModelConfigModel(BaseModel):
 class LabelStudioConfigModel(BaseModel):
     """Label Studio configuration model."""
 
-    url: str = Field(default="http://localhost:8080", description="Label Studio URL")
-    api_key: str = Field(default="1234567890", description="Label Studio API key")
+    url: Optional[str] = Field(default=None, description="Label Studio URL")
+    api_key: Optional[str] = Field(default=None, description="Label Studio API key")
     download_resources: bool = Field(default=True, description="Download resources")
     project_id: Optional[int] = Field(
         default=None, description="Label Studio project ID"

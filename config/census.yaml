@@ -7,30 +7,37 @@ campaign:
   pilot_name: "Unknown"
   target_species: null  # List of target species for detection
 
-
 # Detection Configuration (inherits from detection.yaml)
 detection:
 
   # Include only one directory path or a list of image paths
   images: 
-    - D:\PhD\Harvard Kruger River Surveys\20231017_LetabaRiver_BasaltA\LetabaBasaltAGPS
+    - D:\workspace\data\savmap_dataset_v2\images_tmp
 
   # Model Configuration
   model:
-    path: null  # Will use WILDETECT_MODEL_PATH env var if null
-    type: "yolo"  # yolo, ultralytics, etc.
-    confidence_threshold: 0.2
+    mlflow_model_name: "detector"
+    mlflow_model_alias: "demo"
     device: "auto"  # auto, cpu, cuda
-    batch_size: 32
-    nms_iou: 0.5
   
   # Processing Configuration
   processing:
+    batch_size: 8
     tile_size: 800
     overlap_ratio: 0.2
-    pipeline_type: "single"  # single, multi
+    pipeline_type: "single"  # single, multi, async
     queue_size: 64  # for multi-threaded pipeline
-    max_concurrent: 4  # for async pipeline
+    num_workers: 4
+  
+  # Label Studio Configuration
+  labelstudio:
+    url: null
+    api_key: null
+    project_id: null
+    download_resources: false
+    from_name: "label"
+    to_name: "image"
+    label_type: "rectanglelabels"
   
   # Flight Specifications
   flight_specs:
@@ -38,19 +45,10 @@ detection:
     focal_length: 16.0   # mm
     flight_height: 120.0  # meters
   
-  # ROI Classifier Configuration
-  roi_classifier:
-    weights: null  # Will use ROI_MODEL_PATH env var if null
-    feature_extractor_path: "facebook/dinov2-with-registers-small"
-    cls_label_map:
-      0: "groundtruth"
-      1: "other"
-    keep_classes: ["groundtruth"]
-    cls_imgsz: 96  # Smaller for census processing
-  
   # Inference Service Configuration
   inference_service:
-    url: null  # URL for external inference service
+    url: null #http://localhost:4141/predict  # URL for external inference service
+    timeout: 60
   
   # Profiling Configuration
   profiling:
