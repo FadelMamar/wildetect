@@ -4,8 +4,8 @@
 # Model Configuration
 model:
   mlflow_model_name: "detector"
-  mlflow_model_alias: "demo"
-  device: "auto"  # auto, cpu, cuda
+  mlflow_model_alias: "by-paul"
+  device: "cuda"  # auto, cpu, cuda
 
 # Include only one directory path or a list of image paths
 images: 
@@ -13,12 +13,13 @@ images:
 
 # Processing Configuration
 processing:
-  batch_size: 8
+  batch_size: 32
   tile_size: 800
   overlap_ratio: 0.2
   pipeline_type: "single"  # single, multi, async
   queue_size: 64  # for multi-threaded pipeline
-  num_workers: 4
+  num_workers: 8
+  max_concurrent: 10
 
 # Flight Specifications
 flight_specs:
@@ -29,7 +30,7 @@ flight_specs:
 
 # Inference Service Configuration
 inference_service:
-  url: http://localhost:4141/predict  # URL for external inference service
+  url: null #http://localhost:4141/predict  # URL for external inference service
   timeout: 60
 
 # Profiling Configuration
