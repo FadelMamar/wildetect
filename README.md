@@ -17,11 +17,14 @@ WildDetect is a powerful wildlife detection and **census system** for aerial ima
 ## Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/wildetect.git
+git clone https://github.com/fadelmamar/wildetect.git
 cd wildetect
 
 # Install dependencies
 uv sync
+
+uv pip install -e .
+uv pip install git+https://github.com/FadelMamar/wildtrain
 ```
 
 ## Quick Start
