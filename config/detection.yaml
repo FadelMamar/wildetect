@@ -9,13 +9,13 @@ model:
 
 # Include only one directory path or a list of image paths
 images: 
- - D:\PhD\Data per camp\tmp
+ - D:\workspace\data\savmap_dataset_v2\raw\tmp-1 # TODO: update
 
 # Label Studio Configuration
 labelstudio:
   url: "http://localhost:8080"
-  api_key: "edc3c4539d7b0708a2c189be47ff94708d1de3cc"
-  project_id: 13
+  api_key: null 
+  project_id: null
   download_resources: false
   from_name: "label"
   to_name: "image"
