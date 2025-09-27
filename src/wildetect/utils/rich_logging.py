@@ -1,6 +1,7 @@
 """
 Rich logging utilities for enhanced terminal output and logging.
 """
+
 import logging
 import sys
 import time
@@ -194,9 +195,9 @@ def create_table(title: str, columns: list, data: list) -> Table:
 
 def print_section_header(title: str, style: str = "bold blue"):
     """Print a section header with Rich formatting."""
-    console.print(f"\n[bold]{'='*50}[/bold]")
+    console.print(f"\n[bold]{'=' * 50}[/bold]")
     console.print(f"[{style}]{title}[/{style}]")
-    console.print(f"[bold]{'='*50}[/bold]")
+    console.print(f"[bold]{'=' * 50}[/bold]")
 
 
 def print_success(message: str):

@@ -27,7 +27,8 @@ detection:
     overlap_ratio: 0.2
     pipeline_type: "single"  # single, multi, async
     queue_size: 64  # for multi-threaded pipeline
-    num_workers: 4
+    num_data_workers: 4
+    num_inference_workers: 2 # for multi-processing pipeline
   
   # Label Studio Configuration
   labelstudio:

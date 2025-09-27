@@ -146,7 +146,7 @@ def main():
             dataset_name = st.text_input("Dataset Name", value="campaing-000")
             annot_key = st.text_input(
                 "Annotation Key",
-                value=f"ls_review_{dataset_name.replace('-','_').replace(' ','_')}",
+                value=f"ls_review_{dataset_name.replace('-', '_').replace(' ', '_')}",
             )
             if st.form_submit_button("Launch Job"):
                 annot_key = annot_key.strip() if len(annot_key.strip()) > 0 else None
@@ -223,7 +223,7 @@ def launch_labelstudio():
 
 def launch_job(dataset_name: str, annot_key: Optional[str] = None):
     if annot_key is None:
-        annot_key = f"ls_review_{dataset_name.replace('-','_').replace(' ','_')}"
+        annot_key = f"ls_review_{dataset_name.replace('-', '_').replace(' ', '_')}"
     FiftyOneManager(dataset_name).send_predictions_to_labelstudio(
         annot_key, dotenv_path=str(ROOT / ".env")
     )
@@ -390,7 +390,7 @@ def results_tab():
             # Detailed results
             st.subheader("Detailed Results")
             for i, result in enumerate(detection_results):
-                with st.expander(f"Image {i+1}: {result['image_path']}"):
+                with st.expander(f"Image {i + 1}: {result['image_path']}"):
                     col1, col2 = st.columns(2)
 
                     with col1:

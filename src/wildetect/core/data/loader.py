@@ -193,7 +193,7 @@ class MemoryLRUCache(SimpleMemoryLRUCache):
         # If tensor is too large for cache, don't cache it
         if tensor_memory > self.max_memory_bytes:
             logger.warning(
-                f"Warning: Tensor too large for cache ({tensor_memory/(1024**2):.1f}MB)"
+                f"Warning: Tensor too large for cache ({tensor_memory / (1024**2):.1f}MB)"
             )
             return
 
@@ -209,7 +209,7 @@ class MemoryLRUCache(SimpleMemoryLRUCache):
             lru_key, lru_tensor = self.cache.popitem(last=False)
             self.current_memory -= self._get_tensor_memory(lru_tensor)
             logger.info(
-                f"Evicted {lru_key} ({self._get_tensor_memory(lru_tensor)/(1024**2):.1f}MB)"
+                f"Evicted {lru_key} ({self._get_tensor_memory(lru_tensor) / (1024**2):.1f}MB)"
             )
 
         # Add new tensor

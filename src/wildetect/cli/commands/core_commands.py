@@ -1,6 +1,7 @@
 """
 Core CLI commands for the wildetect application.
 """
+
 import asyncio
 import json
 import logging
@@ -16,17 +17,12 @@ from rich.console import Console
 from tqdm import tqdm
 
 from ...core.campaign_manager import CampaignConfig, CampaignManager
-from ...core.config import ROOT
+from ...core.config import ROOT, DetectionPipelineTypes
 from ...core.config_loader import load_config_with_pydantic
 from ...core.data.utils import get_images_paths
-from ...core.detection_pipeline import (
-    AsyncDetectionPipeline,
-    DetectionPipeline,
-    MultiThreadedDetectionPipeline,
-)
+from ...core.detectors import get_detection_pipeline
 from ...core.visualization import FiftyOneManager, LabelStudioManager
-from ...utils.profiler import profile_command
-from ...utils.utils import ROOT
+from ...utils import profile_command
 from ..utils import (
     analyze_detection_results,
     display_analysis_results,
@@ -111,16 +107,9 @@ def detect(
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize detection pipeline
-        if pred_config.pipeline_type == "multi":
-            pipeline = MultiThreadedDetectionPipeline(
-                pred_config,
-                loader_config,
-            )
-        elif pred_config.pipeline_type == "async":
-            # NEW: Support for async pipeline
-            pipeline = AsyncDetectionPipeline(pred_config, loader_config)
-        else:
-            pipeline = DetectionPipeline(pred_config, loader_config)
+        pipeline = get_detection_pipeline(
+            pred_config.pipeline_type, config=pred_config, loader_config=loader_config
+        )
 
         save_path = None
         if output_dir:
@@ -137,7 +126,7 @@ def detect(
             gpu_profile=loaded_config.profiling.gpu_profile,
         ) as profiler:
             # Run pipeline with profiling
-            if pred_config.pipeline_type == "async":
+            if pred_config.pipeline_type == DetectionPipelineTypes.ASYNC:
 
                 async def run_async_detection():
                     return await pipeline.run_detection_async(

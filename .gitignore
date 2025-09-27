@@ -30,6 +30,7 @@ MANIFEST
 *.pt
 *.pth
 *.torchscript
+*.ckpt
 
 models/
 results/

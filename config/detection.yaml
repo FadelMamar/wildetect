@@ -26,9 +26,10 @@ processing:
   batch_size: 8
   tile_size: 800
   overlap_ratio: 0.2
-  pipeline_type: "single"  # single, multi, async
+  pipeline_type: "mp"  # single, mt, mp, async
   queue_size: 64  # for multi-threaded pipeline
-  num_workers: 4
+  num_data_workers: 4
+  num_inference_workers: 2 # for multi-processing pipeline
 
 # Flight Specifications
 flight_specs:

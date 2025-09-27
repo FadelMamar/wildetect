@@ -39,7 +39,7 @@ class GeographicBounds:
         self._polygon_points = self.get_polygon_points()
 
     def to_dict(
-        self
+        self,
     ) -> Dict[str, Union[List[Tuple[float, float]], List[float], float]]:
         d = vars(self)
         d["polygon_points"] = self.get_polygon_points()

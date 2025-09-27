@@ -6,7 +6,7 @@ import optuna
 import torch
 
 from ..core.config import LoaderConfig, PredictionConfig
-from ..core.detection_pipeline import DetectionPipeline
+from ..core.detectors import DetectionPipeline
 
 
 class BenchmarkPipeline(object):

@@ -473,12 +473,12 @@ class GeographicVisualizer:
             stats_html = f"""
             <div style="background-color: white; padding: 10px; border-radius: 5px;">
                 <h4>Coverage Statistics</h4>
-                <p><strong>Total Images:</strong> {stats['total_images']}</p>
-                <p><strong>Images with GPS:</strong> {stats['images_with_gps']}</p>
-                <p><strong>Images with Footprints:</strong> {stats['images_with_footprints']}</p>
-                <p><strong>Total Detections:</strong> {stats['total_detections']}</p>
-                <p><strong>Detections with GPS:</strong> {stats['detections_with_gps']}</p>
-                <p><strong>Coverage Area:</strong> {stats['coverage_area']:.2f} m²</p>
+                <p><strong>Total Images:</strong> {stats["total_images"]}</p>
+                <p><strong>Images with GPS:</strong> {stats["images_with_gps"]}</p>
+                <p><strong>Images with Footprints:</strong> {stats["images_with_footprints"]}</p>
+                <p><strong>Total Detections:</strong> {stats["total_detections"]}</p>
+                <p><strong>Detections with GPS:</strong> {stats["detections_with_gps"]}</p>
+                <p><strong>Coverage Area:</strong> {stats["coverage_area"]:.2f} m²</p>
             </div>
             """
 

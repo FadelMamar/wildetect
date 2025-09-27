@@ -1,6 +1,7 @@
 """
 Profiling utilities for CLI commands.
 """
+
 import cProfile
 import pstats
 import time
@@ -440,7 +441,7 @@ class ProfilerManager:
                     f.write(f"\nDetailed Memory Samples:\n")
                     for i, sample in enumerate(self.memory_samples):
                         f.write(
-                            f"  Sample {i+1}: RSS={sample['rss']/1024**2:.2f}MB, VMS={sample['vms']/1024**2:.2f}MB, Percent={sample['percent']:.1f}%\n"
+                            f"  Sample {i + 1}: RSS={sample['rss'] / 1024**2:.2f}MB, VMS={sample['vms'] / 1024**2:.2f}MB, Percent={sample['percent']:.1f}%\n"
                         )
 
             print_info(f"💾 Memory profile saved to: {memory_profile_path}")
