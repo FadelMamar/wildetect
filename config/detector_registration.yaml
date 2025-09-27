@@ -1,0 +1,26 @@
+
+classifier:
+  weights: config/classifier.ckpt
+  processing:
+    batch_size: 8 # used for onnx export
+    export_format: "torchscript" # torchscript or onnx
+
+localizer:
+  yolo:
+    weights: config/localizer.pt
+    imgsz: 800
+    device: "cpu"
+    conf_thres: 0.1
+    iou_thres: 0.3
+    max_det: 300
+    overlap_metric: "IOU"
+    task: "detect"
+  mmdet: null
+  processing:
+    export_format: "pt"
+    batch_size: 32
+    dynamic: false
+
+processing:
+  name: "detector"
+  mlflow_tracking_uri: "http://localhost:5000"

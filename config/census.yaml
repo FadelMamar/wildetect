@@ -3,7 +3,7 @@
 
 # Campaign Configuration
 campaign:
-  id: "LetabaBasaltA"
+  id: "savmap_dataset_v2_tmp-1"
   pilot_name: "Unknown"
   target_species: null  # List of target species for detection
 
@@ -12,7 +12,7 @@ detection:
 
   # Include only one directory path or a list of image paths
   images: 
-    - D:\workspace\data\savmap_dataset_v2\images_tmp
+    - D:\workspace\data\savmap_dataset_v2\raw\tmp-1
 
   # Model Configuration
   model:
