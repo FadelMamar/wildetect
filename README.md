@@ -25,6 +25,7 @@ uv sync
 
 uv pip install -e .
 uv pip install git+https://github.com/FadelMamar/wildtrain
+uv pip install git+https://github.com/FadelMamar/wildata
 ```
 
 ## Quick Start
