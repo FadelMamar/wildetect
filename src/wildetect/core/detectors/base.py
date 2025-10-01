@@ -36,6 +36,8 @@ class DetectionPipeline(object):
         self.config = config
         self.loader_config = loader_config
 
+        logger.info(f"Loading pipeline of type: {self.__class__.__name__}")
+
         self.data_loader: Optional[DataLoader] = None
         if config.inference_service_url is None:
             self.detection_system = load_registered_model(
