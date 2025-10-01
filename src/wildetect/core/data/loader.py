@@ -58,19 +58,16 @@ def create_drone_image_loader(
 
 
 class SimpleMemoryLRUCache:
-    def __init__(self, max_items: int = 20, min_items: int = 5) -> None:
+    """True LRU cache that evicts least recently used items when capacity is exceeded."""
+
+    def __init__(self, max_items: int = 5) -> None:
         self.cache = OrderedDict()
         self.max_items = max_items
-        self.min_items = min_items
         self.current_memory = 0
-        self.access_counts = {}  # Track access frequency for adaptive sizing
-        self.eviction_count = 0  # Track how many evictions we've done
 
     def get(self, key: str):
+        """Get value from cache and mark as recently used."""
         if key in self.cache:
-            # Increment access count
-            self.access_counts[key] = self.access_counts.get(key, 0) + 1
-
             # Move to end (mark as recently used)
             value = self.cache.pop(key)
             self.cache[key] = value
@@ -78,149 +75,44 @@ class SimpleMemoryLRUCache:
         return None
 
     def _get_tensor_memory(self, tensor):
-        """Get memory usage of a tensor in bytes"""
+        """Get memory usage of a tensor in bytes."""
         return tensor.element_size() * tensor.nelement()
 
     def put(self, key: str, tensor: Optional[torch.Tensor]):
+        """Add item to cache and evict least recently used items if needed."""
         # If key already exists, remove it first
         if key in self.cache:
             old_tensor = self.cache.pop(key)
-            self.current_memory -= self._get_tensor_memory(old_tensor)
+            if old_tensor is not None:
+                self.current_memory -= self._get_tensor_memory(old_tensor)
 
         # Add new tensor (or None for failed loads)
         self.cache[key] = tensor
         if tensor is not None:
             self.current_memory += self._get_tensor_memory(tensor)
 
-        # Initialize access count if new
-        if key not in self.access_counts:
-            self.access_counts[key] = 0
+        # Evict least recently used items if over capacity
+        self._evict()
 
-        # Adaptive eviction based on access patterns
-        self._adaptive_evict()
-
-    def _adaptive_evict(self):
-        """Adaptive eviction that considers access patterns."""
-        if len(self.cache) <= self.max_items:
-            return
-
-        # Calculate average access count for items in cache
-        if self.access_counts:
-            avg_access = sum(self.access_counts.values()) / len(self.access_counts)
-        else:
-            avg_access = 0
-
-        # If we have many low-access items, be more aggressive with eviction
-        low_access_threshold = max(1, int(avg_access * 0.5))
-
-        # Find items to evict
-        items_to_evict = []
-        for key, access_count in self.access_counts.items():
-            if key in self.cache and access_count < low_access_threshold:
-                items_to_evict.append((key, access_count))
-
-        # Sort by access count (evict least accessed first)
-        items_to_evict.sort(key=lambda x: x[1])
-
-        # Evict items until we're under max_items
-        evicted_count = 0
-        for key, _ in items_to_evict:
-            if len(self.cache) <= self.max_items:
-                break
-
-            if key in self.cache:
-                oldest_tensor = self.cache.pop(key)
-                if oldest_tensor is not None:
-                    self.current_memory -= self._get_tensor_memory(oldest_tensor)
-
-                # Remove from access counts
-                if key in self.access_counts:
-                    del self.access_counts[key]
-
-                evicted_count += 1
-                logger.debug(f"Adaptively evicted low-access item: {key}")
-
-        # If we still need to evict, fall back to LRU
+    def _evict(self):
+        """Evict least recently used items until we're at capacity."""
         while len(self.cache) > self.max_items:
+            # Remove oldest (least recently used) item
             oldest_key, oldest_tensor = self.cache.popitem(last=False)
             if oldest_tensor is not None:
                 self.current_memory -= self._get_tensor_memory(oldest_tensor)
-
-            if oldest_key in self.access_counts:
-                del self.access_counts[oldest_key]
-
             logger.debug(f"LRU evicted item: {oldest_key}")
 
     def memory_usage_mb(self):
+        """Return current memory usage in MB."""
         return self.current_memory / (1024**2)
 
     def cache_info(self):
+        """Return cache statistics."""
         return {
             "size": len(self.cache),
             "memory_mb": self.memory_usage_mb(),
             "max_items": self.max_items,
-            "keys": list(self.cache.keys()),
-            "access_counts": dict(
-                sorted(self.access_counts.items(), key=lambda x: x[1], reverse=True)
-            ),
-        }
-
-
-class MemoryLRUCache(SimpleMemoryLRUCache):
-    def __init__(self, max_memory_gb=5):
-        self.max_memory_bytes = max_memory_gb * (1024**3)
-        self.cache = OrderedDict()
-        self.current_memory = 0
-
-    def get(self, key: str):
-        if key in self.cache:
-            # Move to end (mark as recently used)
-            value = self.cache.pop(key)
-            self.cache[key] = value
-            return value
-        return None
-
-    def put(self, key: str, tensor: Optional[torch.Tensor]):
-        if tensor is None:
-            if key in self.cache:
-                old_tensor = self.cache.pop(key)
-                self.current_memory -= self._get_tensor_memory(old_tensor)
-            self.cache[key] = None
-            return
-
-        tensor_memory = self._get_tensor_memory(tensor)
-
-        # If tensor is too large for cache, don't cache it
-        if tensor_memory > self.max_memory_bytes:
-            logger.warning(
-                f"Warning: Tensor too large for cache ({tensor_memory / (1024**2):.1f}MB)"
-            )
-            return
-
-        # Remove existing key if present
-        if key in self.cache:
-            old_tensor = self.cache.pop(key)
-            self.current_memory -= self._get_tensor_memory(old_tensor)
-
-        # Evict least recently used items until we have space
-        while (
-            self.current_memory + tensor_memory
-        ) > self.max_memory_bytes and self.cache:
-            lru_key, lru_tensor = self.cache.popitem(last=False)
-            self.current_memory -= self._get_tensor_memory(lru_tensor)
-            logger.info(
-                f"Evicted {lru_key} ({self._get_tensor_memory(lru_tensor) / (1024**2):.1f}MB)"
-            )
-
-        # Add new tensor
-        self.cache[key] = tensor
-        self.current_memory += tensor_memory
-
-    def cache_info(self):
-        return {
-            "size": len(self.cache),
-            "memory_mb": self.memory_usage_mb(),
-            "max_memory_mb": self.max_memory_bytes / (1024**2),
             "keys": list(self.cache.keys()),
         }
 
@@ -248,7 +140,6 @@ class TileDataset(Dataset):
         self.dimension_groups: Dict[Tuple[int, int], List[str]] = {}
 
         # Image cache for actual pixel data (only loaded when needed)
-        # self.image_cache = MemoryLRUCache()
         self.image_cache = SimpleMemoryLRUCache()
 
         # Create tiles using dimension-based approach
@@ -485,10 +376,10 @@ class DataLoader:
             self.dataset,
             batch_size=config.batch_size,
             shuffle=False,
-            num_workers=config.num_workers,  # Keep at 0 for Windows compatibility
+            num_workers=config.num_workers,
             collate_fn=self._collate_fn,
-            pin_memory=False,  # Disable pin_memory for better Windows performance
-            persistent_workers=False,  # Disable for Windows compatibility
+            pin_memory=False,
+            persistent_workers=False,
             drop_last=False,
         )
 
