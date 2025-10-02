@@ -4,16 +4,14 @@ Utility functions for image tiling and patch extraction.
 
 import logging
 import math
-import traceback
 from functools import lru_cache
 from itertools import chain
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import torch
 from PIL import Image, ImageOps
-from torchvision.transforms import ToPILImage, ToTensor
+from torchvision.transforms import Pad
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +19,7 @@ logger = logging.getLogger(__name__)
 def read_image(image_path: str) -> Image.Image:
     """Load an image from a file path."""
     image = Image.open(image_path)
-    image = ImageOps.exif_transpose(image)
+    ImageOps.exif_transpose(image, in_place=True)
     return image
 
 
@@ -230,6 +228,7 @@ class TileUtils:
         return patches, offset_info
 
     @staticmethod
+    @lru_cache(maxsize=128)
     def get_offset_info(
         width: int,
         height: int,

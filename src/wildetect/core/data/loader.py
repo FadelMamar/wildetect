@@ -3,20 +3,22 @@ Data loader for loading images from directories as tiles.
 """
 
 import logging
+import math
 import os
 import traceback
 from collections import OrderedDict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from PIL import Image
+from torch.nn import functional as F
 from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor
 from tqdm import tqdm
 
 from ..config import LoaderConfig
 from .drone_image import DroneImage
-from .utils import TileUtilsv3, read_image
+from .utils import TileUtils, read_image
 
 logger = logging.getLogger(__name__)
 
@@ -175,8 +177,8 @@ class TileDataset(Dataset):
             # Calculate stride
             stride = int(self.config.tile_size * (1 - self.config.overlap))
 
-            # Use TileUtilsv3 to get offset info without loading image
-            offset_info = TileUtilsv3.get_patches_and_offset_info_only(
+            # Use TileUtils to get offset info without loading image
+            offset_info = TileUtils.get_offset_info(
                 width=width,
                 height=height,
                 patch_size=self.config.tile_size,
@@ -280,7 +282,7 @@ class TileDataset(Dataset):
             stride = int(self.config.tile_size * (1 - self.config.overlap))
 
             # Pad image to patch size
-            padded_image = TileUtilsv3.pad_image_to_patch_size(
+            padded_image = TileUtils.pad_image_to_patch_size(
                 image_tensor, self.config.tile_size, stride
             )
 
@@ -291,6 +293,22 @@ class TileDataset(Dataset):
             logger.warning(f"Failed to load {image_path}: {traceback.format_exc()}")
             self.image_cache.put(image_path, None)
             return None
+
+    def _collate_fn(self, batch: List[Dict]) -> Dict:
+        """Custom collate function to handle variable-sized batches."""
+        # Extract images from batch
+        images = [item.pop("image") for item in batch]
+        # Stack images into a single tensor
+        stacked_images = torch.stack(images)
+
+        # Create a new batch dictionary
+        collated_batch = {
+            "tiles": batch,  # Keep the original batch items
+            "images": stacked_images,  # Stacked image tensor
+            # "batch_size": len(batch),
+        }
+
+        return collated_batch
 
     def __len__(self) -> int:
         """Return the number of tiles."""
@@ -347,6 +365,80 @@ class TileDataset(Dataset):
             logger.error(f"Indices: y1={y1}, y2={y2}, x1={x1}, x2={x2}")
             raise
 
+    def get_offset_info(self, *args, **kwargs) -> Optional[Dict]:
+        """Get offset info for an image path."""
+        raise NotImplementedError("Offset info is not available for TileDataset")
+
+
+class ImageDataset(Dataset):
+    """Dataset for handling image tiling with optimized dimension-based offset calculation."""
+
+    def __init__(self, image_paths: List[str], config: LoaderConfig):
+        self.image_paths = image_paths
+        self.tile_size = config.tile_size
+        self.overlap = config.overlap
+        self.pil_to_tensor = PILToTensor()
+        self.tiler = TileUtils()
+        self.offset_info_records: Dict[str, Dict] = {}
+        self.stride = int(self.tile_size * (1 - self.overlap))
+
+    def __len__(self) -> int:
+        """Return the number of tiles."""
+        return len(self.image_paths)
+
+    def __getitem__(self, idx: int) -> torch.Tensor:
+        # load image
+        image_path = self.image_paths[idx]
+        image = read_image(image_path)
+        image = self.pil_to_tensor(image.convert("RGB"))
+        image = image / 255.0  # normalize to [0,1]
+
+        # get patches and offset info
+        patches, _ = self.tiler.get_patches_and_offset_info(
+            image=image,
+            patch_size=self.tile_size,
+            stride=self.stride,
+            validate=False,
+            file_name=image_path,
+        )
+        # self.offset_info_records[image_path] = offset_info
+        return patches, idx
+
+    def _collate_fn(self, batch: List[torch.Tensor]) -> torch.Tensor:
+        """Custom collate function to handle variable-sized batches."""
+        # batch = torch.stack(batch)
+        # batch.squeeze_(0)
+        assert len(batch) == 1, "Batch must contain only one tensor"
+        return batch.pop()
+
+    def get_offset_info(
+        self, image_path: Union[str, None], idx: Optional[int] = None
+    ) -> Dict:
+        """Get offset info for an image path."""
+        assert (image_path is None) ^ (
+            idx is None
+        ), "image_path and idx  cannot be provided together"
+        if isinstance(idx, int):
+            image_path = self.image_paths[idx]
+        try:
+            image = read_image(image_path)
+            width, height = image.size
+            return self.tiler.get_offset_info(
+                width=width,
+                height=height,
+                patch_size=self.tile_size,
+                stride=self.stride,
+                file_name=image_path,
+            )
+        except KeyError as e:
+            logger.error(f"Offset info not found or not loaded for {image_path}")
+            raise e
+        except Exception as e:
+            logger.error(
+                f"Error getting offset info for path:{image_path} or idx:{idx}"
+            )
+            raise e
+
 
 class DataLoader:
     """DataLoader for handling image tiling with optimized performance."""
@@ -356,10 +448,11 @@ class DataLoader:
         image_paths: Optional[List[str]] = None,
         image_dir: Optional[str] = None,
         config: Optional[LoaderConfig] = None,
+        use_tile_dataset: bool = True,
     ):
         """Initialize the DataLoader."""
-        if config is None:
-            config = LoaderConfig()
+        self.config = config or LoaderConfig()
+        self.use_tile_dataset = use_tile_dataset
 
         if image_paths is None and image_dir is None:
             raise ValueError("Either image_paths or image_dir must be provided")
@@ -369,19 +462,39 @@ class DataLoader:
                 raise ValueError("image_dir cannot be None when image_paths is None")
             image_paths = self._get_image_paths(image_dir)
 
-        self.dataset = TileDataset(image_paths=image_paths, config=config)
+        if self.use_tile_dataset:
+            self.dataset = TileDataset(image_paths=image_paths, config=self.config)
+            self.dataloader = torch.utils.data.DataLoader(
+                self.dataset,
+                batch_size=self.config.batch_size,
+                shuffle=False,
+                num_workers=self.config.num_workers,
+                collate_fn=self.dataset._collate_fn,
+                pin_memory=False,
+                persistent_workers=False,
+                drop_last=False,
+            )
+        else:
+            self.dataset = ImageDataset(image_paths=image_paths, config=self.config)
+            self.dataloader = torch.utils.data.DataLoader(
+                self.dataset,
+                batch_size=1,
+                shuffle=False,
+                num_workers=self.config.num_workers,
+                collate_fn=self.dataset._collate_fn,
+                pin_memory=False,
+                persistent_workers=False,
+                drop_last=False,
+            )
 
-        # Create PyTorch DataLoader with Windows-optimized settings
-        self.dataloader = torch.utils.data.DataLoader(
-            self.dataset,
-            batch_size=config.batch_size,
-            shuffle=False,
-            num_workers=config.num_workers,
-            collate_fn=self._collate_fn,
-            pin_memory=False,
-            persistent_workers=False,
-            drop_last=False,
-        )
+    def get_offset_info(
+        self, image_path: Optional[str] = None, idx: Optional[int] = None
+    ) -> Dict:
+        """Get offset info for the dataset."""
+        assert (image_path is None) ^ (
+            idx is None
+        ), "One of image_path and idx must be provided"
+        return self.dataset.get_offset_info(image_path=image_path, idx=idx)
 
     def _get_image_paths(self, image_dir: str) -> List[str]:
         """Get image paths from directory."""
@@ -402,25 +515,12 @@ class DataLoader:
         logger.info(f"Found {len(image_paths)} images in {image_dir}")
         return image_paths
 
-    def _collate_fn(self, batch: List[Dict]) -> Dict:
-        """Custom collate function to handle variable-sized batches."""
-        # Extract images from batch
-        images = [item.pop("image") for item in batch]
-        # Stack images into a single tensor
-        stacked_images = torch.stack(images)
-
-        # Create a new batch dictionary
-        collated_batch = {
-            "tiles": batch,  # Keep the original batch items
-            "images": stacked_images,  # Stacked image tensor
-            # "batch_size": len(batch),
-        }
-
-        return collated_batch
-
     def __len__(self) -> int:
         """Return the number of batches."""
-        return len(self.dataloader)
+        if self.use_tile_dataset:
+            return math.ceil(len(self.dataset) / self.config.batch_size)
+        else:
+            return len(self.dataset)
 
     def __iter__(self):
         """Iterate over batches."""

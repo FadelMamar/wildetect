@@ -11,8 +11,9 @@ import torch
 from tqdm import tqdm
 
 from ..core.config import LoaderConfig, PredictionConfig
-from ..core.data import DataLoader, TileDataset
+from ..core.data import DataLoader
 from ..core.detectors import DetectionPipeline
+from .profiler import profile_command
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ class DataLoaderBenchmark:
         """Get current memory usage in MB."""
         return sys.getsizeof(gc.get_objects()) / 1024 / 1024
 
-    def run(self, verbose: bool = True) -> Dict[str, float]:
+    def run(self, verbose: bool = True, profile: bool = False) -> Dict[str, float]:
         """
         Run comprehensive benchmark and return performance metrics.
 
@@ -189,29 +190,36 @@ class DataLoaderBenchmark:
         # Create iterator to manually time batch loading
         iterator = iter(tqdm(loader, desc="Processing batches") if verbose else loader)
 
-        while batch_count < self.max_batches:
-            # Time the actual batch loading (iterator's __next__ call)
-            batch_start = time.perf_counter()
-            try:
-                batch = next(iterator)
-            except StopIteration:
-                break
-            batch_time = time.perf_counter() - batch_start
-            batch_load_times.append(batch_time)
+        with profile_command(
+            output_dir=None,
+            profile=profile,
+            memory_profile=False,
+            line_profile=False,
+            gpu_profile=False,
+        ):
+            while batch_count < self.max_batches:
+                # Time the actual batch loading (iterator's __next__ call)
+                batch_start = time.perf_counter()
+                try:
+                    batch = next(iterator)
+                except StopIteration:
+                    break
+                batch_time = time.perf_counter() - batch_start
+                batch_load_times.append(batch_time)
 
-            # Process batch
-            batch_count += 1
-            if self.use_tile_dataset:
-                batch_size = len(batch["tiles"])
-            else:
-                batch_size = batch.shape[0]
-            # print(f"size: {batch.shape}")
-            total_tiles_processed += batch_size
-            batch_sizes.append(batch_size)
+                # Process batch
+                batch_count += 1
+                if self.use_tile_dataset:
+                    batch_size = len(batch["tiles"])
+                else:
+                    batch_size = batch.shape[0]
+                # print(f"size: {batch.shape}")
+                total_tiles_processed += batch_size
+                batch_sizes.append(batch_size)
 
-            # Memory tracking at intervals
-            if batch_count % self.memory_check_interval == 0:
-                self.memory_readings.append(self._get_memory_usage())
+                # Memory tracking at intervals
+                if batch_count % self.memory_check_interval == 0:
+                    self.memory_readings.append(self._get_memory_usage())
 
         self.metrics["iteration_time"] = time.perf_counter() - phase_start
         self.metrics["total_batches"] = batch_count
@@ -335,19 +343,13 @@ class DataLoaderBenchmark:
                 f"  Std batch time:      {self.metrics['batch_load_time_std']*1000:.2f} ms"
             )
             logger.info(
-                f"  Min batch time:      {self.metrics['batch_load_time_min']*1000:.2f} ms (fastest - likely cache hit)"
+                f"  Min batch time:      {self.metrics['batch_load_time_min']*1000:.2f} ms (fastest)"
             )
             logger.info(
-                f"  Max batch time:      {self.metrics['batch_load_time_max']*1000:.2f} ms (slowest - likely cache miss)"
+                f"  Max batch time:      {self.metrics['batch_load_time_max']*1000:.2f} ms (slowest)"
             )
             logger.info(
                 f"  Median batch time:   {self.metrics['batch_load_time_median']*1000:.2f} ms"
-            )
-            logger.info(
-                f"  Fast batches:        {self.metrics['num_fast_batches']} ({self.metrics['cache_hit_rate_estimate']*100:.1f}% - estimated cache hits)"
-            )
-            logger.info(
-                f"  Slow batches:        {self.metrics['num_slow_batches']} (potential cache misses)"
             )
 
             if self.metrics["slow_batch_indices"]:
@@ -396,9 +398,9 @@ class DataLoaderBenchmark:
 
             # Classify batch
             if batch_times[i] > mean_time + std_time:
-                status = "SLOW (cache miss?)"
+                status = "SLOW"
             elif batch_times[i] < mean_time - std_time:
-                status = "FAST (cache hit?)"
+                status = "FAST"
             else:
                 status = "Normal"
 
@@ -433,30 +435,6 @@ class DataLoaderBenchmark:
             recommendations.append(
                 f"Large memory increase ({memory_increase:.1f} MB) - possible memory leak or cache growth"
             )
-
-        # Cache-specific recommendations
-        if (
-            "batch_load_time_std" in self.metrics
-            and "batch_load_time_mean" in self.metrics
-        ):
-            cv = (
-                self.metrics["batch_load_time_std"]
-                / self.metrics["batch_load_time_mean"]
-                if self.metrics["batch_load_time_mean"] > 0
-                else 0
-            )
-            if cv > 1.0:
-                recommendations.append(
-                    f"High batch time variance (CV={cv:.2f}) - cache is ineffective, consider increasing cache size"
-                )
-
-            if (
-                "cache_hit_rate_estimate" in self.metrics
-                and self.metrics["cache_hit_rate_estimate"] < 0.5
-            ):
-                recommendations.append(
-                    f"Low estimated cache hit rate ({self.metrics['cache_hit_rate_estimate']*100:.1f}%) - increase cache size or reduce unique images"
-                )
 
         return recommendations
 

@@ -45,17 +45,15 @@ def create_test_images(num_images: int = -1) -> List[str]:
 
 def test_loader_config():
     """Test LoaderConfig functionality."""
-    logger.info("=" * 60)
-    logger.info("TESTING LOADER CONFIG")
-    logger.info("=" * 60)
+    print("=" * 60)
+    print("TESTING LOADER CONFIG")
+    print("=" * 60)
 
     # Test basic config creation
     config = LoaderConfig(tile_size=640, overlap=0.2, batch_size=4, recursive=True)
 
-    logger.info(
-        f"Config created: tile_size={config.tile_size}, overlap={config.overlap}"
-    )
-    logger.info(f"Batch size: {config.batch_size}, recursive: {config.recursive}")
+    print(f"Config created: tile_size={config.tile_size}, overlap={config.overlap}")
+    print(f"Batch size: {config.batch_size}, recursive: {config.recursive}")
 
     # Test with flight specs
     flight_specs = FlightSpecs(
@@ -67,35 +65,35 @@ def test_loader_config():
     )
 
     assert config_with_flight.flight_specs is not None
-    logger.info(f"Flight specs: {config_with_flight.flight_specs}")
-    logger.info("✓ LoaderConfig test passed")
+    print(f"Flight specs: {config_with_flight.flight_specs}")
+    print("✓ LoaderConfig test passed")
 
 
 def test_image_tile_dataset():
     """Test ImageTileDataset functionality."""
-    logger.info("=" * 60)
-    logger.info("TESTING IMAGE TILE DATASET")
-    logger.info("=" * 60)
+    print("=" * 60)
+    print("TESTING IMAGE TILE DATASET")
+    print("=" * 60)
 
     # Create test images
-    logger.info("Creating test images...")
+    print("Creating test images...")
     image_paths = create_test_images(num_images=3)
-    logger.info(f"Created {len(image_paths)} test images")
+    print(f"Created {len(image_paths)} test images")
 
     # Create config
-    logger.info("Creating config...")
+    print("Creating config...")
     config = LoaderConfig(
         tile_size=320,  # Smaller tiles for testing
         overlap=0.2,
         batch_size=2,
     )
-    logger.info("Config created successfully")
+    print("Config created successfully")
 
     # Create dataset
-    logger.info("Creating dataset...")
+    print("Creating dataset...")
     try:
         dataset = TileDataset(config=config, image_paths=image_paths)
-        logger.info("Dataset created successfully")
+        print("Dataset created successfully")
     except Exception as e:
         logger.error(f"Failed to create dataset: {e}")
         import traceback
@@ -103,15 +101,15 @@ def test_image_tile_dataset():
         traceback.print_exc()
         raise
 
-    logger.info(f"Dataset created with {len(dataset.tiles)} tiles")
-    logger.info(f"Number of images: {len(dataset.image_paths)}")
+    print(f"Dataset created with {len(dataset.tiles)} tiles")
+    print(f"Number of images: {len(dataset.image_paths)}")
 
     # Test dataset iteration
-    logger.info("Testing dataset iteration...")
+    print("Testing dataset iteration...")
     for i in range(len(dataset)):
         try:
             item = dataset[i]
-            logger.info(
+            print(
                 f"Item {i}: tile_id={item['tile_id']}, shape={item['image'].shape if hasattr(item['image'], 'shape') else 'N/A'}"
             )
         except Exception as e:
@@ -123,15 +121,15 @@ def test_image_tile_dataset():
 
     # Test dataset length
     assert len(dataset) > 0, "Dataset should not be empty"
-    logger.info(f"Dataset length: {len(dataset)}")
-    logger.info("✓ TileDataset test passed")
+    print(f"Dataset length: {len(dataset)}")
+    print("✓ TileDataset test passed")
 
 
 def test_data_loader():
     """Test DataLoader functionality."""
-    logger.info("=" * 60)
-    logger.info("TESTING DATA LOADER")
-    logger.info("=" * 60)
+    print("=" * 60)
+    print("TESTING DATA LOADER")
+    print("=" * 60)
 
     # Create test images
     image_paths = create_test_images(num_images=4)
@@ -147,26 +145,26 @@ def test_data_loader():
     # Create data loader
     dataloader = DataLoader(image_paths=image_paths, image_dir=None, config=config)
 
-    logger.info(f"DataLoader created with {len(dataloader)} batches")
+    print(f"DataLoader created with {len(dataloader)} batches")
 
     # Test batch iteration
     batch_count = 0
     for batch in dataloader:
         batch_count += 1
-        logger.info(f"Batch {batch_count}: {len(batch['tiles'])} tiles")
+        print(f"Batch {batch_count}: {len(batch['tiles'])} tiles")
 
         if batch_count >= 2:  # Test first 2 batches
             break
 
     assert batch_count > 0, "Should have at least one batch"
-    logger.info("✓ DataLoader test passed")
+    print("✓ DataLoader test passed")
 
 
 def test_load_images_as_drone_images():
     """Test load_images_as_drone_images function."""
-    logger.info("=" * 60)
-    logger.info("TESTING LOAD_IMAGES_AS_DRONE_IMAGES")
-    logger.info("=" * 60)
+    print("=" * 60)
+    print("TESTING LOAD_IMAGES_AS_DRONE_IMAGES")
+    print("=" * 60)
 
     # Create test images
     image_paths = create_test_images(num_images=3)
@@ -185,24 +183,22 @@ def test_load_images_as_drone_images():
         image_paths=image_paths, flight_specs=config.flight_specs
     )
 
-    logger.info(f"Loaded {len(drone_images)} drone images")
+    print(f"Loaded {len(drone_images)} drone images")
 
     # Test drone image properties
     for i, drone_image in enumerate(drone_images):
-        logger.info(
-            f"DroneImage {i}: id={drone_image.id}, tiles={len(drone_image.tiles)}"
-        )
+        print(f"DroneImage {i}: id={drone_image.id}, tiles={len(drone_image.tiles)}")
         assert drone_image.id is not None, "DroneImage should have an ID"
         assert len(drone_image.tiles) > 0, "DroneImage should have tiles"
 
-    logger.info("✓ load_images_as_drone_images test passed")
+    print("✓ load_images_as_drone_images test passed")
 
 
 def test_create_loader():
     """Test create_loader function with comprehensive profiling."""
-    logger.info("=" * 60)
-    logger.info("TESTING CREATE_LOADER WITH PROFILING")
-    logger.info("=" * 60)
+    print("=" * 60)
+    print("TESTING CREATE_LOADER WITH PROFILING")
+    print("=" * 60)
 
     # Memory tracking function
     def get_memory_usage():
@@ -233,47 +229,37 @@ def test_create_loader():
     initial_memory = get_memory_usage()
     performance_metrics["memory_start"] = initial_memory
 
-    logger.info(f"Initial memory usage: {initial_memory:.2f} MB")
-    logger.info("Starting performance profiling...")
+    print(f"Initial memory usage: {initial_memory:.2f} MB")
+    print("Starting performance profiling...")
 
     # Phase 1: Image discovery
-    logger.info("Phase 1: Image discovery")
+    print("Phase 1: Image discovery")
     phase_start = time.time()
     image_paths = create_test_images(num_images=-1)
     performance_metrics["image_discovery_time"] = time.time() - phase_start
-    logger.info(
+    print(
         f"Found {len(image_paths)} images in {performance_metrics['image_discovery_time']:.3f}s"
     )
 
     # Phase 2: Configuration
-    logger.info("Phase 2: Configuration setup")
-    config = LoaderConfig(tile_size=800, overlap=0.2, batch_size=32)
+    print("Phase 2: Configuration setup")
+    config = LoaderConfig(tile_size=800, overlap=0.2, batch_size=32, num_workers=4)
     performance_metrics["tile_size"] = config.tile_size
     performance_metrics["overlap"] = config.overlap
     performance_metrics["batch_size"] = config.batch_size
 
-    # Phase 3: Dataset creation
-    logger.info("Phase 3: Dataset creation")
-    phase_start = time.time()
-    dataset = TileDataset(config=config, image_paths=image_paths)
-    performance_metrics["dataset_creation_time"] = time.time() - phase_start
-    performance_metrics["total_tiles"] = len(dataset)
-    logger.info(
-        f"Created dataset with {len(dataset)} tiles in {performance_metrics['dataset_creation_time']:.3f}s"
-    )
-
-    # Phase 4: DataLoader creation
-    logger.info("Phase 4: DataLoader creation")
+    # Phase 3: DataLoader creation
+    print("Phase 3: DataLoader creation")
     phase_start = time.time()
     loader = DataLoader(image_paths=image_paths, image_dir=None, config=config)
     performance_metrics["loader_creation_time"] = time.time() - phase_start
     performance_metrics["total_batches"] = len(loader)
-    logger.info(
+    print(
         f"Created loader with {len(loader)} batches in {performance_metrics['loader_creation_time']:.3f}s"
     )
 
-    # Phase 5: Iteration and data loading
-    logger.info("Phase 5: Data iteration and loading")
+    # Phase 4: Iteration and data loading
+    print("Phase 4: Data iteration and loading")
     phase_start = time.time()
     batch_count = 0
     total_tiles_processed = 0
@@ -292,12 +278,9 @@ def test_create_loader():
         if batch_count % 10 == 0:
             memory_readings.append(get_memory_usage())
 
-        # Log batch info
-        # logger.info(f"Batch {batch_count}: {batch_size} tiles, images shape: {batch['images'].shape}")
-
         # Limit to first 50 batches for profiling
-        if batch_count >= 50:
-            break
+        # if batch_count >= 50:
+        #    break
 
     performance_metrics["iteration_time"] = time.time() - phase_start
     performance_metrics["total_batches"] = batch_count
@@ -330,68 +313,58 @@ def test_create_loader():
     total_time = time.time() - start_time
 
     # Print comprehensive performance report
-    logger.info("=" * 60)
-    logger.info("PERFORMANCE PROFILE REPORT")
-    logger.info("=" * 60)
+    print("=" * 60)
+    print("PERFORMANCE PROFILE REPORT")
+    print("=" * 60)
 
-    logger.info("TIMING BREAKDOWN:")
-    logger.info(
-        f"  Image discovery:     {performance_metrics['image_discovery_time']:.3f}s"
-    )
-    logger.info(
-        f"  Dataset creation:    {performance_metrics['dataset_creation_time']:.3f}s"
-    )
-    logger.info(
-        f"  Loader creation:     {performance_metrics['loader_creation_time']:.3f}s"
-    )
-    logger.info(f"  Data iteration:      {performance_metrics['iteration_time']:.3f}s")
-    logger.info(f"  Total time:          {total_time:.3f}s")
+    print("TIMING BREAKDOWN:")
+    print(f"  Image discovery:     {performance_metrics['image_discovery_time']:.3f}s")
+    print(f"  Dataset creation:    {performance_metrics['dataset_creation_time']:.3f}s")
+    print(f"  Loader creation:     {performance_metrics['loader_creation_time']:.3f}s")
+    print(f"  Data iteration:      {performance_metrics['iteration_time']:.3f}s")
+    print(f"  Total time:          {total_time:.3f}s")
 
-    logger.info("\nTHROUGHPUT METRICS:")
-    logger.info(f"  Tiles processed:     {performance_metrics['total_tiles']}")
-    logger.info(f"  Batches processed:   {performance_metrics['total_batches']}")
-    logger.info(
+    print("\nTHROUGHPUT METRICS:")
+    print(f"  Tiles processed:     {performance_metrics['total_tiles']}")
+    print(f"  Batches processed:   {performance_metrics['total_batches']}")
+    print(
         f"  Tiles per second:    {performance_metrics['throughput_tiles_per_sec']:.2f}"
     )
-    logger.info(
+    print(
         f"  Batches per second:  {performance_metrics['throughput_batches_per_sec']:.2f}"
     )
-    logger.info(f"  Average batch size:  {performance_metrics['avg_batch_size']:.1f}")
+    print(f"  Average batch size:  {performance_metrics['avg_batch_size']:.1f}")
 
-    logger.info("\nMEMORY USAGE:")
-    logger.info(f"  Initial memory:      {performance_metrics['memory_start']:.2f} MB")
-    logger.info(f"  Peak memory:         {performance_metrics['memory_peak']:.2f} MB")
-    logger.info(f"  Final memory:        {performance_metrics['memory_end']:.2f} MB")
-    logger.info(f"  Memory after GC:     {final_memory_after_gc:.2f} MB")
-    logger.info(
+    print("\nMEMORY USAGE:")
+    print(f"  Initial memory:      {performance_metrics['memory_start']:.2f} MB")
+    print(f"  Peak memory:         {performance_metrics['memory_peak']:.2f} MB")
+    print(f"  Final memory:        {performance_metrics['memory_end']:.2f} MB")
+    print(f"  Memory after GC:     {final_memory_after_gc:.2f} MB")
+    print(
         f"  Memory increase:     {performance_metrics['memory_end'] - performance_metrics['memory_start']:.2f} MB"
     )
 
-    logger.info("\nCONFIGURATION:")
-    logger.info(f"  Tile size:           {performance_metrics['tile_size']}")
-    logger.info(f"  Overlap:             {performance_metrics['overlap']}")
-    logger.info(f"  Batch size:          {performance_metrics['batch_size']}")
-    logger.info(f"  Images processed:    {len(image_paths)}")
+    print("\nCONFIGURATION:")
+    print(f"  Tile size:           {performance_metrics['tile_size']}")
+    print(f"  Overlap:             {performance_metrics['overlap']}")
+    print(f"  Batch size:          {performance_metrics['batch_size']}")
+    print(f"  Images processed:    {len(image_paths)}")
 
     # Performance recommendations
-    logger.info("\nPERFORMANCE RECOMMENDATIONS:")
+    print("\nPERFORMANCE RECOMMENDATIONS:")
     if performance_metrics["throughput_tiles_per_sec"] < 10:
-        logger.info("  ⚠️  Low throughput - consider optimizing image loading")
+        print("  ⚠️  Low throughput - consider optimizing image loading")
     if performance_metrics["memory_peak"] > 1000:
-        logger.info(
-            "  ⚠️  High memory usage - consider reducing batch size or tile size"
-        )
+        print("  ⚠️  High memory usage - consider reducing batch size or tile size")
     if (
         performance_metrics["dataset_creation_time"]
         > performance_metrics["iteration_time"] * 0.5
     ):
-        logger.info(
-            "  ⚠️  Dataset creation is slow - consider caching tile calculations"
-        )
+        print("  ⚠️  Dataset creation is slow - consider caching tile calculations")
 
-    logger.info("=" * 60)
-    logger.info("✓ create_loader test with profiling completed")
-    logger.info("=" * 60)
+    print("=" * 60)
+    print("✓ create_loader test with profiling completed")
+    print("=" * 60)
 
     # Assertions for test validation
     assert batch_count > 0, "Should have at least one batch"
@@ -403,7 +376,7 @@ def test_create_loader():
 
 def run_all_tests():
     """Run all data loading tests."""
-    logger.info("Starting data loading tests...")
+    print("Starting data loading tests...")
 
     try:
         test_loader_config()
@@ -412,9 +385,9 @@ def run_all_tests():
         test_load_images_as_drone_images()
         test_create_loader()
 
-        logger.info("=" * 60)
-        logger.info("ALL DATA LOADING TESTS PASSED! ✓")
-        logger.info("=" * 60)
+        print("=" * 60)
+        print("ALL DATA LOADING TESTS PASSED! ✓")
+        print("=" * 60)
 
     except Exception as e:
         logger.error(f"Test failed: {e}")

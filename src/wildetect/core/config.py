@@ -24,6 +24,7 @@ class DetectionPipelineTypes(StrEnum):
     MT = "mt"
     MP = "mp"
     ASYNC = "async"
+    SIMPLE = "simple"
 
 
 class DetectionTypes(StrEnum):
