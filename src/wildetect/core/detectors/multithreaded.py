@@ -73,7 +73,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
                         break
                     else:
                         # Queue is full, wait a bit
-                        time.sleep(0.1)
+                        time.sleep(0.5)
 
                 if self.stop_event.is_set():
                     break
@@ -81,6 +81,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         except Exception as e:
             logger.error(f"Error in data loading thread: {e}")
             logger.debug(traceback.format_exc())
+            self.stop_event.set()
         finally:
             logger.info("Data loading thread finished")
 
@@ -104,10 +105,10 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
                 len(processed_batches) < total_batches and not self.stop_event.is_set()
             ):
                 if self.data_queue.is_empty() and not self.stop_event.is_set():
-                    time.sleep(15)  # Wait for data to be available
+                    time.sleep(0.5)  # Wait for data to be available
 
                 # Get batch from queue
-                batch = self.data_queue.get_batch(timeout=5)
+                batch = self.data_queue.get_batch(timeout=1.0)
 
                 if batch is None:
                     # No batch available, check if we should continue
@@ -128,11 +129,13 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
 
                     if self.error_count > 5:
                         logger.error("Too many errors. Stopping detection thread.")
+                        self.stop_event.set()
                         break
 
         except Exception as e:
             logger.error(f"Error in detection thread: {e}")
             logger.info(traceback.format_exc())
+            self.stop_event.set()
         finally:
             logger.info("Detection thread finished")
 
@@ -176,25 +179,14 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         logger.info("Starting multi-threaded detection pipeline")
 
         # Update config from metadata if available
-        if "batch" in self.metadata:
-            b = self.loader_config.batch_size
-            logger.info(f"Batch size: {b} -> {self.metadata.get('batch', b)}")
-            b = self.metadata.get("batch", b)
-            self.loader_config.batch_size = int(b)
-
-        if "tilesize" in self.metadata:
-            tile_size = self.loader_config.tile_size
-            logger.info(
-                f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
-            )
-            tile_size = self.metadata.get("tilesize", tile_size)
-            self.loader_config.tile_size = int(tile_size)
+        self.override_loading_config()
 
         logger.info("Creating dataloader")
         data_loader = DataLoader(
             image_paths=image_paths,
             image_dir=image_dir,
             config=self.loader_config,
+            use_tile_dataset=True,
         )
 
         total_batches = len(data_loader)
@@ -225,6 +217,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             self.data_thread.start()
 
             # Start detection thread
+            time.sleep(1.0)
             self.detection_thread = threading.Thread(
                 target=self._run_detection_thread,
                 args=(total_batches, detection_progress),
