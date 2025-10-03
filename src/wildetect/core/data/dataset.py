@@ -3,11 +3,15 @@ Data loader for loading images from directories as tiles.
 """
 
 import logging
+import os
 import traceback
 from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple, Union
 
+import rasterio as rio
+import slidingwindow
 import torch
+from rasterio.windows import Window
 from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor
 
@@ -396,3 +400,70 @@ class ImageDataset(Dataset):
                 f"Error getting offset info for path:{image_path} or idx:{idx}"
             )
             raise e
+
+
+class TiledRaster(Dataset):
+    """Dataset for predicting on raster windows.
+
+    This dataset is useful for predicting on a large raster that is too large to fit into memory.
+
+    Args:
+        path (str): Path to raster file
+        patch_size (int): Size of windows to predict on
+        patch_overlap (float): Overlap between windows as fraction (0-1)
+    Returns:
+        A dataset of raster windows
+    """
+
+    def __init__(self, path, patch_size, patch_overlap):
+        self.path = path
+        self.patch_size = patch_size
+        self.patch_overlap = patch_overlap
+        self.prepare_items()
+
+        if path is None:
+            raise ValueError("path is required for a memory raster dataset")
+
+    def prepare_items(self):
+        # Get raster shape without keeping file open
+        with rio.open(self.path) as src:
+            width = src.shape[0]
+            height = src.shape[1]
+
+        # Generate sliding windows
+        self.windows = slidingwindow.generateForSize(
+            height,
+            width,
+            dimOrder=slidingwindow.DimOrder.ChannelHeightWidth,
+            maxWindowSize=self.patch_size,
+            overlapPercent=self.patch_overlap,
+        )
+
+    def __len__(self):
+        return len(self.windows)
+
+    def __getitem__(self, idx):
+        """Get the item at the given index."""
+        return self.get_crop(idx)
+
+    def window_list(self):
+        return [x.getRect() for x in self.windows]
+
+    def get_crop(self, idx):
+        window = self.windows[idx]
+        with rio.open(self.path) as src:
+            window_data = src.read(
+                window=Window(window.x, window.y, window.w, window.h)
+            )
+
+        # Convert to torch tensor and rearrange dimensions
+        window_data = torch.from_numpy(window_data).float()  # Convert to torch tensor
+        window_data = window_data / 255.0  # Normalize
+
+        return window_data
+
+    def get_image_basename(self, idx):
+        return os.path.basename(self.path)
+
+    def get_crop_bounds(self, idx):
+        return self.window_list()[idx]

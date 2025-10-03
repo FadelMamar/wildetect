@@ -12,7 +12,7 @@ import torch
 from tqdm import tqdm
 
 from ..config import LoaderConfig
-from .dataset import ImageDataset, TileDataset
+from .dataset import ImageDataset, TileDataset, TiledRaster
 from .drone_image import DroneImage
 
 logger = logging.getLogger(__name__)
@@ -63,20 +63,36 @@ class DataLoader:
         image_dir: Optional[str] = None,
         config: Optional[LoaderConfig] = None,
         use_tile_dataset: bool = True,
+        raster_path: Optional[str] = None,
     ):
         """Initialize the DataLoader."""
         self.config = config or LoaderConfig()
         self.use_tile_dataset = use_tile_dataset
 
-        if image_paths is None and image_dir is None:
+        if (image_paths is None) ^ (image_dir is None) ^ (raster_path is None):
             raise ValueError("Either image_paths or image_dir must be provided")
 
-        if image_paths is None:
-            if image_dir is None:
-                raise ValueError("image_dir cannot be None when image_paths is None")
+        if image_paths is None and image_dir is not None:
             image_paths = self._get_image_paths(image_dir)
 
-        if self.use_tile_dataset:
+        if raster_path is not None:
+            self.dataset = TiledRaster(
+                raster_path,
+                patch_size=self.config.tile_size,
+                patch_overlap=self.config.overlap,
+            )
+            self.dataloader = torch.utils.data.DataLoader(
+                self.dataset,
+                batch_size=self.config.batch_size,
+                shuffle=False,
+                num_workers=self.config.num_workers,
+                collate_fn=None,
+                pin_memory=False,
+                persistent_workers=False,
+                drop_last=False,
+            )
+
+        elif self.use_tile_dataset:
             self.dataset = TileDataset(image_paths=image_paths, config=self.config)
             self.dataloader = torch.utils.data.DataLoader(
                 self.dataset,

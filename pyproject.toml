@@ -50,6 +50,8 @@ dependencies = [
     "supervision>=0.26.1",
     "label-studio-tools>=0.0.4",
     "optuna>=4.5.0",
+    "rasterio>=1.4.3",
+    "slidingwindow>=0.0.14",
 ]
 
 [tool.ruff]
