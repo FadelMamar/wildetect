@@ -1,17 +1,18 @@
 import logging
+import queue
 import threading
 import time
 import traceback
 from typing import Any, Dict, List, Optional
 
 import torch
+from sympy import E
 from tqdm import tqdm
 
 from ..config import LoaderConfig, PredictionConfig
-from ..data import DroneImage
+from ..data import Detection, DroneImage
 from ..data.loader import DataLoader
 from .base import DetectionPipeline
-from .utils import BatchQueue
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,8 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         super().__init__(config, loader_config)
 
         # Thread-safe queues
-        self.data_queue = BatchQueue(maxsize=config.queue_size)
-        self.result_queue = BatchQueue(maxsize=config.queue_size * 2)
+        self.data_queue = queue.Queue(maxsize=config.queue_size)
+        self.result_queue = queue.Queue(maxsize=0)  # unlimited size
 
         # Thread control
         self.stop_event = threading.Event()
@@ -48,123 +49,109 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             f"Initialized MultiThreadedDetectionPipeline with model_type={config.model_type}"
         )
 
-    def _data_loading_thread(self, data_loader: DataLoader, progress_bar: tqdm) -> None:
-        """Data loading thread that prepares batches and puts them in the queue.
+    def _data_loading_worker(
+        self,
+        data_loader: DataLoader,
+        progress_bar: tqdm,
+    ) -> None:
+        """Standalone data loading worker function that can be pickled.
 
         Args:
             data_loader: Data loader instance
-            progress_bar: Progress bar for tracking
+            progress_bar: tqdm progress bar
         """
-        logger.info("Starting data loading thread")
+        logger.info("Starting data loading process")
 
         try:
             for batch in data_loader:
                 if self.stop_event.is_set():
-                    logger.info("Data loading thread stopped by stop event")
+                    logger.info("Data loading process stopped by stop event")
                     break
 
-                # Prepare batch for GPU processing
-                prepared_batch = self._prepare_batch(batch)
-
-                # Put batch in queue with timeout
                 while not self.stop_event.is_set():
-                    if self.data_queue.put_batch(prepared_batch, timeout=1):
-                        progress_bar.update(1)
+                    try:
+                        self.data_queue.put(batch, timeout=1.0)
                         break
-                    else:
+                    except queue.Full:
                         # Queue is full, wait a bit
                         time.sleep(0.5)
+
+                progress_bar.update(1)
 
                 if self.stop_event.is_set():
                     break
 
         except Exception as e:
-            logger.error(f"Error in data loading thread: {e}")
+            logger.error(f"Error in data loading process: {e}")
             logger.debug(traceback.format_exc())
             self.stop_event.set()
         finally:
-            logger.info("Data loading thread finished")
+            logger.info("Data loading process finished")
 
-    def _detection_thread(
-        self, total_batches: int, progress_bar: tqdm
-    ) -> List[Dict[str, Any]]:
-        """Detection thread that processes batches from the queue.
+    def _detection_worker(
+        self,
+        progress_bar: tqdm,
+    ) -> None:
+        """Standalone detection worker function that can be pickled.
 
         Args:
-            total_batches: Total number of batches to process
-            progress_bar: Progress bar for tracking
-
-        Returns:
-            List of processed batches with detections
+            detection_system: Detection system instance
+            data_queue: Queue to get batches from
+            result_queue: Queue to put results into
+            stop_event: Event to signal stopping
+            config: Prediction configuration
         """
-        logger.info("Starting detection thread")
-        processed_batches = []
+
+        # Initialize worker with its own model
+        error_count = 0
+
+        # Wait for data loading thread to start
+        time.sleep(1.0)
 
         try:
-            while (
-                len(processed_batches) < total_batches and not self.stop_event.is_set()
-            ):
-                if self.data_queue.is_empty() and not self.stop_event.is_set():
-                    time.sleep(0.5)  # Wait for data to be available
-
-                # Get batch from queue
-                batch = self.data_queue.get_batch(timeout=1.0)
-
-                if batch is None:
-                    # No batch available, check if we should continue
-                    if self.data_queue.is_empty() and self.stop_event.is_set():
+            while not self.stop_event.is_set():
+                try:
+                    batch = self.data_queue.get(timeout=0.5)
+                except queue.Empty:
+                    if self.stop_event.is_set():
                         break
+                    # No batch available, wait a bit
+                    time.sleep(1.0)
                     continue
+                except Exception as e:
+                    raise e
 
                 # Process batch
                 try:
-                    detections = self._process_batch(batch)
-                    batch["detections"] = detections
-                    processed_batches.append(batch)
-                    progress_bar.update(1)
-
+                    batch_tensor = (
+                        batch if isinstance(batch, torch.Tensor) else batch["images"]
+                    )
+                    batch_tensor = batch_tensor.to(
+                        self.config.device, non_blocking=True
+                    )
+                    detections = self._process_batch(batch, progress_bar=progress_bar)
+                    self.result_queue.put(detections)
                 except Exception as e:
-                    logger.error(f"Failed to process batch: {e}")
-                    self.error_count += 1
-
-                    if self.error_count > 5:
-                        logger.error("Too many errors. Stopping detection thread.")
-                        self.stop_event.set()
-                        break
+                    error_count += 1
+                    if error_count > 5:
+                        raise Exception("Too many errors. Stopping detection worker.")
 
         except Exception as e:
-            logger.error(f"Error in detection thread: {e}")
-            logger.info(traceback.format_exc())
+            logger.error(f"Error in detection worker: {e}")
+            logger.debug(traceback.format_exc())
+            logger.info("Stopping detection worker")
             self.stop_event.set()
+
         finally:
-            logger.info("Detection thread finished")
-
-        return processed_batches
-
-    def _run_detection_thread(self, total_batches: int, progress_bar: tqdm) -> None:
-        """Wrapper to run detection thread and capture result."""
-        self.detection_result = self._detection_thread(total_batches, progress_bar)
-
-    def _prepare_batch(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare a batch for GPU processing.
-
-        Args:
-            batch: Raw batch from data loader
-
-        Returns:
-            Prepared batch ready for GPU processing
-        """
-        # Ensure images are tensors and on the correct device
-        if "images" in batch and isinstance(batch["images"], torch.Tensor):
-            batch["images"] = batch["images"].to(self.config.device, non_blocking=True)
-
-        return batch
+            logger.info("Detection worker finished")
+            self.stop_event.set()
 
     def run_detection(
         self,
         image_paths: Optional[List[str]] = None,
         image_dir: Optional[str] = None,
         save_path: Optional[str] = None,
+        override_loading_config: bool = True,
     ) -> List[DroneImage]:
         """Run detection on images using multi-threaded pipeline.
 
@@ -179,7 +166,8 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         logger.info("Starting multi-threaded detection pipeline")
 
         # Update config from metadata if available
-        self.override_loading_config()
+        if override_loading_config:
+            self.override_loading_config()
 
         logger.info("Creating dataloader")
         data_loader = DataLoader(
@@ -210,17 +198,16 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         try:
             # Start data loading thread
             self.data_thread = threading.Thread(
-                target=self._data_loading_thread,
+                target=self._data_loading_worker,
                 args=(data_loader, data_progress),
                 daemon=True,
             )
             self.data_thread.start()
 
             # Start detection thread
-            time.sleep(1.0)
             self.detection_thread = threading.Thread(
-                target=self._run_detection_thread,
-                args=(total_batches, detection_progress),
+                target=self._detection_worker,
+                args=(detection_progress),
                 daemon=True,
             )
             self.detection_thread.start()

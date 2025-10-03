@@ -84,6 +84,21 @@ class BaseDetectionPipeline(ABC):
         """Run detection."""
         pass
 
+    def get_data_loader(
+        self,
+        image_paths: Optional[List[str]] = None,
+        image_dir: Optional[str] = None,
+        use_tile_dataset: bool = True,
+    ) -> DataLoader:
+        """Get a data loader."""
+        loader = DataLoader(
+            image_paths=image_paths,
+            image_dir=image_dir,
+            config=self.loader_config,
+            use_tile_dataset=use_tile_dataset,
+        )
+        return loader
+
     def _save_results(
         self,
         drone_images: List[DroneImage],
@@ -252,10 +267,9 @@ class DetectionPipeline(BaseDetectionPipeline):
 
         logger.info(f"Creating dataloader")
 
-        data_loader = DataLoader(
+        data_loader = self.get_data_loader(
             image_paths=image_paths,
             image_dir=image_dir,
-            config=self.loader_config,
             use_tile_dataset=True,
         )
 
@@ -395,10 +409,9 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
 
         logger.info(f"Creating dataloader")
 
-        loader = DataLoader(
+        loader = self.get_data_loader(
             image_paths=image_paths,
             image_dir=image_dir,
-            config=self.loader_config,
             use_tile_dataset=False,
         )
 
@@ -432,9 +445,13 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             drone_images: List of drone images with detections
             save_path: Path to save results
         """
-        stats = drone_image.get_statistics()
-        self.results_stats.append(stats)
-        with open(self.save_path, mode, encoding="utf-8") as f:
-            json.dump(stats, f, indent=2)
-
-        logger.info(f"Results saved to: {self.save_path}")
+        try:
+            stats = drone_image.get_statistics()
+            self.results_stats.append(stats)
+            with open(self.save_path, mode, encoding="utf-8") as f:
+                json.dump(stats, f, indent=2)
+            logger.debug(f"Results saved to: {self.save_path}")
+        except Exception as e:
+            logger.error(
+                f"Failed to save results of drone image {drone_image.image_path}: {e}"
+            )

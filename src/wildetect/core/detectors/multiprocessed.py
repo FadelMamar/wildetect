@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def _data_loading_worker(
-    image_paths: List[str],
-    loader_config: LoaderConfig,
+    data_loader: DataLoader,
     data_queue: mp.Queue,
     stop_event: mp.Event,
 ) -> None:
@@ -38,8 +37,6 @@ def _data_loading_worker(
     logger.info("Starting data loading process")
 
     try:
-        data_loader = DataLoader(image_paths=image_paths, config=loader_config)
-
         for batch_idx, batch in enumerate(data_loader):
             if stop_event.is_set():
                 logger.info("Data loading process stopped by stop event")
@@ -285,7 +282,7 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
             self.data_process = mp.Process(
                 target=_data_loading_worker,
                 args=(
-                    image_paths,
+                    data_loader,
                     self.loader_config,
                     self.data_queue,
                     self.stop_event,
