@@ -153,11 +153,10 @@ def detect(
                     )
 
         if dataset_name:
-            fo_manager = FiftyOneManager(dataset_name, persistent=True)
-            fo_manager.add_drone_images(drone_images)
-            fo_manager.save_dataset()
-
             try:
+                fo_manager = FiftyOneManager(dataset_name, persistent=True)
+                fo_manager.add_drone_images(drone_images)
+                fo_manager.save_dataset()
                 annot_key = f"{dataset_name}_review"
                 fo_manager.send_predictions_to_labelstudio(
                     annot_key, dotenv_path=str(Path(ROOT) / ".env")

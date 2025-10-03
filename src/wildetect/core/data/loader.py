@@ -5,14 +5,13 @@ Data loader for loading images from directories as tiles.
 import logging
 import math
 import os
-import traceback
 from typing import Dict, List, Optional
 
 import torch
 from tqdm import tqdm
 
 from ..config import LoaderConfig
-from .dataset import ImageDataset, TileDataset, TiledRaster
+from .dataset import ImageDataset, RasterDataset, TileDataset
 from .drone_image import DroneImage
 
 logger = logging.getLogger(__name__)
@@ -69,14 +68,20 @@ class DataLoader:
         self.config = config or LoaderConfig()
         self.use_tile_dataset = use_tile_dataset
 
-        if (image_paths is None) ^ (image_dir is None) ^ (raster_path is None):
-            raise ValueError("Either image_paths or image_dir must be provided")
+        # Check that exactly one of image_paths, image_dir, or raster_path is provided
+        provided_count = sum(
+            [image_paths is not None, image_dir is not None, raster_path is not None]
+        )
+        if provided_count != 1:
+            raise ValueError(
+                "Exactly one of image_paths, image_dir, or raster_path must be provided"
+            )
 
         if image_paths is None and image_dir is not None:
             image_paths = self._get_image_paths(image_dir)
 
         if raster_path is not None:
-            self.dataset = TiledRaster(
+            self.dataset = RasterDataset(
                 raster_path,
                 patch_size=self.config.tile_size,
                 patch_overlap=self.config.overlap,

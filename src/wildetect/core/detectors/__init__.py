@@ -3,7 +3,7 @@ Detector implementations for different model types.
 """
 from ..config import DetectionPipelineTypes
 from .asynced import AsyncDetectionPipeline
-from .base import DetectionPipeline, SimpleDetectionPipeline
+from .base import DetectionPipeline, RasterDetectionPipeline, SimpleDetectionPipeline
 from .multiprocessed import MultiProcessingDetectionPipeline
 from .multithreaded import (
     MultiThreadedDetectionPipeline,
@@ -17,6 +17,7 @@ __all__ = [
     "SimpleMultiThreadedDetectionPipeline",
     "AsyncDetectionPipeline",
     "SimpleDetectionPipeline",
+    "RasterDetectionPipeline",
 ]
 
 

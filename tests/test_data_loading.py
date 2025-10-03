@@ -212,11 +212,9 @@ def test_ortho_dataset():
 
     # Create dataset
     loader = DataLoader(raster_path=RASTER_PATH, config=config)
-
-    for batch in loader:
-        print(f"{len(batch)} tiles")
-
     print(f"Dataset created with {len(loader)} tiles")
+    for batch in tqdm(loader, desc="Processing batch"):
+        pass
 
     # Test dataset iteration
 

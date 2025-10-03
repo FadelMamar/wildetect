@@ -402,7 +402,7 @@ class ImageDataset(Dataset):
             raise e
 
 
-class TiledRaster(Dataset):
+class RasterDataset(Dataset):
     """Dataset for predicting on raster windows.
 
     This dataset is useful for predicting on a large raster that is too large to fit into memory.
@@ -420,6 +420,7 @@ class TiledRaster(Dataset):
         self.patch_size = patch_size
         self.patch_overlap = patch_overlap
         self.prepare_items()
+        self._windows_list = None
 
         if path is None:
             raise ValueError("path is required for a memory raster dataset")
@@ -444,16 +445,23 @@ class TiledRaster(Dataset):
 
     def __getitem__(self, idx):
         """Get the item at the given index."""
-        return self.get_crop(idx)
+        return self.get_crop(idx), torch.tensor(self.get_crop_bounds(idx))
 
     def window_list(self):
-        return [x.getRect() for x in self.windows]
+        if self._windows_list is None:
+            self._windows_list = [x.getRect() for x in self.windows]
+        return self._windows_list
 
     def get_crop(self, idx):
         window = self.windows[idx]
         with rio.open(self.path) as src:
+            # Read only first 3 channels (RGB) if there are more channels
+            num_channels = min(src.count, 3)
             window_data = src.read(
-                window=Window(window.x, window.y, window.w, window.h)
+                indexes=list(
+                    range(1, num_channels + 1)
+                ),  # rasterio uses 1-based indexing
+                window=Window(window.x, window.y, window.w, window.h),
             )
 
         # Convert to torch tensor and rearrange dimensions
