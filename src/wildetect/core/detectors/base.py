@@ -27,6 +27,8 @@ class BaseDetectionPipeline(ABC):
         self.loader_config = loader_config
         self.results_stats = []
         self.save_path: Optional[str] = None
+        self.total_batches = 0
+        self.total_tiles = 0
 
         logger.info(f"Loading pipeline of type: {self.__class__.__name__}")
 
@@ -72,7 +74,9 @@ class BaseDetectionPipeline(ABC):
             detections = self.detection_system(batch)
 
         if progress_bar:
-            progress_bar.update(batch.shape[0])
+            progress_bar.update(1)
+            self.total_batches += 1
+            self.total_tiles += batch.shape[0]
 
         # Convert to Detection objects
         detections = self._convert_to_detection(detections)
@@ -131,11 +135,11 @@ class BaseDetectionPipeline(ABC):
             Dictionary with pipeline information
         """
         info: Dict[str, Any] = {
-            "model_type": self.config.model_type,
-            "model_path": self.config.model_path,
             "device": self.config.device,
             "has_detection_system": self.detection_system is not None,
             "has_data_loader": self.data_loader is not None,
+            "total_batches": self.total_batches,
+            "total_tiles": self.total_tiles,
         }
 
         if self.detection_system:
@@ -323,8 +327,6 @@ class DetectionPipeline(BaseDetectionPipeline):
 class SimpleDetectionPipeline(BaseDetectionPipeline):
     def __init__(self, config: PredictionConfig, loader_config: LoaderConfig):
         super().__init__(config, loader_config)
-        self.total_batches = 0
-        self.total_tiles = 0
 
     def _run_one_image(self, loader: DataLoader) -> List[List[Detection]]:
         """Run detection on one image."""
@@ -335,11 +337,11 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             for i in range(0, image_as_patches.shape[0], b):
                 batch = image_as_patches[i : i + b]
                 result.extend(self._process_batch(batch))
+                self.total_batches += 1
+                self.total_tiles += batch.shape[0]
             return result
 
         for img, idx in loader:
-            self.total_batches += 1
-            self.total_tiles += img.shape[0]
             yield process_one_image(img), idx
 
     def _postprocess_one_image(

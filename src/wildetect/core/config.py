@@ -22,6 +22,7 @@ class DetectionPipelineTypes(StrEnum):
 
     SINGLE = "single"
     MT = "mt"
+    MT_SIMPLE = "mt_simple"
     MP = "mp"
     ASYNC = "async"
     SIMPLE = "simple"
