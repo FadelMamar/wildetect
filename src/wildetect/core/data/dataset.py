@@ -473,5 +473,6 @@ class RasterDataset(Dataset):
     def get_image_basename(self, idx):
         return os.path.basename(self.path)
 
-    def get_crop_bounds(self, idx):
-        return self.window_list()[idx]
+    def get_crop_bounds(self, idx: int):
+        window = self.windows[idx]
+        return [window.x, window.y, window.w, window.h]

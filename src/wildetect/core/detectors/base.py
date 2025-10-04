@@ -114,19 +114,22 @@ class BaseDetectionPipeline(ABC):
             drone_images: List of drone images with detections
             save_path: Path to save results
         """
+        try:
+            for drone_image in drone_images:
+                stats = drone_image.get_statistics()
+                self.results_stats.append(stats)
 
-        for drone_image in drone_images:
-            stats = drone_image.get_statistics()
-            self.results_stats.append(stats)
+            save_path_obj = Path(save_path)
+            save_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-        save_path_obj = Path(save_path)
-        save_path_obj.parent.mkdir(parents=True, exist_ok=True)
+            with open(save_path_obj, "w", encoding="utf-8") as f:
+                json.dump(self.results_stats, f, indent=2)
 
-        with open(save_path_obj, "w", encoding="utf-8") as f:
-            json.dump(self.results_stats, f, indent=2)
-
-        logger.info(f"Results saved to: {save_path}")
-        self.save_path = save_path
+            logger.info(f"Results saved to: {save_path}")
+            self.save_path = save_path
+        except Exception as e:
+            logger.error(f"Failed to save results: {e}")
+            logger.debug(traceback.format_exc())
 
     def get_pipeline_info(self) -> Dict[str, Any]:
         """Get information about the pipeline.
@@ -236,7 +239,9 @@ class DetectionPipeline(BaseDetectionPipeline):
 
                 # Add tile to drone image with its offset
                 offset = (tile.x_offset or 0, tile.y_offset or 0)
-                drone_images[tile.parent_image].add_tile(tile, offset[0], offset[1])
+                drone_images[tile.parent_image].add_tile(
+                    tile, x_offset=offset[0], y_offset=offset[1]
+                )
 
         # Update detections
         for drone_image in drone_images.values():
@@ -376,9 +381,7 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
                 tile.set_predictions(detections[i], update_gps=False)
             else:
                 tile.set_predictions([], update_gps=False)
-            drone_image.add_tile(
-                tile, tile.x_offset or 0, tile.y_offset or 0, nms_threshold=0.5
-            )
+            drone_image.add_tile(tile, tile.x_offset, tile.y_offset)
         drone_image.update_detection_gps("predictions")
 
         return drone_image
@@ -417,6 +420,10 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             image_dir=image_dir,
             use_tile_dataset=False,
         )
+
+        if len(loader) == 0:
+            logger.warning("No batches to process")
+            return []
 
         # Process batches
         all_drone_images = []
@@ -459,193 +466,3 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             logger.error(
                 f"Failed to save results of drone image {drone_image.image_path}: {e}"
             )
-
-
-class RasterDetectionPipeline(BaseDetectionPipeline):
-    """Detection pipeline for processing large raster files.
-
-    This pipeline works with DataLoader when raster_path is provided.
-    It processes the raster in overlapping windows and returns detections
-    with their spatial coordinates in the raster coordinate system.
-    """
-
-    def __init__(self, config: PredictionConfig, loader_config: LoaderConfig):
-        super().__init__(config, loader_config)
-        self.raster_path: Optional[str] = None
-
-    def run_detection(
-        self,
-        raster_path: str,
-        save_path: Optional[str] = None,
-        override_loading_config: bool = True,
-    ) -> Dict[str, Any]:
-        """Run detection on a raster file.
-
-        Args:
-            raster_path: Path to the raster file
-            save_path: Optional path to save results
-            override_loading_config: Whether to override loader config
-
-        Returns:
-            Dictionary with raster path, detections with spatial bounds
-        """
-        logger.info("Starting raster detection pipeline")
-
-        # Update config from metadata if available
-        if override_loading_config:
-            self.override_loading_config()
-
-        self.raster_path = raster_path
-        self.save_path = save_path
-        if self.save_path:
-            Path(self.save_path).parent.mkdir(parents=True, exist_ok=True)
-
-        logger.info(f"Creating raster dataloader for: {raster_path}")
-
-        # Create data loader with raster_path
-        data_loader = DataLoader(
-            raster_path=raster_path,
-            config=self.loader_config,
-        )
-
-        total_batches = len(data_loader)
-        logger.info(f"Total batches to process: {total_batches}")
-
-        if total_batches == 0:
-            logger.warning("No batches to process")
-            return self._create_empty_result()
-
-        # Process all batches
-        all_detections = []
-        all_bounds = []
-
-        with tqdm(
-            total=total_batches, desc="Processing raster patches", unit="batch"
-        ) as pbar:
-            for batch_data, batch_bounds in data_loader:
-                try:
-                    # Move batch to device
-                    batch_tensor = batch_data.to(self.config.device, non_blocking=True)
-
-                    # Run detection
-                    detections = self._process_batch(batch_tensor)
-
-                    # Store detections with their spatial bounds
-                    for i, patch_detections in enumerate(detections):
-                        if patch_detections:  # Only store if there are detections
-                            bounds = batch_bounds[i].cpu().numpy()  # [x, y, w, h]
-                            all_detections.append(
-                                {
-                                    "detections": patch_detections,
-                                    "patch_bounds": {
-                                        "x": int(bounds[0]),
-                                        "y": int(bounds[1]),
-                                        "w": int(bounds[2]),
-                                        "h": int(bounds[3]),
-                                    },
-                                }
-                            )
-                            all_bounds.append(bounds)
-
-                except Exception as e:
-                    self.error_count += 1
-                    logger.error(f"Failed to process batch: {e}")
-                    logger.debug(traceback.format_exc())
-
-                    if self.error_count > 5:
-                        raise RuntimeError("Too many errors. Stopping.")
-
-                pbar.update(1)
-
-        logger.info(
-            f"Completed processing {total_batches} batches "
-            f"with {self.error_count} errors"
-        )
-        logger.info(f"Found {len(all_detections)} patches with detections")
-
-        # Create result dictionary
-        result = self._create_result(all_detections)
-
-        # Save results if path provided
-        if save_path:
-            self._save_raster_results(result, save_path)
-
-        return result
-
-    def _create_empty_result(self) -> Dict[str, Any]:
-        """Create an empty result dictionary."""
-        return {
-            "raster_path": self.raster_path,
-            "num_patches_with_detections": 0,
-            "total_detections": 0,
-            "detections": [],
-            "statistics": {
-                "total_batches": 0,
-                "total_tiles": 0,
-                "error_count": 0,
-            },
-        }
-
-    def _create_result(self, all_detections: List[Dict]) -> Dict[str, Any]:
-        """Create result dictionary from detections.
-
-        Args:
-            all_detections: List of detection dictionaries with patch bounds
-
-        Returns:
-            Dictionary containing raster results
-        """
-        total_detection_count = sum(
-            len(patch["detections"]) for patch in all_detections
-        )
-
-        # Convert detections to serializable format
-        serializable_detections = []
-        for patch in all_detections:
-            patch_dict = {
-                "patch_bounds": patch["patch_bounds"],
-                "detections": [det.to_dict() for det in patch["detections"]],
-            }
-            serializable_detections.append(patch_dict)
-
-        result = {
-            "raster_path": self.raster_path,
-            "num_patches_with_detections": len(all_detections),
-            "total_detections": total_detection_count,
-            "detections": serializable_detections,
-            "statistics": {
-                "total_batches": self.total_batches,
-                "total_tiles": self.total_tiles,
-                "error_count": self.error_count,
-            },
-            "config": {
-                "tile_size": self.loader_config.tile_size,
-                "overlap": self.loader_config.overlap,
-                "batch_size": self.loader_config.batch_size,
-            },
-        }
-
-        return result
-
-    def _save_raster_results(
-        self,
-        result: Dict[str, Any],
-        save_path: str,
-    ) -> None:
-        """Save raster detection results.
-
-        Args:
-            result: Result dictionary to save
-            save_path: Path to save results
-        """
-        try:
-            save_path_obj = Path(save_path)
-            save_path_obj.parent.mkdir(parents=True, exist_ok=True)
-
-            with open(save_path_obj, "w", encoding="utf-8") as f:
-                json.dump(result, f, indent=2)
-
-            logger.info(f"Raster results saved to: {save_path}")
-        except Exception as e:
-            logger.error(f"Failed to save raster results: {e}")
-            logger.debug(traceback.format_exc())

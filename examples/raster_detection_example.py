@@ -23,7 +23,7 @@ def main():
         tile_size=640,  # Size of each raster patch
         overlap=0.2,    # 20% overlap between patches to handle edge cases
         batch_size=4,   # Process 4 patches at a time
-        num_workers=2,  # Number of data loading workers
+        num_workers=0,  # Number of data loading workers
     )
 
     # Configure the prediction
@@ -55,22 +55,7 @@ def main():
     )
 
     
-    print("\nResults:")
-    print(f"  Total patches with detections: {results['num_patches_with_detections']}")
-    print(f"  Total detections: {results['total_detections']}")
-    print(f"  Total batches processed: {results['statistics']['total_batches']}")
-    print(f"  Results saved to: {save_path}")
-
-    # Access individual patch results
-    for i, patch_result in enumerate(results['detections'][:5]):  # Show first 5
-        bounds = patch_result['patch_bounds']
-        num_dets = len(patch_result['detections'])
-        print(f"\nPatch {i+1}:")
-        print(
-            f"  Bounds: x={bounds['x']}, y={bounds['y']}, "
-            f"w={bounds['w']}, h={bounds['h']}"
-        )
-        print(f"  Detections: {num_dets}")
+    
 
 
 if __name__ == "__main__":
