@@ -7,12 +7,19 @@ It extends the existing dataclasses from config.py to avoid code duplication.
 """
 
 import logging
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
-from .config import FlightSpecs, LoaderConfig, PredictionConfig
+from .config import (
+    DetectionPipelineTypes,
+    DetectionTypes,
+    FlightSpecs,
+    LoaderConfig,
+    PredictionConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +69,8 @@ class ModelConfigModel(BaseModel):
 class LabelStudioConfigModel(BaseModel):
     """Label Studio configuration model."""
 
-    url: str = Field(default="http://localhost:8080", description="Label Studio URL")
-    api_key: str = Field(default="1234567890", description="Label Studio API key")
+    url: Optional[str] = Field(default=None, description="Label Studio URL")
+    api_key: Optional[str] = Field(default=None, description="Label Studio API key")
     download_resources: bool = Field(default=True, description="Download resources")
     project_id: Optional[int] = Field(
         default=None, description="Label Studio project ID"
@@ -98,15 +105,18 @@ class ProcessingConfigModel(BaseModel):
 
     tile_size: int = Field(default=800, description="Tile size for processing")  # type: ignore
     overlap_ratio: float = Field(default=0.2, description="Tile overlap ratio")  # type: ignore
-    pipeline_type: Literal["single", "multi", "async"] = Field(
-        default="single", description="Pipeline type"
+    pipeline_type: DetectionPipelineTypes = Field(
+        default=DetectionPipelineTypes.SINGLE, description="Pipeline type"
     )  # type: ignore
     queue_size: int = Field(
         default=64, gt=0, description="Queue size for multi-threaded pipeline"
     )
     batch_size: int = Field(default=32, gt=0, description="Batch size for inference")
-    num_workers: int = Field(
-        default=0, ge=0, description="Number of workers for inference"
+    num_data_workers: int = Field(
+        default=2, ge=0, description="Number of workers for data loading"
+    )
+    num_inference_workers: int = Field(
+        default=2, ge=0, description="Number of workers for inference"
     )
     max_concurrent: int = Field(
         default=4, ge=1, description="Maximum number of concurrent inference tasks"
@@ -235,6 +245,7 @@ class DetectConfigModel(BaseModel):
             pipeline_type=self.processing.pipeline_type,
             queue_size=self.processing.queue_size,
             max_concurrent=self.processing.max_concurrent,
+            num_workers=self.processing.num_inference_workers,
         )
 
     def to_loader_config(self) -> LoaderConfig:
@@ -242,7 +253,7 @@ class DetectConfigModel(BaseModel):
         return LoaderConfig(
             tile_size=self.processing.tile_size,
             batch_size=self.processing.batch_size,
-            num_workers=self.processing.num_workers,
+            num_workers=self.processing.num_data_workers,
             overlap=self.processing.overlap_ratio,
             flight_specs=self.flight_specs.to_flight_specs(),
         )
@@ -270,8 +281,8 @@ class VisualizeConfigModel(BaseModel):
     labelstudio: LabelStudioConfigModel = Field(default_factory=LabelStudioConfigModel)
     image_dir: Optional[str] = Field(default=None, description="Image directory")
     csv_output_path: Optional[str] = Field(default=None, description="CSV output path")
-    detection_type: Literal["annotations", "predictions"] = Field(
-        default="annotations", description="Detection type"
+    detection_type: DetectionTypes = Field(
+        default=DetectionTypes.ANNOTATIONS, description="Detection type"
     )
 
 
@@ -306,6 +317,29 @@ class HyperparameterSearchConfigModel(BaseModel):
     )
 
 
+class BenchmarkFormatTypes(StrEnum):
+    """Types of benchmark format."""
+
+    JSON = "json"
+    CSV = "csv"
+    BOTH = "both"
+
+
+class BenchmarkDirectionTypes(StrEnum):
+    """Types of benchmark direction."""
+
+    MINIMIZE = "minimize"
+    MAXIMIZE = "maximize"
+
+
+class BenchmarkSamplerTypes(StrEnum):
+    """Types of benchmark sampler."""
+
+    TPE = "TPE"
+    RANDOM = "Random"
+    GRID = "Grid"
+
+
 class BenchmarkOutputConfigModel(BaseModel):
     """Output configuration for benchmark results."""
 
@@ -314,8 +348,8 @@ class BenchmarkOutputConfigModel(BaseModel):
     )
     save_plots: bool = Field(default=True, description="Save performance plots")
     save_results: bool = Field(default=True, description="Save detailed results")
-    format: Literal["json", "csv", "both"] = Field(
-        default="json", description="Output format"
+    format: BenchmarkFormatTypes = Field(
+        default=BenchmarkFormatTypes.JSON, description="Output format"
     )
     include_optimization_history: bool = Field(
         default=True, description="Include optimization history"
@@ -334,12 +368,12 @@ class BenchmarkExecutionConfigModel(BaseModel):
     timeout: int = Field(
         default=3600, gt=0, description="Maximum time for optimization in seconds"
     )
-    direction: Literal["minimize", "maximize"] = Field(
-        default="minimize",
+    direction: BenchmarkDirectionTypes = Field(
+        default=BenchmarkDirectionTypes.MINIMIZE,
         description="Optimization direction (minimize latency, maximize throughput)",
     )
-    sampler: Literal["TPE", "Random", "Grid"] = Field(
-        default="TPE", description="Optuna sampler type"
+    sampler: BenchmarkSamplerTypes = Field(
+        default=BenchmarkSamplerTypes.TPE, description="Optuna sampler type"
     )
     seed: int = Field(default=42, description="Random seed for reproducibility")
 

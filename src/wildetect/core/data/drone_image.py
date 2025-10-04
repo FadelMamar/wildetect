@@ -78,7 +78,10 @@ class DroneImage(Tile):
         """Create initial tile from the drone image itself."""
         # Create a tile representing the full image
         full_tile = Tile.from_image_path(
-            image_path=self.image_path, flight_specs=self.flight_specs
+            image_path=self.image_path,
+            flight_specs=self.flight_specs,
+            width=self.width,
+            height=self.height,
         )
 
         # Add it as the first tile with no offset
@@ -114,7 +117,9 @@ class DroneImage(Tile):
         predictions = deepcopy(tile.predictions)
         for det in predictions:
             if det.parent_image != self.image_path:
-                det.set_distance_to_centroid(self.image_path)
+                det.set_distance_to_centroid(
+                    self.image_path, image_width=self.width, image_height=self.height
+                )
 
         # add predictions to drone image
         self.predictions.extend(predictions)
@@ -277,7 +282,8 @@ class DroneImage(Tile):
             "num_tiles": len(self.tiles),
             "total_detections": len(all_detections),
             "class_counts": class_counts,
-            "has_gps": self.latitude is not None and self.longitude is not None,
+            "all_detections": [det.to_dict() for det in all_detections],
+            "has_gps": (self.latitude is not None) and (self.longitude is not None),
             "has_geographic_footprint": self.geographic_footprint is not None,
             "gps_loc": self.tile_gps_loc,
             "polygon_points": self.geo_polygon_points,

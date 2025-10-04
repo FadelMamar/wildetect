@@ -5,8 +5,9 @@ Configuration utilities for WildDetect.
 import logging
 import os
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import torch
 import yaml
@@ -14,6 +15,24 @@ import yaml
 logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parents[3]
+
+
+class DetectionPipelineTypes(StrEnum):
+    """Types of detection pipelines."""
+
+    SINGLE = "single"
+    MT = "mt"
+    MT_SIMPLE = "mt_simple"
+    MP = "mp"
+    ASYNC = "async"
+    SIMPLE = "simple"
+
+
+class DetectionTypes(StrEnum):
+    """Types of detection."""
+
+    ANNOTATIONS = "annotations"
+    PREDICTIONS = "predictions"
 
 
 @dataclass
@@ -46,8 +65,9 @@ class PredictionConfig:
     inference_service_url: Optional[str] = None
 
     # Pipeline configuration
-    pipeline_type: Literal["single", "multi", "async"] = "single"
+    pipeline_type: DetectionPipelineTypes = DetectionPipelineTypes.SINGLE
     queue_size: int = 24  # Queue size for multi-threaded pipeline
+    num_workers: int = 2  # Number of workers for multi-processing pipeline
     max_concurrent: int = 10  # Maximum concurrent requests for async pipeline
 
     def __post_init__(self):

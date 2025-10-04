@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 import cv2
 import geopy
 import numpy as np
-import pandas as pd
 import torch
 from PIL import Image, ImageOps
 from torchvision.ops import nms

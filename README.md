@@ -17,11 +17,15 @@ WildDetect is a powerful wildlife detection and **census system** for aerial ima
 ## Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/wildetect.git
+git clone https://github.com/fadelmamar/wildetect.git
 cd wildetect
 
 # Install dependencies
 uv sync
+
+uv pip install -e .
+uv pip install git+https://github.com/FadelMamar/wildtrain
+uv pip install git+https://github.com/FadelMamar/wildata
 ```
 
 ## Quick Start
@@ -46,74 +50,6 @@ For all options, run:
 ```bash
 wildetect --help
 ```
-
-## 🚀 API Integration
-
-WildDetect now includes a FastAPI backend that exposes all CLI functionalities through REST API endpoints.
-
-### Starting the API Server
-
-```bash
-# Start the API server
-wildetect api
-
-# Or with custom host/port
-wildetect api --host 0.0.0.0 --port 8000
-
-# For development with auto-reload
-wildetect api --reload
-```
-
-### API Endpoints
-
-The API provides the following endpoints:
-
-- **GET /** - API information and available endpoints
-- **GET /info** - System information and dependency status
-- **POST /upload** - Upload image files for processing
-- **POST /detect** - Start wildlife detection job
-- **POST /census** - Start census campaign
-- **POST /visualize** - Create visualizations from results
-- **POST /analyze** - Analyze detection results
-- **GET /jobs/{job_id}** - Monitor background job status
-- **GET /fiftyone/launch** - Launch FiftyOne app
-- **GET /fiftyone/datasets/{dataset_name}** - Get dataset information
-- **POST /fiftyone/export/{dataset_name}** - Export dataset
-
-### API Documentation
-
-Once the server is running, you can access:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-### Example Usage
-
-```python
-import requests
-
-# Check API status
-response = requests.get("http://localhost:8000/")
-print(response.json())
-
-# Upload images
-files = [('files', open('image.jpg', 'rb'))]
-response = requests.post("http://localhost:8000/upload", files=files)
-
-# Start detection
-detection_request = {
-    "confidence": 0.3,
-    "device": "auto",
-    "batch_size": 16
-}
-response = requests.post("http://localhost:8000/detect", json=detection_request)
-job_id = response.json()["job_id"]
-
-# Monitor job
-response = requests.get(f"http://localhost:8000/jobs/{job_id}")
-print(response.json())
-```
-
-See `examples/api_example.py` for a complete example.
 
 ## 🐾 WildDetect Command-Line Interface (CLI)
 

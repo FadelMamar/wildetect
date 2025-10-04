@@ -1,6 +1,7 @@
 """
 Core CLI commands for the wildetect application.
 """
+
 import asyncio
 import json
 import logging
@@ -16,17 +17,12 @@ from rich.console import Console
 from tqdm import tqdm
 
 from ...core.campaign_manager import CampaignConfig, CampaignManager
-from ...core.config import ROOT
-from ...core.config_loader import load_config_from_yaml, load_config_with_pydantic
+from ...core.config import ROOT, DetectionPipelineTypes
+from ...core.config_loader import load_config_with_pydantic
 from ...core.data.utils import get_images_paths
-from ...core.detection_pipeline import (
-    AsyncDetectionPipeline,
-    DetectionPipeline,
-    MultiThreadedDetectionPipeline,
-)
+from ...core.detectors import get_detection_pipeline
 from ...core.visualization import FiftyOneManager, LabelStudioManager
-from ...utils.profiler import profile_command
-from ...utils.utils import ROOT
+from ...utils import profile_command
 from ..utils import (
     analyze_detection_results,
     display_analysis_results,
@@ -111,16 +107,9 @@ def detect(
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize detection pipeline
-        if pred_config.pipeline_type == "multi":
-            pipeline = MultiThreadedDetectionPipeline(
-                pred_config,
-                loader_config,
-            )
-        elif pred_config.pipeline_type == "async":
-            # NEW: Support for async pipeline
-            pipeline = AsyncDetectionPipeline(pred_config, loader_config)
-        else:
-            pipeline = DetectionPipeline(pred_config, loader_config)
+        pipeline = get_detection_pipeline(
+            pred_config.pipeline_type, config=pred_config, loader_config=loader_config
+        )
 
         save_path = None
         if output_dir:
@@ -137,7 +126,7 @@ def detect(
             gpu_profile=loaded_config.profiling.gpu_profile,
         ) as profiler:
             # Run pipeline with profiling
-            if pred_config.pipeline_type == "async":
+            if pred_config.pipeline_type == DetectionPipelineTypes.ASYNC:
 
                 async def run_async_detection():
                     return await pipeline.run_detection_async(
@@ -164,11 +153,10 @@ def detect(
                     )
 
         if dataset_name:
-            fo_manager = FiftyOneManager(dataset_name, persistent=True)
-            fo_manager.add_drone_images(drone_images)
-            fo_manager.save_dataset()
-
             try:
+                fo_manager = FiftyOneManager(dataset_name, persistent=True)
+                fo_manager.add_drone_images(drone_images)
+                fo_manager.save_dataset()
                 annot_key = f"{dataset_name}_review"
                 fo_manager.send_predictions_to_labelstudio(
                     annot_key, dotenv_path=str(Path(ROOT) / ".env")
@@ -232,34 +220,41 @@ def census(
     config: Optional[str] = typer.Option(
         None, "--config", "-c", help="Path to YAML configuration file"
     ),
-    # Profiling overrides
-    profile: bool = typer.Option(False, "--profile", help="Enable detailed profiling"),
-    memory_profile: bool = typer.Option(
-        False, "--memory-profile", help="Enable memory profiling"
-    ),
-    line_profile: bool = typer.Option(
-        False, "--line-profile", help="Enable line-by-line profiling"
-    ),
-    gpu_profile: bool = typer.Option(
-        False, "--gpu-profile", help="Enable GPU profiling (CUDA only)"
-    ),
 ):
     """Run wildlife census campaign with enhanced analysis."""
 
     try:
         # Load configuration from YAML
         loaded_config = load_config_with_pydantic("census", config)
-        campaign_id = loaded_config.campaign.id
-        images = loaded_config.detection.images
 
-        if profile:
-            loaded_config.detection.profiling.enable = True
-        if memory_profile:
-            loaded_config.detection.profiling.memory_profile = True
-        if line_profile:
-            loaded_config.detection.profiling.line_profile = True
-        if gpu_profile:
-            loaded_config.detection.profiling.gpu_profile = True
+        if loaded_config.detection.labelstudio.project_id is not None:
+            ls_manager = LabelStudioManager(
+                url=loaded_config.detection.labelstudio.url,
+                api_key=loaded_config.detection.labelstudio.api_key,
+                download_resources=loaded_config.detection.labelstudio.download_resources,
+            )
+            image_paths_task_ids = ls_manager.get_tasks_paths(
+                loaded_config.labelstudio.project_id
+            )
+            image_paths = list(image_paths_task_ids.keys())
+            image_dir = None
+            console.print(f"[green]Processing {len(image_paths)} images[/green]")
+        else:
+            images = loaded_config.detection.images
+            # Determine if input is directory or file paths
+            assert isinstance(
+                images, list
+            ), f"images must be a list. Received: {images}"
+            if len(images) == 1 and Path(images[0]).is_dir():
+                image_dir = images[0]
+                image_paths = get_images_paths(image_dir)
+                console.print(f"[green]Processing directory: {image_dir}[/green]")
+            else:
+                image_dir = None
+                image_paths = images
+                console.print(f"[green]Processing {len(images)} images[/green]")
+
+        campaign_id = loaded_config.campaign.id
 
         # Convert to existing dataclasses
         pred_config = loaded_config.detection.to_prediction_config()
@@ -282,7 +277,6 @@ def census(
 
         # Set output directory
         output_dir = loaded_config.export.output_directory
-        export_to_fiftyone = loaded_config.export.to_fiftyone
 
         console.print(
             f"[bold green]Starting Wildlife Census Campaign: {campaign_id}[/bold green]"
@@ -307,17 +301,6 @@ def census(
         else:
             console.print(f"[bold green]CUDA is available...[/bold green]")
 
-        # Determine if input is directory or file paths
-        assert isinstance(images, list), f"images must be a list. Received: {images}"
-        if len(images) == 1 and Path(images[0]).is_dir():
-            image_dir = images[0]
-            image_paths = get_images_paths(image_dir)
-            console.print(f"[green]Processing directory: {image_dir}[/green]")
-        else:
-            image_dir = None
-            image_paths = images
-            console.print(f"[green]Processing {len(images)} images[/green]")
-
         # Create campaign configuration
         campaign_config = CampaignConfig(
             campaign_id=campaign_id,
@@ -333,42 +316,31 @@ def census(
         # Initialize campaign manager
         campaign_manager = CampaignManager(campaign_config)
 
-        # Determine profiling settings from config or command line
-        if config and hasattr(loaded_config, "profiling"):
-            profiling_enabled = loaded_config.profiling.enable
-            memory_profiling_enabled = loaded_config.profiling.memory_profile
-            line_profiling_enabled = loaded_config.profiling.line_profile
-            gpu_profiling_enabled = loaded_config.profiling.gpu_profile
-        else:
-            # Use command-line parameters directly
-            profiling_enabled = profile
-            memory_profiling_enabled = memory_profile
-            line_profiling_enabled = line_profile
-            gpu_profiling_enabled = gpu_profile
-
         profiling_dir = Path(log_file).parent / f"{Path(log_file).stem}_profiling"
         profiling_dir.mkdir(parents=True, exist_ok=True)
 
+        profiling_config = loaded_config.detection.profiling
+
         with profile_command(
             output_dir=profiling_dir,
-            profile=profiling_enabled,
-            memory_profile=memory_profiling_enabled,
-            line_profile=line_profiling_enabled,
-            gpu_profile=gpu_profiling_enabled,
+            profile=profiling_config.enable,
+            memory_profile=profiling_config.memory_profile,
+            line_profile=profiling_config.line_profile,
+            gpu_profile=profiling_config.gpu_profile,
         ) as profiler:
             # Run campaign with profiling
-            if line_profiling_enabled:
+            if profiling_config.line_profile:
                 results = profiler.profile_function(
                     campaign_manager.run_complete_campaign,
                     image_paths=image_paths,
                     output_dir=output_dir,
-                    export_to_fiftyone=export_to_fiftyone,
+                    export_to_fiftyone=loaded_config.export.to_fiftyone,
                 )
             else:
                 results = campaign_manager.run_complete_campaign(
                     image_paths=image_paths,
                     output_dir=output_dir,
-                    export_to_fiftyone=export_to_fiftyone,
+                    export_to_fiftyone=loaded_config.export.to_fiftyone,
                 )
 
         # Display results

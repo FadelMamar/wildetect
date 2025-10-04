@@ -327,9 +327,12 @@ class CensusDataManager:
             json.dump(report, f, indent=2, default=str)
 
         gps_coords = [
-            detection.gps_as_decimals for detection in self.get_all_detections()
+            list(detection.gps_as_decimals) + [detection.parent_image]
+            for detection in self.get_all_detections()
         ]
-        df = pd.DataFrame(gps_coords, columns=["latitude", "longitude", "altitude"])
+        df = pd.DataFrame(
+            gps_coords, columns=["latitude", "longitude", "altitude", "image_path"]
+        )
         df.to_csv(Path(output_path).with_suffix(".csv"), index=False)
 
         logger.info(f"Detection report exported to: {output_path}")

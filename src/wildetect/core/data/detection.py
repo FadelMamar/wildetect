@@ -62,10 +62,18 @@ class Detection:
 
         self.set_distance_to_centroid()
 
-    def set_distance_to_centroid(self, parent_image: Optional[str] = None) -> None:
+    def set_distance_to_centroid(
+        self,
+        parent_image: Optional[str] = None,
+        image_width: Optional[int] = None,
+        image_height: Optional[int] = None,
+    ) -> None:
+        """Set the distance to the centroid of the parent image. Default is 99999 if image_width or image_height is not provided."""
         if parent_image:
             self.parent_image = parent_image
-        self.distance_to_centroid = self._get_distance_to_centroid()
+        self.distance_to_centroid = self._get_distance_to_centroid(
+            image_width, image_height
+        )
 
     @property
     def area(self) -> int:
@@ -164,16 +172,14 @@ class Detection:
         return self.bbox
 
     def _get_distance_to_centroid(
-        self,
+        self, image_width: Optional[int] = None, image_height: Optional[int] = None
     ) -> float:
         """Compute the distance from the detection to the centroid of the parent image."""
-        if self.parent_image is None:
+        if image_width is None or image_height is None:
             return 99999
-
-        image = read_image(self.parent_image)
-        width, height = image.size
         distance_to_centroid = math.sqrt(
-            (self.x_center - width / 2) ** 2 + (self.y_center - height / 2) ** 2
+            (self.x_center - image_width / 2) ** 2
+            + (self.y_center - image_height / 2) ** 2
         )
 
         return distance_to_centroid

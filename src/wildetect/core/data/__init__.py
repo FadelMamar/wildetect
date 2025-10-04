@@ -2,7 +2,6 @@
 Data loading and processing utilities.
 """
 
-from .dataset import CensusData
 from .detection import Detection
 from .drone_image import DroneImage
 from .loader import (
@@ -23,5 +22,4 @@ __all__ = [
     "Detection",
     "DroneImage",
     "TileUtils",
-    "CensusData",
 ]

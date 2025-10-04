@@ -15,14 +15,12 @@ from typing import Any, Dict, List, Optional, Union
 
 from PIL import Image
 
-from .config import ROOT, LoaderConfig, PredictionConfig
+from .config import ROOT, DetectionPipelineTypes, LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
 from .data.detection import Detection
 from .data.drone_image import DroneImage
-from .detection_pipeline import (
-    AsyncDetectionPipeline,
-    DetectionPipeline,
-    MultiThreadedDetectionPipeline,
+from .detectors import (
+    get_detection_pipeline,
 )
 from .flight.flight_analyzer import FlightEfficiency, FlightPath
 from .visualization.fiftyone_manager import FiftyOneManager
@@ -72,37 +70,18 @@ class CampaignManager:
         )
 
         # Choose pipeline type based on configuration
-        if config.prediction_config.pipeline_type == "multi":
-            self.detection_pipeline: Union[
-                DetectionPipeline,
-                MultiThreadedDetectionPipeline,
-                AsyncDetectionPipeline,
-            ] = MultiThreadedDetectionPipeline(
-                config=config.prediction_config,
-                loader_config=config.loader_config,
-            )
-        elif config.prediction_config.pipeline_type == "single":
-            self.detection_pipeline: Union[
-                DetectionPipeline,
-                MultiThreadedDetectionPipeline,
-                AsyncDetectionPipeline,
-            ] = DetectionPipeline(
-                config=config.prediction_config, loader_config=config.loader_config
-            )
-        elif config.prediction_config.pipeline_type == "async":
-            # NEW: Support for async pipeline
-            self.detection_pipeline: Union[
-                DetectionPipeline,
-                MultiThreadedDetectionPipeline,
-                AsyncDetectionPipeline,
-            ] = AsyncDetectionPipeline(
-                config=config.prediction_config,
-                loader_config=config.loader_config,
+        if isinstance(config.prediction_config.pipeline_type, str):
+            pipeline_type = DetectionPipelineTypes(
+                config.prediction_config.pipeline_type
             )
         else:
-            raise ValueError(
-                f"Invalid pipeline type: {config.prediction_config.pipeline_type}"
-            )
+            pipeline_type = config.prediction_config.pipeline_type
+
+        self.detection_pipeline = get_detection_pipeline(
+            pipeline_type,
+            config=config.prediction_config,
+            loader_config=config.loader_config,
+        )
 
         # Optional components
         self.fiftyone_manager: Optional[FiftyOneManager] = None

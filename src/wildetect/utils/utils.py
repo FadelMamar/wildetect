@@ -6,8 +6,6 @@ from typing import List, Optional, Union
 import torch
 from torchmetrics.functional.detection import complete_intersection_over_union
 
-from wildetect.core.config import ROOT
-
 logger = logging.getLogger(__name__)
 
 try:
@@ -30,7 +28,6 @@ def compute_iou(bbox1: List[float], bbox2: List[float]) -> float:
     ).item()
 
     return iou
-
 
 
 def get_experiment_id(name: str):
