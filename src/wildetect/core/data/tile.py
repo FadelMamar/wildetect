@@ -16,7 +16,7 @@ from ..gps.geographic_bounds import GeographicBounds
 from ..gps.gps_service import GPSDetectionService, create_geographic_footprint
 from ..gps.gps_utils import GPSUtils, get_gsd
 from .detection import Detection
-from .utils import read_image
+from .utils import get_image_dimensions, read_image
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +76,7 @@ class Tile:
         # Only open image if dimensions are not provided
         if self.width is None or self.height is None:
             if self.image_data is None:
-                image = read_image(self.image_path)
-                self.width, self.height = image.size
+                self.width, self.height = get_image_dimensions(self.image_path)
             else:
                 self.width, self.height = self.image_data.size
 

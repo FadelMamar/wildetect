@@ -16,7 +16,7 @@ from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor
 
 from ..config import LoaderConfig
-from .utils import TileUtils, read_image
+from .utils import TileUtils, read_image, get_image_dimensions
 
 logger = logging.getLogger(__name__)
 
@@ -117,8 +117,7 @@ class TileDataset(Dataset):
         try:
             # Use PIL with minimal processing - this is already very fast
             # as it only reads the header, not the pixel data
-            image = read_image(image_path)
-            width, height = image.size
+            width, height = get_image_dimensions(image_path)
             self.dimension_cache[image_path] = (width, height)
             return (width, height)
         except Exception as e:
@@ -156,6 +155,8 @@ class TileDataset(Dataset):
 
     def _create_tiles_optimized(self) -> List[Dict]:
         """Create tiles using dimension-based optimization."""
+
+        logger.info(f"Creating tiles for {len(self.image_paths)} images...")
 
         # Ultra-fast dimension collection
         for i, image_path in enumerate(self.image_paths):
@@ -383,8 +384,7 @@ class ImageDataset(Dataset):
         if isinstance(idx, int):
             image_path = self.image_paths[idx]
         try:
-            image = read_image(image_path)
-            width, height = image.size
+            width, height = get_image_dimensions(image_path)
             return self.tiler.get_offset_info(
                 width=width,
                 height=height,

@@ -8,10 +8,10 @@ from functools import lru_cache
 from itertools import chain
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-
+from functools import lru_cache
 import torch
 from PIL import Image, ImageOps
-from torchvision.transforms import Pad
+
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,13 @@ def read_image(image_path: str) -> Image.Image:
     image = Image.open(image_path)
     ImageOps.exif_transpose(image, in_place=True)
     return image
+
+@lru_cache(maxsize=512)
+def get_image_dimensions(image_path: str) -> Tuple[int, int]:
+    """Get the dimensions of an image."""
+    image = read_image(image_path)
+    width, height = image.size
+    return width, height
 
 
 def get_images_paths(

@@ -232,7 +232,14 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             )
             self.detection_thread.start()
 
-            # Wait for both threads to complete
+            # Wait for both threads to complete their work
+            # The threads will set stop_event when they're done or encounter errors
+            while (
+                self.data_thread.is_alive() or self.detection_thread.is_alive()
+            ) and not self.stop_event.is_set():
+                time.sleep(0.5)
+            
+            # Now stop and join the threads
             self.stop()
 
         except Exception as e:

@@ -15,12 +15,13 @@ from tqdm import tqdm
 
 from ..gps.geographic_bounds import GeographicBounds
 from ..gps.gps_utils import GPSUtils
-from .utils import read_image
+from .utils import get_image_dimensions
 
 if TYPE_CHECKING:
     from .tile import Tile
 
 logger = logging.getLogger(__name__)
+
 
 
 @dataclass
@@ -353,8 +354,7 @@ class Detection:
                 assert (
                     int(y_min + h) <= image_height
                 ), "Error. Check out code or Labeling format."
-                image = read_image(image_path)
-                width, height = image.size
+                width, height = get_image_dimensions(image_path)
                 assert (
                     image_width == width
                 ), f"Error. Check out code or Labeling format. ls_width: {image_width} != image_width: {width}"
