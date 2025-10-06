@@ -4,8 +4,8 @@
 # Model Configuration
 model:
   mlflow_model_name: "detector"
-  mlflow_model_alias: "demo"
-  device: "auto"  # auto, cpu, cuda
+  mlflow_model_alias: "by-paul"
+  device: "cuda"  # auto, cpu, cuda
 
 # Include only one directory path or a list of image paths
 images: 
@@ -23,7 +23,7 @@ labelstudio:
 
 # Processing Configuration
 processing:
-  batch_size: 8
+  batch_size: 32
   tile_size: 800
   overlap_ratio: 0.2
   pipeline_type: "mp"  # single, mt, mp, async

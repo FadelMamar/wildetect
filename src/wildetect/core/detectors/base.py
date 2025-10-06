@@ -115,7 +115,8 @@ class BaseDetectionPipeline(ABC):
             save_path: Path to save results
         """
         try:
-            for drone_image in drone_images:
+            logger.info(f"Saving results to: {save_path}")
+            for drone_image in tqdm(drone_images, desc="Getting statistics for saving of results"):
                 stats = drone_image.get_statistics()
                 self.results_stats.append(stats)
 

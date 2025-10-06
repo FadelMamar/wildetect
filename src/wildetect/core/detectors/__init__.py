@@ -3,7 +3,7 @@ Detector implementations for different model types.
 """
 from ..config import DetectionPipelineTypes
 from .asynced import AsyncDetectionPipeline
-from .base import DetectionPipeline, SimpleDetectionPipeline
+from .base import BaseDetectionPipeline, DetectionPipeline, SimpleDetectionPipeline
 from .multiprocessed import MultiProcessingDetectionPipeline
 from .multithreaded import (
     MultiThreadedDetectionPipeline,
@@ -24,7 +24,7 @@ __all__ = [
 
 def get_detection_pipeline(
     pipeline_type: DetectionPipelineTypes, **kwargs
-) -> DetectionPipeline:
+) -> BaseDetectionPipeline:
     """Get a detection pipeline based on the pipeline type."""
     if pipeline_type == DetectionPipelineTypes.MT:
         return MultiThreadedDetectionPipeline(**kwargs)
@@ -36,6 +36,8 @@ def get_detection_pipeline(
         return AsyncDetectionPipeline(**kwargs)
     elif pipeline_type == DetectionPipelineTypes.SIMPLE:
         return SimpleDetectionPipeline(**kwargs)
+    elif pipeline_type == DetectionPipelineTypes.RASTER:
+        return RasterDetectionPipeline(**kwargs)
     elif pipeline_type == DetectionPipelineTypes.DEFAULT:
         return DetectionPipeline(**kwargs)
     else:

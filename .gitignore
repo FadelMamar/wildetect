@@ -32,12 +32,12 @@ MANIFEST
 *.torchscript
 *.ckpt
 
-models/
+/models/
 results/
 mlruns/
 census_campaign_results/
 runs/
-models-registry/
+/models-registry/
 /logs/
 
 uv.lock
