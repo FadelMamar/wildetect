@@ -80,9 +80,6 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
                         # Queue is full, wait a bit
                         time.sleep(0.5)
 
-                if self.stop_event.is_set():
-                    break
-
         except KeyboardInterrupt:
             logger.info("Data loading process stopped by keyboard interrupt")
             self.stop_event.set()
@@ -159,7 +156,6 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
 
         except Exception as e:
             logger.error(f"{e}")
-            logger.debug(traceback.format_exc())
             logger.info("Stopping detection worker")
             self.stop_event.set()
 
@@ -233,18 +229,16 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             self.detection_thread.start()
 
             # Wait for both threads to complete
-            self.stop()
+            self.data_thread.join()
+            self.detection_thread.join()
 
         except Exception as e:
             logger.error(f"Error in multi-threaded pipeline: {e}")
-            self.stop_event.set()
-            raise
+
         finally:
             # Clean up progress bars
             data_progress.close()
             detection_progress.close()
-
-            # Ensure threads are stopped
             self.stop_event.set()
 
         logger.info(
@@ -271,17 +265,6 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         """
         info = super().get_pipeline_info()
         return info
-
-    def stop(self) -> None:
-        """Stop the multi-threaded pipeline."""
-        logger.info("Stopping multi-threaded pipeline")
-        self.stop_event.set()
-
-        if self.data_thread and self.data_thread.is_alive():
-            self.data_thread.join(timeout=5.0)
-
-        if self.detection_thread and self.detection_thread.is_alive():
-            self.detection_thread.join(timeout=5.0)
 
 
 class SimpleMultiThreadedDetectionPipeline(SimpleDetectionPipeline):

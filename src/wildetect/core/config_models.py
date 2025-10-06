@@ -106,7 +106,7 @@ class ProcessingConfigModel(BaseModel):
     tile_size: int = Field(default=800, description="Tile size for processing")  # type: ignore
     overlap_ratio: float = Field(default=0.2, description="Tile overlap ratio")  # type: ignore
     pipeline_type: DetectionPipelineTypes = Field(
-        default=DetectionPipelineTypes.SINGLE, description="Pipeline type"
+        default=DetectionPipelineTypes.DEFAULT, description="Pipeline type"
     )  # type: ignore
     queue_size: int = Field(
         default=64, gt=0, description="Queue size for multi-threaded pipeline"

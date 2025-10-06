@@ -36,5 +36,7 @@ def get_detection_pipeline(
         return AsyncDetectionPipeline(**kwargs)
     elif pipeline_type == DetectionPipelineTypes.SIMPLE:
         return SimpleDetectionPipeline(**kwargs)
-    else:
+    elif pipeline_type == DetectionPipelineTypes.DEFAULT:
         return DetectionPipeline(**kwargs)
+    else:
+        raise ValueError(f"Unknown pipeline type: {pipeline_type}")
