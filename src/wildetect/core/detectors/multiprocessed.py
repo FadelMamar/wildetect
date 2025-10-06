@@ -13,7 +13,7 @@ from wildtrain.models.detector import Detector
 from wildtrain.utils.mlflow import load_registered_model
 
 from ..config import LoaderConfig, PredictionConfig
-from ..data import DroneImage
+from ..data import Detection, DroneImage
 from ..data.loader import DataLoader
 from .base import DetectionPipeline
 
@@ -34,42 +34,45 @@ def _data_loading_worker(
         stop_event: Event to signal stopping
         total_batches: Total number of batches to process
     """
-    logger.info("Starting data loading process")
-
     try:
-        for batch_idx, batch in enumerate(data_loader):
+        for batch_idx, batch in tqdm(enumerate(data_loader), desc="Loading data"):
             if stop_event.is_set():
                 logger.info("Data loading process stopped by stop event")
                 break
 
             # Add batch ID for tracking
-            batch["batch_id"] = batch_idx
+            if isinstance(batch, dict):
+                batch["batch_id"] = batch_idx
 
-            # Use regular batch instead of SharedTensorBatch to avoid pickle issues
             # Put in queue with timeout
             while not stop_event.is_set():
                 try:
                     data_queue.put(batch, timeout=1.0)
                     break
                 except queue.Full:
-                    # Queue is full, wait a bit
                     time.sleep(0.1)
+                except Exception:
+                    stop_event.set()
+                    raise Exception(
+                        f"Error in data loading process: {traceback.format_exc()}"
+                    )
 
             if stop_event.is_set():
                 break
 
     except Exception as e:
-        logger.error(f"Error in data loading process: {e}")
-        logger.debug(traceback.format_exc())
+        logger.error(f"{e}")
+
     finally:
         logger.info("Data loading process finished")
+        data_queue.put(None)
 
 
 def _detection_worker(
     worker_id: int,
-    total_batches: int,
     data_queue: mp.Queue,
     result_queue: mp.Queue,
+    error_queue: mp.Queue,
     stop_event: mp.Event,
     config: PredictionConfig,
     gpu_id: Optional[int] = None,
@@ -94,19 +97,24 @@ def _detection_worker(
     error_count = 0
 
     try:
-        while len(processed_batches) < total_batches and not stop_event.is_set():
-            # Get batch from queue
+        while not stop_event.is_set():
             try:
-                batch = data_queue.get(timeout=5.0)
+                batch = data_queue.get(timeout=1.0)
             except queue.Empty:
-                # No batch available, check if we should continue
                 if data_queue.empty() and stop_event.is_set():
                     break
                 continue
+            except Exception as e:
+                stop_event.set()
+                raise Exception(f"{traceback.format_exc()}")
+
+            if batch is None:
+                logger.info("Detection worker received end of data signal")
+                break
 
             # Process batch
             try:
-                batch_tensor = batch["images"]
+                batch_tensor = batch.pop("images")
                 if config.inference_service_url is None:
                     detections = detection_system.predict(
                         batch_tensor, return_as_dict=False
@@ -118,7 +126,9 @@ def _detection_worker(
                 result = {
                     "batch_id": batch.get("batch_id"),
                     "tiles": batch.get("tiles"),
-                    "detections": detections,
+                    "detections": [
+                        Detection.from_supervision(det) for det in detections
+                    ],
                 }
 
                 processed_batches.append(result)
@@ -130,11 +140,15 @@ def _detection_worker(
 
                 if error_count > 5:
                     logger.error(f"Too many errors. Stopping worker {worker_id}.")
-                    break
+                    stop_event.set()
+                    raise Exception(
+                        f"Error in detection worker {worker_id}: {traceback.format_exc()}"
+                    )
 
     except Exception as e:
-        logger.error(f"Error in detection worker {worker_id}: {e}")
-        logger.info(traceback.format_exc())
+        stop_event.set()
+        raise Exception(str(e))
+
     finally:
         logger.info(f"Detection worker {worker_id} finished")
 
@@ -194,7 +208,8 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
 
         # Process-safe queues using torch.multiprocessing
         self.data_queue = mp.Queue(maxsize=config.queue_size)
-        self.result_queue = mp.Queue(maxsize=config.queue_size * 2)
+        self.result_queue = mp.Queue()
+        self.error_queue = mp.Queue()
 
         # Process control
         self.stop_event = mp.Event()
@@ -203,7 +218,7 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
         self.detection_results: List[Dict[str, Any]] = []
 
         logger.info(
-            f"Initialized MultiProcessingDetectionPipeline with {self.num_workers} workers"
+            f"Initialized MultiProcessingDetectionPipeline with {self.num_workers} inference workers"
         )
 
     def run_detection(
@@ -223,39 +238,16 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
             List of processed drone images with detections
         """
         logger.info("Starting multi-processing detection pipeline")
+        assert self.num_workers > 0, f"Received {self.num_workers}"
 
         # Update config from metadata if available
-        if self.metadata and "batch" in self.metadata:
-            b = self.loader_config.batch_size
-            logger.info(f"Batch size: {b} -> {self.metadata.get('batch', b)}")
-            b = self.metadata.get("batch", b)
-            self.loader_config.batch_size = int(b)
-
-        if self.metadata and "tilesize" in self.metadata:
-            tile_size = self.loader_config.tile_size
-            logger.info(
-                f"Tile size: {tile_size} -> {self.metadata.get('tilesize', tile_size)}"
-            )
-            tile_size = self.metadata.get("tilesize", tile_size)
-            self.loader_config.tile_size = int(tile_size)
-
-        # Get image paths
-        if image_paths is None:
-            if image_dir is None:
-                raise ValueError("Either image_paths or image_dir must be provided")
-            # Get image paths from directory
-            image_paths = []
-            for root, dirs, files in os.walk(image_dir):
-                for file in files:
-                    if file.lower().endswith(
-                        (".jpg", ".jpeg", ".png", ".tiff", ".bmp")
-                    ):
-                        image_paths.append(os.path.join(root, file))
+        self.override_loading_config()
 
         # Create data loader to get total batch count
-        data_loader = DataLoader(
+        data_loader = self.get_data_loader(
             image_paths=image_paths,
-            config=self.loader_config,
+            image_dir=image_dir,
+            use_tile_dataset=True,
         )
 
         total_batches = len(data_loader)
@@ -270,79 +262,35 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
         self.detection_results = []
 
         # Create progress bars
-        data_progress = tqdm(
-            total=total_batches, desc="Loading batches", unit="batch", position=0
-        )
         detection_progress = tqdm(
             total=total_batches, desc="Processing batches", unit="batch", position=1
         )
 
         try:
-            # Start data loading process using standalone function
-            self.data_process = mp.Process(
-                target=_data_loading_worker,
-                args=(
-                    data_loader,
-                    self.loader_config,
-                    self.data_queue,
-                    self.stop_event,
-                ),
-                daemon=False,
+            # Process workers
+            self._init_workers()
+
+            # load data
+            _data_loading_worker(
+                data_loader=data_loader,
+                data_queue=self.data_queue,
+                stop_event=self.stop_event,
             )
-            self.data_process.start()
 
-            # Start worker processes using standalone functions
-            for i in range(self.num_workers):
-                gpu_id = (
-                    i % torch.cuda.device_count() if torch.cuda.is_available() else None
-                )
-                worker = mp.Process(
-                    target=_detection_worker,
-                    args=(
-                        i,
-                        total_batches,
-                        self.data_queue,
-                        self.result_queue,
-                        self.stop_event,
-                        self.config,
-                        gpu_id,
-                    ),
-                    daemon=True,
-                )
-                worker.start()
-                self.worker_processes.append(worker)
+            # collect results
+            all_batches = self._collect_results(detection_progress)
 
-            # Wait for data loading process to complete
-            self.data_process.join()
-
-            # Collect results from worker processes while they're running
-            all_batches = []
-            while len(all_batches) < total_batches:
-                try:
-                    result = self.result_queue.get(timeout=1.0)
-                    all_batches.append(result)
-                    detection_progress.update(1)
-                except queue.Empty:
-                    # Check if all workers are done
-                    alive_workers = [w for w in self.worker_processes if w.is_alive()]
-                    if not alive_workers:
-                        break
-
-            # Wait for all worker processes to complete
             for worker in self.worker_processes:
                 worker.join()
 
+        except KeyboardInterrupt:
+            self.stop_event.set()
         except Exception as e:
             logger.error(f"Error in multi-processing pipeline: {e}")
             self.stop_event.set()
-            raise
+            raise Exception(traceback.format_exc())
         finally:
-            # Clean up progress bars
-            data_progress.close()
             detection_progress.close()
-
-            # Ensure processes are stopped
-            self.stop_event.set()
 
         logger.info(
             f"Completed processing {len(all_batches)} batches with {self.error_count} errors"
@@ -359,6 +307,49 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
             self._save_results(all_drone_images, save_path)
 
         return all_drone_images
+
+    def _collect_results(self, detection_progress: tqdm):
+        # Collect results from worker processes while they're running
+        all_batches = []
+        while True:
+            try:
+                result = self.result_queue.get(timeout=1.0)
+                all_batches.append(result)
+                detection_progress.update(1)
+            except queue.Empty:
+                alive_workers = [w for w in self.worker_processes if w.is_alive()]
+                if len(alive_workers) == 0:
+                    break
+                time.sleep(1.0)
+            except Exception as e:
+                logger.error(f"{e}")
+                break
+
+        return all_batches
+
+    def _init_workers(
+        self,
+    ):
+        # Start worker processes using standalone functions
+        for i in range(self.num_workers):
+            gpu_id = (
+                i % torch.cuda.device_count() if torch.cuda.is_available() else None
+            )
+            worker = mp.Process(
+                target=_detection_worker,
+                args=(
+                    i,
+                    self.data_queue,
+                    self.result_queue,
+                    self.error_queue,
+                    self.stop_event,
+                    self.config,
+                    gpu_id,
+                ),
+                daemon=True,
+            )
+            worker.start()
+            self.worker_processes.append(worker)
 
     def get_pipeline_info(self) -> Dict[str, Any]:
         """Get information about the pipeline.
@@ -379,15 +370,3 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
         )
 
         return info
-
-    def stop(self) -> None:
-        """Stop the multi-processing pipeline."""
-        logger.info("Stopping multi-processing pipeline")
-        self.stop_event.set()
-
-        if self.data_process and self.data_process.is_alive():
-            self.data_process.join(timeout=5.0)
-
-        for worker in self.worker_processes:
-            if worker.is_alive():
-                worker.join(timeout=5.0)
