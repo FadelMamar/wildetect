@@ -72,7 +72,6 @@ def _detection_worker(
     worker_id: int,
     data_queue: mp.Queue,
     result_queue: mp.Queue,
-    error_queue: mp.Queue,
     stop_event: mp.Event,
     config: PredictionConfig,
     gpu_id: Optional[int] = None,
@@ -209,7 +208,6 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
         # Process-safe queues using torch.multiprocessing
         self.data_queue = mp.Queue(maxsize=config.queue_size)
         self.result_queue = mp.Queue()
-        self.error_queue = mp.Queue()
 
         # Process control
         self.stop_event = mp.Event()
@@ -278,10 +276,15 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
             )
 
             # collect results
-            all_batches = self._collect_results(detection_progress)
+            all_batches = self._collect_results(
+                detection_progress, total_batches=total_batches
+            )
+
+            # send stop signal
+            self.stop_event.set()
 
             for worker in self.worker_processes:
-                worker.join()
+                worker.join(timeout=1.0)
 
         except KeyboardInterrupt:
             self.stop_event.set()
@@ -308,10 +311,10 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
 
         return all_drone_images
 
-    def _collect_results(self, detection_progress: tqdm):
+    def _collect_results(self, detection_progress: tqdm, total_batches: int):
         # Collect results from worker processes while they're running
         all_batches = []
-        while True:
+        while len(all_batches) < total_batches:
             try:
                 result = self.result_queue.get(timeout=1.0)
                 all_batches.append(result)
@@ -341,7 +344,6 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
                     i,
                     self.data_queue,
                     self.result_queue,
-                    self.error_queue,
                     self.stop_event,
                     self.config,
                     gpu_id,
