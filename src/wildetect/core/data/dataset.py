@@ -5,9 +5,10 @@ Data loader for loading images from directories as tiles.
 import logging
 import os
 import traceback
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from typing import Dict, List, Optional, Tuple, Union
-
+from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
 import rasterio as rio
 import slidingwindow
 import torch
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 class SimpleMemoryLRUCache:
     """True LRU cache that evicts least recently used items when capacity is exceeded."""
 
-    def __init__(self, max_items: int = 5) -> None:
+    def __init__(self, max_items: int = 2) -> None:
         self.cache = OrderedDict()
         self.max_items = max_items
         self.current_memory = 0
@@ -101,7 +102,7 @@ class TileDataset(Dataset):
         self.offset_cache: Dict[Tuple[int, int], Dict] = {}
 
         # Group images by dimensions for efficient processing
-        self.dimension_groups: Dict[Tuple[int, int], List[str]] = {}
+        self.dimension_groups: Dict[Tuple[int, int], List[str]] = defaultdict(list)
 
         # Image cache for actual pixel data (only loaded when needed)
         self.image_cache = SimpleMemoryLRUCache()
@@ -156,22 +157,25 @@ class TileDataset(Dataset):
     def _create_tiles_optimized(self) -> List[Dict]:
         """Create tiles using dimension-based optimization."""
 
-        logger.info(f"Creating tiles for {len(self.image_paths)} images...")
 
         # Ultra-fast dimension collection
-        for i, image_path in enumerate(self.image_paths):
-            dimensions = self._get_image_dimensions(image_path)
-            if dimensions:
-                width, height = dimensions
-                if (width, height) not in self.dimension_groups:
-                    self.dimension_groups[(width, height)] = []
-                self.dimension_groups[(width, height)].append(image_path)
-            else:
-                logger.warning(f"Failed to get dimensions for {image_path}")
+        progress_bar = tqdm(total=len(self.image_paths), desc="Fetching image dimensions")
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            for image_path, dimensions in zip(self.image_paths, executor.map(self._get_image_dimensions, self.image_paths)):
+                if dimensions:
+                    self.dimension_groups[dimensions].append(image_path)
+                else:
+                    logger.warning(f"Failed to get dimensions for {image_path}")    
+                progress_bar.update(1)
+        progress_bar.close()
 
         # Second pass: create tiles for each dimension group (optimized)
         tiles = []
-        for (width, height), image_paths in self.dimension_groups.items():
+        for (width, height), image_paths in tqdm(
+            self.dimension_groups.items(),
+            desc="Processing dimension groups",
+            total=len(self.dimension_groups)
+        ):
             # Calculate offsets once for this dimension
             offset_info = self._calculate_offsets_for_dimension(width, height)
             if not offset_info:
@@ -180,7 +184,8 @@ class TileDataset(Dataset):
                 )
                 continue
 
-            # Create tiles for all images with this dimension (optimized)
+            # Batch create tiles for all images with this dimension
+            dimension_tiles = []
             for image_path in image_paths:
                 try:
                     # Create tiles directly without DroneImage object
@@ -188,15 +193,19 @@ class TileDataset(Dataset):
                         image_path, width, height, offset_info
                     )
                     if sub_tiles:
-                        tiles.extend(sub_tiles)
+                        dimension_tiles.extend(sub_tiles)
                     else:
                         logger.warning(f"No tiles created for {image_path}")
 
                 except Exception as e:
                     logger.error(f"Failed to create tiles for {image_path}: {e}")
-                    import traceback
-
                     traceback.print_exc()
+            
+            tiles.extend(dimension_tiles)
+            logger.debug(
+                f"Created {len(dimension_tiles)} tiles for dimension {width}x{height} "
+                f"({len(image_paths)} images)"
+            )
 
         logger.info(f"Created {len(tiles)} total tiles")
         return tiles
@@ -213,16 +222,20 @@ class TileDataset(Dataset):
             logger.warning(f"No offsets found for dimension {width}x{height}")
             return []
 
-        # Create tiles using list comprehension for efficiency
+        # Pre-compute constant values
+        tile_size = self.config.tile_size
+        flight_specs = self.config.flight_specs
+        
+        # Create tiles using list comprehension with pre-computed constants
         tiles = [
             {
                 "image_path": None,
                 "parent_image": image_path,
                 "x_offset": x_offset,
                 "y_offset": y_offset,
-                "width": self.config.tile_size,
-                "height": self.config.tile_size,
-                "flight_specs": self.config.flight_specs,
+                "width": tile_size,
+                "height": tile_size,
+                "flight_specs": flight_specs,
             }
             for x_offset, y_offset in zip(x_offsets, y_offsets)
         ]

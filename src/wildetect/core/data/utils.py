@@ -11,6 +11,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from functools import lru_cache
 import torch
 from PIL import Image, ImageOps
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import traceback
+from tqdm import tqdm
 
 
 logger = logging.getLogger(__name__)
@@ -362,3 +365,146 @@ class TileUtils:
                     image, (0, pad_w, 0, pad_h), mode="constant", value=0
                 )
         return image
+
+
+def save_image_tiles(
+    image_path: str,
+    output_path: str,
+    patch_size: int,
+    stride: int,
+) -> List[str]:
+    """
+    Load an image and save all tiles to disk with numbered filenames.
+    
+    Args:
+        image_path (str): Path to the input image file.
+        output_path (str): Directory path where tiles will be saved.
+        patch_size (int): Size of each tile (square tiles).
+        stride (int): Stride between tiles.
+    
+    Returns:
+        List[str]: List of paths to saved tile files.
+    
+    Example:
+        >>> saved_tiles = save_image_tiles(
+        ...     "input.jpg", 
+        ...     "output_tiles/", 
+        ...     patch_size=512, 
+        ...     stride=256
+        ... )
+    """
+    # Load the image using read_image
+    image = read_image(image_path)
+    
+    # Convert PIL image to torch tensor (C, H, W) format
+    import torchvision.transforms.functional as F
+    image_tensor = F.to_tensor(image)
+    
+    # Extract tiles using TileUtils
+    tiles, offset_info = TileUtils.get_patches_and_offset_info(
+        image_tensor,
+        patch_size=patch_size,
+        stride=stride,
+        file_name=Path(image_path).name
+    )
+    
+    # Create output directory if it doesn't exist
+    output_dir = Path(output_path)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Get the original filename without extension
+    original_name = Path(image_path).stem
+    original_ext = Path(image_path).suffix
+    
+    saved_paths = []
+    
+    # Save each tile to disk
+    def _save_tile(tile, output_dir, original_name, original_ext, i):
+        # Convert tensor back to PIL image
+        tile_image = F.to_pil_image(tile)
+        
+        # Create numbered filename
+        tile_filename = f"{original_name}_tile_{i:04d}{original_ext}"
+        tile_path = output_dir / tile_filename
+
+        # Save the tile
+        tile_image.save(str(tile_path))
+        saved_paths.append(str(tile_path))
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(_save_tile, tile, output_dir, original_name, original_ext, i) for i, tile in enumerate(tiles)]
+        for future in futures:
+            future.result()
+    
+    logger.debug(f"Saved {tiles.shape[0]} tiles from {image_path} to {output_path}")
+    
+    return saved_paths
+
+
+def save_tiles_for_directory(
+    images_dir: str,
+    output_path: str,
+    patch_size: int,
+    stride: int,
+    patterns: tuple = ("*.jpg", "*.png", "*.jpeg", "*.tiff", "*.bmp"),
+) -> Dict[str, List[str]]:
+    """
+    Load all images from a directory and save tiles for each image.
+    
+    Args:
+        images_dir (str): Directory containing input images.
+        output_path (str): Directory path where tiles will be saved.
+        patch_size (int): Size of each tile (square tiles).
+        stride (int): Stride between tiles.
+        patterns (tuple): File patterns to match for images. Defaults to common image formats.
+    
+    Returns:
+        Dict[str, List[str]]: Dictionary mapping original image paths to lists of saved tile paths.
+    
+    Example:
+        >>> results = save_tiles_for_directory(
+        ...     images_dir="input_images/",
+        ...     output_path="output_tiles/",
+        ...     patch_size=512,
+        ...     stride=256
+        ... )
+        >>> print(f"Processed {len(results)} images")
+    """
+    # Get all image paths from the directory
+    image_paths = get_images_paths(images_dir, patterns=patterns)
+    
+    if not image_paths:
+        logger.warning(f"No images found in directory: {images_dir}")
+        return {}
+    
+    logger.info(f"Found {len(image_paths)} images in {images_dir}")
+    
+    results = {}
+    
+    # Process each image
+    error_count = 0
+    tqdm_image_paths = tqdm(total=len(image_paths), desc="Processing images")
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(save_image_tiles, image_path=image_path, output_path=output_path, patch_size=patch_size, stride=stride) for image_path in image_paths]
+        for image_path, future in zip(image_paths, futures):
+            try:
+                saved_tiles = future.result()
+                results[image_path] = saved_tiles
+                tqdm_image_paths.update(1)
+
+            except KeyboardInterrupt:
+                raise KeyboardInterrupt
+                
+            except Exception as e:
+                logger.error(f"Error processing {image_path}: {e}")
+                error_count += 1
+                results[image_path] = []
+                if error_count > 5:
+                    raise Exception(f"Too many errors. Stopping. {traceback.format_exc()}")
+
+    total_tiles = sum(len(tiles) for tiles in results.values())
+    logger.info(f"Processed {len(results)} images, saved {total_tiles} total tiles to {output_path}")
+    
+    return results
+
+

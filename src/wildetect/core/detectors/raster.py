@@ -8,6 +8,8 @@ import rasterio as rio
 import torch
 from tqdm import tqdm
 
+from ..data.utils import get_images_paths
+
 from ..config import LoaderConfig, PredictionConfig
 from ..data import DataLoader, Detection, DroneImage, Tile
 from .base import BaseDetectionPipeline
@@ -30,7 +32,8 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
 
     def run_detection(
         self,
-        raster_path: str,
+        image_paths: Optional[List[str]] = None,
+        image_dir: Optional[str] = None,
         save_path: Optional[str] = None,
         override_loading_config: bool = True,
     ) -> List[DroneImage]:
@@ -44,7 +47,13 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
         Returns:
             Dictionary with raster path, detections with spatial bounds
         """
+        assert (image_paths is None) ^ (image_dir is None), "One of image_paths and image_dir must be None"
         logger.info("Starting raster detection pipeline")
+        if image_dir is not None:
+            image_paths = get_images_paths(image_dir)
+
+        assert len(image_paths) == 1, f"Only one image path is supported for raster detection. Received {len(image_paths)} image paths." 
+        raster_path = image_paths[0]
         with rio.open(raster_path) as src:
             self.drone_image = DroneImage.from_image_path(
                 image_path=raster_path,

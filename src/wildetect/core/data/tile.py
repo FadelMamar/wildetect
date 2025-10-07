@@ -3,6 +3,7 @@ import traceback
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Tuple
+from pathlib import Path
 
 import cv2
 import geopy
@@ -83,7 +84,12 @@ class Tile:
         # GPS operations >>>>>
         if self.image_path is None and self.image_data is None:
             return None
-
+        
+        if Path(self.image_path).suffix.lower() == ".tif":
+            logger.warning(f"Skipping GPS extraction for {self.image_path} as it is a TIFF file.")
+            return None
+            
+        # GPS extraction
         try:
             self._extract_gps_coords()
             exif = self._extract_exif()

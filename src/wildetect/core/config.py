@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import torch
+from torch.utils.data._utils import pin_memory
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -177,6 +178,7 @@ class LoaderConfig:
     # Batch processing
     batch_size: int = 4
     num_workers: int = 0
+    pin_memory: bool = False
 
     # GPS and metadata
     flight_specs: Optional[FlightSpecs] = field(default_factory=FlightSpecs)
