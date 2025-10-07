@@ -37,8 +37,9 @@ results/
 mlruns/
 census_campaign_results/
 runs/
-/models-registry/
+models-registry/
 /logs/
+*.prof
 
 uv.lock
 
