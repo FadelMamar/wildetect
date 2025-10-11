@@ -16,7 +16,7 @@ from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor
 
 from ..config import LoaderConfig
-from .utils import TileUtils, read_image, get_image_dimensions
+from .utils import TileUtils, get_image_dimensions, read_image
 
 logger = logging.getLogger(__name__)
 
@@ -364,14 +364,11 @@ class ImageDataset(Dataset):
             validate=False,
             file_name=image_path,
         )
-        # self.offset_info_records[image_path] = offset_info
         return patches, idx
 
     def _collate_fn(self, batch: List[torch.Tensor]) -> torch.Tensor:
         """Custom collate function to handle variable-sized batches."""
-        # batch = torch.stack(batch)
-        # batch.squeeze_(0)
-        assert len(batch) == 1, "Batch must contain only one tensor"
+        assert len(batch) == 1, f"Batch must contain only one tensor, got {len(batch)}"
         return batch.pop()
 
     def get_offset_info(

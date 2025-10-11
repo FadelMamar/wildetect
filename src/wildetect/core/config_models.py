@@ -116,7 +116,7 @@ class ProcessingConfigModel(BaseModel):
         default=2, ge=0, description="Number of workers for data loading"
     )
     num_inference_workers: int = Field(
-        default=2, ge=0, description="Number of workers for inference"
+        default=2, ge=1, description="Number of workers for inference"
     )
     max_concurrent: int = Field(
         default=4, ge=1, description="Maximum number of concurrent inference tasks"

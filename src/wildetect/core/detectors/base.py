@@ -63,12 +63,17 @@ class BaseDetectionPipeline(ABC):
         self,
         batch: torch.Tensor,
         progress_bar: Optional[tqdm] = None,
+        use_dataset_mode: bool = False,
     ) -> List[List[Detection]]:
         """Process a single batch of tiles."""
-        # Run inference on tiles
+        # Run inference
         if self.detection_system is None:
             raise ValueError("Detection system not initialized")
-        if self.config.inference_service_url is None:
+        if use_dataset_mode:
+            detections = self.detection_system.predict_dataset(
+                batch, return_as_dict=False, max_workers=self.config.num_workers
+            )
+        elif self.config.inference_service_url is None:
             detections = self.detection_system.predict(batch, return_as_dict=False)
         else:
             detections = self.detection_system(batch)
@@ -116,7 +121,9 @@ class BaseDetectionPipeline(ABC):
         """
         try:
             logger.info(f"Saving results to: {save_path}")
-            for drone_image in tqdm(drone_images, desc="Getting statistics for saving of results"):
+            for drone_image in tqdm(
+                drone_images, desc="Getting statistics for saving of results"
+            ):
                 stats = drone_image.get_statistics()
                 self.results_stats.append(stats)
 
@@ -347,7 +354,8 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             return result
 
         for img, idx in loader:
-            yield process_one_image(img), idx
+            # yield process_one_image(img), idx
+            yield self._process_batch(img, use_dataset_mode=True), idx
 
     def _postprocess_one_image(
         self, detections: List[List[Detection]], offset_info: Dict

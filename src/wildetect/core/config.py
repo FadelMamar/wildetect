@@ -68,7 +68,9 @@ class PredictionConfig:
     # Pipeline configuration
     pipeline_type: DetectionPipelineTypes = DetectionPipelineTypes.DEFAULT
     queue_size: int = 24  # Queue size for multi-threaded pipeline
-    num_workers: int = 1  # Number of workers for multi-processing pipeline
+    num_workers: int = (
+        3  # Number of workers for multi-processing pipeline or dataset mode prediction
+    )
     max_concurrent: int = 10  # Maximum concurrent requests for async pipeline
 
     def __post_init__(self):
