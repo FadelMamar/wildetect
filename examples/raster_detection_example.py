@@ -20,17 +20,17 @@ def main():
 
     # Configure the loader
     loader_config = LoaderConfig(
-        tile_size=640,  # Size of each raster patch
+        tile_size=800,  # Size of each raster patch
         overlap=0.2,    # 20% overlap between patches to handle edge cases
         batch_size=4,   # Process 4 patches at a time
-        num_workers=0,  # Number of data loading workers
+        num_workers=1,  # Number of data loading workers
     )
 
     # Configure the prediction
     prediction_config = PredictionConfig(
         mlflow_model_name="detector",
-        mlflow_model_alias="demo",
-        device="cpu",  # Use GPU if available
+        mlflow_model_alias="by-paul",
+        device="cuda",  # Use GPU if available
         verbose=True,
     )
 
@@ -41,7 +41,7 @@ def main():
     )
 
     # Path to your raster file (GeoTIFF, etc.)
-    raster_path = r"C:\Users\FADELCO\Downloads\day5_ebenhazer_burnt_geier_merged_archive\transparent_day_5_ebenhazer_burnt_geier_merged_mosaic_group1.tif"
+    raster_path = r"D:\PhD\Data per camp\Orthos\Dry season orthos\ortho_k_1_4_5_rep_1.tif"
 
     # Path to save results
     save_path = "results/raster_detections.json"
@@ -49,7 +49,7 @@ def main():
     # Run detection
     print(f"Processing raster: {raster_path}")
     results = pipeline.run_detection(
-        raster_path=raster_path,
+        image_paths=[raster_path],
         save_path=save_path,
         override_loading_config=True,  # Use model's recommended tile size if available
     )

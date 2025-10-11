@@ -98,7 +98,7 @@ def _detection_worker(
     try:
         while not stop_event.is_set():
             try:
-                batch = data_queue.get(timeout=1.0)
+                batch = data_queue.get(timeout=0.1)
             except queue.Empty:
                 if data_queue.empty() and stop_event.is_set():
                     break
@@ -203,7 +203,7 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
         super().__init__(config=config, loader_config=loader_config)
 
         # Configure multiprocessing for the platform
-        self.num_workers = getattr(config, "num_workers", 2)
+        self.num_workers = getattr(config, "num_workers", 1)
 
         # Process-safe queues using torch.multiprocessing
         self.data_queue = mp.Queue(maxsize=config.queue_size)

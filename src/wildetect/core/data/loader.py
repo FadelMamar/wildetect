@@ -80,6 +80,12 @@ class DataLoader:
         if image_paths is None and image_dir is not None:
             image_paths = self._get_image_paths(image_dir)
 
+        cfg = dict(shuffle=False,
+                num_workers=self.config.num_workers,
+                pin_memory=self.config.pin_memory,
+                persistent_workers=False,
+                drop_last=False,)
+
         if raster_path is not None:
             self.dataset = RasterDataset(
                 raster_path,
@@ -89,12 +95,7 @@ class DataLoader:
             self.dataloader = torch.utils.data.DataLoader(
                 self.dataset,
                 batch_size=self.config.batch_size,
-                shuffle=False,
-                num_workers=self.config.num_workers,
-                collate_fn=None,
-                pin_memory=False,
-                persistent_workers=False,
-                drop_last=False,
+                **cfg
             )
 
         elif self.use_tile_dataset:
@@ -102,24 +103,16 @@ class DataLoader:
             self.dataloader = torch.utils.data.DataLoader(
                 self.dataset,
                 batch_size=self.config.batch_size,
-                shuffle=False,
-                num_workers=self.config.num_workers,
                 collate_fn=self.dataset._collate_fn,
-                pin_memory=False,
-                persistent_workers=False,
-                drop_last=False,
+                **cfg
             )
         else:
             self.dataset = ImageDataset(image_paths=image_paths, config=self.config)
             self.dataloader = torch.utils.data.DataLoader(
                 self.dataset,
                 batch_size=1,
-                shuffle=False,
-                num_workers=self.config.num_workers,
                 collate_fn=self.dataset._collate_fn,
-                pin_memory=False,
-                persistent_workers=False,
-                drop_last=False,
+                **cfg
             )
 
     def get_offset_info(

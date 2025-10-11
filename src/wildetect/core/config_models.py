@@ -118,6 +118,7 @@ class ProcessingConfigModel(BaseModel):
     num_inference_workers: int = Field(
         default=2, ge=1, description="Number of workers for inference"
     )
+    pin_memory: bool = Field(default=False, description="Pin memory for data loading")
     max_concurrent: int = Field(
         default=4, ge=1, description="Maximum number of concurrent inference tasks"
     )
@@ -256,6 +257,7 @@ class DetectConfigModel(BaseModel):
             num_workers=self.processing.num_data_workers,
             overlap=self.processing.overlap_ratio,
             flight_specs=self.flight_specs.to_flight_specs(),
+            pin_memory=self.processing.pin_memory,
         )
 
 
