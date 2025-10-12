@@ -65,10 +65,11 @@ def detect(
         dataset_name = loaded_config.output.dataset_name
 
         # load image paths from label studio
+        image_paths_task_ids = dict()
         if loaded_config.labelstudio.project_id is not None:
             ls_manager = LabelStudioManager(
                 url=loaded_config.labelstudio.url,
-                api_key=loaded_config.labelstudio.api_key,
+                api_key=loaded_config.labelstudio.api_key or os.getenv("LABEL_STUDIO_API_KEY"),
                 download_resources=loaded_config.labelstudio.download_resources,
             )
             image_paths_task_ids = ls_manager.get_tasks_paths(
@@ -78,7 +79,6 @@ def detect(
             image_dir = None
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
            
-
         console.print(f"Prediction config: {pred_config}")
         console.print(f"Loader config: {loader_config}")
 
@@ -212,20 +212,20 @@ def census(
         loader_config = loaded_config.detection.to_loader_config()
 
         image_paths=loaded_config.detection.image_paths
-
+        image_paths_task_ids = dict()
         if loaded_config.detection.labelstudio.project_id is not None:
             ls_manager = LabelStudioManager(
                 url=loaded_config.detection.labelstudio.url,
-                api_key=loaded_config.detection.labelstudio.api_key,
+                api_key=loaded_config.detection.labelstudio.api_key or os.getenv("LABEL_STUDIO_API_KEY"),
                 download_resources=loaded_config.detection.labelstudio.download_resources,
             )
             image_paths_task_ids = ls_manager.get_tasks_paths(
-                loaded_config.labelstudio.project_id
+                loaded_config.detection.labelstudio.project_id
             )
             image_paths = list(image_paths_task_ids.keys())
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
         
-        if loader_config.csv_data is not None:
+        elif loader_config.csv_data is not None:
             image_folder = loaded_config.detection.exif_gps_update.image_folder
             image_paths = get_images_paths(image_folder)
             console.print(f"[green]Processing {len(image_paths)} images[/green]")               
@@ -307,12 +307,14 @@ def census(
                     image_paths=image_paths,
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
+                    export_to_labelstudio=loaded_config.detection.labelstudio.project_id is None,
                 )
             else:
                 results = campaign_manager.run_complete_campaign(
                     image_paths=image_paths,
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
+                    export_to_labelstudio=loaded_config.detection.labelstudio.project_id is None,
                 )
 
         # Display results
@@ -321,9 +323,39 @@ def census(
             results["statistics"],
         )
 
+        # upload detections to label studio
+        if loaded_config.detection.labelstudio.project_id is not None:
+            failed_uploads = []
+            drone_images = campaign_manager.get_drone_images(as_dict=False)
+            for image in tqdm(
+                drone_images, desc="Uploading detections to Label Studio"
+            ):
+                task_id = image_paths_task_ids.get(image.image_path)
+                if task_id is None:
+                    failed_uploads.append(image.image_path)
+                else:
+                    ls_manager.upload_detections(
+                        task_id=task_id,
+                        detections=image.get_non_empty_predictions(),
+                        model_tag=loaded_config.detection.model.mlflow_model_alias,
+                        from_name=loaded_config.detection.labelstudio.from_name,
+                        to_name=loaded_config.detection.labelstudio.to_name,
+                        label_type=loaded_config.detection.labelstudio.label_type,
+                        img_height=image.height,
+                        img_width=image.width,
+                    )
+            if failed_uploads:
+                console.print(
+                    f"[red]Failed to upload detections for {len(failed_uploads)}/{len(drone_images)} images:[/red]"
+                )
+            else:
+                console.print("[green]Uploaded detections to Label Studio[/green]")
+
         console.print(
             f"[bold green]Census campaign completed successfully![/bold green]"
         )
+
+
 
     except Exception:
         console.print(f"[red]Error: {traceback.format_exc()}[/red]")

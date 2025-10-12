@@ -44,6 +44,8 @@ class FiftyOneManager:
 
         self.prediction_field = "detections"
 
+        self._init_dataset()
+
     def _init_dataset(self):
         """Initialize or load the FiftyOne dataset."""
         try:
@@ -58,9 +60,7 @@ class FiftyOneManager:
     def _ensure_dataset_initialized(self):
         """Ensure dataset is initialized before operations."""
         if self.dataset is None:
-            # Initialize dataset
             self._init_dataset()
-            # raise RuntimeError("Dataset not initialized. Call _init_dataset() first.")
 
     def _create_fo_sample(self, drone_image: DroneImage):
         """Add a DroneImage to the dataset.
@@ -194,7 +194,6 @@ class FiftyOneManager:
         """Launch the FiftyOne annotation app."""
         if dotenv_path is not None:
             from dotenv import load_dotenv
-
             load_dotenv(dotenv_path, override=True)
 
         with open(ROOT / "config/class_mapping.json", "r", encoding="utf-8") as f:
@@ -210,12 +209,12 @@ class FiftyOneManager:
                 label_field=self.prediction_field,
                 label_type="detections",
                 classes=classes,
-                api_key=os.environ["FIFTYONE_LABELSTUDIO_API_KEY"],
-                url=os.environ["FIFTYONE_LABELSTUDIO_URL"],
+                api_key=os.environ["LABEL_STUDIO_API_KEY"],
+                url=os.environ["LABEL_STUDIO_URL"],
             )
         except Exception:
             logger.error(f"Error exporting to LabelStudio: {traceback.format_exc()}")
-            raise
+            raise Exception(f"Error exporting to LabelStudio: {traceback.format_exc()}")
 
     # TODO: debug
     def get_dataset_info(self) -> Dict[str, Any]:

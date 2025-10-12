@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from PIL import Image
 from tqdm import tqdm
+import random
 
 from .config import ROOT, DetectionPipelineTypes, LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
@@ -301,8 +302,11 @@ class CampaignManager:
         failed = False
         error_msg = ""
         for i in range(3):
-            try:
-                annot_key = f"{self.campaign_id}{i}"
+            try:                
+                i = list(range(1000))
+                random.shuffle(i)
+                i = i[0]
+                annot_key = f"{self.campaign_id}_{i}".replace("-", "_").replace(" ", "_")
                 self.fiftyone_manager.send_predictions_to_labelstudio(
                     annot_key, dotenv_path=dotenv_path
                 )
@@ -310,10 +314,15 @@ class CampaignManager:
                     f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
                 )
                 return annot_key
+            except ValueError as e:
+                failed = True
+                error_msg = traceback.format_exc()
+                continue
 
             except Exception as e:
                 failed = True
                 error_msg = traceback.format_exc()
+        
         if failed:
             logger.error(
                 f"Failed to export to LabelStudio after multiple attempts. {error_msg}"
@@ -421,6 +430,7 @@ class CampaignManager:
         image_paths: List[str],
         output_dir: Optional[str] = None,
         export_to_fiftyone: bool = True,
+        export_to_labelstudio: bool = True,
     ) -> Dict[str, Any]:
         """Run a complete campaign from start to finish.
 
@@ -492,15 +502,10 @@ class CampaignManager:
         try:
             if export_to_fiftyone:
                 self.export_to_fiftyone()
+                if export_to_labelstudio:
+                    annot_key = self.export_to_labelstudio()
         except Exception as e:
-            logger.error(f"Error exporting to FiftyOne: {e}")
-            annot_key = None
-
-        try:
-            if export_to_fiftyone:
-                annot_key = self.export_to_labelstudio()
-        except Exception as e:
-            logger.error(f"Error exporting to LabelStudio: {e}")
+            logger.error(f"{traceback.format_exc()}")
             annot_key = None
 
         # Step 8: Export final report
