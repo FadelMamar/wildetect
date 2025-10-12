@@ -5,7 +5,7 @@ Data loader for loading images from directories as tiles.
 import logging
 import math
 import os
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
 from tqdm import tqdm
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_images_as_drone_images(
-    image_paths: List[str], flight_specs: Optional[Dict] = None
+    image_paths: List[str], flight_specs: Optional[Dict] = None,gps_coords_loader:Callable[[str], Tuple[float, float, float]] = None
 ) -> List[DroneImage]:
     """Load images as DroneImage objects."""
     drone_images = []
@@ -28,8 +28,12 @@ def load_images_as_drone_images(
     ) as pbar:
         for image_path in image_paths:
             try:
+                if gps_coords_loader is not None:
+                    latitude, longitude, altitude = gps_coords_loader(image_path)
+                else:
+                    latitude, longitude, altitude = None, None, None
                 drone_image = DroneImage.from_image_path(
-                    image_path=image_path, flight_specs=flight_specs
+                    image_path=image_path, flight_specs=flight_specs, latitude=latitude, longitude=longitude, altitude=altitude
                 )
                 drone_images.append(drone_image)
             except Exception as e:

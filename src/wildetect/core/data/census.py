@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -99,10 +99,13 @@ class CensusDataManager:
         # Validate paths
         valid_paths = []
         for path in image_paths:
-            if Path(path).exists():
+            if not Path(path).exists():
+                logger.warning(f"Image path does not exist: {path}")
+                continue
+            if Path(path).is_file():
                 valid_paths.append(path)
             else:
-                logger.warning(f"Image path does not exist: {path}")
+                logger.warning(f"Image path is not a file: {path}")
 
         self.image_paths.extend(valid_paths)
         logger.info(
@@ -118,6 +121,7 @@ class CensusDataManager:
 
     def create_drone_images(
         self,
+        gps_coords_loader:Optional[Callable[[str], Tuple[float, float, float]]] = None,
     ) -> None:
         """Create DroneImage instances from the loaded image paths.
 
@@ -136,6 +140,7 @@ class CensusDataManager:
         self.drone_images = load_images_as_drone_images(
             image_paths=self.image_paths,
             flight_specs=self.loading_config.flight_specs,
+            gps_coords_loader=gps_coords_loader,
         )
 
         logger.info(f"Successfully created {len(self.drone_images)} DroneImages")

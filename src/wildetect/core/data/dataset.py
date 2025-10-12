@@ -162,7 +162,7 @@ class TileDataset(Dataset):
         progress_bar = tqdm(
             total=len(self.image_paths), desc="Fetching image dimensions"
         )
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             for image_path, dimensions in zip(
                 self.image_paths,
                 executor.map(self._get_image_dimensions, self.image_paths),

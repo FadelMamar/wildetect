@@ -1,6 +1,7 @@
 call cd /d %~dp0 && cd ..\..\wildtrain
 
 @REM call cd /d %~dp0 && cd ..
+call deactivate
 
 call .venv\Scripts\activate
 

@@ -15,7 +15,7 @@ import torch
 import typer
 from rich.console import Console
 from tqdm import tqdm
-
+from ..utils import setup_logging
 from ...core.campaign_manager import CampaignConfig, CampaignManager
 from ...core.config import ROOT, DetectionPipelineTypes
 from ...core.config_loader import load_config_with_pydantic
@@ -43,13 +43,11 @@ def detect(
     ),
 ):
     """Detect wildlife in images using AI models."""
-    setup_logging()
-    logger = logging.getLogger(__name__)
-
+    
     log_file = str(
         ROOT / "logs" / "detect" / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     )
-    setup_logging(log_file)
+    setup_logging(log_file)    
 
     try:
         # Load configuration from YAML
@@ -95,9 +93,10 @@ def detect(
         save_path = None
         if output_dir:
             save_path = str(output_dir / "results.json")
-
-        profiling_dir = Path(log_file).parent / f"{Path(log_file).stem}_profiling"
-        profiling_dir.mkdir(parents=True, exist_ok=True)
+        profiling_dir = None
+        if loaded_config.profiling.enable:
+            profiling_dir = Path(log_file).parent / f"{Path(log_file).stem}_profiling"
+            profiling_dir.mkdir(parents=True, exist_ok=True)
 
         with profile_command(
             output_dir=profiling_dir,
@@ -142,11 +141,11 @@ def detect(
                 fo_manager.send_predictions_to_labelstudio(
                     annot_key, dotenv_path=str(Path(ROOT) / ".env")
                 )
-                logger.info(
+                console.print(
                     f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
                 )
             except Exception as e:
-                logger.error(f"Error exporting to LabelStudio: {e}")
+                console.print(f"[red]Error exporting to LabelStudio: {e}[/red]")
                 console.print(f"[red]Error exporting to LabelStudio: {e}[/red]")
 
         if loaded_config.profiling.gpu_profile and torch.cuda.is_available():
@@ -208,6 +207,12 @@ def census(
         # Load configuration from YAML
         loaded_config = load_config_with_pydantic("census", config)
 
+        # Convert to existing dataclasses
+        pred_config = loaded_config.detection.to_prediction_config()
+        loader_config = loaded_config.detection.to_loader_config()
+
+        image_paths=loaded_config.detection.image_paths
+
         if loaded_config.detection.labelstudio.project_id is not None:
             ls_manager = LabelStudioManager(
                 url=loaded_config.detection.labelstudio.url,
@@ -218,28 +223,12 @@ def census(
                 loaded_config.labelstudio.project_id
             )
             image_paths = list(image_paths_task_ids.keys())
-            image_dir = None
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
-        else:
-            images = loaded_config.detection.images
-            # Determine if input is directory or file paths
-            assert isinstance(
-                images, list
-            ), f"images must be a list. Received: {images}"
-            if len(images) == 1 and Path(images[0]).is_dir():
-                image_dir = images[0]
-                image_paths = get_images_paths(image_dir)
-                console.print(f"[green]Processing directory: {image_dir}[/green]")
-            else:
-                image_dir = None
-                image_paths = images
-                console.print(f"[green]Processing {len(images)} images[/green]")
-
-        campaign_id = loaded_config.campaign.id
-
-        # Convert to existing dataclasses
-        pred_config = loaded_config.detection.to_prediction_config()
-        loader_config = loaded_config.detection.to_loader_config()
+        
+        if loader_config.csv_data is not None:
+            image_folder = loaded_config.detection.exif_gps_update.image_folder
+            image_paths = get_images_paths(image_folder)
+            console.print(f"[green]Processing {len(image_paths)} images[/green]")               
 
         # Set campaign metadata
         campaign_metadata = {
@@ -258,6 +247,7 @@ def census(
 
         # Set output directory
         output_dir = loaded_config.export.output_directory
+        campaign_id = loaded_config.campaign.id
 
         console.print(
             f"[bold green]Starting Wildlife Census Campaign: {campaign_id}[/bold green]"
@@ -297,10 +287,11 @@ def census(
         # Initialize campaign manager
         campaign_manager = CampaignManager(campaign_config)
 
-        profiling_dir = Path(log_file).parent / f"{Path(log_file).stem}_profiling"
-        profiling_dir.mkdir(parents=True, exist_ok=True)
-
         profiling_config = loaded_config.detection.profiling
+        profiling_dir = None
+        if profiling_config.enable:
+            profiling_dir = Path(log_file).parent / f"{Path(log_file).stem}_profiling"
+            profiling_dir.mkdir(parents=True, exist_ok=True)
 
         with profile_command(
             output_dir=profiling_dir,

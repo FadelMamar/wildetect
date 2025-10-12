@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from PIL import Image
+from tqdm import tqdm
 
 from .config import ROOT, DetectionPipelineTypes, LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
@@ -61,7 +62,7 @@ class CampaignManager:
         """
         self.config = config
         self.campaign_id = config.campaign_id
-
+       
         # Initialize components
         self.census_manager = CensusDataManager(
             campaign_id=config.campaign_id,
@@ -95,6 +96,11 @@ class CampaignManager:
         )
 
         logger.info(f"Initialized CampaignManager for campaign: {self.campaign_id}")
+    
+    @property
+    def image_paths(self) -> List[str]:
+        """Get the image paths for the campaign."""
+        return self.census_manager.image_paths
 
     def get_drone_images(
         self, as_dict: bool = False
@@ -143,7 +149,7 @@ class CampaignManager:
             tile_size: Optional tile size override
             overlap: Optional overlap ratio override
         """
-        self.census_manager.create_drone_images()
+        self.census_manager.create_drone_images(gps_coords_loader=self.detection_pipeline.get_image_gps_coords)
         logger.info(
             f"Prepared {len(self.census_manager.drone_images)} drone images for detection"
         )
@@ -161,24 +167,10 @@ class CampaignManager:
             DetectionResults: Results from the detection campaign
         """
 
-        images = self.get_drone_images(as_dict=False)
-        if not images:
-            raise ValueError("No drone images available. Call prepare_data() first.")
-
-        logger.info(f"Starting detection campaign for {len(images)} images")
         start_time = time.time()
-
-        # Run detection using the pipeline
-        if isinstance(images, list):
-            image_paths = [
-                str(img.image_path)
-                for img in images
-                if hasattr(img, "image_path") and img.image_path is not None
-            ]
-        else:
-            image_paths = []
+       
         processed_drone_images = self.detection_pipeline.run_detection(
-            image_paths=image_paths,
+            image_paths=self.image_paths,
             save_path=output_dir + "/detection_results.json"
             if save_results and output_dir
             else None,
@@ -192,7 +184,7 @@ class CampaignManager:
         detection_by_class: Dict[str, int] = {}
         confidence_scores = []
 
-        for drone_image in processed_drone_images:
+        for drone_image in tqdm(processed_drone_images, desc="Calculating detections statistics"):
             detections = drone_image.get_non_empty_predictions()
             total_detections += len(detections)
 
@@ -378,14 +370,18 @@ class CampaignManager:
 
         valid_images = []
         invalid_images = []
+        num_files_not_found = 0
         no_gps_count = 0
-        for image_path in image_paths:
+        for image_path in tqdm(image_paths, desc="Validating image paths"):
             reason = None
-            # Check if file is readable as an image
             assert isinstance(image_path, str), "image_paths must be a list of strings"
             try:
                 with Image.open(image_path) as img:
-                    img.verify()  # Verify image integrity
+                    img.verify() 
+            except FileNotFoundError:
+                invalid_images.append((image_path, reason))
+                num_files_not_found += 1
+                continue
             except Exception as e:
                 reason = f"Unreadable image: {e}"
                 invalid_images.append((image_path, reason))
@@ -393,13 +389,14 @@ class CampaignManager:
                 continue
             # Check for GPS coordinates
             try:
-                gps_result = GPSUtils.get_gps_coord(file_name=image_path)
-                if gps_result is None:
-                    reason = "No GPS coordinates found"
-                    no_gps_count += 1
-                    invalid_images.append((image_path, reason))
-                    logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
-                    continue
+                lat,lon,alt = self.detection_pipeline.get_image_gps_coords(image_path)
+                if (lat is None) or (lon is None):
+                    if GPSUtils.get_gps_coord(file_name=image_path) is None:
+                        reason = "No GPS coordinates found"
+                        no_gps_count += 1
+                        invalid_images.append((image_path, reason))
+                        logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
+                        continue
             except Exception as e:
                 reason = f"Error extracting GPS: {e}"
                 invalid_images.append((image_path, reason))
@@ -415,6 +412,8 @@ class CampaignManager:
             raise ValueError(
                 "None of the images have GPS coordinates. Validation failed."
             )
+        if num_files_not_found > 0:
+            logger.warning(f"Number of files not found: {num_files_not_found}")
         return valid_images
 
     def run_complete_campaign(
@@ -453,7 +452,7 @@ class CampaignManager:
         self.add_images_from_paths(image_paths)
 
         # Step 2: Prepare data
-        self.prepare_data()
+        #self.prepare_data()
 
         # Step 3: Run detection
         detection_results = self.run_detection(save_results=True, output_dir=output_dir)

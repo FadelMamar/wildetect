@@ -288,14 +288,21 @@ class DetectConfigModel(BaseModel):
 
     def to_loader_config(self) -> LoaderConfig:
         """Convert to existing LoaderConfig dataclass."""
-        df = None
+        cfg = dict()
         if self.exif_gps_update is not None:
-            try:
-                df = pd.read_csv(self.exif_gps_update.csv_path, skiprows=self.exif_gps_update.skip_rows, sep=";")
-            except Exception:
-                logger.info(f"Failed to read CSV file {self.exif_gps_update.csv_path} with separator ';', trying with ','")
-                df = pd.read_csv(self.exif_gps_update.csv_path, skiprows=self.exif_gps_update.skip_rows, sep=",")            
-            df['image_path'] = df[self.exif_gps_update.filename_col].apply(lambda x: os.path.join(self.exif_gps_update.image_folder, x))
+            if (self.exif_gps_update.csv_path is not None) and (self.exif_gps_update.image_folder is not None):
+                try:
+                    df = pd.read_csv(self.exif_gps_update.csv_path, skiprows=self.exif_gps_update.skip_rows, sep=";")
+                except Exception:
+                    logger.info(f"Failed to read CSV file {self.exif_gps_update.csv_path} with separator ';', trying with ','")
+                    df = pd.read_csv(self.exif_gps_update.csv_path, skiprows=self.exif_gps_update.skip_rows, sep=",")            
+                df['image_path'] = df[self.exif_gps_update.filename_col].apply(lambda x: os.path.join(self.exif_gps_update.image_folder, x))
+
+                cfg = dict(lat_col=self.exif_gps_update.lat_col,
+                        lon_col=self.exif_gps_update.lon_col,
+                        alt_col=self.exif_gps_update.alt_col,
+                        csv_data=df
+                        )
                         
         return LoaderConfig(
             tile_size=self.processing.tile_size,
@@ -304,10 +311,7 @@ class DetectConfigModel(BaseModel):
             overlap=self.processing.overlap_ratio,
             flight_specs=self.flight_specs.to_flight_specs(),
             pin_memory=self.processing.pin_memory,
-            csv_data=df,
-            lat_col=self.exif_gps_update.lat_col,
-            lon_col=self.exif_gps_update.lon_col,
-            alt_col=self.exif_gps_update.alt_col,
+            **cfg
         )
 
 
