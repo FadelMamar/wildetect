@@ -30,7 +30,6 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         Args:
             config: Prediction configuration
             loader_config: Data loader configuration
-            queue_size: Maximum number of batches in the queue
         """
 
         super().__init__(config, loader_config)
@@ -67,7 +66,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
 
                 while not self.stop_event.is_set():
                     try:
-                        self.data_queue.put(batch, timeout=1.0)
+                        self.data_queue.put(batch, timeout=0.1)
                         progress_bar.update(1)
                         break
                     except KeyboardInterrupt:
@@ -108,7 +107,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         """
 
         # Wait for data loading thread to start
-        time.sleep(0.1)
+        time.sleep(1.0)
 
         try:
             while not self.stop_event.is_set():
