@@ -3,17 +3,16 @@
 
 labelstudio:
   url: http://localhost:8080
-  api_key: 4f3c25bad9334596c5b2c3b270a2d3105c8b5d4a
+  api_key: null # <<< TO change HERE
   download_resources: false
   project_id: null
-  json_path: "D:/PhD/Data per camp/Exported annotations and labels/April 25-July25/train/110 FiftyOne_campaign_LR_Farm_north.json"
+  json_path: null  # <<< TO change HERE
   dotenv_path: .env
   parse_ls_config: true
   ls_xml_config: null
 
 
-image_dir: null
-csv_output_path: "detection_report.csv"
+csv_output_path: D:\PhD\Harvard Kruger River Surveys\20231017_LetabaRiver_BasaltA\annotations\detections_v2.csv
 detection_type: "annotations" # annotations, predictions
 
 

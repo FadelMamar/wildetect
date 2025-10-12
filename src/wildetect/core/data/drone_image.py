@@ -402,21 +402,6 @@ class DroneImage(Tile):
         flight_specs: FlightSpecs,
         labelstudio_config: Optional[LabelStudioConfigModel] = None,
     ) -> List["DroneImage"]:
-        """Extract GPS coordinates from Label Studio JSON and convert to Detection objects.
-
-        Args:
-            label_studio_json_path (str): Path to Label Studio JSON file
-            flight_specs (FlightSpecs): Flight specs
-            dotenv_path (Optional[str]): Path to .env file
-            parse_ls_config (bool): Whether to parse Label Studio config
-            ls_xml_config (Optional[str]): Label Studio XML config path
-            image_path (Optional[str]): Path to the image file (if not provided, will use first image from COCO data)
-            confidence_threshold (float): Minimum confidence threshold for detections
-
-        Returns:
-            List[Detection]: List of Detection objects
-        """
-        from label_studio_sdk.client import LabelStudio
 
         from ..visualization.labelstudio_manager import LabelStudioManager
 
@@ -428,8 +413,6 @@ class DroneImage(Tile):
         if isinstance(labelstudio_config.project_id, int) and isinstance(
             labelstudio_config, LabelStudioConfigModel
         ):
-            from ..visualization.labelstudio_manager import LabelStudioManager
-
             ls_client = LabelStudioManager(
                 url=labelstudio_config.url,
                 api_key=labelstudio_config.api_key,

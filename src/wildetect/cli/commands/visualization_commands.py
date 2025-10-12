@@ -14,7 +14,6 @@ from rich.console import Console
 from ...core.config_loader import ROOT, load_config_with_pydantic
 from ...core.config_models import VisualizeConfigModel
 from ...core.data.drone_image import DroneImage
-from ...core.data.utils import get_images_paths
 from ...core.visualization.geographic import GeographicVisualizer, VisualizationConfig
 from ..utils import export_detection_report, setup_logging
 
@@ -42,6 +41,8 @@ def visualize(
     logger = logging.getLogger(__name__)
 
     try:
+        raise NotImplementedError("Visualization is not implemented yet")
+        
         # Load configuration from YAML
         loaded_config = load_config_with_pydantic("visualize", config)
 
@@ -129,16 +130,6 @@ def extract_gps_coordinates(
     drone_images = DroneImage.from_ls(
         flight_specs=flight_specs,
         labelstudio_config=loaded_config.labelstudio,
-    )
-
-    drone_images = DroneImage.from_ls(
-        json_path=loaded_config.labelstudio.json_path,
-        flight_specs=flight_specs,
-        labelstudio_config=loaded_config.labelstudio,
-        project_id=loaded_config.labelstudio.project_id,
-        dotenv_path=loaded_config.labelstudio.dotenv_path,
-        parse_ls_config=loaded_config.labelstudio.parse_ls_config,
-        ls_xml_config=loaded_config.labelstudio.ls_xml_config,
     )
 
     # Save detection gps coordinates to csv
