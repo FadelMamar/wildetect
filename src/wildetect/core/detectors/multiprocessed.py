@@ -276,9 +276,7 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
             )
 
             # collect results
-            all_batches = self._collect_results(
-                detection_progress, total_batches=total_batches
-            )
+            self._collect_results(detection_progress, total_batches=total_batches)
 
             # send stop signal
             self.stop_event.set()
@@ -296,11 +294,12 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
             detection_progress.close()
 
         logger.info(
-            f"Completed processing {len(all_batches)} batches with {self.error_count} errors"
+            f"Completed processing {total_batches} batches with {self.error_count} errors"
         )
 
-        # Post-processing
-        all_drone_images = self._postprocess(batches=all_batches)
+        # Update gps in detections
+        self._update_gps_in_detections()
+        all_drone_images = self.get_drone_images()
         if len(all_drone_images) == 0:
             logger.warning("No batches were processed")
             return []
@@ -313,12 +312,13 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
 
     def _collect_results(self, detection_progress: tqdm, total_batches: int):
         # Collect results from worker processes while they're running
-        all_batches = []
-        while len(all_batches) < total_batches:
+        count = 0
+        while count < total_batches:
             try:
                 result = self.result_queue.get(timeout=1.0)
-                all_batches.append(result)
+                self._postprocess_batch(result)
                 detection_progress.update(1)
+                count += 1
             except queue.Empty:
                 alive_workers = [w for w in self.worker_processes if w.is_alive()]
                 if len(alive_workers) == 0:
@@ -327,8 +327,6 @@ class MultiProcessingDetectionPipeline(DetectionPipeline):
             except Exception as e:
                 logger.error(f"{e}")
                 break
-
-        return all_batches
 
     def _init_workers(
         self,

@@ -7,6 +7,7 @@ detection processing, flight analysis, and reporting into a unified pipeline.
 
 import json
 import logging
+import random
 import time
 import traceback
 from dataclasses import dataclass
@@ -15,7 +16,6 @@ from typing import Any, Dict, List, Optional, Union
 
 from PIL import Image
 from tqdm import tqdm
-import random
 
 from .config import ROOT, DetectionPipelineTypes, LoaderConfig, PredictionConfig
 from .data.census import CensusDataManager, DetectionResults
@@ -25,7 +25,7 @@ from .detectors import (
     get_detection_pipeline,
 )
 from .flight.flight_analyzer import FlightEfficiency, FlightPath
-from .visualization.fiftyone_manager import FiftyOneManager
+from .visualization import FiftyOneManager, LabelStudioManager
 from .visualization.geographic import GeographicVisualizer, VisualizationConfig
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,11 @@ class CampaignConfig:
     visualization_config: Optional[VisualizationConfig] = None
     fiftyone_dataset_name: Optional[str] = None
 
+    labelstudio_url: Optional[str] = None
+    labelstudio_api_key: Optional[str] = None
+    labelstudio_label_config: Optional[str] = None
+    labelstudio_project_dir: Optional[str] = None
+
 
 class CampaignManager:
     """High-level campaign manager that orchestrates the complete detection pipeline."""
@@ -63,7 +68,7 @@ class CampaignManager:
         """
         self.config = config
         self.campaign_id = config.campaign_id
-       
+
         # Initialize components
         self.census_manager = CensusDataManager(
             campaign_id=config.campaign_id,
@@ -92,12 +97,19 @@ class CampaignManager:
                 config.fiftyone_dataset_name, persistent=True
             )
 
+        self.labelstudio_manager = LabelStudioManager(
+            config.labelstudio_url,
+            config.labelstudio_api_key,
+            download_resources=False,
+            label_config=config.labelstudio_label_config,
+        )
+
         self.geographic_visualizer = GeographicVisualizer(
             config=config.visualization_config
         )
 
         logger.info(f"Initialized CampaignManager for campaign: {self.campaign_id}")
-    
+
     @property
     def image_paths(self) -> List[str]:
         """Get the image paths for the campaign."""
@@ -132,29 +144,6 @@ class CampaignManager:
 
         self.census_manager.add_images_from_paths(image_paths)
 
-    def add_images_from_directory(self, directory_path: str) -> None:
-        """Add all images from a directory.
-
-        Args:
-            directory_path: Path to directory containing images
-        """
-        assert Path(directory_path).is_dir(), "directory_path must be a directory"
-        self.census_manager.add_images_from_directory(directory_path)
-
-    def prepare_data(
-        self,
-    ) -> None:
-        """Prepare data for detection by creating DroneImage instances.
-
-        Args:
-            tile_size: Optional tile size override
-            overlap: Optional overlap ratio override
-        """
-        self.census_manager.create_drone_images(gps_coords_loader=self.detection_pipeline.get_image_gps_coords)
-        logger.info(
-            f"Prepared {len(self.census_manager.drone_images)} drone images for detection"
-        )
-
     def run_detection(
         self, save_results: bool = True, output_dir: Optional[str] = None
     ) -> DetectionResults:
@@ -169,7 +158,7 @@ class CampaignManager:
         """
 
         start_time = time.time()
-       
+
         processed_drone_images = self.detection_pipeline.run_detection(
             image_paths=self.image_paths,
             save_path=output_dir + "/detection_results.json"
@@ -185,7 +174,9 @@ class CampaignManager:
         detection_by_class: Dict[str, int] = {}
         confidence_scores = []
 
-        for drone_image in tqdm(processed_drone_images, desc="Calculating detections statistics"):
+        for drone_image in tqdm(
+            processed_drone_images, desc="Calculating detections statistics"
+        ):
             detections = drone_image.get_non_empty_predictions()
             total_detections += len(detections)
 
@@ -292,42 +283,16 @@ class CampaignManager:
         else:
             logger.warning("Invalid images format for FiftyOne export.")
 
-    def export_to_labelstudio(self, dotenv_path: Optional[str] = None) -> Optional[str]:
+    def export_to_labelstudio(self) -> int:
         """Export campaign data to LabelStudio for annotation/review."""
 
-        if self.fiftyone_manager is None:
-            logger.warning("FiftyOne manager not initialized. Skipping export.")
-            return
-
-        failed = False
-        error_msg = ""
-        for i in range(3):
-            try:                
-                i = list(range(1000))
-                random.shuffle(i)
-                i = i[0]
-                annot_key = f"{self.campaign_id}_{i}".replace("-", "_").replace(" ", "_")
-                self.fiftyone_manager.send_predictions_to_labelstudio(
-                    annot_key, dotenv_path=dotenv_path
-                )
-                logger.info(
-                    f"Exported FiftyOne dataset to LabelStudio with annot_key: {annot_key}"
-                )
-                return annot_key
-            except ValueError as e:
-                failed = True
-                error_msg = traceback.format_exc()
-                continue
-
-            except Exception as e:
-                failed = True
-                error_msg = traceback.format_exc()
-        
-        if failed:
-            logger.error(
-                f"Failed to export to LabelStudio after multiple attempts. {error_msg}"
-            )
-            return None
+        project_id = self.labelstudio_manager.upload_drone_images(
+            self.get_drone_images(as_dict=False),
+            project_name=self.campaign_id,
+            image_dir=self.config.labelstudio_project_dir,
+            model_tag=self.config.prediction_config.mlflow_model_alias,
+        )
+        return project_id
 
     def export_detection_report(self, output_path: str) -> None:
         """Export a comprehensive detection report.
@@ -386,7 +351,7 @@ class CampaignManager:
             assert isinstance(image_path, str), "image_paths must be a list of strings"
             try:
                 with Image.open(image_path) as img:
-                    img.verify() 
+                    img.verify()
             except FileNotFoundError:
                 invalid_images.append((image_path, reason))
                 num_files_not_found += 1
@@ -398,13 +363,15 @@ class CampaignManager:
                 continue
             # Check for GPS coordinates
             try:
-                lat,lon,alt = self.detection_pipeline.get_image_gps_coords(image_path)
+                lat, lon, alt = self.detection_pipeline.get_image_gps_coords(image_path)
                 if (lat is None) or (lon is None):
                     if GPSUtils.get_gps_coord(file_name=image_path) is None:
                         reason = "No GPS coordinates found"
                         no_gps_count += 1
                         invalid_images.append((image_path, reason))
-                        logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
+                        logger.warning(
+                            f"Invalid image: {image_path} | Reason: {reason}"
+                        )
                         continue
             except Exception as e:
                 reason = f"Error extracting GPS: {e}"
@@ -461,13 +428,10 @@ class CampaignManager:
         # Step 1: Add images
         self.add_images_from_paths(image_paths)
 
-        # Step 2: Prepare data
-        #self.prepare_data()
-
-        # Step 3: Run detection
+        # Step 2: Run detection
         detection_results = self.run_detection(save_results=True, output_dir=output_dir)
 
-        # Step 4: Flight analysis (optional)
+        # Step 3: Flight analysis (optional)
         try:
             flight_path = None
             flight_efficiency = None
@@ -498,17 +462,21 @@ class CampaignManager:
                 visualization_path = None
 
         # Step 7: Export to FiftyOne (optional)
-        annot_key = None
         try:
             if export_to_fiftyone:
                 self.export_to_fiftyone()
-                if export_to_labelstudio:
-                    annot_key = self.export_to_labelstudio()
         except Exception as e:
             logger.error(f"{traceback.format_exc()}")
-            annot_key = None
 
-        # Step 8: Export final report
+        # Step 8: Export to LabelStudio (optional)
+        try:
+            if export_to_labelstudio:
+                project_id = self.export_to_labelstudio()
+        except Exception as e:
+            logger.error(f"{traceback.format_exc()}")
+            project_id = None
+
+        # Step 9: Export final report
         try:
             if output_dir:
                 report_path = Path(output_dir) / "campaign_report.json"
@@ -526,7 +494,7 @@ class CampaignManager:
             "merged_images": self.get_drone_images(as_dict=True),
             "visualization_path": visualization_path,
             "statistics": self.get_campaign_statistics(),
-            "fiftyone_annot_key": annot_key,
+            "labelstudio_project_id": project_id,
         }
 
         logger.info(

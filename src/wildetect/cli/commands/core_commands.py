@@ -15,7 +15,7 @@ import torch
 import typer
 from rich.console import Console
 from tqdm import tqdm
-from ..utils import setup_logging
+
 from ...core.campaign_manager import CampaignConfig, CampaignManager
 from ...core.config import ROOT, DetectionPipelineTypes
 from ...core.config_loader import load_config_with_pydantic
@@ -43,18 +43,18 @@ def detect(
     ),
 ):
     """Detect wildlife in images using AI models."""
-    
+
     log_file = str(
         ROOT / "logs" / "detect" / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     )
-    setup_logging(log_file)    
+    setup_logging(log_file)
 
     try:
         # Load configuration from YAML
         loaded_config = load_config_with_pydantic("detect", config)
 
-        image_paths=loaded_config.image_paths
-        image_dir=loaded_config.image_dir
+        image_paths = loaded_config.image_paths
+        image_dir = loaded_config.image_dir
 
         # Convert to existing dataclasses
         pred_config = loaded_config.to_prediction_config()
@@ -69,7 +69,8 @@ def detect(
         if loaded_config.labelstudio.project_id is not None:
             ls_manager = LabelStudioManager(
                 url=loaded_config.labelstudio.url,
-                api_key=loaded_config.labelstudio.api_key or os.getenv("LABEL_STUDIO_API_KEY"),
+                api_key=loaded_config.labelstudio.api_key
+                or os.getenv("LABEL_STUDIO_API_KEY"),
                 download_resources=loaded_config.labelstudio.download_resources,
             )
             image_paths_task_ids = ls_manager.get_tasks_paths(
@@ -78,7 +79,7 @@ def detect(
             image_paths = list(image_paths_task_ids.keys())
             image_dir = None
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
-           
+
         console.print(f"Prediction config: {pred_config}")
         console.print(f"Loader config: {loader_config}")
 
@@ -210,25 +211,33 @@ def census(
         # Convert to existing dataclasses
         pred_config = loaded_config.detection.to_prediction_config()
         loader_config = loaded_config.detection.to_loader_config()
+        image_dir = loaded_config.detection.image_dir
 
-        image_paths=loaded_config.detection.image_paths
+        image_paths = loaded_config.detection.image_paths
+        if loaded_config.detection.image_dir is not None:
+            image_paths = get_images_paths(loaded_config.detection.image_dir)
+            console.print(f"[green]Processing {len(image_paths)} images[/green]")
+
         image_paths_task_ids = dict()
         if loaded_config.detection.labelstudio.project_id is not None:
             ls_manager = LabelStudioManager(
                 url=loaded_config.detection.labelstudio.url,
-                api_key=loaded_config.detection.labelstudio.api_key or os.getenv("LABEL_STUDIO_API_KEY"),
+                api_key=loaded_config.detection.labelstudio.api_key
+                or os.getenv("LABEL_STUDIO_API_KEY"),
                 download_resources=loaded_config.detection.labelstudio.download_resources,
             )
             image_paths_task_ids = ls_manager.get_tasks_paths(
                 loaded_config.detection.labelstudio.project_id
             )
             image_paths = list(image_paths_task_ids.keys())
+            image_dir = None
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
-        
+
         elif loader_config.csv_data is not None:
             image_folder = loaded_config.detection.exif_gps_update.image_folder
             image_paths = get_images_paths(image_folder)
-            console.print(f"[green]Processing {len(image_paths)} images[/green]")               
+            image_dir = image_folder
+            console.print(f"[green]Processing {len(image_paths)} images[/green]")
 
         # Set campaign metadata
         campaign_metadata = {
@@ -279,6 +288,11 @@ def census(
             prediction_config=pred_config,
             metadata=campaign_metadata,
             fiftyone_dataset_name=f"campaign_{campaign_id}",
+            labelstudio_url=loaded_config.detection.labelstudio.url
+            or os.getenv("LABEL_STUDIO_URL"),
+            labelstudio_api_key=loaded_config.detection.labelstudio.api_key
+            or os.getenv("LABEL_STUDIO_API_KEY"),
+            labelstudio_project_dir=image_dir,
         )
 
         console.print(f"[bold green]Campaign configuration:[/bold green]")
@@ -307,14 +321,16 @@ def census(
                     image_paths=image_paths,
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
-                    export_to_labelstudio=loaded_config.detection.labelstudio.project_id is None,
+                    export_to_labelstudio=loaded_config.detection.labelstudio.project_id
+                    is None,
                 )
             else:
                 results = campaign_manager.run_complete_campaign(
                     image_paths=image_paths,
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
-                    export_to_labelstudio=loaded_config.detection.labelstudio.project_id is None,
+                    export_to_labelstudio=loaded_config.detection.labelstudio.project_id
+                    is None,
                 )
 
         # Display results
@@ -338,9 +354,6 @@ def census(
                         task_id=task_id,
                         detections=image.get_non_empty_predictions(),
                         model_tag=loaded_config.detection.model.mlflow_model_alias,
-                        from_name=loaded_config.detection.labelstudio.from_name,
-                        to_name=loaded_config.detection.labelstudio.to_name,
-                        label_type=loaded_config.detection.labelstudio.label_type,
                         img_height=image.height,
                         img_width=image.width,
                     )
@@ -354,8 +367,6 @@ def census(
         console.print(
             f"[bold green]Census campaign completed successfully![/bold green]"
         )
-
-
 
     except Exception:
         console.print(f"[red]Error: {traceback.format_exc()}[/red]")

@@ -131,7 +131,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
                     logger.info("Received end of data signal")
                     break
 
-                # Process batch
+                # Process and postprocess batch
                 try:
                     batch_tensor = batch.pop("images")
                     batch_tensor = batch_tensor.to(
@@ -141,7 +141,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
                         batch_tensor, progress_bar=progress_bar
                     )
                     batch["detections"] = detections
-                    self.detection_results.append(batch)
+                    self._postprocess_batch(batch)
                 except Exception as e:
                     self.error_count += 1
                     if self.error_count > 5:
@@ -179,6 +179,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         Returns:
             List of processed drone images with detections
         """
+        self.clear()
         logger.info("Starting multi-threaded detection pipeline")
 
         # Update config from metadata if available
@@ -186,9 +187,11 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             self.override_loading_config()
 
         if self.image_csv_data is not None:
-            image_paths = self._get_image_paths(from_csv=True)        
+            image_paths = self._get_image_paths(from_csv=True)
         else:
-            assert (image_paths is not None) ^ (image_dir is not None), "image_paths or image_dir must be provided"
+            assert (image_paths is not None) ^ (
+                image_dir is not None
+            ), "image_paths or image_dir must be provided"
 
         logger.info("Creating dataloader")
         data_loader = DataLoader(
@@ -250,7 +253,8 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         )
 
         # Post-processing
-        all_drone_images = self._postprocess(batches=self.detection_results)
+        self._update_gps_in_detections()
+        all_drone_images = self.get_drone_images()
         if len(all_drone_images) == 0:
             logger.warning("No batches were processed")
             return []

@@ -29,9 +29,6 @@ labelstudio:
   api_key: null 
   project_id: null
   download_resources: false
-  from_name: "label"
-  to_name: "image"
-  label_type: "rectanglelabels"
 
 # Processing Configuration
 processing:

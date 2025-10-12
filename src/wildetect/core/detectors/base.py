@@ -1,11 +1,11 @@
 import json
 import logging
-import traceback
 import os
+import traceback
 from abc import ABC, abstractmethod
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import supervision as sv
 import torch
@@ -30,6 +30,8 @@ class BaseDetectionPipeline(ABC):
         self.save_path: Optional[str] = None
         self.total_batches = 0
         self.total_tiles = 0
+        self.error_count = 0
+        self.drone_images: Dict[str, DroneImage] = {}
 
         logger.info(f"Loading pipeline of type: {self.__class__.__name__}")
 
@@ -52,34 +54,54 @@ class BaseDetectionPipeline(ABC):
             logger.info(f"Using inference service @ {config.inference_service_url}")
             self.metadata = dict()
 
-        self.error_count = 0
-        self.image_csv_data:Optional[dict] = None
+        self.image_csv_data: Optional[dict] = None
         if self.loader_config.csv_data is not None:
             self.image_csv_data = self.loader_config.csv_data_to_dict()
-    
+
     def _convert_to_detection(
         self, detections: List[sv.Detections]
     ) -> List[List[Detection]]:
         """Convert a list of detections to a list of Detection objects."""
         return [Detection.from_supervision(det) for det in detections]
-    
+
     def _get_image_paths(self, from_csv: bool = True) -> List[str]:
         """Get image paths from CSV or image directory."""
         if from_csv:
             if self.loader_config.csv_data is None:
                 raise ValueError("CSV data is not provided")
-            existing_paths = [path for path in self.loader_config.csv_data['image_path'] if os.path.exists(path)]
-            logger.info(f"Found {len(existing_paths)}/{len(self.loader_config.csv_data['image_path'])} existing image paths in CSV")
+            existing_paths = [
+                path
+                for path in self.loader_config.csv_data["image_path"]
+                if os.path.exists(path)
+            ]
+            logger.info(
+                f"Found {len(existing_paths)}/{len(self.loader_config.csv_data['image_path'])} existing image paths in CSV"
+            )
             return existing_paths
         else:
             raise NotImplementedError("Only CSV mode is supported for now")
-    
+
+    def get_drone_images(self) -> List[DroneImage]:
+        return list(self.drone_images.values())
+
     def get_image_gps_coords(self, image_path: str) -> Tuple:
         """Get image GPS coordinates from CSV or image directory."""
         if self.image_csv_data is not None:
-            return self.image_csv_data[image_path]['latitude'], self.image_csv_data[image_path]['longitude'], self.image_csv_data[image_path]['altitude']
+            return (
+                self.image_csv_data[image_path]["latitude"],
+                self.image_csv_data[image_path]["longitude"],
+                self.image_csv_data[image_path]["altitude"],
+            )
         else:
             return None, None, None
+
+    def clear(
+        self,
+    ):
+        self.drone_images = {}
+        self.error_count = 0
+        self.total_batches = 0
+        self.total_tiles = 0
 
     def _process_batch(
         self,
@@ -114,6 +136,46 @@ class BaseDetectionPipeline(ABC):
     def run_detection(self, *args, **kwargs) -> List[DroneImage]:
         """Run detection."""
         pass
+
+    def _postprocess_batch(self, batch: Dict[str, Any]) -> None:
+        detections = batch.get("detections", [])
+        for tile_data, tile_detections in zip(batch["tiles"], detections):
+            tile = Tile.from_dict(tile_data)
+            assert (
+                tile.parent_image is not None
+            ), "Parent image is None. Error in dataloader."
+
+            # Create or get drone image for this parent
+            if tile.parent_image not in self.drone_images:
+                latitude, longitude, altitude = self.get_image_gps_coords(
+                    tile.parent_image
+                )
+                drone_image = DroneImage.from_image_path(
+                    image_path=tile.parent_image,
+                    flight_specs=self.loader_config.flight_specs,
+                    latitude=latitude,
+                    longitude=longitude,
+                    altitude=altitude,
+                )
+                self.drone_images[tile.parent_image] = drone_image
+
+            # Set detections on the tile
+            if tile_detections:
+                tile.set_predictions(tile_detections, update_gps=False)
+            else:
+                tile.set_predictions([], update_gps=False)
+
+            # Add tile to drone image with its offset
+            offset = (tile.x_offset or 0, tile.y_offset or 0)
+            self.drone_images[tile.parent_image].add_tile(
+                tile, x_offset=offset[0], y_offset=offset[1]
+            )
+
+    def _update_gps_in_detections(
+        self, detection_type: Literal["predictions", "annotations"] = "predictions"
+    ) -> None:
+        for drone_image in self.drone_images.values():
+            drone_image.update_detection_gps(detection_type)
 
     def get_data_loader(
         self,
@@ -223,66 +285,6 @@ class DetectionPipeline(BaseDetectionPipeline):
         """
         super().__init__(config, loader_config)
 
-    def _postprocess(
-        self, batches: Union[Dict[str, Any], List[Dict[str, Any]]]
-    ) -> List[DroneImage]:
-        """Post-process batch results and convert to DroneImage objects.
-
-        Args:
-            batches: Single batch or list of batches containing tiles and detections
-
-        Returns:
-            List of DroneImage objects with detections
-        """
-        # Handle both single batch and list of batches
-        if isinstance(batches, dict):
-            batches = [batches]
-
-        if len(batches) == 0:
-            return []
-
-        # Group tiles by parent image
-        drone_images: Dict[str, DroneImage] = {}
-
-        # Process each tile and its detections
-        for batch in tqdm(batches, desc="Postprocessing batches"):
-            detections = batch.get("detections", [])
-            for tile_data, tile_detections in zip(batch["tiles"], detections):
-                tile = Tile.from_dict(tile_data)
-                assert (
-                    tile.parent_image is not None
-                ), "Parent image is None. Error in dataloader."
-
-                # Create or get drone image for this parent
-                if tile.parent_image not in drone_images:
-                    latitude, longitude, altitude = self.get_image_gps_coords(tile.parent_image)
-                    drone_image = DroneImage.from_image_path(
-                        image_path=tile.parent_image,
-                        flight_specs=self.loader_config.flight_specs,
-                        latitude=latitude,
-                        longitude=longitude,
-                        altitude=altitude,
-                    )
-                    drone_images[tile.parent_image] = drone_image
-
-                # Set detections on the tile
-                if tile_detections:
-                    tile.set_predictions(tile_detections, update_gps=False)
-                else:
-                    tile.set_predictions([], update_gps=False)
-
-                # Add tile to drone image with its offset
-                offset = (tile.x_offset or 0, tile.y_offset or 0)
-                drone_images[tile.parent_image].add_tile(
-                    tile, x_offset=offset[0], y_offset=offset[1]
-                )
-
-        # Update detections
-        for drone_image in drone_images.values():
-            drone_image.update_detection_gps("predictions")
-
-        return list(drone_images.values())
-
     def run_detection(
         self,
         image_paths: Optional[List[str]] = None,
@@ -302,6 +304,8 @@ class DetectionPipeline(BaseDetectionPipeline):
         """
         logger.info("Starting single-threaded detection pipeline")
 
+        self.clear()
+
         # Update config from metadata if available
         if override_loading_config:
             self.override_loading_config()
@@ -309,9 +313,11 @@ class DetectionPipeline(BaseDetectionPipeline):
         logger.info("Creating dataloader")
 
         if self.image_csv_data is not None:
-            image_paths = self._get_image_paths(from_csv=True)        
+            image_paths = self._get_image_paths(from_csv=True)
         else:
-            assert (image_paths is not None) ^ (image_dir is not None), "image_paths or image_dir must be provided"
+            assert (image_paths is not None) ^ (
+                image_dir is not None
+            ), "image_paths or image_dir must be provided"
 
         data_loader = self.get_data_loader(
             image_paths=image_paths,
@@ -320,7 +326,6 @@ class DetectionPipeline(BaseDetectionPipeline):
         )
 
         # Process batches
-        all_batches = []
         total_batches = len(data_loader)
         logger.info(f"Total batches to process: {total_batches}")
 
@@ -340,7 +345,7 @@ class DetectionPipeline(BaseDetectionPipeline):
         with tqdm(total=total_batches, desc="Processing batches", unit="batch") as pbar:
             for result in map(process_one_batch, data_loader):
                 if result is not None:
-                    all_batches.append(result)
+                    self._postprocess_batch(result)
                 else:
                     self.error_count += 1
 
@@ -350,28 +355,31 @@ class DetectionPipeline(BaseDetectionPipeline):
                 pbar.update(1)
 
         logger.info(
-            f"Completed processing {len(all_batches)} batches "
+            f"Completed processing {self.total_batches} batches "
             f"with {self.error_count} errors"
         )
 
         # postprocessing
-        all_drone_images = self._postprocess(batches=all_batches)
-        if len(all_drone_images) == 0:
+        self._update_gps_in_detections()
+        drone_images = self.get_drone_images()
+        if len(drone_images) == 0:
             logger.warning("No batches were processed")
             return []
 
         # Save results if path provided
         if save_path:
-            self._save_results(all_drone_images, save_path)
+            self._save_results(drone_images, save_path)
 
-        return all_drone_images
+        return drone_images
 
 
 class SimpleDetectionPipeline(BaseDetectionPipeline):
     def __init__(self, config: PredictionConfig, loader_config: LoaderConfig):
         super().__init__(config, loader_config)
-    
-    def _process_one_image(self,image_as_patches: torch.Tensor) -> List[List[Detection]]:
+
+    def _process_one_image(
+        self, image_as_patches: torch.Tensor
+    ) -> List[List[Detection]]:
         result = []
         b = min(self.loader_config.batch_size, image_as_patches.shape[0])
         for i in range(0, image_as_patches.shape[0], b):
@@ -454,9 +462,11 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             self.override_loading_config()
 
         if self.image_csv_data is not None:
-            image_paths = self._get_image_paths(from_csv=True)        
+            image_paths = self._get_image_paths(from_csv=True)
         else:
-            assert (image_paths is not None) ^ (image_dir is not None), "image_paths or image_dir must be provided"
+            assert (image_paths is not None) ^ (
+                image_dir is not None
+            ), "image_paths or image_dir must be provided"
 
         self.save_path = save_path
         if self.save_path:
