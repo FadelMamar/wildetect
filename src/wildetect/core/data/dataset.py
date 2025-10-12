@@ -112,7 +112,7 @@ class TileDataset(Dataset):
         self.tiles = self._create_tiles_optimized()
 
     def _get_image_dimensions(self, image_path: str) -> Optional[Tuple[int, int]]:
-        """Get image dimensions using the fastest possible method."""
+        """Get image dimensions."""
         if image_path in self.dimension_cache:
             return self.dimension_cache[image_path]
 

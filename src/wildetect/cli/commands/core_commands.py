@@ -38,9 +38,6 @@ console = Console()
 
 @app.command()
 def detect(
-    images: Optional[List[str]] = typer.Option(
-        None, "--images", "-i", help="Image paths or directory"
-    ),
     config: Optional[str] = typer.Option(
         None, "--config", "-c", help="Path to YAML configuration file"
     ),
@@ -57,8 +54,9 @@ def detect(
     try:
         # Load configuration from YAML
         loaded_config = load_config_with_pydantic("detect", config)
-        if images is None:
-            images = list(loaded_config.images)
+
+        image_paths=loaded_config.image_paths
+        image_dir=loaded_config.image_dir
 
         # Convert to existing dataclasses
         pred_config = loaded_config.to_prediction_config()
@@ -81,24 +79,7 @@ def detect(
             image_paths = list(image_paths_task_ids.keys())
             image_dir = None
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
-        else:
-            # Determine if input is directory or file paths
-            logger.info(f"Processing images: {images}")
-            assert isinstance(images, list), "images must be a list"
-            if len(images) == 1 and Path(images[0]).is_dir():
-                image_dir = images[0]
-                image_paths = None
-                console.print(f"[green]Processing directory: {image_dir}[/green]")
-            else:
-                for image in images:
-                    if not Path(image).exists():
-                        raise FileNotFoundError(f"Image not found: {image}")
-                    if not Path(image).is_file():
-                        raise FileNotFoundError(f"Image is not a file: {image}")
-
-                image_dir = None
-                image_paths = images
-                console.print(f"[green]Processing {len(images)} images[/green]")
+           
 
         console.print(f"Prediction config: {pred_config}")
         console.print(f"Loader config: {loader_config}")

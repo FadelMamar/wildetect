@@ -10,8 +10,10 @@ import logging
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-
+import yaml
 from pydantic import BaseModel, Field, field_validator
+import pandas as pd
+import os
 
 from .config import (
     DetectionPipelineTypes,
@@ -52,6 +54,39 @@ class FlightSpecsModel(BaseModel):
             focal_length=self.focal_length,
             flight_height=self.flight_height,
         )
+
+
+class ExifGPSUpdateConfig(BaseModel):
+    """Configuration for updating EXIF GPS data from CSV."""
+
+    image_folder: Optional[str] = Field(default=None, description="Path to folder containing images")
+    csv_path: Optional[str] = Field(default=None, description="Path to CSV file with GPS coordinates")
+    skip_rows: int = Field(default=0, description="Number of rows to skip in CSV")
+    filename_col: str = Field(
+        default="filename", description="CSV column name for filenames"
+    )
+    lat_col: str = Field(default="latitude", description="CSV column name for latitude")
+    lon_col: str = Field(
+        default="longitude", description="CSV column name for longitude"
+    )
+    alt_col: str = Field(default="altitude", description="CSV column name for altitude")
+
+    @classmethod
+    def from_yaml(cls, path: str) -> "ExifGPSUpdateConfig":
+        """Load configuration from YAML file."""
+        with open(
+            path,
+            "r",
+        ) as f:
+            data = yaml.safe_load(f)
+        if data is None:
+            raise ValueError("YAML file is empty or invalid")
+        return cls(**data)
+
+    def to_yaml(self, path: str) -> None:
+        """Save configuration to YAML file."""
+        with open(path, "w") as f:
+            yaml.dump(self.model_dump(), f, default_flow_style=False)
 
 
 class ModelConfigModel(BaseModel):
@@ -218,7 +253,9 @@ class OutputFormatConfigModel(BaseModel):
 class DetectConfigModel(BaseModel):
     """Configuration model for detect command."""
 
-    images: List[str] = Field(description="Image directory path")
+    image_paths: Optional[List[str]] = Field(default=None, description="Image directory path")
+    image_dir: Optional[str] = Field(default=None, description="Image directory path")
+    exif_gps_update: Optional[ExifGPSUpdateConfig] = Field(default=None, description="EXIF GPS update configuration")
     model: ModelConfigModel = Field(default_factory=ModelConfigModel)
     processing: ProcessingConfigModel = Field(default_factory=ProcessingConfigModel)
     flight_specs: FlightSpecsModel = Field(default_factory=FlightSpecsModel)
@@ -251,6 +288,15 @@ class DetectConfigModel(BaseModel):
 
     def to_loader_config(self) -> LoaderConfig:
         """Convert to existing LoaderConfig dataclass."""
+        df = None
+        if self.exif_gps_update is not None:
+            try:
+                df = pd.read_csv(self.exif_gps_update.csv_path, skiprows=self.exif_gps_update.skip_rows, sep=";")
+            except Exception:
+                logger.info(f"Failed to read CSV file {self.exif_gps_update.csv_path} with separator ';', trying with ','")
+                df = pd.read_csv(self.exif_gps_update.csv_path, skiprows=self.exif_gps_update.skip_rows, sep=",")            
+            df['image_path'] = df[self.exif_gps_update.filename_col].apply(lambda x: os.path.join(self.exif_gps_update.image_folder, x))
+                        
         return LoaderConfig(
             tile_size=self.processing.tile_size,
             batch_size=self.processing.batch_size,
@@ -258,6 +304,10 @@ class DetectConfigModel(BaseModel):
             overlap=self.processing.overlap_ratio,
             flight_specs=self.flight_specs.to_flight_specs(),
             pin_memory=self.processing.pin_memory,
+            csv_data=df,
+            lat_col=self.exif_gps_update.lat_col,
+            lon_col=self.exif_gps_update.lon_col,
+            alt_col=self.exif_gps_update.alt_col,
         )
 
 

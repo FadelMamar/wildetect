@@ -196,23 +196,25 @@ class GPSUtils:
 
 
 def get_gsd(
-    image_path: str, flight_specs: FlightSpecs, image: Image.Image | None = None
+    image_path: str, flight_specs: FlightSpecs, image: Image.Image | None = None, image_height: int | None = None, exif: dict | None = None
 ):
     ##-- Extract exif
-    try:
-        exif = GPSUtils.get_exif(file_name=image_path, image=image)
-    except Exception as e:
-        logger.warning(f"Error getting exif: {e}")
-        return None
-
-    if image:
-        image_height = ImageOps.exif_transpose(image).height
-    else:
-        if exif and "ExifImageHeight" in exif:
-            image_height = exif["ExifImageHeight"]
+    if exif is None:
+        try:
+            exif = GPSUtils.get_exif(file_name=image_path, image=image)
+        except Exception as e:
+            logger.warning(f"Error getting exif: {e}")
+            return None
+    
+    if image_height is None:
+        if image:
+            image_height = ImageOps.exif_transpose(image).height
         else:
-            image = read_image(image_path)
-            image_height = image.height
+            if exif and "ExifImageHeight" in exif:
+                image_height = exif["ExifImageHeight"]
+            else:
+                image = read_image(image_path)
+                image_height = image.height
 
     # Initialize focal_length - use flight_specs if available, otherwise from exif
     if flight_specs.focal_length is not None:

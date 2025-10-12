@@ -43,7 +43,7 @@ class Tile:
     tile_gps_loc: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    altitude: Optional[float] = None
+    altitude: float = 100.0
     flight_specs: Optional["FlightSpecs"] = None
 
     geographic_footprint: Optional["GeographicBounds"] = None
@@ -91,7 +91,15 @@ class Tile:
             
         # GPS extraction
         try:
-            self._extract_gps_coords()
+            if (self.latitude is None) or (self.longitude is None):                
+                self.latitude, self.longitude, self.altitude = self._extract_gps_coords()
+
+            if self.tile_gps_loc is None:
+                if self.latitude and self.longitude:
+                    self.tile_gps_loc = str(
+                    geopy.Point(self.latitude, self.longitude, self.altitude / 1e3)
+                    )
+
             exif = self._extract_exif()
 
             if self.flight_specs is None:
@@ -116,6 +124,8 @@ class Tile:
                     image_path=self.image_path,
                     image=self.image_data,
                     flight_specs=self.flight_specs,
+                    image_height=self.height,
+                    exif=exif,
                 )
             try:
                 self._set_geographic_footprint()
@@ -175,7 +185,7 @@ class Tile:
 
     def _extract_gps_coords(
         self,
-    ) -> None:
+    ) -> Tuple:
         # assert self.image_path is not None, "Provide image_path field when defining a tile"
         image = None
         if self.image_path is None:
@@ -191,15 +201,12 @@ class Tile:
             return_as_decimal=True,
         )
         if coords is not None:
-            self.latitude, self.longitude, self.altitude = coords[0]
-            self.tile_gps_loc = str(
-                geopy.Point(self.latitude, self.longitude, self.altitude / 1e3)
-            )
+            latitude, longitude, altitude = coords[0]
         else:
-            self.latitude, self.longitude, self.altitude = None, None, None
+            latitude, longitude, altitude = None, None, None
             logger.debug(f"Failed to extract GPS coordinates from {self.image_path}.")
 
-        return None
+        return latitude, longitude, altitude
 
     def set_offsets(self, x_offset: int, y_offset: int):
         self.y_offset = y_offset

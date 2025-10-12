@@ -186,6 +186,11 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         if override_loading_config:
             self.override_loading_config()
 
+        if self.image_csv_data is not None:
+            image_paths = self._get_image_paths(from_csv=True)        
+        else:
+            assert (image_paths is not None) ^ (image_dir is not None), "image_paths or image_dir must be provided"
+
         logger.info("Creating dataloader")
         data_loader = DataLoader(
             image_paths=image_paths,
@@ -420,30 +425,6 @@ class SimpleMultiThreadedDetectionPipeline(SimpleDetectionPipeline):
         finally:
             logger.info("Detection worker finished")
             self.stop_event.set()
-
-    def _process_one_image(
-        self, image_as_patches: torch.Tensor
-    ) -> List[List[Detection]]:
-        """Process one image as a series of patches.
-
-        Args:
-            image_as_patches: Tensor of patches from one image
-
-        Returns:
-            List of detections for each patch
-        """
-        result = []
-        b = min(self.loader_config.batch_size, image_as_patches.shape[0])
-
-        # Move to device and process in batches
-        image_as_patches = image_as_patches.to(self.config.device, non_blocking=True)
-
-        for i in range(0, image_as_patches.shape[0], b):
-            batch = image_as_patches[i : i + b]
-            result.extend(self._process_batch(batch))
-            self.total_batches += 1
-            self.total_tiles += batch.shape[0]
-        return result
 
     def run_detection(
         self,
