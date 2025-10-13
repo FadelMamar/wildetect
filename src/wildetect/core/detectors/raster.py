@@ -157,7 +157,9 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
                 tile.x_offset,
                 tile.y_offset,
             )
-
+    
+    def get_drone_images(self) -> List[DroneImage]:
+        return [self.drone_image]
 
 class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
     """Multi-threaded detection pipeline for processing large raster files.
@@ -442,6 +444,7 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
             f"with {self.error_count} errors"
         )
         logger.info(f"Found {len(self.drone_image.tiles)} patches with detections")
+
 
         # Save results if path provided
         if save_path:

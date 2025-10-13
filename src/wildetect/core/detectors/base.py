@@ -88,18 +88,16 @@ class BaseDetectionPipeline(ABC):
         self,
     ) -> List[Detection]:
         """Get all detections from all DroneImages."""
-        all_detections = []
-        for drone_image in self.drone_images:
-            all_detections.extend(drone_image.get_non_empty_predictions())
-        return all_detections
+        detections = []
+        for drone_image in self.get_drone_images():
+            detections.extend(drone_image.get_non_empty_predictions())
+        return detections
     
     def save_all_detections(
         self,save_dir: str
     ) -> None:
         """Save all detections from all DroneImages."""
-        all_detections = []
-        for drone_image in self.get_drone_images():
-            all_detections.extend(drone_image.get_non_empty_predictions())
+        all_detections = self.get_all_detections()
 
         detection_coords = [
             list(detection.gps_as_decimals) + [detection.parent_image, detection.class_name, detection.confidence, detection.x_center, detection.y_center, detection.width, detection.height,]
