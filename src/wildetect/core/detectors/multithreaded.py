@@ -252,7 +252,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             f"Completed processing {len(self.detection_results)} batches with {self.error_count} errors"
         )
 
-        # Post-processing
+        # Update GPS in detections
         self._update_gps_in_detections()
         all_drone_images = self.get_drone_images()
         if len(all_drone_images) == 0:
@@ -473,7 +473,6 @@ class SimpleMultiThreadedDetectionPipeline(SimpleDetectionPipeline):
 
         # Reset state
         self.stop_event.clear()
-        all_drone_images = []
 
         # Create progress bars
         data_progress = tqdm(total=total_images, desc="Loading images", position=0)
@@ -503,7 +502,7 @@ class SimpleMultiThreadedDetectionPipeline(SimpleDetectionPipeline):
             while processed_images < total_images and not self.stop_event.is_set():
                 try:
                     drone_image = self.result_queue.get(timeout=1.0)
-                    all_drone_images.append(drone_image)
+                    self.drone_images[drone_image.image_path] = drone_image
                     processed_images += 1
 
                     # Save results incrementally if path provided
@@ -534,12 +533,14 @@ class SimpleMultiThreadedDetectionPipeline(SimpleDetectionPipeline):
             # Ensure threads are stopped
             self.stop_event.set()
 
+            self._update_gps_in_detections()
+
         logger.info(
-            f"Completed processing {len(all_drone_images)} images with "
+            f"Completed processing {len(self.get_drone_images())} images with "
             f"{self.total_batches} batches and {self.total_tiles} tiles"
         )
 
-        return all_drone_images
+        return self.get_drone_images()
 
     def get_pipeline_info(self) -> Dict[str, Any]:
         """Get information about the pipeline.

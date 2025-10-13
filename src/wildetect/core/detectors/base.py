@@ -203,7 +203,7 @@ class BaseDetectionPipeline(ABC):
     def _update_gps_in_detections(
         self, detection_type: Literal["predictions", "annotations"] = "predictions"
     ) -> None:
-        for drone_image in self.drone_images.values():
+        for drone_image in self.get_drone_images():
             drone_image.update_detection_gps(detection_type)
 
     def get_data_loader(
@@ -388,7 +388,7 @@ class DetectionPipeline(BaseDetectionPipeline):
             f"with {self.error_count} errors"
         )
 
-        # postprocessing
+        # Update GPS in detections
         self._update_gps_in_detections()
         drone_images = self.get_drone_images()
         if len(drone_images) == 0:
@@ -426,7 +426,7 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
 
     def _postprocess_one_image(
         self, detections: List[List[Detection]], offset_info: Dict
-    ) -> List[DroneImage]:
+    ) -> DroneImage:
         num_tiles = len(detections)
         y_offset_len = len(offset_info["y_offset"])
         assert num_tiles == y_offset_len, (
@@ -448,7 +448,7 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             latitude=latitude,
             longitude=longitude,
             altitude=altitude,
-        )
+        )        
 
         # add tiles to drone image
         for i in range(num_tiles):
@@ -463,7 +463,6 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             else:
                 tile.set_predictions([], update_gps=False)
             drone_image.add_tile(tile, tile.x_offset, tile.y_offset)
-        drone_image.update_detection_gps("predictions")
 
         return drone_image
 
@@ -514,24 +513,23 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             return []
 
         # Process batches
-        all_drone_images = []
         for detections, idx in self._run_one_image(
             tqdm(loader, desc="Processing images", unit="image")
         ):
             offset_info = loader.get_offset_info(idx=idx)
             drone_image = self._postprocess_one_image(detections, offset_info)
-            all_drone_images.append(drone_image)
-
+            self.drone_images[drone_image.image_path] = drone_image
             # Save results when completed
             if self.save_path:
                 self._save_results(drone_image, mode="a")
-
+        
         logger.info(
             f"Completed processing {self.total_batches} batches "
             f"with {self.total_tiles} tiles"
         )
 
-        return all_drone_images
+        self._update_gps_in_detections()
+        return self.get_drone_images()
 
     def _save_results(
         self,

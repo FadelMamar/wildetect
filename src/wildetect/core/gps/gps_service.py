@@ -105,11 +105,7 @@ class GPSDetectionService:
         """
 
         if tile.tile_gps_loc is None:
-            logger.debug(f"No GPS coordinate found in tile: {tile.image_path}")
-            return
-
-        if tile.flight_specs is None:
-            logger.debug(f"No flight specs found in tile: {tile.image_path}")
+            logger.warning(f"Failed to update detection GPS: No GPS coordinate found in tile: {tile.image_path}")
             return
 
         detection.image_gps_loc = tile.tile_gps_loc
@@ -119,7 +115,7 @@ class GPSDetectionService:
                 detection, tile
             )
         except Exception as e:
-            logger.error(f"Failed to compute GPS location of detection: {e}")
+            logger.error(f"Failed to compute GPS location of detection: {traceback.format_exc()}")
             detection.gps_loc = None
 
         # Compute geographic footprint using tile's center coordinates as reference
@@ -228,11 +224,8 @@ class GPSDetectionService:
             logger.info(f"No GSD found in tile: {tile.image_path}")
             return None
 
-        image = tile.load_image_data()
-        assert isinstance(image, Image.Image), "Provide PIL Image"
-
         # compute detection
-        W, H = image.size
+        width, height = tile.width, tile.height
 
         lat_center, lon_center, alt = GPSUtils.to_decimal(tile.tile_gps_loc)
         alt = alt * 1e-3  # converting to km
@@ -242,8 +235,8 @@ class GPSDetectionService:
             y=detection.y_center,
             lat_center=lat_center,
             lon_center=lon_center,
-            W=W,
-            H=H,
+            W=width,
+            H=height,
             gsd=tile.gsd,
         )
 
