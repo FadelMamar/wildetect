@@ -9,7 +9,7 @@ from .multithreaded import (
     MultiThreadedDetectionPipeline,
     SimpleMultiThreadedDetectionPipeline,
 )
-from .raster import RasterDetectionPipeline
+from .raster import RasterDetectionPipeline, MultiThreadedRasterDetectionPipeline
 
 __all__ = [
     "DetectionPipeline",
@@ -19,6 +19,7 @@ __all__ = [
     "AsyncDetectionPipeline",
     "SimpleDetectionPipeline",
     "RasterDetectionPipeline",
+    "MultiThreadedRasterDetectionPipeline",
 ]
 
 
@@ -38,6 +39,8 @@ def get_detection_pipeline(
         return SimpleDetectionPipeline(**kwargs)
     elif pipeline_type == DetectionPipelineTypes.RASTER:
         return RasterDetectionPipeline(**kwargs)
+    elif pipeline_type == DetectionPipelineTypes.MT_RASTER:
+        return MultiThreadedRasterDetectionPipeline(**kwargs)
     elif pipeline_type == DetectionPipelineTypes.DEFAULT:
         return DetectionPipeline(**kwargs)
     else:

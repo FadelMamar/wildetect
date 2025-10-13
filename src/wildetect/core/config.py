@@ -28,6 +28,7 @@ class DetectionPipelineTypes(StrEnum):
     ASYNC = "async"
     SIMPLE = "simple"
     RASTER = "raster"
+    MT_RASTER = "mt_raster"
     DEFAULT = "default"
 
 
