@@ -88,6 +88,7 @@ class DataLoader:
                 num_workers=self.config.num_workers,
                 pin_memory=self.config.pin_memory,
                 persistent_workers=False,
+                prefetch_factor=self.config.prefetch_factor,
                 drop_last=False,)
 
         if raster_path is not None:

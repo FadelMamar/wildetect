@@ -156,6 +156,7 @@ class ProcessingConfigModel(BaseModel):
         default=2, ge=1, description="Number of workers for inference"
     )
     pin_memory: bool = Field(default=False, description="Pin memory for data loading")
+    prefetch_factor: int = Field(default=4, ge=2, description="Prefetch factor for data loading")
     max_concurrent: int = Field(
         default=4, ge=1, description="Maximum number of concurrent inference tasks"
     )
@@ -313,6 +314,7 @@ class DetectConfigModel(BaseModel):
             overlap=self.processing.overlap_ratio,
             flight_specs=self.flight_specs.to_flight_specs(),
             pin_memory=self.processing.pin_memory,
+            prefetch_factor=self.processing.prefetch_factor,
             **cfg
         )
 
@@ -519,6 +521,7 @@ class BenchmarkConfigModel(BaseModel):
             num_workers=self.processing.num_workers,
             overlap=self.processing.overlap_ratio,
             flight_specs=self.flight_specs.to_flight_specs(),
+            prefetch_factor=self.processing.prefetch_factor,
         )
 
     def get_image_paths(self) -> List[str]:

@@ -436,19 +436,23 @@ class RasterDataset(Dataset):
         self.path = path
         self.patch_size = patch_size
         self.patch_overlap = patch_overlap
-        self.prepare_items()
+        
         self._windows_list = None
+        self.longitudes = None
+        self.latitudes = None
 
         self.src = None
+        self.prepare_items()
 
         if path is None:
             raise ValueError("path is required for a memory raster dataset")
-
+    
     def prepare_items(self):
         # Get raster shape without keeping file open
-        with rio.open(self.path) as src:
-            width = src.shape[0]
-            height = src.shape[1]
+        src = rio.open(self.path)
+        
+        width = src.shape[0]
+        height = src.shape[1]            
 
         # Generate sliding windows
         self.windows = slidingwindow.generateForSize(
@@ -459,6 +463,18 @@ class RasterDataset(Dataset):
             overlapPercent=self.patch_overlap,
         )
 
+        xs = []
+        ys = []
+        for win in self.windows:
+            xs.append(int(win.x + win.w/2))
+            ys.append(int(win.y + win.h/2))
+        xs, ys = src.xy(ys, xs)
+        self.longitudes, self.latitudes = transform(src_crs=src.crs, dst_crs='EPSG:4326', xs=xs, ys=ys)
+
+        src.close()
+
+        return
+        
     def __len__(self):
         return len(self.windows)
     
@@ -469,7 +485,7 @@ class RasterDataset(Dataset):
 
         window_data, lon, lat = self.get_crop(idx)
 
-        if idx == len(self.windows) - 1:
+        if idx == (len(self.windows) - 1):
             self.src.close()
             self.src = None
 
@@ -491,9 +507,10 @@ class RasterDataset(Dataset):
             window=Window(window.x, window.y, window.w, window.h),
         )
         # get gps coordinates in WGS84
-        lon, lat = self.src.xy(int(window.y + window.h/2), int(window.x + window.w/2))
-        lon, lat = transform(src_crs=self.src.crs, dst_crs='EPSG:4326', xs=[lon], ys=[lat])
-        lon, lat = lon[0], lat[0]
+        #lon, lat = self.src.xy(int(window.y + window.h/2), int(window.x + window.w/2))
+        #lon, lat = transform(src_crs=self.src.crs, dst_crs='EPSG:4326', xs=[lon], ys=[lat])
+        #lon, lat = lon[0], lat[0]
+        lon, lat = self.longitudes[idx], self.latitudes[idx]
 
         # Convert to torch tensor and rearrange dimensions
         window_data = torch.from_numpy(window_data).float()  # Convert to torch tensor

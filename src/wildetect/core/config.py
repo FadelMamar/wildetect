@@ -184,6 +184,7 @@ class LoaderConfig:
     batch_size: int = 4
     num_workers: int = 0
     pin_memory: bool = False
+    prefetch_factor: int = 4
 
     # GPS and metadata
     flight_specs: Optional[FlightSpecs] = field(default_factory=FlightSpecs)
