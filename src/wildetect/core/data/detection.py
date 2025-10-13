@@ -162,7 +162,7 @@ class Detection:
         return sum(self.bbox) == 0 or self.class_name == "EMPTY" or len(self.bbox) == 0
 
     @property
-    def gps_as_decimals(self) -> Optional[Tuple[float, float, float]]:
+    def gps_as_decimals(self) -> Tuple[float, float, float]:
         """Return GPS coordinates as decimal degrees."""
         if self.gps_loc is None:
             return None, None, None

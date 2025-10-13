@@ -331,15 +331,6 @@ class CensusDataManager:
         with open(output_path, "w") as f:
             json.dump(report, f, indent=2, default=str)
 
-        gps_coords = [
-            list(detection.gps_as_decimals) + [detection.parent_image]
-            for detection in self.get_all_detections()
-        ]
-        df = pd.DataFrame(
-            gps_coords, columns=["latitude", "longitude", "altitude", "image_path"]
-        )
-        df.to_csv(Path(output_path).with_suffix(".csv"), index=False)
-
         logger.info(f"Detection report exported to: {output_path}")
 
     def get_all_detections(

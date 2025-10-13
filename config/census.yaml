@@ -39,7 +39,7 @@ detection:
     overlap_ratio: 0.2
     pipeline_type: "mt"  # default, multi, async, mt, mt_simple, simple, raster
     queue_size: 64  # for multi-threaded pipeline
-    num_data_workers: 2
+    num_data_workers: 1
     num_inference_workers: 1 # for multi-processing pipeline
     pin_memory: true
   
@@ -70,10 +70,10 @@ detection:
 
 # Export Configuration
 export:
-  to_fiftyone: true
+  to_fiftyone: false
   create_map: true
   output_directory: null  # Will use campaign_id if null
-  export_to_labelstudio: true
+  export_to_labelstudio: false
 
 # Logging Configuration
 logging:

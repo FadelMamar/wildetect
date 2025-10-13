@@ -13,7 +13,7 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-
+from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 from tqdm import tqdm
 
@@ -119,15 +119,14 @@ class CampaignManager:
         self, as_dict: bool = False
     ) -> Union[List[DroneImage], Dict[str, Dict[str, Any]]]:
         """Get the drone images for the campaign."""
-        drone_images = self.census_manager.drone_images
         if as_dict:
             return {
                 img.image_path: img.to_dict()
-                for img in drone_images
+                for img in self.census_manager.drone_images
                 if img.image_path is not None
             }
         else:
-            return drone_images
+            return self.census_manager.drone_images
 
     def set_drone_images(self, drone_images: List[DroneImage]) -> None:
         """Set the drone images for the campaign."""
@@ -302,12 +301,16 @@ class CampaignManager:
         """
         self.census_manager.export_detection_report(output_path)
 
+        # save all detections
+        save_dir = Path(output_path).parent if Path(output_path).is_file() else Path(output_path)
+        self.detection_pipeline.save_all_detections(str(save_dir))
+
         #
-        results = self.get_drone_images(as_dict=True)
-        path = Path(output_path).with_name("detections_and_images.json")
-        with open(path, "w") as f:
-            json.dump(results, f, indent=4)
-        logger.info(f"Images and their detections saved to: {path}")
+        #results = self.get_drone_images(as_dict=True)
+        #path = Path(output_path).with_name("detections_and_images.json")
+        #with open(path, "w") as f:
+        #    json.dump(results, f, indent=4)
+        #logger.info(f"Images and their detections saved to: {path}")
 
     def get_campaign_statistics(self) -> Dict[str, Any]:
         """Get comprehensive campaign statistics.
@@ -346,7 +349,10 @@ class CampaignManager:
         invalid_images = []
         num_files_not_found = 0
         no_gps_count = 0
-        for image_path in tqdm(image_paths, desc="Validating image paths"):
+
+        pbar = tqdm(total=len(image_paths), desc="Validating image paths")
+
+        def validate_image(image_path: str) -> bool:
             reason = None
             assert isinstance(image_path, str), "image_paths must be a list of strings"
             try:
@@ -355,12 +361,14 @@ class CampaignManager:
             except FileNotFoundError:
                 invalid_images.append((image_path, reason))
                 num_files_not_found += 1
-                continue
+                pbar.update(1)
+                return
             except Exception as e:
                 reason = f"Unreadable image: {e}"
                 invalid_images.append((image_path, reason))
                 logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
-                continue
+                pbar.update(1)
+                return
             # Check for GPS coordinates
             try:
                 lat, lon, alt = self.detection_pipeline.get_image_gps_coords(image_path)
@@ -372,14 +380,22 @@ class CampaignManager:
                         logger.warning(
                             f"Invalid image: {image_path} | Reason: {reason}"
                         )
-                        continue
+                        pbar.update(1)
+                        return
             except Exception as e:
                 reason = f"Error extracting GPS: {e}"
                 invalid_images.append((image_path, reason))
                 logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
-                continue
+                pbar.update(1)
+                return
+
             # If both checks pass, add to valid images
             valid_images.append(image_path)
+            pbar.update(1)
+            return
+       
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            executor.map(validate_image, image_paths)
 
         logger.info(
             f"Validation complete: {len(valid_images)} valid images, {len(invalid_images)} invalid images."
@@ -469,21 +485,22 @@ class CampaignManager:
             logger.error(f"{traceback.format_exc()}")
 
         # Step 8: Export to LabelStudio (optional)
+        project_id = None
         try:
             if export_to_labelstudio:
                 project_id = self.export_to_labelstudio()
         except Exception as e:
             logger.error(f"{traceback.format_exc()}")
-            project_id = None
+            
 
         # Step 9: Export final report
+        report_path = None
         try:
             if output_dir:
                 report_path = Path(output_dir) / "campaign_report.json"
                 self.export_detection_report(str(report_path))
         except Exception as e:
-            logger.error(f"Error exporting detection report: {e}")
-            report_path = None
+            logger.error(f"Error exporting detection report: {e}")            
 
         # Compile results
         results = {

@@ -27,7 +27,6 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
 
     def __init__(self, config: PredictionConfig, loader_config: LoaderConfig):
         super().__init__(config, loader_config)
-        self.raster_path: Optional[str] = None
         self.drone_image: Optional[DroneImage] = None
 
     def run_detection(
@@ -53,29 +52,28 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
             image_paths = get_images_paths(image_dir)
 
         assert len(image_paths) == 1, f"Only one image path is supported for raster detection. Received {len(image_paths)} image paths." 
-        raster_path = image_paths[0]
-        with rio.open(raster_path) as src:
-            self.drone_image = DroneImage.from_image_path(
-                image_path=raster_path,
-                flight_specs=self.loader_config.flight_specs,
-                width=src.width,
-                height=src.height,
-            )
+        for path in image_paths:
+            with rio.open(path) as src:
+                self.drone_image = DroneImage.from_image_path(
+                    image_path=path,
+                    flight_specs=self.loader_config.flight_specs,
+                    width=src.width,
+                    height=src.height,
+                )
 
         # Update config from metadata if available
         if override_loading_config:
             self.override_loading_config()
 
-        self.raster_path = raster_path
         self.save_path = save_path
         if self.save_path:
             Path(self.save_path).parent.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Creating raster dataloader for: {raster_path}")
+        logger.info(f"Creating raster dataloader for: {image_paths}")
 
         # Create data loader with raster_path
         data_loader = DataLoader(
-            raster_path=raster_path,
+            raster_path=image_paths[0],
             config=self.loader_config,
         )
 
@@ -109,7 +107,8 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
                     )
 
         # update gps of detections
-        self.drone_image.update_detection_gps("predictions")
+        if self.drone_image is not None:
+            self.drone_image.update_detection_gps("predictions")
 
         logger.info(
             f"Completed processing {total_batches} batches "

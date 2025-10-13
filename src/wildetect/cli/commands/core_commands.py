@@ -60,9 +60,12 @@ def detect(
         pred_config = loaded_config.to_prediction_config()
         loader_config = loaded_config.to_loader_config()
 
+
         # Set output directory
         output_dir = Path(loaded_config.output.directory)
         dataset_name = loaded_config.output.dataset_name
+
+        assert (image_paths is not None) ^ (image_dir is not None) ^ (loaded_config.labelstudio.project_id is not None) ^ (loaded_config.exif_gps_update.image_folder is not None), "Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided"
 
         # load image paths from label studio
         image_paths_task_ids = dict()
@@ -163,6 +166,11 @@ def detect(
         except Exception as e:
             console.print(f"[red]Error displaying results: {e}[/red]")
 
+        try:
+            pipeline.save_all_detections(str(output_dir))
+        except Exception as e:
+            console.print(f"[red]Error saving detections: {e}[/red]")
+
         console.print(f"[bold green]Detection completed successfully![/bold green]")
 
         # upload detections to label studio
@@ -217,6 +225,9 @@ def census(
         if loaded_config.detection.image_dir is not None:
             image_paths = get_images_paths(loaded_config.detection.image_dir)
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
+
+        assert (image_paths is not None) ^ (image_dir is not None) ^ (loaded_config.detection.labelstudio.project_id is not None) ^ (loaded_config.detection.exif_gps_update.image_folder is not None), "Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided"
+
 
         image_paths_task_ids = dict()
         if loaded_config.detection.labelstudio.project_id is not None:
@@ -322,7 +333,7 @@ def census(
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
                     export_to_labelstudio=loaded_config.detection.labelstudio.project_id
-                    is None,
+                    is None and loaded_config.export.export_to_labelstudio,
                 )
             else:
                 results = campaign_manager.run_complete_campaign(
@@ -330,7 +341,7 @@ def census(
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
                     export_to_labelstudio=loaded_config.detection.labelstudio.project_id
-                    is None,
+                    is None and loaded_config.export.export_to_labelstudio,
                 )
 
         # Display results

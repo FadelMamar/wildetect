@@ -90,6 +90,7 @@ class TileDataset(Dataset):
         self,
         image_paths: List[str],
         config: LoaderConfig,
+        cache_size: int = 2,
     ):
         """Initialize the dataset with dimension-based optimization."""
         self.image_paths = image_paths
@@ -106,7 +107,7 @@ class TileDataset(Dataset):
         self.dimension_groups: Dict[Tuple[int, int], List[str]] = defaultdict(list)
 
         # Image cache for actual pixel data (only loaded when needed)
-        self.image_cache = SimpleMemoryLRUCache()
+        self.image_cache = SimpleMemoryLRUCache(max_items=cache_size)
 
         # Create tiles using dimension-based approach
         self.tiles = self._create_tiles_optimized()
@@ -491,3 +492,61 @@ class RasterDataset(Dataset):
     def get_crop_bounds(self, idx: int):
         window = self.windows[idx]
         return [window.x, window.y, window.w, window.h]
+
+
+class TiledRasterDataset(TileDataset):
+
+    def __init__(self, raster_paths: List[str], config: LoaderConfig, cache_size: int = 1):
+        super().__init__(image_paths=raster_paths, config=config, cache_size=cache_size)
+
+    def _get_raster_dimensions(self, image_path: str) -> Optional[Tuple[int, int]]:
+        """Get image dimensions."""
+        with rio.open(image_path) as src:
+            width = src.shape[0]
+            height = src.shape[1]
+            return width, height
+    
+    def _get_image_dimensions(self, image_path: str) -> Optional[Tuple[int, int]]:
+        """Get image dimensions."""
+        if image_path in self.dimension_cache:
+            return self.dimension_cache[image_path]
+
+        try:
+            width, height = self._get_raster_dimensions(image_path)
+            self.dimension_cache[image_path] = (width, height)
+            return (width, height)
+        except Exception as e:
+            logger.warning(f"Failed to get dimensions for {image_path}: {e}")
+            self.dimension_cache[image_path] = None
+            return None
+
+    def _load_image_lazy(self, image_path: str) -> Optional[torch.Tensor]:
+        """Load image data only when needed."""
+        cached_image = self.image_cache.get(image_path)
+        if cached_image is not None:
+            return cached_image
+
+        try:
+            with rio.open(image_path) as src:
+                image = src.read()
+            image = image.transpose(1,2,0)                # convert to CHW
+            image = torch.from_numpy(image).float() / 255.0  # normalize to [0,1]
+
+            if image.shape[2] > 3:
+                image = image[:,:,:3]            
+
+            # Calculate stride for padding
+            stride = int(self.config.tile_size * (1 - self.config.overlap))
+
+            # Pad image to patch size
+            padded_image = TileUtils.pad_image_to_patch_size(
+                image, self.config.tile_size, stride
+            )
+
+            self.image_cache.put(image_path, padded_image)
+            return padded_image
+
+        except Exception as e:
+            logger.warning(f"Failed to load {image_path}: {traceback.format_exc()}")
+            self.image_cache.put(image_path, None)
+            return None

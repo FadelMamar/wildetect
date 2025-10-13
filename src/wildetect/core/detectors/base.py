@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
-
+import pandas as pd
 import supervision as sv
 import torch
 from tqdm import tqdm
@@ -83,6 +83,37 @@ class BaseDetectionPipeline(ABC):
 
     def get_drone_images(self) -> List[DroneImage]:
         return list(self.drone_images.values())
+    
+    def get_all_detections(
+        self,
+    ) -> List[Detection]:
+        """Get all detections from all DroneImages."""
+        all_detections = []
+        for drone_image in self.drone_images:
+            all_detections.extend(drone_image.get_non_empty_predictions())
+        return all_detections
+    
+    def save_all_detections(
+        self,save_dir: str
+    ) -> None:
+        """Save all detections from all DroneImages."""
+        all_detections = []
+        for drone_image in self.get_drone_images():
+            all_detections.extend(drone_image.get_non_empty_predictions())
+
+        detection_coords = [
+            list(detection.gps_as_decimals) + [detection.parent_image, detection.class_name, detection.confidence, detection.x_center, detection.y_center, detection.width, detection.height,]
+            for detection in all_detections
+        ]
+        df = pd.DataFrame(
+            detection_coords, columns=["latitude", "longitude", "altitude", "image_path", "class_name", "confidence", "x_center", "y_center", "width", "height"]
+        )
+        save_path = Path(save_dir) / "detections.csv"
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(save_path, index=False)
+        
+        return None
+    
 
     def get_image_gps_coords(self, image_path: str) -> Tuple:
         """Get image GPS coordinates from CSV or image directory."""
