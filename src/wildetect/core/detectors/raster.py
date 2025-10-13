@@ -130,9 +130,9 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
 
         # Save results if path provided
         if save_path:
-            self._save_results([self.drone_image], save_path)
+            self._save_results(self.get_drone_images(), save_path)
 
-        return [self.drone_image]
+        return self.get_drone_images()
 
     def _add_batch_detections_to_drone_image(
         self, detections: List[List[Detection]], batch_bounds: torch.LongTensor, gps_coords: torch.Tensor
@@ -149,7 +149,7 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
             )
             
             if detection:
-                tile.set_predictions(detection, update_gps=False)
+                tile.set_predictions(detection, update_gps=True)
             else:
                 tile.set_predictions([], update_gps=False)
             self.drone_image.add_tile(
@@ -448,6 +448,6 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
 
         # Save results if path provided
         if save_path:
-            self._save_results([self.drone_image], save_path)
+            self._save_results(self.get_drone_images(), save_path)
 
-        return [self.drone_image]
+        return self.get_drone_images()

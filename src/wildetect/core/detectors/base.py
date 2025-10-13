@@ -522,9 +522,8 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             drone_image = self._postprocess_one_image(detections, offset_info)
             all_drone_images.append(drone_image)
 
-        # Save results when completed
-        if self.save_path:
-            for drone_image in all_drone_images:
+            # Save results when completed
+            if self.save_path:
                 self._save_results(drone_image, mode="a")
 
         logger.info(
