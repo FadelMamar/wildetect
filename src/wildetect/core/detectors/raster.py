@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import rasterio as rio
 import torch
+from rasterio.warp import transform
 from tqdm import tqdm
 
 from ..data.utils import get_images_paths
@@ -54,12 +55,20 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
         assert len(image_paths) == 1, f"Only one image path is supported for raster detection. Received {len(image_paths)} image paths." 
         for path in image_paths:
             with rio.open(path) as src:
+                latitude, longitude = src.xy(int(src.height/2), int(src.width/2))
+                latitude, longitude = transform(src_crs=src.crs, dst_crs='EPSG:4326', xs=[latitude], ys=[longitude])
+                latitude, longitude = latitude[0], longitude[0]
                 self.drone_image = DroneImage.from_image_path(
                     image_path=path,
                     flight_specs=self.loader_config.flight_specs,
                     width=src.width,
                     height=src.height,
+                    latitude=latitude,
+                    longitude=longitude,
+                    gsd=self.config.flight_specs.gsd
                 )
+        
+        #print('drone_image:',self.drone_image)
 
         # Update config from metadata if available
         if override_loading_config:
@@ -85,7 +94,7 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
             return []
 
         # Process all batches
-        for batch_data, batch_bounds in tqdm(
+        for batch_data, batch_bounds, gps_coords in tqdm(
             data_loader, desc="Processing raster patches", unit="batch"
         ):
             try:
@@ -94,9 +103,9 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
                 # Run detection
                 detections = self._process_batch(batch_tensor)
                 # add detections to drone image
-                self._add_batch_detections_to_drone_image(detections, batch_bounds)
+                self._add_batch_detections_to_drone_image(detections, batch_bounds, gps_coords)
 
-            except Exception as e:
+            except Exception as e: 
                 self.error_count += 1
                 logger.error(f"Failed to process batch: {e}")
                 logger.debug(traceback.format_exc())
@@ -107,8 +116,8 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
                     )
 
         # update gps of detections
-        if self.drone_image is not None:
-            self.drone_image.update_detection_gps("predictions")
+        #if self.drone_image is not None:
+            #self.drone_image.update_detection_gps("predictions")
 
         logger.info(
             f"Completed processing {total_batches} batches "
@@ -123,15 +132,19 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
         return [self.drone_image]
 
     def _add_batch_detections_to_drone_image(
-        self, detections: List[List[Detection]], batch_bounds: torch.LongTensor
+        self, detections: List[List[Detection]], batch_bounds: torch.LongTensor, gps_coords: torch.Tensor
     ) -> None:
-        for detection, bound in zip(detections, batch_bounds.cpu().tolist()):
+        for detection, bound, (lon, lat) in zip(detections, batch_bounds.cpu().tolist(), gps_coords.cpu().tolist()):
             tile = Tile(
                 x_offset=bound[0],
                 y_offset=bound[1],
                 width=bound[2],
                 height=bound[3],
+                longitude=lon,
+                latitude=lat,
+                gsd=self.config.flight_specs.gsd,
             )
+            
             if detection:
                 tile.set_predictions(detection, update_gps=False)
             else:

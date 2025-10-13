@@ -64,13 +64,15 @@ class Tile:
 
         if self.parent_image:
             try:
-                self.timestamp = Image.open(self.parent_image)._getexif()[36867]
+                with Image.open(self.parent_image) as img:
+                    self.timestamp = img._getexif()[36867]
             except:
                 pass
 
         elif self.image_path:
             try:
-                self.timestamp = Image.open(self.image_path)._getexif()[36867]
+                with Image.open(self.image_path) as img:
+                    self.timestamp = img._getexif()[36867]
             except:
                 pass
 
@@ -79,15 +81,7 @@ class Tile:
             if self.image_data is None:
                 self.width, self.height = get_image_dimensions(self.image_path)
             else:
-                self.width, self.height = self.image_data.size
-
-        # GPS operations >>>>>
-        if self.image_path is None and self.image_data is None:
-            return None
-        
-        if Path(self.image_path).suffix.lower() == ".tif":
-            logger.warning(f"Skipping GPS extraction for {self.image_path} as it is a TIFF file.")
-            return None
+                self.width, self.height = self.image_data.size    
             
         # GPS extraction
         try:
@@ -95,38 +89,40 @@ class Tile:
                 self.latitude, self.longitude, self.altitude = self._extract_gps_coords()
 
             if self.tile_gps_loc is None:
-                if self.latitude and self.longitude:
+                if (self.latitude is not None) and (self.longitude is not None):
                     self.tile_gps_loc = str(
                     geopy.Point(self.latitude, self.longitude, self.altitude / 1e3)
                     )
+        except Exception as e:
+            logger.error(traceback.format_exc())
 
-            exif = self._extract_exif()
+        try:
+            if self.gsd is None:                
+                if self.flight_specs is None:
+                    logger.warning("Flight specs are not provided.")
+                    return None
+                elif isinstance(self.flight_specs, FlightSpecs):
+                    pass
+                else:
+                    raise ValueError(
+                        f"Flight specs is either None or not a 'FlightSpecs' object. Found {type(self.flight_specs)}"
+                    )
 
-            if self.flight_specs is None:
-                logger.warning("Flight specs are not provided.")
-                return
-            elif isinstance(self.flight_specs, FlightSpecs):
-                pass
-            else:
-                raise ValueError(
-                    f"Flight specs is either None or not a 'FlightSpecs' object. Found {type(self.flight_specs)}"
-                )
-
-            sensor_height = self.flight_specs.sensor_height
-            if sensor_height is None:
-                sensor_height = GPSUtils.SENSOR_HEIGHTS.get(exif["Model"])
+                sensor_height = self.flight_specs.sensor_height
+                exif = self._extract_exif()
                 if sensor_height is None:
-                    logger.debug("Sensor height not found. Please provide it.")
+                    sensor_height = GPSUtils.SENSOR_HEIGHTS.get(exif["Model"])
+                    if sensor_height is None:
+                        logger.debug("Sensor height not found. Please provide it.")
 
-            # self.gsd = self.flight_specs.gsd
-            if self.flight_specs is not None:
-                self.gsd = get_gsd(
-                    image_path=self.image_path,
-                    image=self.image_data,
-                    flight_specs=self.flight_specs,
-                    image_height=self.height,
-                    exif=exif,
-                )
+                if self.flight_specs is not None:                    
+                    self.gsd = get_gsd(
+                        image_path=self.image_path,
+                        image=self.image_data,
+                        flight_specs=self.flight_specs,
+                        image_height=self.height,
+                        exif=exif,
+                    )
             try:
                 self._set_geographic_footprint()
             except Exception as e:
@@ -134,7 +130,7 @@ class Tile:
                     f"Failed to set geographic footprint for {self.image_path}: {traceback.format_exc()}"
                 )
         except Exception as e:
-            logger.error(f"Failed to initialize tile: {traceback.format_exc()}")
+            logger.error(traceback.format_exc())
 
         return None
 

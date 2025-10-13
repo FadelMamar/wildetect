@@ -38,6 +38,7 @@ class FlightSpecsModel(BaseModel):
     flight_height: float = Field(
         default=180.0, gt=0, description="Flight height in meters"
     )
+    gsd: Optional[float] = Field(default=None, gt=0, description="GSD in cm/px")
 
     @field_validator("sensor_height", "focal_length", "flight_height")
     @classmethod
@@ -53,6 +54,7 @@ class FlightSpecsModel(BaseModel):
             sensor_height=self.sensor_height,
             focal_length=self.focal_length,
             flight_height=self.flight_height,
+            gsd=self.gsd,
         )
 
 

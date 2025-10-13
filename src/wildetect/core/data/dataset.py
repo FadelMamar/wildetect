@@ -13,6 +13,7 @@ import rasterio as rio
 import slidingwindow
 import torch
 from rasterio.windows import Window
+from rasterio.warp import transform
 from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor
 from tqdm import tqdm
@@ -438,6 +439,8 @@ class RasterDataset(Dataset):
         self.prepare_items()
         self._windows_list = None
 
+        self.src = None
+
         if path is None:
             raise ValueError("path is required for a memory raster dataset")
 
@@ -458,33 +461,45 @@ class RasterDataset(Dataset):
 
     def __len__(self):
         return len(self.windows)
-
+    
     def __getitem__(self, idx):
         """Get the item at the given index."""
-        return self.get_crop(idx), torch.tensor(self.get_crop_bounds(idx))
+        if self.src is None:
+            self.src = rio.open(self.path)
+
+        window_data, lon, lat = self.get_crop(idx)
+
+        if idx == len(self.windows) - 1:
+            self.src.close()
+            self.src = None
+
+        return window_data, torch.tensor(self.get_crop_bounds(idx)), torch.tensor([lon, lat])
 
     def window_list(self):
         if self._windows_list is None:
             self._windows_list = [x.getRect() for x in self.windows]
         return self._windows_list
-
-    def get_crop(self, idx):
+    
+    def get_crop(self, idx):        
         window = self.windows[idx]
-        with rio.open(self.path) as src:
-            # Read only first 3 channels (RGB) if there are more channels
-            num_channels = min(src.count, 3)
-            window_data = src.read(
-                indexes=list(
-                    range(1, num_channels + 1)
-                ),  # rasterio uses 1-based indexing
-                window=Window(window.x, window.y, window.w, window.h),
-            )
+        # Read only first 3 channels (RGB) if there are more channels
+        num_channels = min(self.src.count, 3)
+        window_data = self.src.read(
+            indexes=list(
+                range(1, num_channels + 1)
+            ),  # rasterio uses 1-based indexing
+            window=Window(window.x, window.y, window.w, window.h),
+        )
+        # get gps coordinates in WGS84
+        lon, lat = self.src.xy(int(window.y + window.h/2), int(window.x + window.w/2))
+        lon, lat = transform(src_crs=self.src.crs, dst_crs='EPSG:4326', xs=[lon], ys=[lat])
+        lon, lat = lon[0], lat[0]
 
         # Convert to torch tensor and rearrange dimensions
         window_data = torch.from_numpy(window_data).float()  # Convert to torch tensor
-        window_data = window_data / 255.0  # Normalize
+        window_data = window_data / 255.0  # Normalize        
 
-        return window_data
+        return window_data, lon, lat
 
     def get_image_basename(self, idx):
         return os.path.basename(self.path)

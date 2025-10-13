@@ -82,6 +82,9 @@ class DroneImage(Tile):
             flight_specs=self.flight_specs,
             width=self.width,
             height=self.height,
+            latitude=self.latitude,
+            longitude=self.longitude,
+            gsd=self.gsd,
         )
 
         # Add it as the first tile with no offset
@@ -317,6 +320,7 @@ class DroneImage(Tile):
         Returns:
             Image with detections drawn
         """
+        import cv2
 
         # Load full image if not provided
         if image is None:
