@@ -85,6 +85,8 @@ class DroneImage(Tile):
             latitude=self.latitude,
             longitude=self.longitude,
             gsd=self.gsd,
+            is_raster=self.is_raster,
+            altitude=self.altitude,
         )
 
         # Add it as the first tile with no offset
@@ -285,11 +287,14 @@ class DroneImage(Tile):
             "num_tiles": len(self.tiles),
             "total_detections": len(all_detections),
             "class_counts": class_counts,
-            "all_detections": [det.bbox + [det.class_name, det.confidence, *det.gps_as_decimals] for det in all_detections],
+            "all_detections": [
+                det.bbox + [det.class_name, det.confidence, *det.gps_as_decimals]
+                for det in all_detections
+            ],
             "has_gps": (self.latitude is not None) and (self.longitude is not None),
-            #"has_geographic_footprint": self.geographic_footprint is not None,
+            # "has_geographic_footprint": self.geographic_footprint is not None,
             "gps_loc": self.tile_gps_loc,
-            #"polygon_points": self.geo_polygon_points,
+            # "polygon_points": self.geo_polygon_points,
             "gsd": self.gsd,
             "timestamp": self.timestamp,
         }
@@ -406,7 +411,6 @@ class DroneImage(Tile):
         flight_specs: FlightSpecs,
         labelstudio_config: Optional[LabelStudioConfigModel] = None,
     ) -> List["DroneImage"]:
-
         from ..visualization.labelstudio_manager import LabelStudioManager
 
         assert (

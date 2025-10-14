@@ -2,8 +2,8 @@ import logging
 import traceback
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Tuple
 from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import cv2
 import geopy
@@ -49,6 +49,8 @@ class Tile:
     geographic_footprint: Optional["GeographicBounds"] = None
     gsd: Optional[float] = None  # cm/px
 
+    is_raster: bool = False
+
     predictions: List[Detection] = field(default_factory=list)
     annotations: List[Detection] = field(default_factory=list)
 
@@ -58,6 +60,10 @@ class Tile:
     def __post_init__(self):
         if self.id is None:
             self.id = str(uuid.uuid4())
+
+        if self.is_raster:
+            # skip extraction of GPS and GSD for raster tiles
+            return
 
         if self.image_data is not None:
             self.image_data = ImageOps.exif_transpose(self.image_data)
@@ -81,23 +87,28 @@ class Tile:
             if self.image_data is None:
                 self.width, self.height = get_image_dimensions(self.image_path)
             else:
-                self.width, self.height = self.image_data.size    
-            
+                self.width, self.height = self.image_data.size
+
         # GPS extraction
         try:
-            if (self.latitude is None) or (self.longitude is None):                
-                self.latitude, self.longitude, self.altitude = self._extract_gps_coords()
+            if (self.latitude is None) or (self.longitude is None):
+                (
+                    self.latitude,
+                    self.longitude,
+                    self.altitude,
+                ) = self._extract_gps_coords()
 
             if self.tile_gps_loc is None:
                 if (self.latitude is not None) and (self.longitude is not None):
                     self.tile_gps_loc = str(
-                    geopy.Point(self.latitude, self.longitude, self.altitude / 1e3)
+                        geopy.Point(self.latitude, self.longitude, self.altitude / 1e3)
                     )
-        except Exception as e:
+        except Exception:
             logger.error(traceback.format_exc())
 
+        # GSD extraction
         try:
-            if self.gsd is None:                
+            if self.gsd is None:
                 if self.flight_specs is None:
                     logger.warning("Flight specs are not provided.")
                     return None
@@ -115,7 +126,7 @@ class Tile:
                     if sensor_height is None:
                         logger.debug("Sensor height not found. Please provide it.")
 
-                if self.flight_specs is not None:                    
+                if self.flight_specs is not None:
                     self.gsd = get_gsd(
                         image_path=self.image_path,
                         image=self.image_data,
@@ -125,11 +136,11 @@ class Tile:
                     )
             try:
                 self._set_geographic_footprint()
-            except Exception as e:
+            except Exception:
                 logger.warning(
                     f"Failed to set geographic footprint for {self.image_path}: {traceback.format_exc()}"
                 )
-        except Exception as e:
+        except Exception:
             logger.error(traceback.format_exc())
 
         return None

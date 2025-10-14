@@ -87,8 +87,8 @@ def create_geographic_footprint(
             )
 
         return bounds
-    except Exception as e:
-        traceback.print_exc()
+    except Exception:
+        logger.error(traceback.format_exc())
         raise Exception
 
 
@@ -105,7 +105,9 @@ class GPSDetectionService:
         """
 
         if tile.tile_gps_loc is None:
-            logger.warning(f"Failed to update detection GPS: No GPS coordinate found in tile: {tile.image_path}")
+            logger.warning(
+                f"Failed to update detection GPS: No GPS coordinate found in tile: {tile.image_path}"
+            )
             return
 
         detection.image_gps_loc = tile.tile_gps_loc
@@ -115,7 +117,9 @@ class GPSDetectionService:
                 detection, tile
             )
         except Exception as e:
-            logger.error(f"Failed to compute GPS location of detection: {traceback.format_exc()}")
+            logger.error(
+                f"Failed to compute GPS location of detection: {traceback.format_exc()}"
+            )
             detection.gps_loc = None
 
         # Compute geographic footprint using tile's center coordinates as reference
