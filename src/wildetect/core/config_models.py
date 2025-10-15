@@ -7,13 +7,14 @@ It extends the existing dataclasses from config.py to avoid code duplication.
 """
 
 import logging
+import os
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+
+import pandas as pd
 import yaml
 from pydantic import BaseModel, Field, field_validator
-import pandas as pd
-import os
 
 from .config import (
     DetectionPipelineTypes,
@@ -61,8 +62,12 @@ class FlightSpecsModel(BaseModel):
 class ExifGPSUpdateConfig(BaseModel):
     """Configuration for updating EXIF GPS data from CSV."""
 
-    image_folder: Optional[str] = Field(default=None, description="Path to folder containing images")
-    csv_path: Optional[str] = Field(default=None, description="Path to CSV file with GPS coordinates")
+    image_folder: Optional[str] = Field(
+        default=None, description="Path to folder containing images"
+    )
+    csv_path: Optional[str] = Field(
+        default=None, description="Path to CSV file with GPS coordinates"
+    )
     skip_rows: int = Field(default=0, description="Number of rows to skip in CSV")
     filename_col: str = Field(
         default="filename", description="CSV column name for filenames"
@@ -156,9 +161,17 @@ class ProcessingConfigModel(BaseModel):
         default=2, ge=1, description="Number of workers for inference"
     )
     pin_memory: bool = Field(default=False, description="Pin memory for data loading")
-    prefetch_factor: int = Field(default=4, ge=2, description="Prefetch factor for data loading")
+    prefetch_factor: int = Field(
+        default=4, ge=2, description="Prefetch factor for data loading"
+    )
     max_concurrent: int = Field(
         default=4, ge=1, description="Maximum number of concurrent inference tasks"
+    )
+    nms_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="NMS threshold for detections stitching",
     )
 
 
@@ -256,9 +269,13 @@ class OutputFormatConfigModel(BaseModel):
 class DetectConfigModel(BaseModel):
     """Configuration model for detect command."""
 
-    image_paths: Optional[List[str]] = Field(default=None, description="Image directory path")
+    image_paths: Optional[List[str]] = Field(
+        default=None, description="Image directory path"
+    )
     image_dir: Optional[str] = Field(default=None, description="Image directory path")
-    exif_gps_update: Optional[ExifGPSUpdateConfig] = Field(default=None, description="EXIF GPS update configuration")
+    exif_gps_update: Optional[ExifGPSUpdateConfig] = Field(
+        default=None, description="EXIF GPS update configuration"
+    )
     model: ModelConfigModel = Field(default_factory=ModelConfigModel)
     processing: ProcessingConfigModel = Field(default_factory=ProcessingConfigModel)
     flight_specs: FlightSpecsModel = Field(default_factory=FlightSpecsModel)
@@ -287,26 +304,42 @@ class DetectConfigModel(BaseModel):
             queue_size=self.processing.queue_size,
             max_concurrent=self.processing.max_concurrent,
             num_workers=self.processing.num_inference_workers,
+            nms_threshold=self.processing.nms_threshold,
         )
 
     def to_loader_config(self) -> LoaderConfig:
         """Convert to existing LoaderConfig dataclass."""
         cfg = dict()
         if self.exif_gps_update is not None:
-            if (self.exif_gps_update.csv_path is not None) and (self.exif_gps_update.image_folder is not None):
+            if (self.exif_gps_update.csv_path is not None) and (
+                self.exif_gps_update.image_folder is not None
+            ):
                 try:
-                    df = pd.read_csv(self.exif_gps_update.csv_path, skiprows=self.exif_gps_update.skip_rows, sep=";")
+                    df = pd.read_csv(
+                        self.exif_gps_update.csv_path,
+                        skiprows=self.exif_gps_update.skip_rows,
+                        sep=";",
+                    )
                 except Exception:
-                    logger.info(f"Failed to read CSV file {self.exif_gps_update.csv_path} with separator ';', trying with ','")
-                    df = pd.read_csv(self.exif_gps_update.csv_path, skiprows=self.exif_gps_update.skip_rows, sep=",")            
-                df['image_path'] = df[self.exif_gps_update.filename_col].apply(lambda x: os.path.join(self.exif_gps_update.image_folder, x))
+                    logger.info(
+                        f"Failed to read CSV file {self.exif_gps_update.csv_path} with separator ';', trying with ','"
+                    )
+                    df = pd.read_csv(
+                        self.exif_gps_update.csv_path,
+                        skiprows=self.exif_gps_update.skip_rows,
+                        sep=",",
+                    )
+                df["image_path"] = df[self.exif_gps_update.filename_col].apply(
+                    lambda x: os.path.join(self.exif_gps_update.image_folder, x)
+                )
 
-                cfg = dict(lat_col=self.exif_gps_update.lat_col,
-                        lon_col=self.exif_gps_update.lon_col,
-                        alt_col=self.exif_gps_update.alt_col,
-                        csv_data=df
-                        )
-                        
+                cfg = dict(
+                    lat_col=self.exif_gps_update.lat_col,
+                    lon_col=self.exif_gps_update.lon_col,
+                    alt_col=self.exif_gps_update.alt_col,
+                    csv_data=df,
+                )
+
         return LoaderConfig(
             tile_size=self.processing.tile_size,
             batch_size=self.processing.batch_size,
@@ -315,7 +348,7 @@ class DetectConfigModel(BaseModel):
             flight_specs=self.flight_specs.to_flight_specs(),
             pin_memory=self.processing.pin_memory,
             prefetch_factor=self.processing.prefetch_factor,
-            **cfg
+            **cfg,
         )
 
 
@@ -511,6 +544,7 @@ class BenchmarkConfigModel(BaseModel):
             pipeline_type=self.processing.pipeline_type,
             queue_size=self.processing.queue_size,
             max_concurrent=self.processing.max_concurrent,
+            nms_threshold=self.processing.nms_threshold,
         )
 
     def to_loader_config(self) -> LoaderConfig:
@@ -518,7 +552,7 @@ class BenchmarkConfigModel(BaseModel):
         return LoaderConfig(
             tile_size=self.processing.tile_size,
             batch_size=self.processing.batch_size,
-            num_workers=self.processing.num_workers,
+            num_workers=self.processing.num_data_workers,
             overlap=self.processing.overlap_ratio,
             flight_specs=self.flight_specs.to_flight_specs(),
             prefetch_factor=self.processing.prefetch_factor,

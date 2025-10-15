@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+
 import pandas as pd
 import supervision as sv
 import torch
@@ -83,7 +84,7 @@ class BaseDetectionPipeline(ABC):
 
     def get_drone_images(self) -> List[DroneImage]:
         return list(self.drone_images.values())
-    
+
     def get_all_detections(
         self,
     ) -> List[Detection]:
@@ -92,26 +93,44 @@ class BaseDetectionPipeline(ABC):
         for drone_image in self.get_drone_images():
             detections.extend(drone_image.get_non_empty_predictions())
         return detections
-    
-    def save_all_detections(
-        self,save_dir: str
-    ) -> None:
+
+    def save_all_detections(self, save_dir: str) -> None:
         """Save all detections from all DroneImages."""
         all_detections = self.get_all_detections()
 
         detection_coords = [
-            list(detection.gps_as_decimals) + [detection.parent_image, detection.class_name, detection.confidence, detection.x_center, detection.y_center, detection.width, detection.height,]
+            list(detection.gps_as_decimals)
+            + [
+                detection.parent_image,
+                detection.class_name,
+                detection.confidence,
+                detection.x_center,
+                detection.y_center,
+                detection.width,
+                detection.height,
+            ]
             for detection in all_detections
         ]
         df = pd.DataFrame(
-            detection_coords, columns=["latitude", "longitude", "altitude", "image_path", "class_name", "confidence", "x_center", "y_center", "width", "height"]
+            detection_coords,
+            columns=[
+                "latitude",
+                "longitude",
+                "altitude",
+                "image_path",
+                "class_name",
+                "confidence",
+                "x_center",
+                "y_center",
+                "width",
+                "height",
+            ],
         )
         save_path = Path(save_dir) / "detections.csv"
         save_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(save_path, index=False)
-        
+
         return None
-    
 
     def get_image_gps_coords(self, image_path: str) -> Tuple:
         """Get image GPS coordinates from CSV or image directory."""
@@ -197,7 +216,11 @@ class BaseDetectionPipeline(ABC):
             # Add tile to drone image with its offset
             offset = (tile.x_offset or 0, tile.y_offset or 0)
             self.drone_images[tile.parent_image].add_tile(
-                tile, x_offset=offset[0], y_offset=offset[1]
+                tile=tile,
+                x_offset=offset[0],
+                y_offset=offset[1],
+                offset_detections=True,
+                nms_threshold=self.config.nms_threshold,
             )
 
     def _update_gps_in_detections(
@@ -448,7 +471,7 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             latitude=latitude,
             longitude=longitude,
             altitude=altitude,
-        )        
+        )
 
         # add tiles to drone image
         for i in range(num_tiles):
@@ -462,7 +485,13 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
                 tile.set_predictions(detections[i], update_gps=False)
             else:
                 tile.set_predictions([], update_gps=False)
-            drone_image.add_tile(tile, tile.x_offset, tile.y_offset)
+            drone_image.add_tile(
+                tile=tile,
+                x_offset=tile.x_offset,
+                y_offset=tile.y_offset,
+                offset_detections=True,
+                nms_threshold=self.config.nms_threshold,
+            )
 
         return drone_image
 
@@ -522,7 +551,7 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             # Save results when completed
             if self.save_path:
                 self._save_results(drone_image, mode="a")
-        
+
         logger.info(
             f"Completed processing {self.total_batches} batches "
             f"with {self.total_tiles} tiles"

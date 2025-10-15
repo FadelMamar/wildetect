@@ -42,7 +42,7 @@ detection:
     num_data_workers: 1
     num_inference_workers: 1 # for multi-processing pipeline
     pin_memory: true
-  
+    nms_threshold: 0.5 # NMS threshold for detections stitching
   # Label Studio Configuration
   labelstudio:
     url: null

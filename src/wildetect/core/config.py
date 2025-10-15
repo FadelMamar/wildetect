@@ -66,6 +66,9 @@ class PredictionConfig:
     buffer_size: int = 24
     timeout: int = 60
 
+    # nms - inside DroneImage
+    nms_threshold: float = 0.5
+
     # inference service
     inference_service_url: Optional[str] = None
 
@@ -196,10 +199,18 @@ class LoaderConfig:
 
     def csv_data_to_dict(self) -> Dict[str, Any]:
         """Convert CSV data to dictionary."""
-        assert (self.lat_col is not None) and (self.lon_col is not None) and (self.alt_col is not None), "lat_col, lon_col, and alt_col must be provided"
-        cfg = {self.lat_col: 'latitude', self.lon_col: 'longitude', self.alt_col: 'altitude'}
-        return (self.csv_data
-                            .rename(columns=cfg)
-                            .set_index('image_path')
-                            .to_dict(orient='index')
-                        )
+        assert (
+            (self.lat_col is not None)
+            and (self.lon_col is not None)
+            and (self.alt_col is not None)
+        ), "lat_col, lon_col, and alt_col must be provided"
+        cfg = {
+            self.lat_col: "latitude",
+            self.lon_col: "longitude",
+            self.alt_col: "altitude",
+        }
+        return (
+            self.csv_data.rename(columns=cfg)
+            .set_index("image_path")
+            .to_dict(orient="index")
+        )

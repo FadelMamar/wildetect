@@ -224,8 +224,8 @@ class Tile:
     ):
         if self.x_offset is not None and self.y_offset is not None:
             if self._pred_is_original:
-                logger.debug(
-                    "Skipping - Predictions have already been mapped to the reference coordinates."
+                logger.info(
+                    "Skipping offsetting - Predictions have already been mapped to the reference coordinates."
                 )
             if self.predictions and (not self._pred_is_original):
                 for det in self.predictions:
@@ -236,8 +236,8 @@ class Tile:
 
             if self.annotations and (not self._annot_is_original):
                 if self._annot_is_original:
-                    logger.debug(
-                        "Skipping - Annotations have already been mapped to the reference coordinates."
+                    logger.info(
+                        "Skipping offsetting - Annotations have already been mapped to the reference coordinates."
                     )
                 for det in self.annotations:
                     if det.is_empty:

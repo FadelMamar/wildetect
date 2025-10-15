@@ -194,21 +194,24 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
                 is_raster=True,
             )
 
-            if detection:
+            if len(detection) > 0:
                 for det in detection:
                     det.gps_loc = self.get_gps_coords(
-                        row=det.y_center,
-                        col=det.x_center,
+                        row=det.y_center + tile.y_offset,
+                        col=det.x_center + tile.x_offset,
                         altitude=self.drone_image.altitude,
                         as_decimal=False,
                     )
                 tile.set_predictions(detection, update_gps=False)
             else:
                 tile.set_predictions([], update_gps=False)
+
             self.drone_image.add_tile(
-                tile,
-                tile.x_offset,
-                tile.y_offset,
+                tile=tile,
+                x_offset=tile.x_offset,
+                y_offset=tile.y_offset,
+                offset_detections=True,
+                nms_threshold=self.config.nms_threshold,
             )
 
     def get_drone_images(self) -> List[DroneImage]:

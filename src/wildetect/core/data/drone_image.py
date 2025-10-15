@@ -32,7 +32,9 @@ class DroneImage(Tile):
 
     # DroneImage-specific fields only (all other fields inherited from Tile)
     tiles: List[Tile] = field(default_factory=list)
-    tile_offsets: List[Tuple[int, int]] = field(default_factory=list)
+    tile_offsets: List[Tuple[int, int]] = field(
+        default_factory=list
+    )  # (x_offset, y_offset)
     metadata: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
@@ -93,7 +95,12 @@ class DroneImage(Tile):
         self.add_tile(full_tile, 0, 0)
 
     def add_tile(
-        self, tile: Tile, x_offset: int, y_offset: int, nms_threshold: float = 0.5
+        self,
+        tile: Tile,
+        x_offset: int,
+        y_offset: int,
+        nms_threshold: float = 0.5,
+        offset_detections: bool = True,
     ) -> None:
         """Add a tile with its offset to the drone image.
 
@@ -101,6 +108,8 @@ class DroneImage(Tile):
             tile (Tile): Tile to add
             x_offset (int): x offset of the tile
             y_offset (int): y offset of the tile
+            nms_threshold (float): nms threshold. NMS is disabled if 0.0
+            offset_detections (bool): whether to offset detections
         """
         if not isinstance(tile, Tile):
             raise TypeError(f"Expected Tile object, got {type(tile)}")
@@ -111,8 +120,9 @@ class DroneImage(Tile):
         # set offsets
         tile.set_offsets(x_offset, y_offset)
 
-        # offset detections -> DrroneImage reference coordinates
-        tile.offset_detections()
+        # offset detections -> DroneImage reference coordinates
+        if offset_detections:
+            tile.offset_detections()
 
         # add tile to drone image
         self.tiles.append(tile)
@@ -130,9 +140,13 @@ class DroneImage(Tile):
         self.predictions.extend(predictions)
 
         # filter detections
-        self.filter_detections(
-            method="nms", threshold=nms_threshold, clamp=True, confidence_threshold=0.0
-        )
+        if nms_threshold > 0.0:
+            self.filter_detections(
+                method="nms",
+                threshold=nms_threshold,
+                clamp=True,
+                confidence_threshold=0.0,
+            )
 
         logger.debug(f"Added tile {tile.id} at offset {x_offset}, {y_offset}")
 
