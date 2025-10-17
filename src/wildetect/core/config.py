@@ -65,6 +65,7 @@ class PredictionConfig:
     verbose: bool = False
     buffer_size: int = 24
     timeout: int = 60
+    max_errors: int = 5
 
     # nms - inside DroneImage
     nms_threshold: float = 0.5

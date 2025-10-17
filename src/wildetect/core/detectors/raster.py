@@ -155,9 +155,9 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
                 logger.error(f"Failed to process batch: {e}")
                 logger.debug(traceback.format_exc())
 
-                if self.error_count > 5:
-                    raise RuntimeError(
-                        f"Too many errors. Stopping. {traceback.format_exc()}"
+                if self.error_count > self.config.max_errors:
+                    raise ValueError(
+                        f"Too many errors. Stopping. {self.error_count} > {self.config.max_errors}"
                     )
 
         logger.info(
@@ -358,10 +358,11 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
 
                 except Exception as e:
                     self.error_count += 1
-                    if self.error_count > 5:
-                        raise Exception(
-                            f"Too many errors. Stopping detection worker. {traceback.format_exc()}"
-                        )
+
+                if self.error_count > self.config.max_errors:
+                    raise ValueError(
+                        f"Too many errors. Stopping detection worker. {self.error_count} > {self.config.max_errors}"
+                    )
 
         except KeyboardInterrupt:
             logger.info("Detection process stopped by keyboard interrupt")

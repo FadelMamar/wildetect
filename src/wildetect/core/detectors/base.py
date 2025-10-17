@@ -337,6 +337,26 @@ class DetectionPipeline(BaseDetectionPipeline):
         """
         super().__init__(config, loader_config)
 
+    def process_one_batch(self, batch: Dict[str, Any]):
+        try:
+            batch_tensor = batch.pop("images")
+            batch_tensor = batch_tensor.to(self.config.device, non_blocking=True)
+            detections = self._process_batch(batch_tensor)
+            batch["detections"] = detections
+            self._postprocess_batch(batch)
+            result = True
+        except Exception:
+            logger.error(f"Failed to process batch: {traceback.format_exc()}")
+            result = False
+
+        if not result:
+            self.error_count += 1
+        if self.error_count > self.config.max_errors:
+            raise Exception(
+                f"Too many errors. Stopping detection worker. {self.error_count} > {self.config.max_errors}"
+            )
+        return None
+
     def run_detection(
         self,
         image_paths: Optional[List[str]] = None,
@@ -385,25 +405,9 @@ class DetectionPipeline(BaseDetectionPipeline):
             logger.warning("No batches to process")
             return []
 
-        def process_one_batch(batch: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-            try:
-                detections = self._process_batch(batch.pop("images"))
-                batch["detections"] = detections
-                return batch
-            except Exception:
-                logger.error(f"Failed to process batch: {traceback.format_exc()}")
-                return None
-
         with tqdm(total=total_batches, desc="Processing batches", unit="batch") as pbar:
-            for result in map(process_one_batch, data_loader):
-                if result is not None:
-                    self._postprocess_batch(result)
-                else:
-                    self.error_count += 1
-
-                if self.error_count > 5:
-                    raise RuntimeError("Too many errors. Stopping.")
-
+            for batch in data_loader:
+                self.process_one_batch(batch)
                 pbar.update(1)
 
         logger.info(

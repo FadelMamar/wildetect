@@ -41,7 +41,8 @@ processing:
   num_inference_workers: 1 # for multi-processing pipeline
   pin_memory: true
   nms_threshold: 0.5 # NMS threshold for detections stitching
-
+  max_errors: 5
+  
 # Flight Specifications
 flight_specs:
   sensor_height: 15.6  # mm

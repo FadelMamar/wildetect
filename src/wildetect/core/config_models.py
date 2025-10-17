@@ -173,6 +173,9 @@ class ProcessingConfigModel(BaseModel):
         le=1.0,
         description="NMS threshold for detections stitching",
     )
+    max_errors: int = Field(
+        default=5, ge=1, description="Maximum number of errors before stopping"
+    )
 
 
 class InferenceServiceConfigModel(BaseModel):
@@ -305,6 +308,7 @@ class DetectConfigModel(BaseModel):
             max_concurrent=self.processing.max_concurrent,
             num_workers=self.processing.num_inference_workers,
             nms_threshold=self.processing.nms_threshold,
+            max_errors=self.processing.max_errors,
         )
 
     def to_loader_config(self) -> LoaderConfig:
@@ -545,6 +549,7 @@ class BenchmarkConfigModel(BaseModel):
             queue_size=self.processing.queue_size,
             max_concurrent=self.processing.max_concurrent,
             nms_threshold=self.processing.nms_threshold,
+            max_errors=self.processing.max_errors,
         )
 
     def to_loader_config(self) -> LoaderConfig:

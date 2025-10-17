@@ -131,23 +131,8 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
                     logger.info("Received end of data signal")
                     break
 
-                # Process and postprocess batch
-                try:
-                    batch_tensor = batch.pop("images")
-                    batch_tensor = batch_tensor.to(
-                        self.config.device, non_blocking=True
-                    )
-                    detections = self._process_batch(
-                        batch_tensor, progress_bar=progress_bar
-                    )
-                    batch["detections"] = detections
-                    self._postprocess_batch(batch)
-                except Exception as e:
-                    self.error_count += 1
-                    if self.error_count > 5:
-                        raise Exception(
-                            f"Too many errors. Stopping detection worker. {traceback.format_exc()}"
-                        )
+                # Process batch
+                self.process_one_batch(batch)
 
         except KeyboardInterrupt:
             logger.info("Detection process stopped by keyboard interrupt")
