@@ -62,23 +62,8 @@ class Tile:
         if self.image_data is not None:
             self.image_data = ImageOps.exif_transpose(self.image_data)
 
-        if self.parent_image:
-            try:
-                with Image.open(self.parent_image) as img:
-                    self.timestamp = img._getexif()[36867]
-            except:
-                pass
-
-        elif self.image_path:
-            try:
-                with Image.open(self.image_path) as img:
-                    self.timestamp = img._getexif()[36867]
-            except:
-                pass
-        
-        # Only open image if dimensions are not provided
-        self._set_image_dimensions()
-            
+        self._set_timestamp()
+        self._set_image_dimensions()            
         # GPS extraction
         try:
             self._set_gps()
@@ -97,6 +82,21 @@ class Tile:
             logger.error(traceback.format_exc())
 
         return None
+    
+    def _set_timestamp(self):
+        if self.parent_image:
+            try:
+                with Image.open(self.parent_image) as img:
+                    self.timestamp = img._getexif()[36867]
+            except:
+                pass
+
+        elif self.image_path:
+            try:
+                with Image.open(self.image_path) as img:
+                    self.timestamp = img._getexif()[36867]
+            except:
+                pass
     
     def _set_image_dimensions(self):
         """Set image dimensions."""
