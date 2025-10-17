@@ -226,8 +226,12 @@ def census(
             image_paths = get_images_paths(loaded_config.detection.image_dir)
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
 
-        assert (image_paths is not None) ^ (image_dir is not None) ^ (loaded_config.detection.labelstudio.project_id is not None) ^ (loaded_config.detection.exif_gps_update.image_folder is not None), "Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided"
+        check = (image_paths is not None) + (loaded_config.detection.labelstudio.project_id is not None) + (loaded_config.detection.exif_gps_update.image_folder is not None)
 
+        if check!=1:
+            console.print(f"[red]Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided[/red]")
+            console.print(f"[red]image_paths {loaded_config.detection.image_paths}, image_dir {loaded_config.detection.image_dir}, labelstudio.project_id {loaded_config.detection.labelstudio.project_id}, exif_gps_update.image_folder {loaded_config.detection.exif_gps_update.image_folder}[/red]")
+            raise typer.Exit(1)
 
         image_paths_task_ids = dict()
         if loaded_config.detection.labelstudio.project_id is not None:
