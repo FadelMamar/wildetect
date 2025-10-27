@@ -2,8 +2,8 @@ import logging
 import traceback
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import cv2
 import geopy
@@ -49,6 +49,8 @@ class Tile:
     geographic_footprint: Optional["GeographicBounds"] = None
     gsd: Optional[float] = None  # cm/px
 
+    is_raster: bool = False
+
     predictions: List[Detection] = field(default_factory=list)
     annotations: List[Detection] = field(default_factory=list)
 
@@ -58,7 +60,11 @@ class Tile:
     def __post_init__(self):
         if self.id is None:
             self.id = str(uuid.uuid4())
-        
+
+        if self.is_raster:
+            # skip extraction of GPS and GSD for raster tiles
+            return
+
         if self.image_data is not None:
             self.image_data = ImageOps.exif_transpose(self.image_data)
 
@@ -103,22 +109,67 @@ class Tile:
         if (self.width is not None) and (self.height is not None):
             return
 
-        if self.image_data is not None:
-            self.width, self.height = self.image_data.size
-            return        
-        else:
-            self.width, self.height = get_image_dimensions(self.image_path)
-    
-    def _set_gps(self):
-        # GPS extraction
-        if (self.latitude is None) or (self.longitude is None):                
-            self.latitude, self.longitude, self.altitude = self._extract_gps_coords()
+        # Only open image if dimensions are not provided
+        if self.width is None or self.height is None:
+            if self.image_data is None:
+                self.width, self.height = get_image_dimensions(self.image_path)
+            else:
+                self.width, self.height = self.image_data.size
 
-        if self.tile_gps_loc is None:
-            if (self.latitude is not None) and (self.longitude is not None):
-                self.tile_gps_loc = str(
-                geopy.Point(self.latitude, self.longitude, self.altitude / 1e3)
+        # GPS extraction
+        try:
+            if (self.latitude is None) or (self.longitude is None):
+                (
+                    self.latitude,
+                    self.longitude,
+                    self.altitude,
+                ) = self._extract_gps_coords()
+
+            if self.tile_gps_loc is None:
+                if (self.latitude is not None) and (self.longitude is not None):
+                    self.tile_gps_loc = str(
+                        geopy.Point(self.latitude, self.longitude, self.altitude / 1e3)
+                    )
+        except Exception:
+            logger.error(traceback.format_exc())
+
+        # GSD extraction
+        try:
+            if self.gsd is None:
+                if self.flight_specs is None:
+                    logger.warning("Flight specs are not provided.")
+                    return None
+                elif isinstance(self.flight_specs, FlightSpecs):
+                    pass
+                else:
+                    raise ValueError(
+                        f"Flight specs is either None or not a 'FlightSpecs' object. Found {type(self.flight_specs)}"
+                    )
+
+                sensor_height = self.flight_specs.sensor_height
+                exif = self._extract_exif()
+                if sensor_height is None:
+                    sensor_height = GPSUtils.SENSOR_HEIGHTS.get(exif["Model"])
+                    if sensor_height is None:
+                        logger.debug("Sensor height not found. Please provide it.")
+
+                if self.flight_specs is not None:
+                    self.gsd = get_gsd(
+                        image_path=self.image_path,
+                        image=self.image_data,
+                        flight_specs=self.flight_specs,
+                        image_height=self.height,
+                        exif=exif,
+                    )
+            try:
+                self._set_geographic_footprint()
+            except Exception:
+                logger.warning(
+                    f"Failed to set geographic footprint for {self.image_path}: {traceback.format_exc()}"
                 )
+        except Exception:
+            logger.error(traceback.format_exc())
+
         return None
     
     def _set_gsd(self):
@@ -227,8 +278,8 @@ class Tile:
     ):
         if self.x_offset is not None and self.y_offset is not None:
             if self._pred_is_original:
-                logger.debug(
-                    "Skipping - Predictions have already been mapped to the reference coordinates."
+                logger.info(
+                    "Skipping offsetting - Predictions have already been mapped to the reference coordinates."
                 )
             if self.predictions and (not self._pred_is_original):
                 for det in self.predictions:
@@ -239,8 +290,8 @@ class Tile:
 
             if self.annotations and (not self._annot_is_original):
                 if self._annot_is_original:
-                    logger.debug(
-                        "Skipping - Annotations have already been mapped to the reference coordinates."
+                    logger.info(
+                        "Skipping offsetting - Annotations have already been mapped to the reference coordinates."
                     )
                 for det in self.annotations:
                     if det.is_empty:

@@ -32,7 +32,9 @@ class DroneImage(Tile):
 
     # DroneImage-specific fields only (all other fields inherited from Tile)
     tiles: List[Tile] = field(default_factory=list)
-    tile_offsets: List[Tuple[int, int]] = field(default_factory=list)
+    tile_offsets: List[Tuple[int, int]] = field(
+        default_factory=list
+    )  # (x_offset, y_offset)
     metadata: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
@@ -85,13 +87,20 @@ class DroneImage(Tile):
             latitude=self.latitude,
             longitude=self.longitude,
             gsd=self.gsd,
+            is_raster=self.is_raster,
+            altitude=self.altitude,
         )
 
         # Add it as the first tile with no offset
         self.add_tile(full_tile, 0, 0)
 
     def add_tile(
-        self, tile: Tile, x_offset: int, y_offset: int, nms_threshold: float = 0.5
+        self,
+        tile: Tile,
+        x_offset: int,
+        y_offset: int,
+        nms_threshold: float = 0.5,
+        offset_detections: bool = True,
     ) -> None:
         """Add a tile with its offset to the drone image.
 
@@ -99,6 +108,8 @@ class DroneImage(Tile):
             tile (Tile): Tile to add
             x_offset (int): x offset of the tile
             y_offset (int): y offset of the tile
+            nms_threshold (float): nms threshold. NMS is disabled if 0.0
+            offset_detections (bool): whether to offset detections
         """
         if not isinstance(tile, Tile):
             raise TypeError(f"Expected Tile object, got {type(tile)}")
@@ -109,8 +120,9 @@ class DroneImage(Tile):
         # set offsets
         tile.set_offsets(x_offset, y_offset)
 
-        # offset detections -> DrroneImage reference coordinates
-        tile.offset_detections()
+        # offset detections -> DroneImage reference coordinates
+        if offset_detections:
+            tile.offset_detections()
 
         # add tile to drone image
         self.tiles.append(tile)
@@ -128,9 +140,13 @@ class DroneImage(Tile):
         self.predictions.extend(predictions)
 
         # filter detections
-        self.filter_detections(
-            method="nms", threshold=nms_threshold, clamp=True, confidence_threshold=0.0
-        )
+        if nms_threshold > 0.0:
+            self.filter_detections(
+                method="nms",
+                threshold=nms_threshold,
+                clamp=True,
+                confidence_threshold=0.0,
+            )
 
         logger.debug(f"Added tile {tile.id} at offset {x_offset}, {y_offset}")
 
@@ -285,11 +301,14 @@ class DroneImage(Tile):
             "num_tiles": len(self.tiles),
             "total_detections": len(all_detections),
             "class_counts": class_counts,
-            "all_detections": [det.bbox + [det.class_name, det.confidence, *det.gps_as_decimals] for det in all_detections],
+            "all_detections": [
+                det.bbox + [det.class_name, det.confidence, *det.gps_as_decimals]
+                for det in all_detections
+            ],
             "has_gps": (self.latitude is not None) and (self.longitude is not None),
-            #"has_geographic_footprint": self.geographic_footprint is not None,
+            # "has_geographic_footprint": self.geographic_footprint is not None,
             "gps_loc": self.tile_gps_loc,
-            #"polygon_points": self.geo_polygon_points,
+            # "polygon_points": self.geo_polygon_points,
             "gsd": self.gsd,
             "timestamp": self.timestamp,
         }
@@ -406,7 +425,6 @@ class DroneImage(Tile):
         flight_specs: FlightSpecs,
         labelstudio_config: Optional[LabelStudioConfigModel] = None,
     ) -> List["DroneImage"]:
-
         from ..visualization.labelstudio_manager import LabelStudioManager
 
         assert (

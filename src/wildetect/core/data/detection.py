@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import fiftyone as fo
-import numpy as np
 import supervision as sv
 from tqdm import tqdm
 
@@ -21,7 +20,6 @@ if TYPE_CHECKING:
     from .tile import Tile
 
 logger = logging.getLogger(__name__)
-
 
 
 @dataclass

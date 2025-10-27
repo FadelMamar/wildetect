@@ -44,6 +44,8 @@ detection:
     pin_memory: true
     prefetch_factor: 2
   
+    nms_threshold: 0.5 # NMS threshold for detections stitching
+    max_errors: 5
   # Label Studio Configuration
   labelstudio:
     url: null
