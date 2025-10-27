@@ -18,7 +18,7 @@ detection:
 
   # or exif gps update configuration
   exif_gps_update:
-    image_folder: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\tmp  # Path to folder containing images
+    image_folder: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\cam0  # Path to folder containing images
     csv_path: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\SE_SabieRiver_GraniteB_Rectimage.csv  # Path to CSV file with GPS coordinates
     skip_rows: 4  # Number of rows to skip in CSV (e.g., header row)
     filename_col: "filename"  # CSV column name for filenames
@@ -42,6 +42,7 @@ detection:
     num_data_workers: 1
     num_inference_workers: 1 # for multi-processing pipeline
     pin_memory: true
+    prefetch_factor: 2
   
   # Label Studio Configuration
   labelstudio:
@@ -55,7 +56,8 @@ detection:
     sensor_height: 15.6  # mm
     focal_length: 16.0   # mm
     flight_height: 120.0  # meters
-  
+    gsd: null # cm/px  *MANDATORY FOR RASTER DETECTION*
+
   # Inference Service Configuration
   inference_service:
     url: null #http://localhost:4141/predict  # URL for external inference service
@@ -73,7 +75,7 @@ export:
   to_fiftyone: false
   create_map: true
   output_directory: null  # Will use campaign_id if null
-  export_to_labelstudio: false
+  export_to_labelstudio: true
 
 # Logging Configuration
 logging:
