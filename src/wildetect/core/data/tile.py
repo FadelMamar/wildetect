@@ -3,7 +3,7 @@ import traceback
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import cv2
 import geopy
@@ -68,6 +68,28 @@ class Tile:
         if self.image_data is not None:
             self.image_data = ImageOps.exif_transpose(self.image_data)
 
+        self._set_timestamp()
+        self._set_image_dimensions()            
+        # GPS extraction
+        try:
+            self._set_gps()
+        except Exception as e:
+            logger.warning(f"Failed to set GPS for tile path={self.image_path}: {e}")
+
+        try:
+            self._set_gsd()
+            try:
+                self._set_geographic_footprint()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to set geographic footprint for {self.image_path}: {e}"
+                )
+        except Exception as e:
+            logger.error(traceback.format_exc())
+
+        return None
+    
+    def _set_timestamp(self):
         if self.parent_image:
             try:
                 with Image.open(self.parent_image) as img:
@@ -81,6 +103,11 @@ class Tile:
                     self.timestamp = img._getexif()[36867]
             except:
                 pass
+    
+    def _set_image_dimensions(self):
+        """Set image dimensions."""
+        if (self.width is not None) and (self.height is not None):
+            return
 
         # Only open image if dimensions are not provided
         if self.width is None or self.height is None:
@@ -144,6 +171,32 @@ class Tile:
             logger.error(traceback.format_exc())
 
         return None
+    
+    def _set_gsd(self):
+        if self.gsd is not None: 
+            return
+         
+        if (self.image_path is None) and (self.image_data is None):
+            logger.debug("Failed to set GSD: Image path or data are not provided.")
+            return
+
+        if self.flight_specs is None:
+            logger.debug("Failed to set GSD: Flight specs are not provided.")
+            return
+        elif isinstance(self.flight_specs, FlightSpecs):
+            pass
+        else:
+            raise ValueError(
+                f"Flight specs is either None or not a 'FlightSpecs' object. Found {type(self.flight_specs)}"
+            )
+
+        self.gsd = get_gsd(
+            image_path=self.image_path,
+            image=self.image_data,
+            flight_specs=self.flight_specs,
+            image_height=self.height,
+            exif=self._extract_exif(),
+        )
 
     def load_image_data(self) -> Image.Image:
         if self.image_data is not None:
@@ -174,6 +227,8 @@ class Tile:
         return self.geographic_footprint.overlap_ratio(other.geographic_footprint)
 
     def _extract_exif(self):
+        if (self.image_path is None) and (self.image_data is None):
+            return None
         exif = GPSUtils.get_exif(file_name=self.image_path, image=self.image_data)
         return exif
 
@@ -192,16 +247,15 @@ class Tile:
 
     def _extract_gps_coords(
         self,
-    ) -> Tuple:
-        # assert self.image_path is not None, "Provide image_path field when defining a tile"
+    ) -> Union[Tuple[float, float, float], Tuple[None, None, None]]:
+        """Extract GPS coordinates from image."""
+        if (self.image_path is None) and (self.image_data is None):
+            return (None, None, None)
+        
         image = None
         if self.image_path is None:
             image = self.image_data
-            if image is None:
-                raise ValueError(
-                    "Image data is None. Please provide image_path or image_data."
-                )
-
+            
         coords = GPSUtils.get_gps_coord(
             file_name=self.image_path,
             image=image,

@@ -8,10 +8,11 @@ model:
   device: "cuda"  # auto, cpu, cuda
 
 # list of image paths
-image_paths: null
+image_paths: 
+ - D:\PhD\Data per camp\Orthos\Dry season orthos\ortho_k_1_4_5_rep_1.tif
 
 # or image directory path
-image_dir: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\tmp
+image_dir: null
 
 # or exif gps update configuration
 exif_gps_update:
@@ -25,7 +26,7 @@ exif_gps_update:
 
 # Label Studio Configuration
 labelstudio:
-  url: "http://localhost:8080"
+  url: null
   api_key: null 
   project_id: null
   download_resources: false
@@ -39,15 +40,17 @@ processing:
   queue_size: 64  # for multi-threaded pipeline
   num_data_workers: 1
   num_inference_workers: 1 # for multi-processing pipeline
+  prefetch_factor: 2
   pin_memory: true
   nms_threshold: 0.5 # NMS threshold for detections stitching
   max_errors: 5
   
 # Flight Specifications
 flight_specs:
-  sensor_height: 15.6  # mm
-  focal_length: 16.0   # mm
-  flight_height: 120.0  # meters
+  sensor_height: 24  # mm
+  focal_length: 35.0   # mm
+  flight_height: 180.0  # meters
+  gsd: 2.38 # cm/px  MANDATORY FOR RASTER DETECTION
 
 
 # Inference Service Configuration

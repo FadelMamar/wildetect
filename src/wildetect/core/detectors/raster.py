@@ -76,7 +76,7 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
             src_crs=self.src.crs, dst_crs="EPSG:4326", xs=[longitude], ys=[latitude]
         )
         if as_decimal:
-            return latitude[0], longitude[0]
+            return longitude[0], latitude[0]
         else:
             return str(
                 geopy.Point(
