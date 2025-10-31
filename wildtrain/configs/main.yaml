@@ -1,0 +1,12 @@
+# Main Hydra config for WildTrain
+
+task: detection  # detection or classification
+framework: yolov8  # yolov8, mmdet (for detection)
+mode: train  # train, evaluate, export
+logging:
+  mlflow: true
+  log_dir: ./logs
+  experiment_name: wildtrain
+  run_name: default
+
+tune: false  # Enable hyperparameter tuning 

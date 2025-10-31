@@ -1,0 +1,30 @@
+names:
+  0: Tsessebe
+  1: Waterbuck
+  2: buffalo
+  3: bushbuck
+  4: colour impala
+  5: duiker
+  6: giraffe
+  7: impala
+  8: kudu
+  9: label
+  10: lechwe
+  11: nyala
+  12: nyala(m)
+  13: other
+  14: other animal
+  15: reedbuck
+  16: roan
+  17: rocks
+  18: sable
+  19: termite mound
+  20: vegetation
+  21: warthog
+  22: wildebeest
+  23: zebra
+  24: wildlife
+path: D:/workspace/data/demo-dataset/framework_formats/yolo/savmap
+test: images/test
+train: images/train
+val: images/train

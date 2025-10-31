@@ -1,0 +1,6 @@
+port: 4141
+workers_per_device: 1
+mlflow_registry_name: detector
+mlflow_alias: demo
+mlflow_local_dir: models-registry
+mlflow_tracking_uri: http://localhost:5000

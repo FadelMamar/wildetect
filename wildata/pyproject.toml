@@ -1,0 +1,64 @@
+[project]
+name = "wildata"
+version = "0.1.0"
+description = "WildTrain Data Pipeline"
+readme = "README.md"
+requires-python = "~=3.11.0"
+dependencies = [
+    "pycocotools>=2.0.10",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pyyaml>=6.0",
+    "jsonschema>=4.0.0",
+    "albumentations>=2.0.8",
+    "pillow>=11.3.0",
+    "python-dotenv>=1.1.1",
+    "typer>=0.9.0",
+    "dvc>=3.0.0",
+    "pre-commit>=4.2.0",
+    "spyder-kernels==3.0.*",
+    "dvc-s3>=3.2.2",
+    "scikit-learn",
+    "pandas>=2.3.1",
+    "torch>=2.0.0",
+    "torchvision",
+    "torchmetrics",
+    "pip>=25.1.1",
+    "label-studio-sdk",
+    "geopy>=2.4.1",
+    "label-studio-converter>=0.0.59",
+    "pydantic",
+    "piexif>=1.1.3",
+    "supervision>=0.26.1",
+    "fiftyone==1.2.0",
+    "streamlit>=1.47.1",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "python-multipart>=0.0.6",
+    "aiofiles>=23.2.1",
+    "pydantic-settings>=2.10.1",
+    "pytest-asyncio>=1.1.0",
+]
+
+[project.scripts]
+wildata = "wildata.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 88
+select = ["I", "E", "F", "W", "C90"]
+ignore = []
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+dvc = [
+    "dvc[s3]>=3.0.0",
+    "dvc[azure]>=3.0.0",
+    "dvc[ssh]>=3.0.0",
+]

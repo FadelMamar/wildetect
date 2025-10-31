@@ -1,0 +1,20 @@
+# ----------------------
+# Train
+# ----------------------
+disable_train: false
+train:
+  config: configs\detection\yolo_configs\yolo.yaml
+  debug: false
+
+# ----------------------
+# Eval
+# ----------------------
+disable_eval: true
+eval:
+  config: configs\detection\yolo_configs\yolo_eval.yaml
+  debug: false
+
+# ----------------------
+# Output
+# ----------------------
+results_dir: results/yolo
