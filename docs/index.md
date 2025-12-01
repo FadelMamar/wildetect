@@ -189,7 +189,6 @@ If you use WildDetect in your research, please cite:
 ## Support
 
 For questions and support:
-- 📧 Email: [fadel.seydou{at}delcaux{dot}com]
 - 💬 GitHub Discussions
 - 🐛 GitHub Issues
 
