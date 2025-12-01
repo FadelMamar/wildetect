@@ -1,0 +1,172 @@
+site_name: WildDetect Documentation
+site_description: WildDetect is a powerful wildlife detection and **census system** for aerial imagery. It helps conservationists, researchers, and organizations analyze wildlife populations, generate **geographic visualizations**, and produce actionable reports—all with easy-to-use command-line tools.
+site_author: Fadel M. Seydou
+
+repo_name: fadelmamar/wildetect
+repo_url: https://github.com/fadelmamar/wildetect
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; 2025 Fadel M. Seydou
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src, wildtrain/src, wildata/src]
+          selection:
+            docstring_style: google
+          rendering:
+            show_source: true
+            show_root_heading: true
+            show_root_toc_entry: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - Environment Setup: getting-started/environment-setup.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - WildDetect Package: architecture/wildetect.md
+      - WilData Package: architecture/wildata.md
+      - WildTrain Package: architecture/wildtrain.md
+      - Data Flow: architecture/data-flow.md
+  - Scripts Reference:
+      - WildDetect Scripts:
+          - Overview: scripts/wildetect/index.md
+          - Detection: scripts/wildetect/run_detection.md
+          - Census: scripts/wildetect/run_census.md
+          - UI: scripts/wildetect/launch_ui.md
+          - FiftyOne: scripts/wildetect/launch_fiftyone.md
+          - Label Studio: scripts/wildetect/launch_labelstudio.md
+          - MLflow: scripts/wildetect/launch_mlflow.md
+          - Inference Server: scripts/wildetect/launch_inference_server.md
+          - Model Registration: scripts/wildetect/register_model.md
+          - GPS Extraction: scripts/wildetect/extract_gps.md
+          - Profiling: scripts/wildetect/profile_census.md
+          - Testing: scripts/wildetect/run_integration_tests.md
+          - Environment: scripts/wildetect/load_env.md
+      - WilData Scripts:
+          - Overview: scripts/wildata/index.md
+          - Bulk Import: scripts/wildata/bulk-import-dataset.md
+          - Create ROI Dataset: scripts/wildata/create-roi-dataset.md
+          - DVC Setup: scripts/wildata/dvc-setup.md
+          - Import Dataset: scripts/wildata/import-dataset-example.md
+          - Launch API: scripts/wildata/launch_api.md
+          - Running Tests: scripts/wildata/running_tests.md
+          - Update GPS: scripts/wildata/update-gps-example.md
+          - Visualize Data: scripts/wildata/visualize_data.md
+      - WildTrain Scripts:
+          - Overview: scripts/wildtrain/index.md
+          - Train Classifier: scripts/wildtrain/train_classifier.md
+          - Evaluate Classifier: scripts/wildtrain/eval_classifier.md
+          - Evaluate Detector: scripts/wildtrain/eval_detector.md
+          - Register Model: scripts/wildtrain/register_model.md
+          - Classification Pipeline: scripts/wildtrain/run_classification_pipeline.md
+          - Detection Pipeline: scripts/wildtrain/run_detection_pipeline.md
+          - Run Server: scripts/wildtrain/run_server.md
+          - Visualize Predictions: scripts/wildtrain/visualize_predictions.md
+          - Create Dataset: scripts/wildtrain/create_dataset.md
+  - Configuration Reference:
+      - WildDetect Configs:
+          - Overview: configs/wildetect/index.md
+          - Detection Config: configs/wildetect/detection.md
+          - Census Config: configs/wildetect/census.md
+          - Benchmark Config: configs/wildetect/benchmark.md
+          - Visualization Config: configs/wildetect/visualization.md
+          - GPS Extraction Config: configs/wildetect/extract-gps.md
+          - Detector Registration: configs/wildetect/detector_registration.md
+          - Main Config: configs/wildetect/config.md
+          - Class Mapping: configs/wildetect/class_mapping.md
+      - WilData Configs:
+          - Overview: configs/wildata/index.md
+          - Import Config: configs/wildata/import-config-example.md
+          - Bulk Import Configs: configs/wildata/bulk-import.md
+          - ROI Creation: configs/wildata/roi-create-config.md
+          - Bulk ROI Creation: configs/wildata/bulk-roi-create-config.md
+          - GPS Update Config: configs/wildata/gps-update-config.md
+          - Label Studio Config: configs/wildata/label_studio_config.md
+      - WildTrain Configs:
+          - Overview: configs/wildtrain/index.md
+          - Classification Configs: configs/wildtrain/classification.md
+          - Detection Configs: configs/wildtrain/detection.md
+          - Data Preparation: configs/wildtrain/datapreparation.md
+          - Registration Configs: configs/wildtrain/registration.md
+          - Main Config: configs/wildtrain/main.md
+          - Inference Config: configs/wildtrain/inference.md
+  - Tutorials:
+      - End-to-End Detection: tutorials/end-to-end-detection.md
+      - Dataset Preparation: tutorials/dataset-preparation.md
+      - Model Training: tutorials/model-training.md
+      - Census Campaign: tutorials/census-campaign.md
+  - API Reference:
+      - WildDetect CLI: api-reference/wildetect-cli.md
+      - WilData CLI: api-reference/wildata-cli.md
+      - WildTrain CLI: api-reference/wildtrain-cli.md
+      - WilData REST API: api-reference/wildata-api.md
+      - Python API: api-reference/python-api.md
+  - Troubleshooting: troubleshooting.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/fadelmamar/wildetect
+      name: WildDetect on GitHub
+    - icon: fontawesome/brands/github
+      link: https://github.com/fadelmamar/wildata
+      name: WilData on GitHub
+    - icon: fontawesome/brands/github
+      link: https://github.com/fadelmamar/wildtrain
+      name: WildTrain on GitHub

@@ -223,47 +223,6 @@ names: ['elephant', 'giraffe', 'zebra']
 
 ---
 
-### train_mmdet.bat
-
-**Purpose**: Train model using MMDetection framework.
-
-**Location**: `wildtrain/scripts/train_mmdet.bat` (or similar)
-
-**Command**:
-```batch
-uv run wildtrain train detector -c configs\detection\mmdet_configs\mmdet.yaml
-```
-
-**Configuration**: `wildtrain/configs/detection/mmdet_configs/`
-
-**Supported Models**:
-- Faster R-CNN
-- YOLO variants
-- ATSS
-- FCOS
-- RetinaNet
-
-**Example Config**:
-```yaml
-model:
-  framework: "mmdet"
-  config_file: "configs/detection/mmdet_configs/faster_rcnn.py"
-  checkpoint: null  # or pretrained weights
-
-data:
-  data_root: "D:/data/coco_format"
-  ann_file_train: "train.json"
-  ann_file_val: "val.json"
-
-training:
-  work_dir: "work_dirs/faster_rcnn"
-  max_epochs: 12
-  batch_size: 2
-  num_workers: 2
-```
-
----
-
 ### eval_detector.bat
 
 **Purpose**: Evaluate object detection model.
@@ -496,21 +455,6 @@ scripts\visualize_predictions.bat
 
 ---
 
-### create_dataset.bat
-
-**Purpose**: Create or prepare dataset for training.
-
-**Location**: `wildtrain/scripts/create_dataset.bat`
-
-**Configuration**: `wildtrain/configs/datapreparation/`
-
-**Capabilities**:
-- Convert formats
-- Split train/val/test
-- Apply transformations
-- Validate dataset
-
----
 
 ## Common Workflows
 
