@@ -191,7 +191,7 @@ class_id = [k for k, v in class_mapping.items() if v == class_name][0]  # "6"
 
 ## Related Documentation
 
-- [Configuration Overview](../index.md)
+- [Configuration Overview](index.md)
 - [Detection Config](detection.md)
 - [Census Config](census.md)
 - [Model Training](../../tutorials/model-training.md)

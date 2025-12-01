@@ -460,7 +460,7 @@ for folder in folders:
 - [Census Campaign Tutorial](census-campaign.md) - Run a full census
 - [Dataset Preparation](dataset-preparation.md) - Prepare your own training data
 - [Model Training](model-training.md) - Train custom models
-- [Geographic Visualization](../scripts/wildetect/index.md#extract-gps) - Create maps
+- [Geographic Visualization](../scripts/wildetect/index.md#extract_gpsbat) - Create maps
 
 ## Complete Example Script
 

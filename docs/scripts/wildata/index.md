@@ -10,15 +10,15 @@ All scripts are located in `wildata/scripts/` directory.
 
 | Script | Purpose | Config File |
 |--------|---------|-------------|
-| [import-dataset-example.bat](#import-dataset-example) | Import single dataset | `configs/import-config-example.yaml` |
-| [bulk-import-dataset.bat](#bulk-import-dataset) | Bulk import datasets | `configs/bulk-import-*.yaml` |
-| [create-roi-dataset.bat](#create-roi-dataset) | Create ROI dataset | `configs/roi-create-config.yaml` |
-| [bulk-roi-create-config.bat](#bulk-roi-create) | Bulk create ROI datasets | `configs/bulk-roi-create-config.yaml` |
-| [update-gps-example.bat](#update-gps-example) | Update GPS from CSV | `configs/gps-update-config-example.yaml` |
-| [visualize_data.bat](#visualize-data) | Visualize dataset | None |
-| [dvc-setup.bat](#dvc-setup) | Setup DVC | None |
-| [launch_api.bat](#launch-api) | Launch REST API | `.env` |
-| [running_tests.bat](#running-tests) | Run tests | None |
+| [import-dataset-example.bat](#import-dataset-examplebat) | Import single dataset | `configs/import-config-example.yaml` |
+| [bulk-import-dataset.bat](#bulk-import-datasetbat) | Bulk import datasets | `configs/bulk-import-*.yaml` |
+| [create-roi-dataset.bat](#create-roi-datasetbat) | Create ROI dataset | `configs/roi-create-config.yaml` |
+| [bulk-roi-create-config.bat](#bulk-roi-createbat) | Bulk create ROI datasets | `configs/bulk-roi-create-config.yaml` |
+| [update-gps-example.bat](#update-gps-examplebat) | Update GPS from CSV | `configs/gps-update-config-example.yaml` |
+| [visualize_data.bat](#visualize_databat) | Visualize dataset | None |
+| [dvc-setup.bat](#dvc-setupbat) | Setup DVC | None |
+| [launch_api.bat](#launch_apibat) | Launch REST API | `.env` |
+| [running_tests.bat](#running_testsbat) | Run tests | None |
 
 ---
 

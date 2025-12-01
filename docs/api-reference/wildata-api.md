@@ -95,6 +95,6 @@ print(status_response.json())
 ---
 
 For complete API documentation, see:
-- [WilData API Documentation](../../../wildata/docs/API_README.md)
-- Interactive docs at `/docs` endpoint
+- Interactive docs at `/docs` endpoint when the API server is running
+- API endpoint reference in this document
 

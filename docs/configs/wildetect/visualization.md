@@ -343,7 +343,7 @@ logging:
 
 ## Related Documentation
 
-- [Configuration Overview](../index.md)
+- [Configuration Overview](index.md)
 - [Detection Config](detection.md)
 - [Census Config](census.md)
 - [GPS Extraction Config](extract-gps.md)

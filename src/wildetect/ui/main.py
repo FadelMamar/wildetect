@@ -306,13 +306,7 @@ def model_settings_tab():
         "Set Model",
         disabled=st.session_state.selected_alias is None or not registry_name,
     ):
-        os.environ["MLFLOW_DETECTOR_NAME"] = registry_name
-        os.environ["MLFLOW_DETECTOR_ALIAS"] = st.session_state.selected_alias or ""
-
-        os.environ["MLFLOW_ROI_NAME"] = roi_registry_name
-        os.environ["MLFLOW_ROI_ALIAS"] = st.session_state.roi_selected_alias or ""
-
-        st.success("Model set successfully")
+        raise NotImplementedError("Model setting is not implemented yet")
 
 
 def detect_tab():

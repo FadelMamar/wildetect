@@ -200,7 +200,7 @@ processing:
 
 ## Related Documentation
 
-- [Configuration Overview](../index.md)
+- [Configuration Overview](index.md)
 - [Model Registration Script](../../scripts/wildetect/register_model.md)
 - [MLflow Setup](../../scripts/wildetect/launch_mlflow.md)
 - [Main Config](config.md)

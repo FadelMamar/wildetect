@@ -197,7 +197,7 @@ flight_specs:
 
 ## Related Documentation
 
-- [Configuration Overview](../index.md)
+- [Configuration Overview](index.md)
 - [GPS Extraction Script](../../scripts/wildetect/extract_gps.md)
 - [Visualization Config](visualization.md)
 - [Label Studio Setup](../../scripts/wildetect/launch_labelstudio.md)

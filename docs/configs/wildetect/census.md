@@ -367,7 +367,7 @@ export:
 
 ## Related Documentation
 
-- [Configuration Overview](../index.md)
+- [Configuration Overview](index.md)
 - [Detection Config](detection.md)
 - [Census Script](../../scripts/wildetect/run_census.md)
 - [Census Campaign Tutorial](../../tutorials/census-campaign.md)

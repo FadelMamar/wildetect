@@ -163,7 +163,7 @@ localizer:
 
 ## Related Documentation
 
-- [Configuration Overview](../index.md)
+- [Configuration Overview](index.md)
 - [Detection Config](detection.md)
 - [Census Config](census.md)
 - [Scripts Reference](../../scripts/wildetect/index.md)

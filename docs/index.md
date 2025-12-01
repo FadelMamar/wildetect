@@ -4,7 +4,7 @@
   <img src="../assets/image.png" alt="WildDetect" width="400"/>
 </div>
 
-Welcome to the comprehensive documentation for the **WildDetect** monorepo - a complete wildlife monitoring and conservation toolkit for aerial imagery analysis.
+Welcome to the comprehensive documentation for the **WildDetect** project - a complete wildlife monitoring and conservation toolkit for aerial imagery analysis.
 
 ## What is WildDetect?
 
@@ -139,10 +139,10 @@ graph LR
 ```mermaid
 graph LR
     A[Flight Planning] --> B[Image Capture]
-    B --> C[WildDetect Census]
+    B --> C[WildDetect]
     C --> D[Statistics]
     D --> E[Geographic Viz]
-    E --> F[Conservation Reports]
+    E --> F[Reports & Maps]
 ```
 
 ## Getting Help
@@ -179,7 +179,7 @@ If you use WildDetect in your research, please cite:
 
 ```bibtex
 @software{wildetect2025,
-  author = {Seydou, Fadel M.},
+  author = {Seydou Fadel M., Allin Paul},
   title = {WildDetect: Wildlife Detection and Census System for Aerial Imagery},
   year = {2025},
   url = {https://github.com/fadelmamar/wildetect}
@@ -189,7 +189,7 @@ If you use WildDetect in your research, please cite:
 ## Support
 
 For questions and support:
-- 📧 Email: [your-email@example.com]
+- 📧 Email: [fadel.seydou{at}delcaux{dot}com]
 - 💬 GitHub Discussions
 - 🐛 GitHub Issues
 

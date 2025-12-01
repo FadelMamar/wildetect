@@ -382,7 +382,7 @@ processing:
 
 ## Related Documentation
 
-- [Configuration Overview](../index.md)
+- [Configuration Overview](index.md)
 - [Detection Config](detection.md)
 - [Profiling Script](../../scripts/wildetect/profile_census.md)
 - [Performance Optimization](../../tutorials/end-to-end-detection.md)

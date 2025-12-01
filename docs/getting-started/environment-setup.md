@@ -339,7 +339,7 @@ transformations:
     stride: 640
 ```
 
-See [Import Config Reference](../configs/wildata/import-config-example.md).
+See [WilData Configs Reference](../configs/wildata/index.md) for configuration details.
 
 ### WildTrain Configurations
 
@@ -361,7 +361,7 @@ training:
   learning_rate: 0.001
 ```
 
-See [Training Configs](../configs/wildtrain/classification.md).
+See [WildTrain Configs Reference](../configs/wildtrain/index.md) for configuration details.
 
 ## GPU Configuration
 

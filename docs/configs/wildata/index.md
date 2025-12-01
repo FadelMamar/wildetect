@@ -11,7 +11,7 @@ Documentation for all WilData configuration files used in data management operat
 | [roi-create-config.yaml](#roi-create-configyaml) | ROI dataset creation |
 | [bulk-roi-create-config.yaml](#bulk-roi-create-configyaml) | Bulk ROI creation |
 | [gps-update-config-example.yaml](#gps-update-config-exampleyaml) | GPS metadata update |
-| [label_studio_config.xml](#label-studio-configxml) | Label Studio interface |
+| [label_studio_config.xml](#label_studio_configxml) | Label Studio interface |
 
 ---
 

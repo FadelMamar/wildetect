@@ -10,18 +10,18 @@ All scripts are located in the `scripts/` directory and should be run from the p
 
 | Script | Purpose | Config File |
 |--------|---------|-------------|
-| [run_detection.bat](#run-detection) | Run wildlife detection | `config/detection.yaml` |
-| [run_census.bat](#run-census) | Run census campaign | `config/census.yaml` |
-| [launch_ui.bat](#launch-ui) | Launch Streamlit UI | None |
-| [launch_fiftyone.bat](#launch-fiftyone) | Launch FiftyOne viewer | None |
-| [launch_labelstudio.bat](#launch-labelstudio) | Launch Label Studio | `.env` |
-| [launch_mlflow.bat](#launch-mlflow) | Launch MLflow UI | None |
-| [launch_inference_server.bat](#launch-inference-server) | Launch inference API | None |
-| [register_model.bat](#register-model) | Register model to MLflow | `config/detector_registration.yaml` |
-| [extract_gps.bat](#extract-gps) | Extract GPS from images | `config/extract-gps.yaml` |
-| [profile_census.bat](#profile-census) | Profile census performance | `config/census.yaml` |
-| [run_integration_tests.bat](#run-integration-tests) | Run integration tests | None |
-| [load_env.bat](#load-env) | Load environment variables | `.env` |
+| [run_detection.bat](#run_detectionbat) | Run wildlife detection | `config/detection.yaml` |
+| [run_census.bat](#run_censusbat) | Run census campaign | `config/census.yaml` |
+| [launch_ui.bat](#launch_uibat) | Launch Streamlit UI | None |
+| [launch_fiftyone.bat](#launch_fiftyonebat) | Launch FiftyOne viewer | None |
+| [launch_labelstudio.bat](#launch_labelstudiobat) | Launch Label Studio | `.env` |
+| [launch_mlflow.bat](#launch_mlflowbat) | Launch MLflow UI | None |
+| [launch_inference_server.bat](#launch_inference_serverbat) | Launch inference API | None |
+| [register_model.bat](#register_modelbat) | Register model to MLflow | `config/detector_registration.yaml` |
+| [extract_gps.bat](#extract_gpsbat) | Extract GPS from images | `config/extract-gps.yaml` |
+| [profile_census.bat](#profile_censusbat) | Profile census performance | `config/census.yaml` |
+| [run_integration_tests.bat](#run_integration_testsbat) | Run integration tests | None |
+| [load_env.bat](#load_envbat) | Load environment variables | `.env` |
 
 ---
 

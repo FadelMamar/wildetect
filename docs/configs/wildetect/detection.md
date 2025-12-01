@@ -406,7 +406,7 @@ output:
 
 ## Related Documentation
 
-- [Configuration Overview](../index.md)
+- [Configuration Overview](index.md)
 - [Census Config](census.md)
 - [Detection Script](../../scripts/wildetect/run_detection.md)
 - [End-to-End Detection Tutorial](../../tutorials/end-to-end-detection.md)
