@@ -1,13 +1,17 @@
+import os
 from wildetect.core.visualization import LabelStudioManager
-from wildetect.core.config import FlightSpecs
+from dotenv import load_dotenv
 
-client = LabelStudioManager(url="http://localhost:8080", 
-                            api_key="edc3c4539d7b0708a2c189be47ff94708d1de3cc",
+load_dotenv('../.env',override=True)
+
+client = LabelStudioManager(url=os.environ["LABEL_STUDIO_URL"], 
+                            api_key=os.environ["LABEL_STUDIO_API_KEY"],
                             )
-
-annotations = client.get_all_project_detections(project_id=7,load_as_drone_image=True,
-                                                flight_specs=FlightSpecs(sensor_height=24,focal_length=35,flight_height=180))
-
-annot = annotations[1]
+for i in range(141,196):
+    try:
+        #client.delete_project(i)
+        pass
+    except Exception as e:
+        print(f"Error deleting project {i}: {e}")
 
 

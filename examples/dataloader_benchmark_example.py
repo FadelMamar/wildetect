@@ -13,8 +13,10 @@ from pathlib import Path
 from wildetect.core.config import LoaderConfig
 from wildetect.core.data.utils import get_images_paths
 from wildetect.utils.benchmark import DataLoaderBenchmark
+from wildetect.core.data.utils import save_tiles_for_directory
+import shutil
 
-# Configure logging
+# Configure logging 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -211,6 +213,18 @@ def example_cache_diagnostics():
     else:
         logger.info("ℹ️  Moderate cache hit rate. Some room for improvement.")
 
+
+def example_save_tiles_for_directory(image_dir = r"D:\PhD\Data per camp\Extra training data\savmap_dataset_v2\raw_data\images",patch_size = 800, stride = 160):
+    """Example of saving tiles for a directory."""
+    logger.info("\n" + "=" * 80)
+    logger.info("EXAMPLE 5: Save Tiles for Directory")
+    logger.info("=" * 80)
+    
+    output_path = Path(image_dir) / "../tiles"
+    if output_path.exists():
+        shutil.rmtree(output_path)
+    output_path.mkdir(parents=True, exist_ok=True)
+    save_tiles_for_directory(image_dir, output_path, patch_size=patch_size, stride=stride)
 
 if __name__ == "__main__":
     fire.Fire()
