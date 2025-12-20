@@ -1,0 +1,24 @@
+# Example configuration for classifier evaluation
+
+classifier: checkpoints\classification\unified_classifier\best.ckpt # Path to the best checkpoint
+split: val  # 'val' or 'test'
+device: cpu  # cpu, or 'cuda' if available
+batch_size: 8
+
+input_size: 384
+
+dataset:
+  root_data_directory: D:\workspace\data\demo-dataset
+  single_class:
+    enable : true
+    background_class_name: "background"
+    single_class_name: "wildlife"
+    keep_classes: null
+    discard_classes: ["vegetation", "termite mound", "rocks", "other", "label","detection"]
+  
+  transforms:
+   val:
+      - name: Resize
+        params:
+          size: ${input_size}
+

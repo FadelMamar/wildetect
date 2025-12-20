@@ -1,0 +1,23 @@
+classifier:
+  weights: checkpoints/classification/unified_classifier/best.ckpt
+  processing:
+    batch_size: 8
+    export_format: torchscript
+localizer:
+  yolo:
+    weights: D:\workspace\repos\wildtrain\models\best.pt
+    imgsz: 800
+    device: cpu
+    conf_thres: 0.1
+    iou_thres: 0.3
+    max_det: 300
+    overlap_metric: IOU
+    task: detect
+  mmdet: null
+  processing:
+    export_format: pt
+    batch_size: 8
+    dynamic: false
+processing:
+  name: detector
+  mlflow_tracking_uri: http://localhost:5000

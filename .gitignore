@@ -41,6 +41,8 @@ models-registry/
 /logs/
 *.prof
 
+.env
+
 uv.lock
 
 *visualization.html

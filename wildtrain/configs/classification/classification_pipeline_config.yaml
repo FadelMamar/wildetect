@@ -1,0 +1,20 @@
+# ----------------------
+# Train
+# ----------------------
+disable_train: false
+train:
+  config: configs\classification\classification_train.yaml
+  debug: true
+
+# ----------------------
+# Eval
+# ----------------------
+disable_eval: false
+eval:
+  config: configs\classification\classification_eval.yaml
+  debug: false
+
+# ----------------------
+# Output
+# ----------------------
+results_dir: results/classification

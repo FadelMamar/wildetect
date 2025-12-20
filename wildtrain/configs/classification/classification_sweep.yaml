@@ -1,0 +1,35 @@
+base_config: D:\workspace\repos\wildtrain\configs\classification\example_config.yaml
+
+parameters:
+  model:
+    backbone:
+      - timm/vit_small_patch16_224.dino
+      - timm/resnet18.a1_in1k
+    dropout:
+      - 0.0
+      - 0.2
+      - 0.4
+  train:
+    lr:
+      - 0.0003
+      - 0.003
+    lrf:
+      - 0.01
+      - 0.1
+      - 1.0
+    label_smoothing:
+      - 0.0
+      - 0.0001
+      - 0.001
+      - 0.01
+    weight_decay:
+      - 0.0001
+      - 0.001
+      - 0.01
+    batch_size:
+      - 32
+    
+epochs: 20
+sweep_name: classification_sweep
+n_trials: 8
+seed: 42

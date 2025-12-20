@@ -1,0 +1,17 @@
+source_path: configs\yolo_data.yaml
+source_format: yolo
+dataset_name: delplanque_data
+root: D:/PhD/workspace/data
+split_name: val
+bbox_tolerance: 5
+draw_original_bboxes: false
+ls_xml_config: null #  D:\PhD\workspace\wildata\configs\label_studio_config.xml
+ls_parse_config: true
+roi_config:
+  random_roi_count: 1
+  roi_box_size: 384
+  min_roi_size: 32
+  dark_threshold: 0.5
+  background_class: "background"
+  save_format: "jpg"
+  quality: 95

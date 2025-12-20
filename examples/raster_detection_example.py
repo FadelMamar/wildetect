@@ -97,6 +97,6 @@ def main(use_multithreading: bool = True):
     
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
 

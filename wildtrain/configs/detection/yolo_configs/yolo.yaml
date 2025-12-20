@@ -1,0 +1,98 @@
+
+dataset:
+  data_cfg: null
+  load_as_single_class: true
+  root_data_directory: D:/workspace/data/demo-dataset
+  force_merge: true
+  keep_classes: null # either keep_classes or discard_classes must be provided, not both
+  discard_classes: ["rocks","vegetation","other","termite mound"]
+
+curriculum:
+  enable: false
+  ratios: [0., 1., 2.5, 5.]
+  epochs: [10, 10, 5, 5]
+  freeze: [9, 9, 9, 9]
+  lr0s: [0.0001, 0.0001, 0.00005, 0.00005]
+  save_dir: null
+
+pretraining:
+  data_cfg: null
+  epochs: 10
+  lr0: 0.0001
+  lrf: 0.1
+  freeze: 0
+  save_dir: null
+
+# Initialization of localizer model
+model:
+  pretrained: true
+  weights: models/yolo12s.pt
+  architecture_file: configs/detection/yolo_configs/models/yolo12n.yaml
+
+# run name and project name for tracking
+name: yolo12-d0
+project: wildai-localization
+
+mlflow:
+  tracking_uri: "http://127.0.0.1:5000"
+
+use_custom_yolo: false
+custom_yolo_kwargs:
+  image_encoder_backbone: timm/vit_base_patch14_dinov2.lvd142m
+  image_encoder_backbone_source: timm
+  count_regressor_layers: 13
+  area_regressor_layers: 10
+  roi_classifier_layers: {"p3": 13, "p4": 10}
+  fp_tp_loss_weight: 0.5
+  count_loss_weight: 0.5
+  area_loss_weight: 0.25
+  box_size: 224
+
+train:
+  batch: 4
+  epochs: 25
+  optimizer: AdamW
+  lr0: 0.0001
+  lrf: 0.1
+  momentum: 0.99
+  weight_decay: 0.0005
+  warmup_epochs: 0
+  cos_lr: true
+  patience: 10
+  iou: 0.4
+  imgsz: 800
+  
+  # loss weights
+  box: 3.5
+  cls: 1.0
+  dfl: 1.5
+
+  device: cpu
+  workers: 0
+
+  # augmentations
+  degrees: 45.0
+  mixup: 0.0
+  cutmix: 0.5
+  shear: 10.0
+  copy_paste: 0.0
+  erasing: 0.0
+  scale: 0.2
+  fliplr: 0.5
+  flipud: 0.5
+  hsv_h: 0.0
+  hsv_s: 0.1
+  hsv_v: 0.1
+  translate: 0.2
+  mosaic: 0.0
+  multi_scale: false
+  perspective: 0.0
+
+  deterministic: false
+  seed: 41
+
+  # freeze layers: int or null
+  freeze: 9
+  
+  # cache
+  cache: false

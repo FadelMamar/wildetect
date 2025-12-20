@@ -1,0 +1,84 @@
+# MMDetection config
+ROOT_DATASET: D:/workspace/data/demo-dataset
+ROOT_PROJECT: D:/workspace/repos/wildtrain
+
+dataset:
+  train_ann: savmap/annotations/train.json
+  train_images: ${ROOT_DATASET}
+
+  val_ann: ${dataset.train_ann}
+  val_images: ${dataset.train_images}
+
+  dataset_info: savmap/dataset_info.json
+
+  filter_empty_gt: 
+    train: true
+    val: false
+
+  load_as_single_class: true
+  single_class_name: "wildlife"
+  single_class_id: 0
+  keep_labels: null
+  discard_labels:
+    - "rocks"
+    - "termite mound"
+    - "vegetation"
+  
+work_dir: ${ROOT_PROJECT}/work_dirs/mmdet
+
+model:
+  config_file: ${ROOT_PROJECT}/configs/detection/mmdet_train_cfg.py
+  checkpoint: null
+
+train:
+  epochs: 40
+  img_size: 640
+  amp: true
+  resume: null
+  val_interval: 1
+  freeze_backbone: true
+  pos_iou_thr: 0.6
+  min_pos_iou: 0.35
+  neg_iou_thr: 0.2
+  optimizer:
+    type: Adam
+    lr: 0.0001
+    weight_decay: 0.0001
+  param_scheduler:
+    type: MultiStepLR
+    begin: 0
+    end: 40
+    by_epoch: true
+    milestones: [30]
+    gamma: 0.1
+  checkpointer:
+    type: CheckpointHook
+    interval: 1
+    by_epoch: true
+    save_best: bbox_mAP
+    save_last: true
+    ruler: greater
+  
+
+dataloader:
+  batch_size: 8
+  num_workers: 0
+  persistent_workers: false
+
+val_evaluator:
+  type: CocoMetric
+  ann_file: ${ROOT_DATASET}/${dataset.val_ann}
+  metric: bbox
+  format_only: false
+
+
+mlflow:
+  experiment_name: "detection_experiment"
+  run_name: "mmdet_training"
+  log_model: true
+  tracking_uri: "http://127.0.0.1:5000"
+
+mode: train  # train or evaluate
+
+export:
+  onnx: true 

@@ -1,0 +1,29 @@
+<View>
+  <Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="true"/>
+  <RectangleLabels name="label" toName="image">
+  <Label value="impala" background="#FFA39E"/>
+  <Label value="nyala" background="#D4380D"/>
+  <Label value="nyala(m)" background="#FFC069"/>
+  <Label value="kudu" background="#AD8B00"/>
+  <Label value="zebra" background="#D3F261"/>
+  <Label value="giraffe" background="#389E0D"/>
+  <Label value="wildebeest" background="#5CDBD3"/>
+  <Label value="buffalo" background="#096DD9"/>
+  <Label value="duiker" background="#ADC6FF"/>
+  <Label value="reedbuck" background="#9254DE"/>
+  <Label value="roan" background="#F759AB"/>
+  <Label value="sable" background="#FFA39E"/>
+  <Label value="bushbuck" background="#D4380D"/>
+  <Label value="other animal" background="#FFA39E"/>
+  <Label value="other" background="#D4380D"/>
+  <Label value="rocks" background="#FFC069"/>
+  <Label value="vegetation" background="#AD8B00"/>
+  <Label value="warthog" background="#FFA39E"/>
+  <Label value="Waterbuck" background="#FFA39E"/>
+  <Label value="termite mound" background="#FFA39E"/>
+  <Label value="label" background="#FFA39E"/>
+  <Label value="colour impala" background="#FFA39E"/>
+  <Label value="lechwe" background="#FFA39E"/>
+  <Label value="Tsessebe" background="#FFA39E"/>
+  </RectangleLabels>
+</View>

@@ -1,7 +1,7 @@
 [project]
 name = "wildetect"
 version = "0.1.0"
-description = "Add your description here"
+description = "WildDetect - Wildlife Detection System"
 readme = "README.md"
 requires-python = "~=3.11.0"
 dependencies = [
@@ -52,6 +52,8 @@ dependencies = [
     "optuna>=4.5.0",
     "rasterio>=1.4.3",
     "slidingwindow>=0.0.14",
+    "wildtrain",
+    "wildata"
 ]
 
 [tool.ruff]
@@ -72,4 +74,10 @@ line-ending = "auto"
 
 [project.scripts]
 wildetect = "wildetect.cli:app"
-install-cuda = "wildetect.utils.cuda_installer:install_cuda_torch"
+
+[tool.uv.sources]
+wildtrain = { workspace = true }
+wildata = { workspace = true }
+
+[tool.uv.workspace]
+members = ["wildtrain","wildata"]

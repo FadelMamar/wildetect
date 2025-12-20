@@ -1,0 +1,85 @@
+# Example configuration for WildTrain classification training
+task: classification
+
+run_name: "dinov2-small"
+
+dataset:
+  root_data_directory: D:\workspace\data\demo-dataset
+  rebalance: true
+
+  single_class:
+    enable : true
+    background_class_name: "background"
+    single_class_name: "wildlife"
+    keep_classes: null
+    discard_classes: ["vegetation", "termite mound", "rocks", "other", "label","detection"]
+
+  stats:
+    mean: [0.554, 0.469, 0.348]
+    std: [0.203, 0.173, 0.144]
+  
+  input_size: 128
+
+  transforms:
+    train:
+      - name: Resize
+        params:
+          size: ${dataset.input_size}
+      - name: RandomHorizontalFlip
+        params:
+          p: 0.5
+      - name: ColorJitter
+        params:
+          brightness: 0.1
+          contrast: 0.0
+          saturation: 0.0
+      - name: RandomRotation
+        params:
+          degrees: 45
+    
+    val:
+      - name: Resize
+        params:
+          size: ${dataset.input_size}
+
+model:
+  backbone: timm/mobilenetv4_hybrid_large.ix_e600_r384_in1k
+  pretrained: true
+  backbone_source: timm
+  dropout: 0.2
+  freeze_backbone: true
+  input_size: ${dataset.input_size}
+  mean: ${dataset.stats.mean}
+  std: ${dataset.stats.std}
+
+train:
+  batch_size: 64
+  epochs: 20
+  lr: 0.0001
+  threshold: 0.5
+  label_smoothing: 0.0
+  weight_decay: 0.0001
+  lrf: 0.1
+  precision: bf16-mixed
+  accelerator: auto
+
+checkpoint:
+  monitor: val_f1score_class_wildlife
+  save_top_k: 1
+  mode: max
+  save_last: true
+  dirpath: checkpoints/classification
+  patience: 10
+  save_weights_only: true
+  filename: "{epoch:02d}-{val_f1score_class_wildlife:.2f}"
+  min_delta: 0.001
+
+mlflow:
+  experiment_name: wildtrain_classification
+  run_name: ${run_name}
+  log_model: true
+
+
+# DVC dataset tracking configuration
+track_dataset: false
+dataset_name: "roi-demo" 
