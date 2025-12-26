@@ -1,14 +1,11 @@
-import csv
-import json
 import logging
 from pathlib import Path
 
-import optuna.visualization
 import typer
 import yaml
 
 # from ...core.config_loader import ConfigLoader
-from ...core.config_models import BenchmarkConfigModel, BenchmarkFormatTypes
+from ...core.config_models import BenchmarkConfigModel
 from ...utils.benchmark import BenchmarkPipeline
 
 # Configure logging
