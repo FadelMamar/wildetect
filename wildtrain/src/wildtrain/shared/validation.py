@@ -1,9 +1,8 @@
 """Shared validation utilities for WildTrain API and CLI modules."""
 
 from pathlib import Path
-from typing import Dict, Any, Type, TypeVar
-from omegaconf import OmegaConf
-from pydantic import BaseModel, ValidationError
+from typing import TypeVar
+from pydantic import BaseModel
 from .config_types import ConfigType
 
 class ConfigValidationError(Exception):
@@ -41,5 +40,5 @@ def validate_config_file(config_path: Path, config_type: ConfigType) -> bool:
         ConfigValidationError: If config fails validation
     """
     # Import here to avoid circular import
-    from ..cli.config_loader import ConfigLoader
+    from .config_loader import ConfigLoader
     return ConfigLoader.validate_config_file(config_path, config_type)

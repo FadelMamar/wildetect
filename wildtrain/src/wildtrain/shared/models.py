@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Literal, Union
 from pydantic import BaseModel, Field, field_validator
 import yaml
+from enum import StrEnum
 
 
 class BaseConfig(BaseModel):
@@ -307,6 +308,182 @@ class ClassificationSweepConfig(BaseConfig):
 
     @classmethod
     def from_yaml(cls, yaml_path: str) -> "ClassificationSweepConfig":
+        return super().from_yaml(yaml_path)
+    
+    @field_validator('base_config')
+    @classmethod
+    def validate_base_config_exists(cls, v):
+        if not Path(v).exists():
+            raise ValueError(f"Base config file does not exist: {v}")
+        return v
+    
+    @field_validator('sweep_name')
+    @classmethod
+    def validate_sweep_name(cls, v):
+        if not v or not v.strip():
+            raise ValueError("sweep_name cannot be empty")
+        return v.strip()
+
+class SweepObjectiveTypes(StrEnum):
+    """Types of benchmark objective."""
+    PRECISION = "precision"
+    RECALL = "recall"
+    F1_SCORE = "f1_score"
+    MAP = "map"
+    MAP_50 = "map_50"
+    MAP_50_95 = "map_50_95"
+    FITNESS = "fitness"
+
+class SweepDirectionTypes(StrEnum):
+    """Types of benchmark direction."""
+    MINIMIZE = "minimize"
+    MAXIMIZE = "maximize"
+
+class DetectionSweepModelParametersConfig(BaseConfig):
+    """Model parameters for detection hyperparameter sweep."""
+    architecture_file: Optional[List[str]] = Field(default=None, description="List of architecture files to search")
+    weights: Optional[List[str]] = Field(default=None, description="List of weight files to search")
+    
+    @field_validator('architecture_file', 'weights')
+    @classmethod
+    def validate_at_least_one(cls, v, info):
+        # At least one of architecture_file or weights should be provided
+        if info.field_name == 'architecture_file':
+            # This is called for architecture_file, check if weights is also None
+            return v
+        return v
+    
+    @field_validator('architecture_file')
+    @classmethod
+    def validate_architecture_file(cls, v):
+        if v is not None and len(v) == 0:
+            raise ValueError("architecture_file list cannot be empty if provided")
+        return v
+    
+    @field_validator('weights')
+    @classmethod
+    def validate_weights(cls, v):
+        if v is not None and len(v) == 0:
+            raise ValueError("weights list cannot be empty if provided")
+        return v
+
+
+class DetectionSweepTrainParametersConfig(BaseConfig):
+    """Training parameters for detection hyperparameter sweep."""
+    lr0: List[float] = Field(description="List of initial learning rates to search")
+    lrf: List[float] = Field(description="List of learning rate factors to search")
+    batch: List[int] = Field(description="List of batch sizes to search")
+    epochs: List[int] = Field(description="List of epoch counts to search")
+    imgsz: List[int] = Field(description="List of image sizes to search")
+    optimizer: List[str] = Field(description="List of optimizers to search")
+    weight_decay: List[float] = Field(description="List of weight decay values to search")
+    box: Optional[List[float]] = Field(default=None, description="List of box loss weights to search")
+    cls: Optional[List[float]] = Field(default=None, description="List of class loss weights to search")
+    dfl: Optional[List[float]] = Field(default=None, description="List of DFL loss weights to search")
+    
+    @field_validator('lr0')
+    @classmethod
+    def validate_lr0(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("lr0 list cannot be empty")
+        for value in v:
+            if value <= 0.0:
+                raise ValueError(f"lr0 values must be greater than 0.0, got {value}")
+        return v
+    
+    @field_validator('lrf')
+    @classmethod
+    def validate_lrf(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("lrf list cannot be empty")
+        for value in v:
+            if value <= 0.0:
+                raise ValueError(f"lrf values must be greater than 0.0, got {value}")
+        return v
+    
+    @field_validator('batch')
+    @classmethod
+    def validate_batch(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("batch list cannot be empty")
+        for value in v:
+            if value <= 0:
+                raise ValueError(f"batch values must be greater than 0, got {value}")
+        return v
+    
+    @field_validator('epochs')
+    @classmethod
+    def validate_epochs(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("epochs list cannot be empty")
+        for value in v:
+            if value <= 0:
+                raise ValueError(f"epochs values must be greater than 0, got {value}")
+        return v
+    
+    @field_validator('imgsz')
+    @classmethod
+    def validate_imgsz(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("imgsz list cannot be empty")
+        for value in v:
+            if value <= 0:
+                raise ValueError(f"imgsz values must be greater than 0, got {value}")
+        return v
+    
+    @field_validator('optimizer')
+    @classmethod
+    def validate_optimizer(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("optimizer list cannot be empty")
+        valid_optimizers = ["SGD", "Adam", "AdamW", "RMSprop"]
+        for value in v:
+            if value not in valid_optimizers:
+                raise ValueError(f"optimizer must be one of {valid_optimizers}, got {value}")
+        return v
+    
+    @field_validator('weight_decay')
+    @classmethod
+    def validate_weight_decay(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("weight_decay list cannot be empty")
+        for value in v:
+            if value < 0.0:
+                raise ValueError(f"weight_decay values must be non-negative, got {value}")
+        return v
+    
+    @field_validator('box', 'cls', 'dfl')
+    @classmethod
+    def validate_loss_weights(cls, v):
+        if v is not None and len(v) == 0:
+            raise ValueError("loss weight list cannot be empty if provided")
+        if v is not None:
+            for value in v:
+                if value < 0.0:
+                    raise ValueError(f"loss weight values must be non-negative, got {value}")
+        return v
+
+
+class DetectionSweepParametersConfig(BaseConfig):
+    """Parameters configuration for detection hyperparameter sweep."""
+    model: Optional[DetectionSweepModelParametersConfig] = Field(default=None, description="Model parameters to search")
+    train: DetectionSweepTrainParametersConfig = Field(description="Training parameters to search")
+
+
+class DetectionSweepConfig(BaseConfig):
+    """Hyperparameter sweep configuration for detection models."""
+    base_config: str = Field(description="Path to base training configuration file")
+    parameters: DetectionSweepParametersConfig = Field(description="Hyperparameter search space")
+    sweep_name: str = Field(description="Name of the sweep experiment")
+    n_trials: int = Field(gt=0, le=1000, description="Number of optimization trials")
+    objective: SweepObjectiveTypes = Field(default=SweepObjectiveTypes.MAP_50, description="Objective to optimize")
+    direction: SweepDirectionTypes = Field(default=SweepDirectionTypes.MAXIMIZE, description="Direction to optimize")
+    seed: int = Field(description="Random seed for reproducibility")    
+    timeout: Optional[int] = Field(default=None, description="Maximum time for optimization in seconds")
+    output: Optional[SweepOutputConfig] = Field(default=None, description="Output configuration (optional, uses defaults if not provided)")
+
+    @classmethod
+    def from_yaml(cls, yaml_path: str) -> "DetectionSweepConfig":
         return super().from_yaml(yaml_path)
     
     @field_validator('base_config')

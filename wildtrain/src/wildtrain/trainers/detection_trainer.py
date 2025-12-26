@@ -1,5 +1,5 @@
-from typing import Any, Dict, Optional, List
-from omegaconf import DictConfig, OmegaConf
+from typing import Any, Dict, Optional, List, Union
+from omegaconf import DictConfig
 import mlflow
 from ultralytics import YOLO
 from ultralytics import settings
@@ -12,6 +12,7 @@ from .base import ModelTrainer
 from .yolo_utils import CustomYOLO
 from ..utils.io import merge_data_cfg,remove_label_cache
 from ..data.filters.algorithms import FilterDataCfg
+from ..shared.models import DetectionConfig
 
 logger = get_logger(__name__)
 
@@ -23,11 +24,14 @@ class UltralyticsDetectionTrainer(ModelTrainer):
     This class handles training using parameters from a DictConfig (e.g., from yolo.yaml).
     """
 
-    def __init__(self, config: DictConfig):
+    def __init__(self, config: DetectionConfig):
         super().__init__(config)
         self.model: Optional[YOLO] = None
         self.save_dir  = ROOT / "data" / "yolo_trainer"
         self.single_class_name="wildlife"
+        self.best_fitness: Optional[float] = None
+        self.metrics: Optional[dict] = None
+        self.best_model_score = None
 
         if not self.config.dataset.load_as_single_class:
             raise ValueError("Not supported. Current pipeline only trains a localizer.")
@@ -36,12 +40,11 @@ class UltralyticsDetectionTrainer(ModelTrainer):
                 (self.config.dataset.data_cfg is not None)), "Either root_data_directory or data_cfg must be provided"
 
         self.save_dir.mkdir(parents=True, exist_ok=True)
-
         self._set_data_cfg()
-
         self.filter = FilterDataCfg(data_config_yaml=self.config.dataset.data_cfg,
             keep_classes=self.config.dataset.keep_classes,
-            discard_classes=self.config.dataset.discard_classes)
+            discard_classes=self.config.dataset.discard_classes
+        )
     
     def _set_data_cfg(self):
         assert (self.config.dataset.data_cfg is not None) ^ (self.config.dataset.root_data_directory is not None), "Either data_cfg or root_data_directory must be provided"
@@ -216,3 +219,6 @@ class UltralyticsDetectionTrainer(ModelTrainer):
         
         # record path to the best model w.r.t mAP50
         self.best_model_path = self.model.trainer.best
+        self.best_fitness = self.model.trainer.best_fitness
+        self.metrics = self.model.trainer.metrics
+    
