@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 def load_images_as_drone_images(
-    image_paths: List[str], flight_specs: Optional[Dict] = None,gps_coords_loader:Callable[[str], Tuple[float, float, float]] = None
+    image_paths: List[str],
+    flight_specs: Optional[Dict] = None,
+    gps_coords_loader: Callable[[str], Tuple[float, float, float]] = None,
 ) -> List[DroneImage]:
     """Load images as DroneImage objects."""
     drone_images = []
@@ -33,7 +35,11 @@ def load_images_as_drone_images(
                 else:
                     latitude, longitude, altitude = None, None, None
                 drone_image = DroneImage.from_image_path(
-                    image_path=image_path, flight_specs=flight_specs, latitude=latitude, longitude=longitude, altitude=altitude
+                    image_path=image_path,
+                    flight_specs=flight_specs,
+                    latitude=latitude,
+                    longitude=longitude,
+                    altitude=altitude,
                 )
                 drone_images.append(drone_image)
             except Exception as e:
@@ -84,12 +90,16 @@ class DataLoader:
         if image_paths is None and image_dir is not None:
             image_paths = self._get_image_paths(image_dir)
 
-        cfg = dict(shuffle=False,
-                num_workers=self.config.num_workers,
-                pin_memory=self.config.pin_memory,
-                persistent_workers=False,
-                prefetch_factor=self.config.prefetch_factor,
-                drop_last=False,)
+        cfg = dict(
+            shuffle=False,
+            num_workers=self.config.num_workers,
+            pin_memory=self.config.pin_memory,
+            persistent_workers=False,
+            prefetch_factor=self.config.prefetch_factor
+            if self.config.num_workers > 0
+            else None,
+            drop_last=False,
+        )
 
         if raster_path is not None:
             self.dataset = RasterDataset(
@@ -98,9 +108,7 @@ class DataLoader:
                 patch_overlap=self.config.overlap,
             )
             self.dataloader = torch.utils.data.DataLoader(
-                self.dataset,
-                batch_size=self.config.batch_size,
-                **cfg
+                self.dataset, batch_size=self.config.batch_size, **cfg
             )
 
         elif self.use_tile_dataset:
@@ -109,15 +117,12 @@ class DataLoader:
                 self.dataset,
                 batch_size=self.config.batch_size,
                 collate_fn=self.dataset._collate_fn,
-                **cfg
+                **cfg,
             )
         else:
             self.dataset = ImageDataset(image_paths=image_paths, config=self.config)
             self.dataloader = torch.utils.data.DataLoader(
-                self.dataset,
-                batch_size=1,
-                collate_fn=self.dataset._collate_fn,
-                **cfg
+                self.dataset, batch_size=1, collate_fn=self.dataset._collate_fn, **cfg
             )
 
     def get_offset_info(

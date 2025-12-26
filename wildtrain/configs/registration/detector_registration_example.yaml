@@ -1,6 +1,6 @@
 
 classifier:
-  weights_path: null #
+  weights: null #
   processing:
     batch_size: 8 # used for onnx export
     export_format: "torchscript" # torchscript or onnx

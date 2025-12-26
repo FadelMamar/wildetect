@@ -42,6 +42,8 @@ models-registry/
 *.prof
 
 .env
+*.db
+mlartifacts/
 
 uv.lock
 
