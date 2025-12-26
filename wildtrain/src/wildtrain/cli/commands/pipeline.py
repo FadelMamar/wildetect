@@ -27,11 +27,10 @@ def detection(
 
     try:
         # Load and validate configuration using Pydantic
-        validated_config = ConfigLoader.load_pipeline_config(config, pipeline_type="detection")
+        cfg = ConfigLoader.load_pipeline_config(config, pipeline_type="detection")
         console.print(f"[bold green]✓[/bold green] Detection pipeline configuration validated successfully")
         
         # Convert validated config back to DictConfig for backward compatibility
-        cfg = OmegaConf.create(validated_config.model_dump())
         console.print("cfg:",cfg)
         
         pipeline = DetectionPipeline(str(config))
@@ -60,11 +59,8 @@ def classification(
 
     try:
         # Load and validate configuration using Pydantic
-        validated_config = ConfigLoader.load_pipeline_config(config, pipeline_type="classification")
+        cfg = ConfigLoader.load_pipeline_config(config, pipeline_type="classification")
         console.print(f"[bold green]✓[/bold green] Classification pipeline configuration validated successfully")
-        
-        # Convert validated config back to DictConfig for backward compatibility
-        cfg = OmegaConf.create(validated_config.model_dump())
         console.print("cfg:",cfg)
         
         pipeline = ClassificationPipeline(str(config))

@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from omegaconf import DictConfig
-from typing import Optional,Union
-from pydantic import BaseModel
+from typing import Optional
+from wildtrain.shared.models import BaseConfig
 
 class ModelTrainer(ABC):
     """
@@ -11,7 +10,7 @@ class ModelTrainer(ABC):
     Subclasses should implement the run method to handle specific training logic.
     """
 
-    def __init__(self, config: Union[DictConfig, BaseModel]):
+    def __init__(self, config: BaseConfig):
         """
         Initialize the trainer with configuration.
 
