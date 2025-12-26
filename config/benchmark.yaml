@@ -25,10 +25,8 @@ hyperparameters:
   batch_size:                     # Batch sizes to test
     - 4
     - 8
-
   num_workers:                    # Number of workers to test
     - 0
-    
   tile_size:                      # Tile sizes to test
     - 800
     - 960
