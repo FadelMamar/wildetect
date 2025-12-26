@@ -16,6 +16,7 @@ import pandas as pd
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
+from ..core.data.utils import get_images_paths
 from .config import (
     DetectionPipelineTypes,
     DetectionTypes,
@@ -161,8 +162,8 @@ class ProcessingConfigModel(BaseModel):
         default=2, ge=1, description="Number of workers for inference"
     )
     pin_memory: bool = Field(default=False, description="Pin memory for data loading")
-    prefetch_factor: int = Field(
-        default=4, ge=2, description="Prefetch factor for data loading"
+    prefetch_factor: Optional[int] = Field(
+        default=None, description="Prefetch factor for data loading"
     )
     max_concurrent: int = Field(
         default=4, ge=1, description="Maximum number of concurrent inference tasks"
@@ -392,7 +393,7 @@ class TestImagesConfigModel(BaseModel):
         default=100, gt=0, le=10000, description="Maximum number of images to use"
     )
     supported_formats: List[str] = Field(
-        default=[".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp"],
+        default=["*.jpg", "*.jpeg", "*.png", "*.tiff", "*.tif", "*.bmp"],
         description="Supported image formats",
     )
 
@@ -404,13 +405,13 @@ class HyperparameterSearchConfigModel(BaseModel):
         default=[8, 16, 32, 64, 128, 256, 512], description="Batch sizes to test"
     )
     num_workers: List[int] = Field(
-        default=[0, 2, 4, 8, 16], ge=0, description="Number of workers to test"
+        default=[0, 2, 4, 8, 16], description="Number of workers to test"
     )
     tile_size: List[int] = Field(
-        default=[400, 800, 1200, 1600], gt=0, description="Tile sizes to test"
+        default=[400, 800, 1200, 1600], description="Tile sizes to test"
     )
     overlap_ratio: List[float] = Field(
-        default=[0.1, 0.2, 0.3], ge=0.0, le=0.5, description="Overlap ratios to test"
+        default=[0.1, 0.2, 0.3], description="Overlap ratios to test"
     )
 
 
@@ -532,7 +533,7 @@ class BenchmarkConfigModel(BaseModel):
             raise ValueError("Batch size values should be reasonable (max 1024)")
         return v
 
-    def to_prediction_config(self, verbose: bool = False) -> PredictionConfig:
+    def to_prediction_config(self) -> PredictionConfig:
         """Convert to existing PredictionConfig dataclass."""
         return PredictionConfig(
             mlflow_model_name=self.model.mlflow_model_name,
@@ -543,7 +544,7 @@ class BenchmarkConfigModel(BaseModel):
             batch_size=self.processing.batch_size,
             tilesize=self.processing.tile_size,
             flight_specs=self.flight_specs.to_flight_specs(),
-            verbose=verbose,
+            verbose=self.logging.verbose,
             overlap_ratio=self.processing.overlap_ratio,
             pipeline_type=self.processing.pipeline_type,
             queue_size=self.processing.queue_size,
@@ -563,12 +564,22 @@ class BenchmarkConfigModel(BaseModel):
             prefetch_factor=self.processing.prefetch_factor,
         )
 
-    def get_image_paths(self) -> List[str]:
-        """Get list of image paths for benchmarking."""
-        # This would be implemented to scan the test_images.path directory
-        # and return a list of image file paths up to max_images
-        # For now, return the path as a placeholder
-        return [self.test_images.path]
+    def get_image_paths(self) -> list:
+        """Find test images based on configuration."""
+
+        # Use the existing utility function to find image files
+        image_paths = get_images_paths(
+            images_dir=self.test_images.path,
+            patterns=tuple(self.test_images.supported_formats),
+        )
+        # Limit to max_images if specified
+        if (
+            self.test_images.max_images
+            and len(image_paths) > self.test_images.max_images
+        ):
+            image_paths = image_paths[: self.test_images.max_images]
+
+        return image_paths
 
 
 ConfigModel = Union[
