@@ -1,7 +1,7 @@
 """Pydantic models for CLI configuration validation."""
 
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Literal, Union
+from typing import List, Dict, Any, Optional, Literal
 from pydantic import BaseModel, Field, field_validator
 import yaml
 from enum import StrEnum
@@ -110,7 +110,7 @@ class ClassificationDatasetConfig(BaseConfig):
     batch_size: int = Field(gt=0, description="Batch size")
     num_workers: int = Field(default=0, ge=0, description="Number of workers")
     stats: DatasetStatsConfig = Field(description="Dataset statistics")
-    transforms: TransformsConfig = Field(description="Data transforms")
+    transforms: TransformsConfig = Field(None,description="Data transforms")
     curriculum_config: Optional[CurriculumConfig] = Field(default=None, description="Curriculum configuration")
     single_class: Optional[SingleClassConfig] = Field(default=None, description="Single class configuration")
     rebalance: bool = Field(default=False, description="Enable dataset rebalancing")
@@ -877,37 +877,33 @@ class DetectionPipelineConfig(PipelineConfig):
         )
 
 
+class ClassificationEvalDatasetConfig(BaseConfig):
+    """Dataset configuration for classification evaluation."""
+    root_data_directory: str = Field(description="Root directory containing the dataset")
+    single_class: Optional[SingleClassConfig] = Field(default=None, description="Single class configuration")
+    
+    @field_validator('root_data_directory')
+    @classmethod
+    def validate_data_directory_exists(cls, v):
+        if not Path(v).exists():
+            raise ValueError(f"Dataset directory does not exist: {v}")
+        return v
+
+
 class ClassificationEvalConfig(BaseConfig):
     """Classification evaluation configuration.
     
     This configuration is specifically for evaluation workflows and has a simpler
     structure compared to training configurations.
     
-    Example:
-        config = ClassificationEvalConfig(
-            classifier="path/to/checkpoint.ckpt",
-            split="val",
-            device="cpu",
-            batch_size=4,
-            dataset=ClassificationEvalDatasetConfig(
-                root_data_directory="path/to/data",
-                single_class=SingleClassConfig(
-                    enable=True,
-                    background_class_name="background",
-                    single_class_name="wildlife",
-                    keep_classes=None,
-                    discard_classes=["vegetation", "termite mound", "rocks", "other", "label"]
-                )
-            )
-        )
     """
     classifier: str = Field(description="str to the classifier checkpoint (.ckpt) file")
     split: Literal["train", "val", "test"] = Field(default="val", description="Dataset split to evaluate on")
     device: str = Field(default="cpu", description="Device to run evaluation on (cpu, cuda)")
     batch_size: int = Field(default=4, description="Batch size for evaluation")
-    dataset: "ClassificationEvalDatasetConfig" = Field(description="Dataset configuration for evaluation")
+    dataset: ClassificationEvalDatasetConfig = Field(description="Dataset configuration for evaluation")
+    transforms: TransformsConfig = Field(None,description="Data transforms")
 
-    
     @field_validator('classifier')
     @classmethod
     def validate_checkpoint_exists(cls, v):
@@ -928,40 +924,6 @@ class ClassificationEvalConfig(BaseConfig):
     def validate_batch_size(cls, v):
         if v <= 0:
             raise ValueError(f"Batch size must be positive, got: {v}")
-        return v
-
-
-class ClassificationEvalDatasetConfig(BaseConfig):
-    """Dataset configuration for classification evaluation."""
-    root_data_directory: str = Field(description="Root directory containing the dataset")
-    single_class: Optional["SingleClassConfig"] = Field(default=None, description="Single class configuration")
-    
-    @field_validator('root_data_directory')
-    @classmethod
-    def validate_data_directory_exists(cls, v):
-        if not Path(v).exists():
-            raise ValueError(f"Dataset directory does not exist: {v}")
-        return v
-
-
-class DetectionEvalConfig(BaseConfig):
-    """Detection evaluation configuration.
-    
-    This configuration is specifically for evaluation workflows and has a different
-    structure compared to training configurations.
-    
-    """
-    weights: "DetectionWeightsConfig" = Field(description="Model weights configuration")
-    dataset: "YoloDatasetConfig" = Field(description="Dataset configuration")
-    device: str = Field(default="cpu", description="Device to run evaluation on")
-    metrics: "DetectionMetricsConfig" = Field(description="Evaluation metrics configuration")
-    eval: "DetectionEvalParamsConfig" = Field(description="Evaluation parameters")   
-    results_dir: str = Field(description="Results directory for pipeline outputs")
-    
-    @field_validator('device')
-    @classmethod
-    def validate_device(cls, v):
-        assert (v == "cpu") or ("cuda" in v), f"Device must be one of ['cpu', 'cuda'], got: {v}"
         return v
 
 
@@ -1060,9 +1022,25 @@ class DetectionEvalParamsConfig(BaseConfig):
             raise ValueError(f"Max detections must be positive, got: {v}")
         return v
 
-
-
-
+class DetectionEvalConfig(BaseConfig):
+    """Detection evaluation configuration.
+    
+    This configuration is specifically for evaluation workflows and has a different
+    structure compared to training configurations.
+    
+    """
+    weights: DetectionWeightsConfig = Field(description="Model weights configuration")
+    dataset: YoloDatasetConfig = Field(description="Dataset configuration")
+    device: str = Field(default="cpu", description="Device to run evaluation on")
+    metrics: DetectionMetricsConfig = Field(description="Evaluation metrics configuration")
+    eval: DetectionEvalParamsConfig = Field(description="Evaluation parameters")   
+    results_dir: str = Field(description="Results directory for pipeline outputs")
+    
+    @field_validator('device')
+    @classmethod
+    def validate_device(cls, v):
+        assert (v == "cpu") or ("cuda" in v), f"Device must be one of ['cpu', 'cuda'], got: {v}"
+        return v
 class RegistrationBase(BaseConfig):
     name: Optional[str] = Field(default=None, description="Model name for registration")
     batch_size: int = Field(default=8, gt=0, description="Batch size for inference")
@@ -1084,7 +1062,6 @@ class RegistrationBase(BaseConfig):
         if v <= 0:
             raise ValueError(f"Batch size must be positive, got: {v}")
         return v
-
 
 
 class LocalizerRegistrationConfig(BaseConfig):

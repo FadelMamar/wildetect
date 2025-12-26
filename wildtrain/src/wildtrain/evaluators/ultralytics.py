@@ -1,13 +1,14 @@
-from typing import Any, Dict, Tuple, Union, List, Generator
+from typing import Any, Dict, Tuple, List, Generator
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf
 from tqdm import tqdm
 import supervision as sv
 from pathlib import Path
 from .base import BaseEvaluator
+from ..shared.models import DetectionEvalConfig
 from ..models.detector import Detector
 from ..utils.io import merge_data_cfg
 from ..data.filters.algorithms import FilterDataCfg
@@ -20,10 +21,10 @@ class UltralyticsEvaluator(BaseEvaluator):
     Implements evaluation logic using Ultralytics metrics.
     """
 
-    def __init__(self, config: Union[DictConfig, str, dict]):
+    def __init__(self, config: DetectionEvalConfig):
         super().__init__(config)
         self.model = self._load_model()
-        self.dataloader = self._create_dataloader()    
+        self.dataloader = self._create_dataloader()
 
     def _set_data_cfg(self):
         assert (self.config.dataset.data_cfg is not None) ^ (self.config.dataset.root_data_directory is not None), "Either data_cfg or root_data_directory must be provided"
@@ -37,7 +38,7 @@ class UltralyticsEvaluator(BaseEvaluator):
                                                         force_merge=self.config.dataset.force_merge)
             self.config.dataset.data_cfg = data_cfg 
 
-    def _load_model(self) -> Any:
+    def _load_model(self) -> Detector:
         localizer_config = OmegaConf.create({
             'weights': str(self.config.weights.localizer),
             'imgsz': self.config.eval.imgsz,
@@ -66,7 +67,7 @@ class UltralyticsEvaluator(BaseEvaluator):
         split = eval_config.split
         if split is None:
             raise ValueError(f"No 'split' found in eval_config: {eval_config}")
-        
+
         dataset = load_all_detection_datasets(root_data_directory=self.config.dataset.root_data_directory,
                                               split=split)
 

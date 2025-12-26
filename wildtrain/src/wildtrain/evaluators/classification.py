@@ -1,26 +1,21 @@
 import json
 import traceback
-from typing import Union, Optional
-from omegaconf import OmegaConf, DictConfig
+from typing import Optional
 import torch
-from pathlib import Path
 from wildtrain.models.classifier import GenericClassifier
 from wildtrain.data import ClassificationDataModule
 from torchmetrics.classification import Accuracy, Precision, Recall, F1Score, AUROC, AveragePrecision
 from tqdm import tqdm
 from wildtrain.utils.logging import get_logger
 import numpy as np
+from ..shared.models import ClassificationEvalConfig
 
 logger = get_logger(__name__)
 
 
 class ClassificationEvaluator:
-    def __init__(self, config:Union[str, Path, DictConfig]):
-        if isinstance(config, (str, Path)):
-            self.config = OmegaConf.load(config)
-            assert self.config.split in ["val", "test"], "split must be either val or test"
-        else:
-            self.config = config    
+    def __init__(self, config:ClassificationEvalConfig):
+        self.config = config    
 
     def _load_model(self):
         logger.info(f"Loading model from {self.config.classifier}")
@@ -31,7 +26,7 @@ class ClassificationEvaluator:
         datamodule = ClassificationDataModule(
             root_data_directory=self.config.dataset.root_data_directory,
             batch_size=self.config.batch_size,
-            transforms=None,
+            transforms=self.config.transforms,
             load_as_single_class=self.config.dataset.single_class.enable,
             background_class_name=self.config.dataset.single_class.background_class_name,
             single_class_name=self.config.dataset.single_class.single_class_name,
