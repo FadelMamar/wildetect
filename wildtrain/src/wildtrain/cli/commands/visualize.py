@@ -5,12 +5,10 @@ import typer
 from pathlib import Path
 from omegaconf import OmegaConf
 
-from ..config_loader import ConfigLoader
+from ...shared.config_loader import ConfigLoader
 from ...visualization import Visualizer
 from ...models.detector import Detector
-from ...models.localizer import UltralyticsLocalizer
 from ...models.classifier import GenericClassifier
-from ...shared.config_types import ConfigType
 from ...shared.validation import ConfigFileNotFoundError, ConfigParseError, ConfigValidationError
 from .utils import console, setup_logging, log_file_path
 
@@ -20,20 +18,9 @@ visualize_app = typer.Typer(name="visualize", help="Visualization commands")
 @visualize_app.command()
 def classifier_predictions(
     config: Path = typer.Option("", "--config", "-c",help="Path to classification visualization configuration YAML file"),
-    template: bool = typer.Option(False, "--template", "-t", help="Show default configuration template instead of visualization")
 ) -> None:
     """Upload classifier predictions to a FiftyOne dataset for visualization using YAML configuration."""
-    if template:
-        console.print(f"[bold green]Showing default classification visualization configuration template...[/bold green]")
-        try:
-            template_yaml = ConfigLoader.generate_default_config(ConfigType.CLASSIFICATION_VISUALIZATION)
-            console.print(f"\n[bold blue]Default classification visualization configuration template:[/bold blue]")
-            console.print(f"\n```yaml\n{template_yaml}```")
-            return
-        except Exception as e:
-            console.print(f"[bold red]✗[/bold red] Failed to generate template: {str(e)}")
-            raise typer.Exit(1)
-    
+        
     console.print(f"[bold green]Loading classification visualization config from:[/bold green] {config}")
     
     try:
@@ -83,20 +70,9 @@ def classifier_predictions(
 @visualize_app.command()
 def detector_predictions(
     config: Path = typer.Option("", "--config", "-c",help="Path to visualization configuration YAML file"),
-    template: bool = typer.Option(False, "--template", "-t", help="Show default configuration template instead of visualization")
 ) -> None:
     """Upload detector predictions to a FiftyOne dataset for visualization using YAML configuration."""
-    if template:
-        console.print(f"[bold green]Showing default detection visualization configuration template...[/bold green]")
-        try:
-            template_yaml = ConfigLoader.generate_default_config(ConfigType.DETECTION_VISUALIZATION)
-            console.print(f"\n[bold blue]Default detection visualization configuration template:[/bold blue]")
-            console.print(f"\n```yaml\n{template_yaml}```")
-            return
-        except Exception as e:
-            console.print(f"[bold red]✗[/bold red] Failed to generate template: {str(e)}")
-            raise typer.Exit(1)
-    
+        
     console.print(f"[bold green]Loading visualization config from:[/bold green] {config}")
     
     try:

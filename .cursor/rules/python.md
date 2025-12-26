@@ -1,0 +1,1 @@
+when attempting to run python code, first try "uv run script.py" before "python script.py". Whenever "uv" is installed use it!

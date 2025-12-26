@@ -1,4 +1,4 @@
-base_config: D:\workspace\repos\wildtrain\configs\classification\example_config.yaml
+base_config: D:\workspace\repos\wildetect\wildtrain\configs\classification\classification_train.yaml
 
 parameters:
   model:
@@ -28,8 +28,19 @@ parameters:
       - 0.01
     batch_size:
       - 32
-    
-epochs: 20
+    epochs:
+      - 10
+      - 20
+      - 30
+
 sweep_name: classification_sweep
 n_trials: 8
 seed: 42
+epochs: 20
+
+output:
+  directory: results/sweeps/classification_sweep
+  save_results: true
+  save_plots: true
+  format: json  # json, csv, or both
+  include_optimization_history: true

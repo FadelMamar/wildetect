@@ -12,7 +12,7 @@ import yaml
 import traceback
 from enum import Enum
 
-from ..shared.models import (
+from .models import (
     ClassificationConfig,
     DetectionConfig,
     DetectionVisualizationConfig,
@@ -25,8 +25,8 @@ from ..shared.models import (
     ClassifierRegistrationConfig,
     DetectorRegistrationConfig,
 )
-from ..shared.config_types import ConfigType
-from ..shared.validation import ConfigValidationError, ConfigFileNotFoundError, ConfigParseError
+from .config_types import ConfigType
+from .validation import ConfigValidationError, ConfigFileNotFoundError, ConfigParseError
 
 console = Console()
 
@@ -221,8 +221,6 @@ class ConfigLoader:
                 ConfigLoader.load_localizer_registration_config(config_path)
             elif config_type == ConfigType.CLASSIFIER_REGISTRATION:
                 ConfigLoader.load_classifier_registration_config(config_path)
-            elif config_type == ConfigType.MODEL_REGISTRATION:
-                ConfigLoader.load_model_registration_config(config_path)
             else:
                 raise ValueError(f"Unknown config type: {config_type}")
             return True

@@ -4,7 +4,7 @@ import typer
 from pathlib import Path
 from typing import Optional
 
-from ..config_loader import ConfigLoader
+from ...shared.config_loader import ConfigLoader
 from ...shared.config_types import ConfigType
 from ...shared.validation import ConfigFileNotFoundError, ConfigParseError, ConfigValidationError
 from .utils import console

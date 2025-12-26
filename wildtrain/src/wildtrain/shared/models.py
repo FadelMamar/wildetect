@@ -197,6 +197,133 @@ class MLflowConfig(BaseConfig):
     log_model: bool = Field(default=False, description="Log model")
 
 
+class SweepOutputConfig(BaseConfig):
+    """Output configuration for hyperparameter sweep results."""
+    directory: Optional[str] = Field(default=None, description="Output directory for results (defaults to results/sweeps/sweep_name)")
+    save_results: bool = Field(default=True, description="Save detailed results")
+    save_plots: bool = Field(default=True, description="Generate visualization plots")
+    format: Literal["json", "csv", "both"] = Field(default="json", description="Output format")
+    include_optimization_history: bool = Field(default=True, description="Include all trials in output")
+
+
+class ClassificationSweepModelParametersConfig(BaseConfig):
+    """Model parameters for hyperparameter sweep."""
+    backbone: List[str] = Field(description="List of backbone model names to search")
+    dropout: List[float] = Field(description="List of dropout values to search")
+    
+    @field_validator('backbone')
+    @classmethod
+    def validate_backbone_non_empty(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("backbone list cannot be empty")
+        return v
+    
+    @field_validator('dropout')
+    @classmethod
+    def validate_dropout(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("dropout list cannot be empty")
+        for value in v:
+            if not 0.0 <= value <= 1.0:
+                raise ValueError(f"dropout values must be between 0.0 and 1.0, got {value}")
+        return v
+
+
+class ClassificationSweepTrainParametersConfig(BaseConfig):
+    """Training parameters for hyperparameter sweep."""
+    lr: List[float] = Field(description="List of learning rates to search")
+    lrf: List[float] = Field(description="List of learning rate factors to search")
+    label_smoothing: List[float] = Field(description="List of label smoothing values to search")
+    weight_decay: List[float] = Field(description="List of weight decay values to search")
+    batch_size: List[int] = Field(description="List of batch sizes to search")
+    epochs: List[int] = Field(gt=0, description="Number of training epochs")
+    
+    @field_validator('lr')
+    @classmethod
+    def validate_lr(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("lr list cannot be empty")
+        for value in v:
+            if value <= 0.0:
+                raise ValueError(f"lr values must be greater than 0.0, got {value}")
+        return v
+    
+    @field_validator('lrf')
+    @classmethod
+    def validate_lrf(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("lrf list cannot be empty")
+        for value in v:
+            if value <= 0.0:
+                raise ValueError(f"lrf values must be greater than 0.0, got {value}")
+        return v
+    
+    @field_validator('label_smoothing')
+    @classmethod
+    def validate_label_smoothing(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("label_smoothing list cannot be empty")
+        for value in v:
+            if not 0.0 <= value <= 1.0:
+                raise ValueError(f"label_smoothing values must be between 0.0 and 1.0, got {value}")
+        return v
+    
+    @field_validator('weight_decay')
+    @classmethod
+    def validate_weight_decay(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("weight_decay list cannot be empty")
+        for value in v:
+            if value < 0.0:
+                raise ValueError(f"weight_decay values must be non-negative, got {value}")
+        return v
+    
+    @field_validator('batch_size')
+    @classmethod
+    def validate_batch_size(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("batch_size list cannot be empty")
+        for value in v:
+            if value <= 0:
+                raise ValueError(f"batch_size values must be greater than 0, got {value}")
+        return v
+
+
+class ClassificationSweepParametersConfig(BaseConfig):
+    """Parameters configuration for hyperparameter sweep."""
+    model: ClassificationSweepModelParametersConfig = Field(description="Model parameters to search")
+    train: ClassificationSweepTrainParametersConfig = Field(description="Training parameters to search")
+
+
+class ClassificationSweepConfig(BaseConfig):
+    """Hyperparameter sweep configuration."""
+    base_config: str = Field(description="Path to base training configuration file")
+    parameters: ClassificationSweepParametersConfig = Field(description="Hyperparameter search space")
+    sweep_name: str = Field(description="Name of the sweep experiment")
+    n_trials: int = Field(gt=0, le=1000, description="Number of optimization trials")
+    seed: int = Field(description="Random seed for reproducibility")    
+    timeout: Optional[int] = Field(default=None, description="Maximum time for optimization in seconds")
+    output: Optional[SweepOutputConfig] = Field(default=None, description="Output configuration (optional, uses defaults if not provided)")
+
+    @classmethod
+    def from_yaml(cls, yaml_path: str) -> "ClassificationSweepConfig":
+        return super().from_yaml(yaml_path)
+    
+    @field_validator('base_config')
+    @classmethod
+    def validate_base_config_exists(cls, v):
+        if not Path(v).exists():
+            raise ValueError(f"Base config file does not exist: {v}")
+        return v
+    
+    @field_validator('sweep_name')
+    @classmethod
+    def validate_sweep_name(cls, v):
+        if not v or not v.strip():
+            raise ValueError("sweep_name cannot be empty")
+        return v.strip()
+
+
 class ClassificationConfig(BaseConfig):
     """Complete classification configuration."""
     dataset: ClassificationDatasetConfig = Field(description="Dataset configuration")
@@ -225,20 +352,6 @@ class YoloConfig(BaseConfig):
     max_det: int = Field(default=300, gt=0, description="Maximum detections")
     overlap_metric: str = Field(default="IOU", description="Overlap metric")
     task: str = Field(default="detect", description="YOLO task type (detect, classify, segment)")
-    
-
-class MMDetConfig(BaseConfig):
-    """MMDetection model configuration."""
-    config: str = Field(description="MMDetection config file path")
-    weights: Optional[str] = Field(default=None, description="Model checkpoint path")
-    device: str = Field(default="cpu", description="Device to use")
-    
-    @field_validator('config')
-    @classmethod
-    def validate_config_file(cls, v):
-        if not Path(v).exists():
-            raise ValueError(f"Config file does not exist: {v}")
-        return v
 
 
 class YoloDatasetConfig(BaseConfig):
@@ -803,7 +916,6 @@ class LocalizerRegistrationConfig(BaseConfig):
     This configuration is specifically for registering localizer models.
     """
     yolo: Optional[YoloConfig] = Field(None,description="yolo config")
-    mmdet: Optional[MMDetConfig] = Field(None, description="mmdet config")
     processing: RegistrationBase = Field(description="processing information")
 
 
