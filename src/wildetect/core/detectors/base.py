@@ -11,6 +11,7 @@ import pandas as pd
 import supervision as sv
 import torch
 from tqdm import tqdm
+
 from wildtrain.models.detector import Detector
 from wildtrain.utils.mlflow import load_registered_model
 
@@ -184,6 +185,10 @@ class BaseDetectionPipeline(ABC):
     def run_detection(self, *args, **kwargs) -> List[DroneImage]:
         """Run detection."""
         pass
+
+    def __call__(self, *args, **kwargs) -> List[DroneImage]:
+        """Call the detection pipeline."""
+        return self.run_detection(*args, **kwargs)
 
     def _postprocess_batch(self, batch: Dict[str, Any]) -> None:
         detections = batch.get("detections", [])
