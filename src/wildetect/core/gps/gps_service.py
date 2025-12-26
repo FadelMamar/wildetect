@@ -171,9 +171,14 @@ class GPSDetectionService:
             tile: Tile object containing detections to update
             detection_type: Type of detections to update ("predictions" or "annotations")
         """
-        if not tile.tile_gps_loc or not tile.gsd:
+        if not tile.tile_gps_loc:
             logger.warning(
-                f"Cannot update {detection_type} for tile. No GPS @ path: {tile.image_path}"
+                f"Cannot update GPS information for {detection_type} in tile. No GPS @ path: {tile.image_path}"
+            )
+            return
+        if not tile.gsd:
+            logger.warning(
+                f"Cannot update GPS information for {detection_type} in tile. No GSD found in tile: {tile.image_path}"
             )
             return
 
