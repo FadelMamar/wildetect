@@ -438,6 +438,13 @@ class BenchmarkSamplerTypes(StrEnum):
     GRID = "Grid"
 
 
+class BenchmarkObjectiveTypes(StrEnum):
+    """Types of benchmark objective."""
+
+    THROUGHPUT = "throughput"
+    LATENCY = "latency"
+
+
 class BenchmarkOutputConfigModel(BaseModel):
     """Output configuration for benchmark results."""
 
@@ -467,8 +474,11 @@ class BenchmarkExecutionConfigModel(BaseModel):
         default=3600, gt=0, description="Maximum time for optimization in seconds"
     )
     direction: BenchmarkDirectionTypes = Field(
-        default=BenchmarkDirectionTypes.MINIMIZE,
+        default=BenchmarkDirectionTypes.MAXIMIZE,
         description="Optimization direction (minimize latency, maximize throughput)",
+    )
+    objective: BenchmarkObjectiveTypes = Field(
+        default=BenchmarkObjectiveTypes.THROUGHPUT, description="Objective to optimize"
     )
     sampler: BenchmarkSamplerTypes = Field(
         default=BenchmarkSamplerTypes.TPE, description="Optuna sampler type"

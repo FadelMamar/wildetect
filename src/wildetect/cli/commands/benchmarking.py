@@ -1,13 +1,14 @@
+import csv
+import json
 import logging
 from pathlib import Path
-from typing import Optional
 
+import optuna.visualization
 import typer
 import yaml
 
 # from ...core.config_loader import ConfigLoader
-from ...core.config_models import BenchmarkConfigModel
-from ...core.data.utils import get_images_paths
+from ...core.config_models import BenchmarkConfigModel, BenchmarkFormatTypes
 from ...utils.benchmark import BenchmarkPipeline
 
 # Configure logging
@@ -107,28 +108,6 @@ def _load_config(config_path: str) -> dict:
 
     with open(config_file, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
-
-
-def _save_benchmark_results(
-    benchmark_pipeline: BenchmarkPipeline,
-    benchmark_config: BenchmarkConfigModel,
-    output_path: Path,
-):
-    """Save benchmark results to the specified output directory."""
-    try:
-        # This would be implemented to save results in the specified format
-        # For now, just log that we would save results
-        logger.info(f"Results would be saved to: {output_path}")
-
-        # TODO: Implement actual result saving based on benchmark_config.output.format
-        # - JSON results
-        # - CSV data
-        # - Performance plots
-        # - Optimization history
-
-    except Exception as e:
-        logger.warning(f"Failed to save benchmark results: {e}")
-        typer.echo(f"⚠️  Warning: Failed to save results: {e}")
 
 
 if __name__ == "__main__":

@@ -8,12 +8,13 @@ execution:
   direction: "maximize"           # Optimization direction: "minimize" or "maximize"
   sampler: "TPE"                  # Optuna sampler: "TPE", "Random", or "Grid"
   seed: 42                        # Random seed for reproducibility
+  objective: "throughput"          # Objective to optimize: "throughput" or "latency"
 
 # Test data configuration
 test_images:
-  path: D:\workspace\data\demo-dataset\datasets\savmap\images\train          # Path to test images directory
+  path: D:\workspace\data\savmap_dataset_v2\images_tmp        # Path to test images directory
   recursive: false                 # Search recursively for images
-  max_images: 10                # Maximum number of images to use
+  max_images: 3               # Maximum number of images to use
   supported_formats:              # Supported image formats
     - "*.jpg"
     - "*.jpeg"

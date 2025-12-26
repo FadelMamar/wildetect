@@ -1,8 +1,11 @@
+import csv
 import gc
+import json
 import logging
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -10,8 +13,12 @@ import optuna
 import torch
 from tqdm import tqdm
 
-from ..core.config import LoaderConfig, PredictionConfig
-from ..core.config_models import BenchmarkConfigModel, HyperparameterSearchConfigModel
+from ..core.config import LoaderConfig
+from ..core.config_models import (
+    BenchmarkConfigModel,
+    BenchmarkFormatTypes,
+    BenchmarkObjectiveTypes,
+)
 from ..core.data import DataLoader
 from ..core.detectors import get_detection_pipeline
 from .profiler import profile_command
@@ -22,34 +29,39 @@ logger = logging.getLogger(__name__)
 class BenchmarkPipeline(object):
     def __init__(
         self,
-        image_paths: List[str],
-        hyperparameters: HyperparameterSearchConfigModel,
-        prediction_config: PredictionConfig,
-        loader_config: LoaderConfig,
+        config: BenchmarkConfigModel,
     ):
-        self.image_paths = image_paths
-        self.prediction_config = prediction_config
-        self.loader_config = loader_config
-        self.hyperparameters = hyperparameters
+        self._config = config
+        assert isinstance(
+            config, BenchmarkConfigModel
+        ), f"config must be a BenchmarkConfigModel, but got {type(config)}"
 
-    @classmethod
-    def from_config(cls, config: BenchmarkConfigModel):
-        return cls(
-            image_paths=config.get_image_paths(),
-            hyperparameters=config.hyperparameters,
-            prediction_config=config.to_prediction_config(),
-            loader_config=config.to_loader_config(),
-        )
+        self.image_paths = config.get_image_paths()
+        self.prediction_config = config.to_prediction_config()
+        self.loader_config = config.to_loader_config()
+        self.hyperparameters = config.hyperparameters
+        self.study = None
+        self.output_config = config.output
+        self.execution_config = config.execution
 
-    def run(self, n_trials: int = 30, timeout: int = 3600, direction: str = "maximize"):
+    def run(
+        self,
+    ):
         study = optuna.create_study(
-            direction=direction,
+            direction=self.execution_config.direction,
             sampler=optuna.samplers.TPESampler(seed=42),
         )
 
         # Start the optimization process
         print("Starting Optuna optimization for inference throughput...")
-        study.optimize(self, n_trials=n_trials, timeout=timeout)
+        study.optimize(
+            self,
+            n_trials=self.execution_config.n_trials,
+            timeout=self.execution_config.timeout,
+        )
+
+        # Store study for later access (e.g., for saving results)
+        self.study = study
 
         # Output the best result
         best_trial = study.best_trial
@@ -60,6 +72,10 @@ class BenchmarkPipeline(object):
         print("Best Params:")
         for key, value in best_trial.params.items():
             print(f"  {key}: {value}")
+
+        # Save benchmark results
+        if self.output_config.save_results:
+            self._save_benchmark_results()
 
     def _run_benchmark(self) -> float:
         """Runs a short benchmark and returns the achieved throughput (img/sec)."""
@@ -81,7 +97,12 @@ class BenchmarkPipeline(object):
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
-        return len(self.image_paths) / (end_time - start_time)
+        if self.execution_config.objective == BenchmarkObjectiveTypes.THROUGHPUT:
+            return len(self.image_paths) / (end_time - start_time)
+        elif self.execution_config.objective == BenchmarkObjectiveTypes.LATENCY:
+            return (end_time - start_time) / len(self.image_paths)
+        else:
+            raise ValueError(f"Invalid objective: {self.execution_config.objective}")
 
     def __call__(self, trial: optuna.Trial):
         # Suggest values for the hyperparameters
@@ -102,6 +123,168 @@ class BenchmarkPipeline(object):
         self.prediction_config.batch_size = batch_size
         self.loader_config.batch_size = batch_size
         return self._run_benchmark()
+
+    def _save_benchmark_results(
+        self,
+    ):
+        """Save benchmark results to the specified output directory."""
+        try:
+            # Ensure output directory exists
+            output_path = Path(self.output_config.directory)
+            output_path.mkdir(parents=True, exist_ok=True)
+
+            # Check if study is available
+            if not hasattr(self, "study") or self.study is None:
+                logger.warning(
+                    "No study found in benchmark pipeline. Results cannot be saved."
+                )
+                return
+
+            study = self.study
+            output_format = self.output_config.format
+
+            # Extract best trial data
+            best_trial = study.best_trial
+            best_trial_data = {
+                "number": best_trial.number,
+                "value": best_trial.value,
+                "params": best_trial.params,
+            }
+
+            # Extract all trials data if requested
+            all_trials_data = []
+            if self.output_config.include_optimization_history:
+                for trial in study.trials:
+                    trial_data = {
+                        "number": trial.number,
+                        "value": trial.value,
+                        "params": trial.params,
+                        "state": trial.state.name if trial.state else None,
+                    }
+                    all_trials_data.append(trial_data)
+
+            # Study metadata
+            study_metadata = {
+                "direction": study.direction.name,
+                "n_trials": len(study.trials),
+                "best_trial_number": best_trial.number,
+                "best_value": best_trial.value,
+            }
+
+            # Save JSON format if requested
+            if output_format in (BenchmarkFormatTypes.JSON, BenchmarkFormatTypes.BOTH):
+                try:
+                    json_data = {
+                        "metadata": study_metadata,
+                        "best_trial": best_trial_data,
+                    }
+                    if self.output_config.include_optimization_history:
+                        json_data["all_trials"] = all_trials_data
+
+                    json_file = output_path / "benchmark_results.json"
+                    with open(json_file, "w", encoding="utf-8") as f:
+                        json.dump(json_data, f, indent=2, ensure_ascii=False)
+
+                    logger.info(f"Saved JSON results to: {json_file}")
+                except Exception as e:
+                    logger.warning(f"Failed to save JSON results: {e}")
+
+            # Save CSV format if requested (CSV always includes all trials as it's tabular data)
+            if output_format in (BenchmarkFormatTypes.CSV, BenchmarkFormatTypes.BOTH):
+                try:
+                    csv_file = output_path / "benchmark_results.csv"
+                    with open(csv_file, "w", newline="", encoding="utf-8") as f:
+                        all_trials_for_csv = []
+                        for trial in study.trials:
+                            trial_data = {
+                                "number": trial.number,
+                                "value": trial.value,
+                                "params": trial.params,
+                            }
+                            all_trials_for_csv.append(trial_data)
+
+                        if all_trials_for_csv:
+                            # Write header
+                            fieldnames = ["trial_number", "value"]
+                            # Add param columns (use first trial to get param names)
+                            param_names = list(all_trials_for_csv[0]["params"].keys())
+                            fieldnames.extend(param_names)
+
+                            writer = csv.DictWriter(f, fieldnames=fieldnames)
+                            writer.writeheader()
+
+                            # Write trial data
+                            for trial_data in all_trials_for_csv:
+                                row = {
+                                    "trial_number": trial_data["number"],
+                                    "value": trial_data["value"],
+                                }
+                                row.update(trial_data["params"])
+                                writer.writerow(row)
+                        else:
+                            # Fallback: just write best trial if no trials available
+                            fieldnames = ["trial_number", "value"]
+                            param_names = list(best_trial_data["params"].keys())
+                            fieldnames.extend(param_names)
+
+                            writer = csv.DictWriter(f, fieldnames=fieldnames)
+                            writer.writeheader()
+                            row = {
+                                "trial_number": best_trial_data["number"],
+                                "value": best_trial_data["value"],
+                            }
+                            row.update(best_trial_data["params"])
+                            writer.writerow(row)
+
+                    logger.info(f"Saved CSV results to: {csv_file}")
+                except Exception as e:
+                    logger.warning(f"Failed to save CSV results: {e}")
+
+            # Generate performance plots if requested
+            if self.output_config.save_plots:
+                try:
+                    # Optimization history plot
+                    try:
+                        fig = optuna.visualization.plot_optimization_history(study)
+                        plot_file = output_path / "optimization_history.html"
+                        fig.write_html(str(plot_file))
+                        logger.info(f"Saved optimization history plot to: {plot_file}")
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to generate optimization history plot: {e}"
+                        )
+
+                    # Parallel coordinate plot
+                    try:
+                        fig = optuna.visualization.plot_parallel_coordinate(study)
+                        plot_file = output_path / "parallel_coordinate.html"
+                        fig.write_html(str(plot_file))
+                        logger.info(f"Saved parallel coordinate plot to: {plot_file}")
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to generate parallel coordinate plot: {e}"
+                        )
+
+                    # Parameter importance plot (may fail if not enough trials)
+                    try:
+                        if len(study.trials) > 1:
+                            fig = optuna.visualization.plot_param_importances(study)
+                            plot_file = output_path / "param_importances.html"
+                            fig.write_html(str(plot_file))
+                            logger.info(
+                                f"Saved parameter importance plot to: {plot_file}"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to generate parameter importance plot (may need more trials): {e}"
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to generate plots: {e}")
+
+            logger.info(f"Benchmark results saved successfully to: {output_path}")
+
+        except Exception as e:
+            logger.warning(f"Failed to save benchmark results: {e}")
 
 
 class DataLoaderBenchmark:
