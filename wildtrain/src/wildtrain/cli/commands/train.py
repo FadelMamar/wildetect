@@ -2,7 +2,6 @@
 
 import typer
 from pathlib import Path
-from omegaconf import OmegaConf, DictConfig
 
 from ...shared.config_loader import ConfigLoader
 from ...trainers.classification_trainer import ClassifierTrainer
@@ -26,14 +25,13 @@ def classifier(
 
     try:
         # Load and validate configuration using Pydantic
-        validated_config = ConfigLoader.load_classification_config(config)
+        cfg = ConfigLoader.load_classification_config(config)
         console.print(f"[bold green]✓[/bold green] Configuration validated successfully")
         
         # Convert validated config back to DictConfig for backward compatibility
-        cfg = OmegaConf.create(validated_config.model_dump())
         console.print("cfg:",cfg)
         
-        ClassifierTrainer(DictConfig(cfg)).run()
+        ClassifierTrainer(cfg).run()
         
     except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
         console.print(f"[bold red]✗[/bold red] Configuration error: {str(e)}")
@@ -55,14 +53,13 @@ def detector(
 
     try:
         # Load and validate configuration using Pydantic
-        validated_config = ConfigLoader.load_detection_config(config)
+        cfg = ConfigLoader.load_detection_config(config)
         console.print(f"[bold green]✓[/bold green] Configuration validated successfully")
         
         # Convert validated config back to DictConfig for backward compatibility
-        cfg = OmegaConf.create(validated_config.model_dump())
         console.print("cfg:",cfg)
         
-        UltralyticsDetectionTrainer(DictConfig(cfg)).run()
+        UltralyticsDetectionTrainer(cfg).run()
         
     except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
         console.print(f"[bold red]✗[/bold red] Configuration error: {str(e)}")

@@ -25,14 +25,14 @@ def classifier(
         # Load configuration from file
         console.print(f"[bold green]Loading classifier registration config from:[/bold green] {config}")
         try:
-            validated_config = ConfigLoader.load_classifier_registration_config(config)
+            cfg = ConfigLoader.load_classifier_registration_config(config)
             console.print(f"[bold green]✓[/bold green] Classifier registration configuration validated successfully")
             
             # Use config values
-            weights_path = Path(validated_config.weights)
-            name = validated_config.processing.name
-            batch_size = validated_config.processing.batch_size
-            mlflow_tracking_uri = validated_config.processing.mlflow_tracking_uri
+            weights_path = Path(cfg.weights)
+            name = cfg.processing.name
+            batch_size = cfg.processing.batch_size
+            mlflow_tracking_uri = cfg.processing.mlflow_tracking_uri
             
         except Exception as e:
             console.print(f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}")

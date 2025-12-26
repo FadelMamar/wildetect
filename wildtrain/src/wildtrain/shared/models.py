@@ -1041,6 +1041,8 @@ class DetectionEvalConfig(BaseConfig):
     def validate_device(cls, v):
         assert (v == "cpu") or ("cuda" in v), f"Device must be one of ['cpu', 'cuda'], got: {v}"
         return v
+
+
 class RegistrationBase(BaseConfig):
     name: Optional[str] = Field(default=None, description="Model name for registration")
     batch_size: int = Field(default=8, gt=0, description="Batch size for inference")

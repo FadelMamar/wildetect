@@ -25,11 +25,10 @@ def classifier_predictions(
     
     try:
         # Load and validate configuration using Pydantic
-        validated_config = ConfigLoader.load_classification_visualization_config(config)
+        cfg = ConfigLoader.load_classification_visualization_config(config)
         console.print(f"[bold green]✓[/bold green] Classification visualization configuration validated successfully")
         
         # Convert validated config back to DictConfig for backward compatibility
-        cfg = OmegaConf.create(validated_config.model_dump())
         console.print("cfg:",cfg)
         
         # Extract configuration values
@@ -77,11 +76,8 @@ def detector_predictions(
     
     try:
         # Load and validate configuration using Pydantic
-        validated_config = ConfigLoader.load_detection_visualization_config(config)
-        console.print(f"[bold green]✓[/bold green] Detection visualization configuration validated successfully")
-        
-        # Convert validated config back to DictConfig for backward compatibility
-        cfg = OmegaConf.create(validated_config.model_dump())
+        cfg = ConfigLoader.load_detection_visualization_config(config)
+        console.print(f"[bold green]✓[/bold green] Detection visualization configuration validated successfully")        
         console.print("cfg:",cfg)
         
         # Extract configuration values

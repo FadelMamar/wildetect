@@ -31,12 +31,9 @@ def classifier(
         validated_config = ConfigLoader.load_classification_eval_config(config)
         console.print(f"[bold green]✓[/bold green] Classification evaluation configuration validated successfully")
         
-        # Convert validated config back to DictConfig for backward compatibility
-        # Use model_dump with exclude_none=False to preserve all fields including defaults
-        cfg = OmegaConf.create(validated_config.model_dump(exclude_none=False))
-        console.print("cfg:",cfg)
+        console.print("cfg:",validated_config)
         
-        evaluator = ClassificationEvaluator(config=cfg)
+        evaluator = ClassificationEvaluator(config=validated_config)
         results = evaluator.evaluate(debug=debug)
         console.print("\n[bold blue]Classifier Evaluation Results:[/bold blue]")
         console.print(results)
@@ -54,30 +51,21 @@ def classifier(
 @evaluate_app.command()
 def detector(
     config: Path = typer.Option("","--config", "-c", help="Path to YOLO evaluation YAML config file"),
-    model_type: str = typer.Option("yolo", "--type", "-t", help="Type of detector to evaluate (yolo, yolo_v8, yolo_v11)"),
     debug: bool = typer.Option(False, "--debug", help="Enable debug mode")
 ) -> Dict[str, Any]:
     """Evaluate a YOLO model using a YAML config file."""
-        
-    console.print(f"[bold green]Running {model_type} evaluation with config:[/bold green] {config}")
 
     log_file = log_file_path("evaluate_detector")
     setup_logging(log_file=log_file)
 
     try:
         # Load and validate configuration using Pydantic
-        validated_config = ConfigLoader.load_detection_eval_config(config)
-        console.print(f"[bold green]✓[/bold green] Detection evaluation configuration validated successfully")
-        
-        cfg = OmegaConf.create(validated_config.model_dump(exclude_none=False))
+        cfg = ConfigLoader.load_detection_eval_config(config)
+        console.print(f"[bold green]✓[/bold green] Detection evaluation configuration validated successfully")        
         console.print("cfg:",cfg)
         
-        if model_type == "yolo":
-            evaluator = UltralyticsEvaluator(config=cfg)
-        else:
-            raise ValueError(f"Invalid detector type: {model_type}")
+        evaluator = UltralyticsEvaluator(config=cfg)
         results = evaluator.evaluate(debug=debug)
-        console.print(f"\n[bold blue]{model_type} Evaluation Results:[/bold blue]")
         console.print(results)
         
     except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
