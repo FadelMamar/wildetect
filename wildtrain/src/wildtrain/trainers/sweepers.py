@@ -363,7 +363,7 @@ class DetectionSweeper(Sweeper):
                     return trainer.metrics[self.sweep_cfg.objective.value]
                 else:
                     logger.warning("Trial %d completed but %s is not in metrics. Pruning trial.", self.counter, self.sweep_cfg.objective)
-                    raise optuna.TrialPruned("Training completed but %s is not in metrics", self.sweep_cfg.objective)
+                    raise optuna.TrialPruned(f"Training completed but {self.sweep_cfg.objective.value} is not in metrics keys (available keys: {trainer.metrics.keys()})")
 
         except optuna.TrialPruned as e:
             raise e
