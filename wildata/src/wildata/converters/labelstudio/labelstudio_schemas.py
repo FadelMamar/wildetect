@@ -15,8 +15,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import unquote
 from label_studio_tools.core.utils.io import get_local_path
+from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class ResultValue(BaseModel):
@@ -124,6 +125,10 @@ class ResultValue(BaseModel):
         """Check if this box has rotation."""
         return abs(self.rotation) > 0.001
 
+class ResultOrigin(StrEnum):
+    MANUAL = "manual"
+    PREDICTION = "prediction"
+    PREDICTION_CHANGED = "prediction-changed"
 
 class Result(BaseModel):
     """Single annotation result (one bounding box).
@@ -139,9 +144,9 @@ class Result(BaseModel):
     original_height: int = Field(..., description="Original image height in pixels")
     image_rotation: int = Field(default=0, description="Image rotation applied")
     value: ResultValue = Field(..., description="Bounding box value")
-    origin: Optional[str] = Field(
+    origin: Optional[ResultOrigin] = Field(
         default=None, 
-        description="Origin: 'manual', 'prediction', or 'prediction-changed'"
+        description="Origin of the result"
     )
     score: Optional[float] = Field(
         default=None, 
@@ -272,7 +277,7 @@ class TaskData(BaseModel):
             return get_local_path(decoded, download_resources=False)
         except (FileNotFoundError, Exception):
             # Fallback: parse path manually if get_local_path fails
-            if "/data/local-files/?d=" in decoded:
+            if "?d=" in decoded:
                 return decoded.split("?d=")[-1]
             return decoded
 

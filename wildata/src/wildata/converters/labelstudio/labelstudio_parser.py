@@ -10,11 +10,13 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
-
+import pandas as pd
 from .labelstudio_schemas import (
     LabelStudioExport,
     Task,
+    ResultOrigin
 )
+from tqdm import tqdm
 
 
 @dataclass
@@ -27,7 +29,7 @@ class ParsedAnnotation:
     # Task info
     task_id: int
     image_path: str
-    image_filename: str
+    #image_filename: str
     
     # Image dimensions
     original_width: int
@@ -48,10 +50,11 @@ class ParsedAnnotation:
     label: str
     all_labels: List[str]
     
-    # Metadata
-    origin: Optional[str]
-    score: Optional[float]
-    completed_by: Optional[int]
+    # Metadata    
+    score: Optional[float]=None
+    completed_by: Optional[int]=None
+    origin: Optional[ResultOrigin]=None
+    is_empty: bool=False
     
     @property
     def bbox_percent(self) -> Tuple[float, float, float, float]:
@@ -202,6 +205,7 @@ class LabelStudioParser:
         include_empty: bool = False,
         labels: Optional[List[str]] = None,
         min_score: Optional[float] = None,
+        show_progress: bool = True,
     ) -> Iterator[ParsedAnnotation]:
         """Iterate over all annotations as ParsedAnnotation objects.
         
@@ -214,8 +218,11 @@ class LabelStudioParser:
             ParsedAnnotation objects for each bounding box
         """
         label_set = set(labels) if labels else None
+        iter_tasks = self.tasks
+        if show_progress:
+            iter_tasks = tqdm(iter_tasks, desc="Processing tasks")
         
-        for task in self.tasks:
+        for task in iter_tasks:
             has_results = False
             
             for annotation in task.annotations:
@@ -239,7 +246,7 @@ class LabelStudioParser:
                         yield ParsedAnnotation(
                             task_id=task.id,
                             image_path=task.image_path,
-                            image_filename=task.image_filename,
+                            #image_filename=task.image_filename,
                             original_width=result.original_width,
                             original_height=result.original_height,
                             annotation_id=annotation.id,
@@ -258,11 +265,30 @@ class LabelStudioParser:
             
             # Include empty task if requested
             if include_empty and not has_results:
-                pass
+                yield ParsedAnnotation(
+                            task_id=task.id,
+                            image_path=task.image_path,
+                            #image_filename=task.image_filename,
+                            original_width=0,
+                            original_height=0,
+                            annotation_id=None,
+                            result_id=None,
+                            x=0,
+                            y=0,
+                            width=0,
+                            height=0,
+                            rotation=0,
+                            label="EMPTY",
+                            all_labels=[],
+                            score=None,
+                            completed_by=None,
+                            origin=None,
+                            is_empty=True,
+                        )
     
     def get_all_annotations(
         self,
-        include_empty: bool = False,
+        include_empty: bool = True,
         labels: Optional[List[str]] = None,
         min_score: Optional[float] = None,
     ) -> List[ParsedAnnotation]:
@@ -418,18 +444,17 @@ class LabelStudioParser:
             "categories": categories,
         }
     
-    def to_dataframe(self) -> "pd.DataFrame":
+    def to_dataframe(self, include_empty: bool = True) -> pd.DataFrame:
         """Convert annotations to a pandas DataFrame.
+        
+        Args:
+            include_empty: If True, include empty annotations for tasks with no results
         
         Returns:
             DataFrame with one row per annotation
         """
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError("pandas is required for to_dataframe()")
         
-        annotations = self.get_all_annotations()
+        annotations = self.get_all_annotations(include_empty=include_empty)
         
         if not annotations:
             return pd.DataFrame()
@@ -439,7 +464,7 @@ class LabelStudioParser:
             bbox_pixel = ann.bbox_pixel
             records.append({
                 "task_id": ann.task_id,
-                "image_filename": ann.image_filename,
+                #"image_filename": ann.image_filename,
                 "image_path": ann.image_path,
                 "annotation_id": ann.annotation_id,
                 "result_id": ann.result_id,
@@ -458,9 +483,10 @@ class LabelStudioParser:
                 "origin": ann.origin,
                 "score": ann.score,
                 "completed_by": ann.completed_by,
+                "is_empty": ann.is_empty,
             })
         
-        return pd.DataFrame(records)
+        return pd.DataFrame(records).convert_dtypes()
     
     # =========================================================================
     # Filtering Methods
