@@ -426,6 +426,7 @@ class LabelStudioParser:
             "annotated_tasks": self.annotated_task_count,
             "empty_tasks": self.task_count - self.annotated_task_count,
             "total_annotations": len(annotations),
+            "total_predictions": len(self.get_all_predictions()),
             "unique_labels": self.labels,
             "label_counts": self.get_label_statistics(),
             "rotated_annotations": sum(1 for a in annotations if a.is_rotated),
@@ -530,22 +531,20 @@ class LabelStudioParser:
             "categories": categories,
         }
     
-    def results_to_dataframe(
+    def to_dataframe(
         self, 
-        source: Literal["annotations", "predictions", "both"] = "annotations",
         include_empty: bool = True
     ) -> pd.DataFrame:
         """Convert results to a pandas DataFrame.
         
         Args:
-            source: Which results to include - "annotations", "predictions", or "both"
-            include_empty: If True, include empty rows for tasks with no results
+            include_empty: If True, include empty rows for tasks with no results"
         
         Returns:
             DataFrame with one row per result
         """
         
-        results = self.get_all_results(source=source, include_empty=include_empty)
+        results = self.get_all_results(include_empty=include_empty)
         
         if not results:
             return pd.DataFrame()
@@ -580,12 +579,6 @@ class LabelStudioParser:
             })
         
         return pd.DataFrame(records).convert_dtypes()
-    
-    def to_dataframe(self, include_empty: bool = True) -> pd.DataFrame:
-        """Convert annotations to a DataFrame. Delegates to results_to_dataframe(source='annotations')."""
-        df_annotations = self.results_to_dataframe("annotations", include_empty)
-        df_predictions = self.results_to_dataframe("predictions", include_empty)
-        return pd.concat([df_annotations, df_predictions]).reset_index(drop=True)
     
     # =========================================================================
     # Filtering Methods
