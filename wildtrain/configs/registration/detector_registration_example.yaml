@@ -1,6 +1,6 @@
 
 classifier:
-  weights_path: null #
+  weights: null #
   processing:
     batch_size: 8 # used for onnx export
     export_format: "torchscript" # torchscript or onnx
@@ -15,7 +15,6 @@ localizer:
     max_det: 300
     overlap_metric: "IOU"
     task: "detect"
-  mmdet: null
   processing:
     export_format: "pt"
     batch_size: 32

@@ -1,17 +1,11 @@
 import logging
-import traceback
-from pathlib import Path
-from typing import List, Optional, Union
+from typing import List
 
+import mlflow
 import torch
 from torchmetrics.functional.detection import complete_intersection_over_union
 
 logger = logging.getLogger(__name__)
-
-try:
-    import mlflow
-except ImportError:
-    logger.warning("mlflow not installed")
 
 
 def compute_iou(bbox1: List[float], bbox2: List[float]) -> float:

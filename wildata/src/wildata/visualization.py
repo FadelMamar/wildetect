@@ -222,8 +222,8 @@ class FiftyOneManager:
                 label_field=self.prediction_field,
                 label_type=label_type,
                 classes=classes,
-                api_key=os.environ["FIFTYONE_LABELSTUDIO_API_KEY"],
-                url=os.environ["FIFTYONE_LABELSTUDIO_URL"],
+                api_key=os.environ["LABEL_STUDIO_API_KEY"],
+                url=os.environ["LABEL_STUDIO_URL"],
             )
         except Exception:
             logger.error(f"Error exporting to LabelStudio: {traceback.format_exc()}")

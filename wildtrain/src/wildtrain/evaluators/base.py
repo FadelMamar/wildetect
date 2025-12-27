@@ -12,6 +12,7 @@ from logging import getLogger
 import traceback
 from .metrics import MyPrecision,MyRecall,MyF1Score
 import json
+from ..shared.models import DetectionEvalConfig,ClassificationEvalConfig
 
 logger = getLogger(__name__)
 
@@ -21,21 +22,13 @@ class BaseEvaluator(ABC):
     Subclasses must implement the evaluate method.
     """
 
-    def __init__(self, config: Union[DictConfig, str, dict]):
-        if isinstance(config, str):
-            self.config = DictConfig(OmegaConf.load(config))
-        elif isinstance(config, dict):
-            self.config = DictConfig(config)
-        elif isinstance(config, DictConfig):
-            self.config = config
-        else:
-            raise ValueError(f"Invalid config type: {type(config)}")
-
+    def __init__(self, config: Union[DetectionEvalConfig, ClassificationEvalConfig]):        
+        self.config = config      
         self.metrics = self._get_metrics()
         self.per_image_metrics = deepcopy(self.metrics)
         self.per_image_results = dict()
         self._report: Dict[str, float] = dict()
-        
+    
     
     def _get_metrics(self,):
         boxes = sv.metrics.core.MetricTarget.BOXES

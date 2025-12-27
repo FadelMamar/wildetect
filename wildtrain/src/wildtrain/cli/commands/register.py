@@ -4,9 +4,8 @@ import typer
 from pathlib import Path
 import traceback
 
-from ..config_loader import ConfigLoader
+from ...shared.config_loader import ConfigLoader
 from ...models.register import ModelRegistrar
-from ...shared.config_types import ConfigType
 from .utils import console, setup_logging, log_file_path
 
 register_app = typer.Typer(name="register", help="Model registration commands")
@@ -19,32 +18,21 @@ def classifier(
     name: str = typer.Option("classifier", "--name", "-n", help="Model name for registration"),
     batch_size: int = typer.Option(8, "--batch-size", "-b", help="Batch size for inference"),
     mlflow_tracking_uri: str = typer.Option("http://localhost:5000", "--mlflow-uri", help="MLflow tracking server URI"),
-    template: bool = typer.Option(False, "--template", help="Show default configuration template instead of registration")
 ) -> None:
     """Register a classification model to MLflow Model Registry."""
-    if template:
-        console.print(f"[bold green]Showing default classifier registration configuration template...[/bold green]")
-        try:
-            template_yaml = ConfigLoader.generate_default_config(ConfigType.CLASSIFIER_REGISTRATION)
-            console.print(f"\n[bold blue]Default classifier registration configuration template:[/bold blue]")
-            console.print(f"\n```yaml\n{template_yaml}```")
-            return
-        except Exception as e:
-            console.print(f"[bold red]✗[/bold red] Failed to generate template: {str(e)}")
-            raise typer.Exit(1)
-    
+        
     if config is not None:
         # Load configuration from file
         console.print(f"[bold green]Loading classifier registration config from:[/bold green] {config}")
         try:
-            validated_config = ConfigLoader.load_classifier_registration_config(config)
+            cfg = ConfigLoader.load_classifier_registration_config(config)
             console.print(f"[bold green]✓[/bold green] Classifier registration configuration validated successfully")
             
             # Use config values
-            weights_path = Path(validated_config.weights)
-            name = validated_config.processing.name
-            batch_size = validated_config.processing.batch_size
-            mlflow_tracking_uri = validated_config.processing.mlflow_tracking_uri
+            weights_path = Path(cfg.weights)
+            name = cfg.processing.name
+            batch_size = cfg.processing.batch_size
+            mlflow_tracking_uri = cfg.processing.mlflow_tracking_uri
             
         except Exception as e:
             console.print(f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}")

@@ -132,7 +132,7 @@ class DetectorWrapper(mlflow.pyfunc.PythonModel):
 
     def load_context(self, context: mlflow.pyfunc.PythonModelContext) -> None:
         """Load from the artifacts."""
-        from wildtrain.cli.config_loader import ConfigLoader # avoid curcular import
+        from wildtrain.shared.config_loader import ConfigLoader # avoid curcular import
         
         config = context.artifacts["config"]
         config = normalize_path(config)
@@ -148,7 +148,7 @@ class DetectorWrapper(mlflow.pyfunc.PythonModel):
         ConfigLoader.load_detector_registration_config(config)
         config = OmegaConf.load(config)
 
-        localizer_cfg = config.localizer.yolo or config.localizer.mmdet
+        localizer_cfg = config.localizer.yolo
         localizer_cfg.weights = localizer_ckpt
 
         # Check if the model can be loaded
@@ -193,13 +193,12 @@ class ModelRegistrar:
     ) -> None:
         """Register a YOLO detection model to MLflow Model Registry.
         """
-        from wildtrain.cli.config_loader import ConfigLoader # avoid curcular import
+        from wildtrain.shared.config_loader import ConfigLoader # avoid curcular import
         # Validate and load config
         ConfigLoader.load_detector_registration_config(config_path)
         config = OmegaConf.load(config_path)
 
-        assert (config.localizer.yolo is None) + (config.localizer.mmdet is None) == 1, f"Exactly one should be given"
-        localizer_cfg = config.localizer.yolo or config.localizer.mmdet
+        localizer_cfg = config.localizer.yolo
         localizer_processing = config.localizer.processing
 
         self.tracking_uri = config.processing.mlflow_tracking_uri
@@ -236,9 +235,6 @@ class ModelRegistrar:
         
         x = torch.rand(localizer_processing.batch_size,3,localizer_cfg.imgsz,localizer_cfg.imgsz)
         signature = infer_signature(x.cpu().numpy(), list(dict()))
-
-        if getattr(localizer_cfg,"config",None) is not None:
-            artifacts["mmdet_config"] = getattr(localizer_cfg,"config",None)
         
         # Create metadata using the new ModelMetadata class
         task = getattr(localizer_cfg,"task","detect")

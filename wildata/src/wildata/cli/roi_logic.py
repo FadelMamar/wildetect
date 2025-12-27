@@ -8,10 +8,9 @@ from pathlib import Path
 import typer
 from pydantic import ValidationError
 
-from ..config import ENV_FILE, ROIConfig
+from ..config import ROIConfig,ROIDatasetConfig
 from ..logging_config import get_logger
 from ..pipeline import FrameworkDataManager, Loader, PathManager
-from .models import ROIDatasetConfig
 
 logger = get_logger(__name__)
 
@@ -39,7 +38,6 @@ def create_roi_dataset_core(config: ROIDatasetConfig, verbose: bool = False) -> 
             config.dataset_name,
             config.bbox_tolerance,
             config.split_name,
-            dotenv_path=ENV_FILE,
             ls_xml_config=config.ls_xml_config,
             ls_parse_config=config.ls_parse_config,
         )
@@ -72,17 +70,18 @@ def create_roi_dataset_core(config: ROIDatasetConfig, verbose: bool = False) -> 
 
 def create_roi_one_worker(args) -> tuple:
     """Top-level worker for ProcessPoolExecutor in bulk_create_roi_datasets."""
-    i, src, name, config_dict, verbose = args
-    import traceback
-
-    import typer
-    from pydantic import ValidationError
-
+    
     try:
-        typer.echo(f"\n=== Creating ROI [{i+1}]: {name} ===")
+        i, src, name, config_dict, verbose = args
+        import traceback
+        import typer
+        from pydantic import ValidationError
         from pathlib import Path
 
-        from .models import ROIDatasetConfig
+        from wildata.config import ROIDatasetConfig
+        from wildata.pipeline import FrameworkDataManager, Loader, PathManager
+        
+        typer.echo(f"\n=== Creating ROI [{i+1}]: {name} ===")
 
         single_config = ROIDatasetConfig(
             source_path=src,
@@ -97,7 +96,7 @@ def create_roi_one_worker(args) -> tuple:
             draw_original_bboxes=config_dict.get("draw_original_bboxes", False),
         )
         # Use the same core logic as create_roi_dataset
-        from ..pipeline import FrameworkDataManager, Loader, PathManager
+       
 
         loader = Loader()
         dataset_info, split_coco_data = loader.load(
@@ -106,7 +105,7 @@ def create_roi_one_worker(args) -> tuple:
             single_config.dataset_name,
             single_config.bbox_tolerance,
             single_config.split_name,
-            dotenv_path=ENV_FILE,
+            dotenv_path=None,
             ls_xml_config=single_config.ls_xml_config,
             ls_parse_config=single_config.ls_parse_config,
         )

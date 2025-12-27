@@ -69,7 +69,8 @@ class Tile:
             self.image_data = ImageOps.exif_transpose(self.image_data)
 
         self._set_timestamp()
-        self._set_image_dimensions()            
+        self._set_image_dimensions()
+
         # GPS extraction
         try:
             self._set_gps()
@@ -88,7 +89,7 @@ class Tile:
             logger.error(traceback.format_exc())
 
         return None
-    
+
     def _set_timestamp(self):
         if self.parent_image:
             try:
@@ -103,7 +104,7 @@ class Tile:
                     self.timestamp = img._getexif()[36867]
             except:
                 pass
-    
+
     def _set_image_dimensions(self):
         """Set image dimensions."""
         if (self.width is not None) and (self.height is not None):
@@ -171,11 +172,11 @@ class Tile:
             logger.error(traceback.format_exc())
 
         return None
-    
+
     def _set_gsd(self):
-        if self.gsd is not None: 
+        if self.gsd is not None:
             return
-         
+
         if (self.image_path is None) and (self.image_data is None):
             logger.debug("Failed to set GSD: Image path or data are not provided.")
             return
@@ -197,6 +198,24 @@ class Tile:
             image_height=self.height,
             exif=self._extract_exif(),
         )
+
+    def _set_gps(self):
+        # GPS extraction
+        try:
+            if (self.latitude is None) or (self.longitude is None):
+                (
+                    self.latitude,
+                    self.longitude,
+                    self.altitude,
+                ) = self._extract_gps_coords()
+
+            if self.tile_gps_loc is None:
+                if (self.latitude is not None) and (self.longitude is not None):
+                    self.tile_gps_loc = str(
+                        geopy.Point(self.latitude, self.longitude, self.altitude / 1e3)
+                    )
+        except Exception:
+            logger.error(traceback.format_exc())
 
     def load_image_data(self) -> Image.Image:
         if self.image_data is not None:
@@ -251,11 +270,11 @@ class Tile:
         """Extract GPS coordinates from image."""
         if (self.image_path is None) and (self.image_data is None):
             return (None, None, None)
-        
+
         image = None
         if self.image_path is None:
             image = self.image_data
-            
+
         coords = GPSUtils.get_gps_coord(
             file_name=self.image_path,
             image=image,

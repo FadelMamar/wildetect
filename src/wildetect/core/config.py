@@ -94,14 +94,14 @@ class PredictionConfig:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         if self.mlflow_model_name is None:
-            self.mlflow_model_name = os.environ.get("MLFLOW_DETECTOR_NAME", None)
+            self.mlflow_model_name = os.environ.get("MLFLOW_REGISTRY_NAME", None)
 
         if self.mlflow_model_alias is None:
-            self.mlflow_model_alias = os.environ.get("MLFLOW_DETECTOR_ALIAS", None)
+            self.mlflow_model_alias = os.environ.get("MLFLOW_ALIAS", None)
 
         if self.mlflow_model_name is None or self.mlflow_model_alias is None:
             raise ValueError(
-                "MLFLOW_DETECTOR_NAME and MLFLOW_DETECTOR_ALIAS must be set or provided in the config"
+                "MLFLOW_REGISTRY_NAME and MLFLOW_ALIAS must be set or provided in the config"
             )
 
     @classmethod
@@ -188,7 +188,7 @@ class LoaderConfig:
     batch_size: int = 4
     num_workers: int = 0
     pin_memory: bool = False
-    prefetch_factor: int = 4
+    prefetch_factor: Optional[int] = None
 
     # GPS and metadata
     flight_specs: Optional[FlightSpecs] = field(default_factory=FlightSpecs)
