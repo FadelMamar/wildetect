@@ -8,7 +8,7 @@ from typing import Dict, Optional
 import typer
 from pydantic import ValidationError
 
-from ..config import AugmentationConfig, ROIConfig, TilingConfig
+from ..config import AugmentationConfig, ROIConfig, TilingConfig,ImportDatasetConfig
 from ..pipeline import DataPipeline
 from ..transformations import (
     AugmentationTransformer,
@@ -16,8 +16,6 @@ from ..transformations import (
     TilingTransformer,
     TransformationPipeline,
 )
-from .models import ImportDatasetConfig
-
 
 def _import_dataset_core(config: ImportDatasetConfig, verbose: bool = False) -> bool:
     """Core logic for importing a dataset, shared by CLI and bulk import."""

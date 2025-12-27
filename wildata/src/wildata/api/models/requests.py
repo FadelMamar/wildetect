@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from ...cli.models import (
+from ...config import (
     BulkCreateROIDatasetConfig,
     BulkImportDatasetConfig,
     ExifGPSUpdateConfig,
