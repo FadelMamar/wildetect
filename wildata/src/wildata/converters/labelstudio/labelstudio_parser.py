@@ -9,7 +9,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 import pandas as pd
 from .labelstudio_schemas import (
     LabelStudioExport,
@@ -17,26 +17,31 @@ from .labelstudio_schemas import (
     ResultOrigin
 )
 from tqdm import tqdm
+from enum import StrEnum
 
+class SourceType(StrEnum):
+    ANNOTATION = "annotation"
+    PREDICTION = "prediction"
 
 @dataclass
-class ParsedAnnotation:
-    """Flattened annotation data for easy processing.
+class ParsedResult:
+    """Unified flattened result data for both annotations and predictions.
     
-    Combines task, annotation, and result data into a single
+    Combines task, annotation/prediction, and result data into a single
     convenient structure for downstream processing.
     """
+    # Source type
+    source: SourceType
+    
     # Task info
     task_id: int
     image_path: str
-    #image_filename: str
     
     # Image dimensions
     original_width: int
     original_height: int
     
-    # Annotation info
-    annotation_id: int
+    # Result identifiers
     result_id: Optional[str]
     
     # Bounding box (percentage)
@@ -50,11 +55,18 @@ class ParsedAnnotation:
     label: str
     all_labels: List[str]
     
-    # Metadata    
-    score: Optional[float]=None
-    completed_by: Optional[int]=None
-    origin: Optional[ResultOrigin]=None
-    is_empty: bool=False
+    # Common metadata    
+    score: Optional[float] = None
+    origin: Optional[ResultOrigin] = None
+    is_empty: bool = False
+    
+    # Annotation-specific fields
+    annotation_id: Optional[int] = None
+    completed_by: Optional[int] = None
+    
+    # Prediction-specific fields
+    prediction_id: Optional[int] = None
+    model_version: Optional[str] = None
     
     @property
     def bbox_percent(self) -> Tuple[float, float, float, float]:
@@ -105,8 +117,23 @@ class ParsedAnnotation:
     
     @property
     def is_rotated(self) -> bool:
-        """Check if this annotation has rotation."""
+        """Check if this result has rotation."""
         return abs(self.rotation) > 0.001
+    
+    @property
+    def is_annotation(self) -> bool:
+        """Check if this result is from an annotation."""
+        return self.source == SourceType.ANNOTATION
+    
+    @property
+    def is_prediction(self) -> bool:
+        """Check if this result is from a prediction."""
+        return self.source == SourceType.PREDICTION
+
+
+# Backwards compatibility aliases
+ParsedAnnotation = ParsedResult
+ParsedPrediction = ParsedResult
 
 
 class LabelStudioParser:
@@ -200,120 +227,179 @@ class LabelStudioParser:
     # Extraction Methods
     # =========================================================================
     
-    def iter_annotations(
+    def iter_results(
         self,
+        source: SourceType = SourceType.ANNOTATION,
         include_empty: bool = False,
         labels: Optional[List[str]] = None,
         min_score: Optional[float] = None,
         show_progress: bool = True,
-    ) -> Iterator[ParsedAnnotation]:
-        """Iterate over all annotations as ParsedAnnotation objects.
+    ) -> Iterator[ParsedResult]:
+        """Iterate over results from annotations, predictions, or both.
         
         Args:
-            include_empty: If True, yield placeholder for tasks with no annotations
-            labels: If provided, only yield annotations with these labels
-            min_score: If provided, only yield predictions with score >= min_score
+            source: Which results to include - "annotations", "predictions", or "both"
+            include_empty: If True, yield placeholder for tasks with no results
+            labels: If provided, only yield results with these labels
+            min_score: If provided, only yield results with score >= min_score
+            show_progress: If True, show progress bar
             
         Yields:
-            ParsedAnnotation objects for each bounding box
+            ParsedResult objects for each bounding box
         """
         label_set = set(labels) if labels else None
         iter_tasks = self.tasks
         if show_progress:
-            iter_tasks = tqdm(iter_tasks, desc="Processing tasks")
+            iter_tasks = tqdm(iter_tasks, desc=f"Processing {source}")
         
         for task in iter_tasks:
             has_results = False
             
             for annotation in task.annotations:
-                for result in annotation.result:
-                    # Filter by labels
-                    if label_set and not any(lbl in label_set for lbl in result.labels):
-                        continue
-                    
-                    # Filter by score
-                    if min_score is not None and result.score is not None:
-                        if result.score < min_score:
-                            continue
-                    
-                    # Create ParsedAnnotation for each label
-                    for label in result.labels:
-                        if label_set and label not in label_set:
-                            continue
-                        
-                        has_results = True
-                        
-                        yield ParsedAnnotation(
-                            task_id=task.id,
-                            image_path=task.image_path,
-                            #image_filename=task.image_filename,
-                            original_width=result.original_width,
-                            original_height=result.original_height,
+                # Process annotation results
+                if source == SourceType.ANNOTATION:
+                    for result in annotation.result:
+                        for parsed in self._yield_results_from_result(
+                            task, result, label_set, min_score,
+                            source_type=SourceType.ANNOTATION,
                             annotation_id=annotation.id,
-                            result_id=result.id,
-                            x=result.value.x,
-                            y=result.value.y,
-                            width=result.value.width,
-                            height=result.value.height,
-                            rotation=result.value.rotation,
-                            label=label,
-                            all_labels=result.labels,
-                            origin=result.origin,
-                            score=result.score,
                             completed_by=annotation.completed_by,
-                        )
+                        ):
+                            has_results = True
+                            yield parsed
+                
+                # Process prediction results from annotation.prediction
+                if (source == SourceType.PREDICTION) and annotation.prediction is not None:
+                    prediction = annotation.prediction
+                    for result in prediction.result:
+                        for parsed in self._yield_results_from_result(
+                            task, result, label_set, min_score,
+                            source_type=SourceType.PREDICTION,
+                            prediction_id=prediction.id,
+                            model_version=prediction.model_version,
+                        ):
+                            has_results = True
+                            yield parsed
             
             # Include empty task if requested
             if include_empty and not has_results:
-                yield ParsedAnnotation(
-                            task_id=task.id,
-                            image_path=task.image_path,
-                            #image_filename=task.image_filename,
-                            original_width=0,
-                            original_height=0,
-                            annotation_id=None,
-                            result_id=None,
-                            x=0,
-                            y=0,
-                            width=0,
-                            height=0,
-                            rotation=0,
-                            label="EMPTY",
-                            all_labels=[],
-                            score=None,
-                            completed_by=None,
-                            origin=None,
-                            is_empty=True,
-                        )
+                yield ParsedResult(
+                    source=source,
+                    task_id=task.id,
+                    image_path=task.image_path,
+                    original_width=0,
+                    original_height=0,
+                    result_id=None,
+                    x=0,
+                    y=0,
+                    width=0,
+                    height=0,
+                    rotation=0,
+                    label="EMPTY",
+                    all_labels=[],
+                    is_empty=True,
+                )
+    
+    def _yield_results_from_result(
+        self,
+        task: Task,
+        result: Any,
+        label_set: Optional[set],
+        min_score: Optional[float],
+        source_type: Literal["annotation", "prediction"],
+        annotation_id: Optional[int] = None,
+        completed_by: Optional[int] = None,
+        prediction_id: Optional[int] = None,
+        model_version: Optional[str] = None,
+    ) -> Iterator[ParsedResult]:
+        """Helper to yield ParsedResult objects from a result."""
+        # Filter by labels
+        if label_set and not any(lbl in label_set for lbl in result.labels):
+            return
+        
+        # Filter by score
+        if min_score is not None and result.score is not None:
+            if result.score < min_score:
+                return
+        
+        # Create ParsedResult for each label
+        for label in result.labels:
+            if label_set and label not in label_set:
+                continue
+            
+            yield ParsedResult(
+                source=source_type,
+                task_id=task.id,
+                image_path=task.image_path,
+                original_width=result.original_width,
+                original_height=result.original_height,
+                result_id=result.id,
+                x=result.value.x,
+                y=result.value.y,
+                width=result.value.width,
+                height=result.value.height,
+                rotation=result.value.rotation,
+                label=label,
+                all_labels=result.labels,
+                score=result.score,
+                origin=result.origin,
+                annotation_id=annotation_id,
+                completed_by=completed_by,
+                prediction_id=prediction_id,
+                model_version=model_version,
+            )
+    
+    # Convenience methods that delegate to iter_results
+    def iter_annotations(
+        self,
+        include_empty: bool = False,
+        labels: Optional[List[str]] = None,
+        show_progress: bool = True,
+    ) -> Iterator[ParsedResult]:
+        """Iterate over all annotations. Delegates to iter_results(source='annotations')."""
+        return self.iter_results(SourceType.ANNOTATION, include_empty, labels=labels, min_score=None, show_progress=show_progress)
+    
+    def iter_predictions(
+        self,
+        include_empty: bool = False,
+        labels: Optional[List[str]] = None,
+        min_score: Optional[float] = None,
+        show_progress: bool = True,
+    ) -> Iterator[ParsedResult]:
+        """Iterate over all predictions. Delegates to iter_results(source='predictions')."""
+        return self.iter_results(SourceType.PREDICTION, include_empty, labels=labels, min_score=min_score, show_progress=show_progress)
+    
+    def get_all_results(
+        self,
+        include_empty: bool = True,
+        labels: Optional[List[str]] = None,
+        min_score: Optional[float] = None,
+    ) -> List[ParsedResult]:
+        """Get all results as a list."""
+        kwargs=dict(include_empty=include_empty, labels=labels,)
+        return self.get_all_annotations(**kwargs) + self.get_all_predictions(min_score=min_score,**kwargs)
     
     def get_all_annotations(
         self,
         include_empty: bool = True,
         labels: Optional[List[str]] = None,
-        min_score: Optional[float] = None,
-    ) -> List[ParsedAnnotation]:
-        """Get all annotations as a list.
-        
-        Args:
-            include_empty: If True, include tasks with no annotations
-            labels: If provided, only include annotations with these labels
-            min_score: If provided, only include predictions with score >= min_score
-            
-        Returns:
-            List of ParsedAnnotation objects
-        """
-        return list(self.iter_annotations(include_empty, labels, min_score))
+    ) -> List[ParsedResult]:
+        """Get all annotations as a list."""
+        return list(self.iter_annotations(include_empty, labels,))
     
-    def get_annotations_for_task(self, task_id: int) -> List[ParsedAnnotation]:
-        """Get all annotations for a specific task.
-        
-        Args:
-            task_id: Task ID to filter by
-            
-        Returns:
-            List of ParsedAnnotation objects for the task
-        """
-        return [ann for ann in self.iter_annotations() if ann.task_id == task_id]
+    def get_all_predictions(
+        self,
+        include_empty: bool = True,
+        labels: Optional[List[str]] = None,
+        min_score: Optional[float] = None,
+    ) -> List[ParsedResult]:
+        """Get all predictions as a list."""
+        return list(self.iter_predictions(include_empty, labels, min_score))
+    
+    def get_annotations_for_task(self, task_id: int) -> List[ParsedResult]:
+        """Get all annotations for a specific task."""
+        return [r for r in self.iter_annotations() if r.task_id == task_id]
+    
     
     # =========================================================================
     # Statistics Methods
@@ -444,49 +530,62 @@ class LabelStudioParser:
             "categories": categories,
         }
     
-    def to_dataframe(self, include_empty: bool = True) -> pd.DataFrame:
-        """Convert annotations to a pandas DataFrame.
+    def results_to_dataframe(
+        self, 
+        source: Literal["annotations", "predictions", "both"] = "annotations",
+        include_empty: bool = True
+    ) -> pd.DataFrame:
+        """Convert results to a pandas DataFrame.
         
         Args:
-            include_empty: If True, include empty annotations for tasks with no results
+            source: Which results to include - "annotations", "predictions", or "both"
+            include_empty: If True, include empty rows for tasks with no results
         
         Returns:
-            DataFrame with one row per annotation
+            DataFrame with one row per result
         """
         
-        annotations = self.get_all_annotations(include_empty=include_empty)
+        results = self.get_all_results(source=source, include_empty=include_empty)
         
-        if not annotations:
+        if not results:
             return pd.DataFrame()
         
         records = []
-        for ann in annotations:
-            bbox_pixel = ann.bbox_pixel
+        for r in results:
+            bbox_pixel = r.bbox_pixel
             records.append({
-                "task_id": ann.task_id,
-                #"image_filename": ann.image_filename,
-                "image_path": ann.image_path,
-                "annotation_id": ann.annotation_id,
-                "result_id": ann.result_id,
-                "label": ann.label,
-                "x_percent": ann.x,
-                "y_percent": ann.y,
-                "width_percent": ann.width,
-                "height_percent": ann.height,
+                "source": r.source,
+                "task_id": r.task_id,
+                "image_path": r.image_path,
+                "annotation_id": r.annotation_id,
+                "prediction_id": r.prediction_id,
+                "result_id": r.result_id,
+                "model_version": r.model_version,
+                "label": r.label,
+                "x_percent": r.x,
+                "y_percent": r.y,
+                "width_percent": r.width,
+                "height_percent": r.height,
                 "x_pixel": bbox_pixel[0],
                 "y_pixel": bbox_pixel[1],
                 "width_pixel": bbox_pixel[2],
                 "height_pixel": bbox_pixel[3],
-                "rotation": ann.rotation,
-                "original_width": ann.original_width,
-                "original_height": ann.original_height,
-                "origin": ann.origin,
-                "score": ann.score,
-                "completed_by": ann.completed_by,
-                "is_empty": ann.is_empty,
+                "rotation": r.rotation,
+                "original_width": r.original_width,
+                "original_height": r.original_height,
+                "origin": r.origin,
+                "score": r.score,
+                "completed_by": r.completed_by,
+                "is_empty": r.is_empty,
             })
         
         return pd.DataFrame(records).convert_dtypes()
+    
+    def to_dataframe(self, include_empty: bool = True) -> pd.DataFrame:
+        """Convert annotations to a DataFrame. Delegates to results_to_dataframe(source='annotations')."""
+        df_annotations = self.results_to_dataframe("annotations", include_empty)
+        df_predictions = self.results_to_dataframe("predictions", include_empty)
+        return pd.concat([df_annotations, df_predictions]).reset_index(drop=True)
     
     # =========================================================================
     # Filtering Methods

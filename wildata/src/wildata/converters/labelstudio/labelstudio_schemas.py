@@ -292,9 +292,9 @@ class Task(BaseModel):
     data: TaskData = Field(..., description="Task data with image path")
     annotations: List[Annotation] = Field(default_factory=list, description="Human annotations")
     drafts: List[Any] = Field(default_factory=list, description="Draft annotations")
-    predictions: List[Union[int, Prediction]] = Field(
+    predictions: List[int] = Field(
         default_factory=list, 
-        description="Predictions (IDs or full objects)"
+        description="Predictions IDs"
     )
     meta: Dict[str, Any] = Field(default_factory=dict, description="Task metadata")
     created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
