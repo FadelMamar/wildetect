@@ -16,6 +16,7 @@ from .labelstudio_schemas import (
     Task,
     ResultOrigin
 )
+import numpy as np
 from tqdm import tqdm
 from enum import StrEnum
 
@@ -287,14 +288,14 @@ class LabelStudioParser:
                     source=source,
                     task_id=task.id,
                     image_path=task.image_path,
-                    original_width=0,
-                    original_height=0,
+                    original_width=np.nan,
+                    original_height=np.nan,
                     result_id=None,
-                    x=0,
-                    y=0,
-                    width=0,
-                    height=0,
-                    rotation=0,
+                    x=np.nan,
+                    y=np.nan,
+                    width=np.nan,
+                    height=np.nan,
+                    rotation=np.nan,
                     label="EMPTY",
                     all_labels=[],
                     is_empty=True,
