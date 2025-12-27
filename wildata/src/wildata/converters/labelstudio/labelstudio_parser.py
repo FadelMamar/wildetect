@@ -236,12 +236,12 @@ class LabelStudioParser:
                         if result.score < min_score:
                             continue
                     
-                    has_results = True
-                    
                     # Create ParsedAnnotation for each label
                     for label in result.labels:
                         if label_set and label not in label_set:
                             continue
+                        
+                        has_results = True
                         
                         yield ParsedAnnotation(
                             task_id=task.id,
