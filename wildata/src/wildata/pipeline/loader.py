@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..converters.labelstudio_converter import LabelstudioConverter
+from ..converters.labelstudio import LabelstudioConverter
 from ..converters.yolo_to_master import YOLOToMasterConverter
 from ..logging_config import get_logger
 from ..validators.coco_validator import COCOValidator
