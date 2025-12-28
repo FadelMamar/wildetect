@@ -1,18 +1,18 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Union, List, Generator, Optional
-from omegaconf import OmegaConf, DictConfig
-import pandas as pd
 from supervision.metrics import (
     MeanAveragePrecision,
     MeanAverageRecall,
 )
 import supervision as sv
+from supervision.metrics.detection import ConfusionMatrix
+
 from copy import deepcopy
 from logging import getLogger
 import traceback
 from .metrics import MyPrecision,MyRecall,MyF1Score
 import json
-from ..shared.models import DetectionEvalConfig,ClassificationEvalConfig
+from ..shared.models import DetectionEvalConfig
 
 logger = getLogger(__name__)
 
@@ -22,13 +22,20 @@ class BaseEvaluator(ABC):
     Subclasses must implement the evaluate method.
     """
 
-    def __init__(self, config: Union[DetectionEvalConfig, ClassificationEvalConfig]):        
+    def __init__(self, config: DetectionEvalConfig):        
         self.config = config      
         self.metrics = self._get_metrics()
         self.per_image_metrics = deepcopy(self.metrics)
         self.per_image_results = dict()
         self._report: Dict[str, float] = dict()
-    
+        self.gt_and_preds: List[dict[str, List[sv.Detections]]] = []
+        self.class_mapping = None
+
+    @property
+    def labels(self)->List[str]:
+        if self.class_mapping is None:
+            return None
+        return [self.class_mapping[i] for i in sorted(self.class_mapping.keys())]    
     
     def _get_metrics(self,):
         boxes = sv.metrics.core.MetricTarget.BOXES
@@ -55,6 +62,7 @@ class BaseEvaluator(ABC):
         """
         count = 0
         for results in self._run_inference():
+            self.gt_and_preds.append(results)
             try:
                 self._compute_metrics(results)
             except Exception:
@@ -65,9 +73,8 @@ class BaseEvaluator(ABC):
             if debug and count > 10:
                 break
 
-        results = self._get_results()
         try:
-            self._set_report(results)
+            self._set_report(self._get_results())
             if save_path:
                 self.save_report(save_path)
         except Exception:
@@ -104,6 +111,26 @@ class BaseEvaluator(ABC):
     
     def get_report(self) -> Dict[str, Any]:
         return self._report
+    
+    def get_confusion_matrix(self) -> ConfusionMatrix:
+        preds = []
+        gts = []
+        for values in self.gt_and_preds:
+            preds.extend(values["predictions"])
+            gts.extend(values["ground_truth"])
+        print("labels:",self.labels)
+
+        #for pred, gt in zip(preds, gts):
+            #if not gt.is_empty() and gt.class_id.max()>1:
+            #    print(gt)
+       
+        return ConfusionMatrix.from_detections(
+            predictions=preds,
+            targets=gts,
+            classes=self.labels,
+            conf_threshold=self.config.eval.conf,
+            iou_threshold=self.config.eval.iou,
+        )
 
     def _set_report(self, results: Dict[str, Any]) -> None:
         """
