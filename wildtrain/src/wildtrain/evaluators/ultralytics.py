@@ -3,12 +3,11 @@ from typing import Any, Dict, Tuple, List, Generator
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from omegaconf import OmegaConf
 from tqdm import tqdm
 import supervision as sv
 from pathlib import Path
 from .base import BaseEvaluator
-from ..shared.models import DetectionEvalConfig,YoloInferenceConfig
+from ..shared.models import DetectionEvalConfig
 from ..models.detector import Detector
 from ..utils.io import merge_data_cfg
 from ..data.filters.algorithms import FilterDataCfg
