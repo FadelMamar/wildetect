@@ -207,19 +207,23 @@ class IoUTuner:
 
         preds = []
         gts = []
+        tn = 0
         for task_id in self.task_ids:
             # Get predictions and GT for this image
-            preds_df = self.df_preds[self.df_preds["task_id"] == task_id]
+            pred_df = self.df_preds[self.df_preds["task_id"] == task_id]
             gt_df = self.df_gt[self.df_gt["task_id"] == task_id]
+            if gt_df.empty and pred_df.empty:
+                tn += 1
+                continue
             # Convert to sv.Detections
-            preds.append(self._df_to_detections(preds_df))
+            preds.append(self._df_to_detections(pred_df))
             gts.append(self._df_to_detections(gt_df))
 
         preds = [
             pred.with_nms(
                 threshold=nms_iou_threshold,
                 class_agnostic=self.class_agnostic,
-                overlap_method=OverlapMetric.IOU,
+                overlap_metric=OverlapMetric.IOU,
             )
             for pred in preds
         ]
@@ -234,12 +238,12 @@ class IoUTuner:
         tp = confusion_matrix.matrix[0, 0]
         fp = confusion_matrix.matrix[1, 0]
         fn = confusion_matrix.matrix[0, 1]
-        tn = confusion_matrix.matrix[1, 1]
 
         e = 1e-6
         precision = tp / (tp + fp + e)
         recall = tp / (tp + fn + e)
         f1 = 2 * precision * recall / (precision + recall + e)
+        # print("tn:",tn)
 
         return {"precision": precision, "recall": recall, "f1": f1}
 
