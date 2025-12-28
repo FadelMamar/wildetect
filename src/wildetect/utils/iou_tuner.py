@@ -35,7 +35,6 @@ class IoUTuner:
         self,
         df_annotations: pd.DataFrame,
         df_predictions: pd.DataFrame,
-        duplicates_csv_path: Optional[str] = None,
         merging_iou_range: Tuple[float, float] = (0.1, 0.9),
         matching_iou_range: Tuple[float, float] = (0.1, 0.7),
         conf_threshold_range: Tuple[float, float] = (0.0, 0.5),
@@ -51,9 +50,6 @@ class IoUTuner:
             df_annotations: DataFrame from LabelStudioParser.to_dataframe()
                 Must contain columns: task_id, x_pixel, y_pixel, width_pixel,
                 height_pixel, origin, score, label
-            duplicates_csv_path: Optional path to CSV identifying duplicate predictions
-                across images. CSV must have columns: image (task_id),
-                bounding box (result_id), duplicate (group ID)
             nms_iou_range: Range for NMS IoU threshold search (min, max)
             match_iou_range: Range for matching IoU threshold search (min, max)
             conf_threshold_range: Range for confidence threshold search (min, max)
@@ -102,17 +98,10 @@ class IoUTuner:
             subset=["x_pixel", "y_pixel", "width_pixel", "height_pixel"]
         )
 
-        # Load duplicates mapping: result_id -> duplicate_group_id
-        self.duplicates_map: Dict[str, int] = {}
-        self.duplicate_groups: Dict[int, list] = {}  # group_id -> list of result_ids
-        if duplicates_csv_path:
-            self._load_duplicates(duplicates_csv_path)
-
         logger.info(
             f"IoUTuner initialized: {len(self.df_preds)} predictions, "
             f"{len(self.df_gt)} groundtruth boxes, "
-            f"{len(self.task_ids)} tasks, "
-            f"{len(self.duplicate_groups)} duplicate groups"
+            f"{len(self.task_ids)} tasks"
         )
 
     def get_task_ids(self):
@@ -135,28 +124,6 @@ class IoUTuner:
             self.df_gt["label"] = "wildlife"
 
         return labels
-
-    def _load_duplicates(self, csv_path: str) -> None:
-        """Load duplicates CSV and build mapping.
-
-        Args:
-            csv_path: Path to CSV with columns: image, bounding box, duplicate
-        """
-        df_dup = pd.read_csv(csv_path)
-
-        # Map result_id to duplicate group
-        for _, row in df_dup.iterrows():
-            result_id = str(row["bounding box"])
-            group_id = int(row["duplicate"])
-            self.duplicates_map[result_id] = group_id
-
-            if group_id not in self.duplicate_groups:
-                self.duplicate_groups[group_id] = []
-            self.duplicate_groups[group_id].append(result_id)
-
-        logger.info(
-            f"Loaded {len(self.duplicates_map)} duplicate entries in {len(self.duplicate_groups)} groups"
-        )
 
     def _df_to_detections(self, df: pd.DataFrame) -> sv.Detections:
         """Convert DataFrame rows to sv.Detections object.
@@ -224,10 +191,6 @@ class IoUTuner:
         overlap_metric: str = "iou",
     ) -> Dict[str, float]:
         """Compute precision, recall, F1 for given thresholds.
-
-        Handles duplicate predictions across images by collapsing them into groups.
-        If any prediction in a duplicate group matches GT, the entire group is
-        considered one true positive.
 
         Args:
             iou_threshold: IoU threshold for NMS filtering

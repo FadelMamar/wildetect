@@ -1,17 +1,13 @@
-import io
 import json
-import logging
 import os
 import tempfile
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
 from dotenv import load_dotenv
-from label_studio_converter import Converter
+from label_studio_sdk.converter import Converter
 from label_studio_sdk.client import LabelStudio
 
-from ...config import ROOT
 from ..base_converter import BaseConverter
 
 

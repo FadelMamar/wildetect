@@ -41,6 +41,9 @@ class LabelStudioManager:
     def get_project(self, project_id: int):
         return self.client.projects.get(project_id)
 
+    def get_task(self, task_id: int):
+        return self.client.tasks.get(task_id)
+
     def delete_project(self, project_id: int):
         return self.client.projects.delete(id=project_id)
 
