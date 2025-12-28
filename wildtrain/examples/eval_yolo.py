@@ -1,19 +1,22 @@
 import yaml
 import sys
 from wildtrain.evaluators.ultralytics import UltralyticsEvaluator
+from wildtrain.shared.models import DetectionEvalConfig
 
 
-config = "D:/workspace/repos/wildtrain/configs/detection/yolo_eval.yaml"
-# Instantiate the evaluator
-evaluator = UltralyticsEvaluator(config=config)
+if __name__ == "__main__":
+    config = "wildtrain\configs\detection\yolo_configs\yolo_eval.yaml"
+    # Instantiate the evaluator
+    evaluator = UltralyticsEvaluator(config=DetectionEvalConfig.from_yaml(config))
 
-# Run evaluation
-print("Running YOLO evaluation...")
-results = evaluator.evaluate(debug=True)
+    # Run evaluation
+    print("Running YOLO evaluation...")
+    results = evaluator.evaluate(debug=False)
 
-# Print results
-print("End.:")
-# print(results)
+    # Print results
+    #print("End.:")
 
+    print("Results:",results)
+    print("Confusion Matrix:",evaluator.get_confusion_matrix())
 
 
