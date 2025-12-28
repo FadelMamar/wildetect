@@ -52,15 +52,13 @@ def remove_label_cache(data_config_yaml: str):
 
 def merge_data_cfg(root_data_directory:Optional[str]=None,data_configs:Optional[list[str]]=None,output_path:Optional[str]=None,force_merge:bool=True):
     
-    assert root_data_directory is not None or data_configs is not None, "Either root_data_directory or data_configs must be provided"
-
+    assert (root_data_directory is not None) ^ (data_configs is not None), "Either root_data_directory or data_configs must be provided"
 
     if root_data_directory is not None:
         path_manager = PathManager(Path(root_data_directory))
         data_configs = [path/"data.yaml" for path in path_manager.yolo_formats_dir.iterdir() if path.is_dir()]
     
     assert len(data_configs) > 0, "No data.yaml files found"
-
     
     roots = []
     train_paths = []
