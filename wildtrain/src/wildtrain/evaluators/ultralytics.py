@@ -37,7 +37,7 @@ class UltralyticsEvaluator:
         self.config = config      
         self.metrics = self._get_metrics()
         self._report: Dict[str, float] = dict()
-        self._gt_and_preds: List[dict[str, List[sv.Detections]]] = []
+        self._gt_and_preds: Optional[List[dict[str, List[sv.Detections]]]] = None
         self._gt_labels_to_keep:list[int] = None
         self._pred_labels_to_keep:list[int] = None
 
@@ -80,21 +80,18 @@ class UltralyticsEvaluator:
         """
         Evaluate model using parameters from config dict passed via kwargs.
         """
-        count = 0
         if load_path:
             self._load_gt_preds(load_path)
         else:
-            self._gt_and_preds = list(self._run_inference())
-
-        for results in self._gt_and_preds():
-            try:
-                self._compute_metrics(results)
-            except Exception:
-                logger.error(f"Error computing metrics: {traceback.format_exc()}")
-                raise
-            count += 1
-            if debug and count > 10:
-                break
+            for results in self._run_inference():
+                try:
+                    self._gt_and_preds.append(results)
+                    self._compute_metrics(results)
+                except Exception:
+                    logger.error(f"Error computing metrics: {traceback.format_exc()}")
+                    raise
+                if debug and len(self._gt_and_preds) > 10:
+                    break
 
         try:
             self._set_report(self._get_results())

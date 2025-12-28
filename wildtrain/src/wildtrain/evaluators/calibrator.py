@@ -44,7 +44,7 @@ class DetectionCalibrator(Sweeper):
         >>> calibrator.run()
     """
     
-    def __init__(self, calibration_config_path: str, debug: bool = False, save_gt_preds: bool = True, gt_preds_load_path: Optional[str] = None):
+    def __init__(self, calibration_config_path: str, debug: bool = False, save_gt_preds: bool = True, gt_preds_load_path: Optional[str] = None,):
         self.calibration_config_path = calibration_config_path
         self.calibration_cfg = CalibrationConfig.from_yaml(calibration_config_path)
         self.base_cfg = DetectionEvalConfig.from_yaml(self.calibration_cfg.base_config)
@@ -56,26 +56,36 @@ class DetectionCalibrator(Sweeper):
                    }
         self._gt_and_preds: List[dict[str, List[sv.Detections]]] = None if gt_preds_load_path is None else self.load_gt_preds(gt_preds_load_path)
         self.class_mapping = None
+        self.class_agnostic = self.base_cfg.dataset.load_as_single_class
         self.labels = None
         self.save_gt_preds = save_gt_preds
+
         assert self.base_cfg.dataset.load_as_single_class, "Single class must be True for calibration"
+        return None
     
-    def get_gt_and_preds(self,) -> Generator[Dict[str, List[sv.Detections]], None, None]:
+    def get_gt_and_preds(self,) -> List[dict[str, List[sv.Detections]]]:
         if self._gt_and_preds is not None:
             return self._gt_and_preds
         logger.info("Running inference to collect predictions")
         evaluator = UltralyticsEvaluator(self.base_cfg,disable_detection_filtering=True)
         self.class_mapping = evaluator.class_mapping
         self.labels = evaluator.labels
-        self._gt_and_preds = evaluator.get_gt_and_preds()
+        self._gt_and_preds = []
+        top_k = 10 if self.debug else None
+        for results in evaluator._run_inference():
+            if top_k is not None and len(self._gt_and_preds) >= top_k:
+                break
+            self._gt_and_preds.append(results)
         if self.save_gt_preds:
             self._save_gt_preds()
         return self._gt_and_preds    
     
     def _save_gt_preds(self):
-        with open(self.calibration_cfg.calibration_name + "_gt_preds.pkl", "wb") as f:
+        path = Path(self.calibration_cfg.output.directory) / (self.calibration_cfg.calibration_name + "_gt_preds.pkl")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "wb") as f:
             pkl.dump(self._gt_and_preds, f)
-    
+        return None
     def load_gt_preds(self,path: str):
         with open(path, "rb") as f:
             self._gt_and_preds = pkl.load(f)
@@ -262,7 +272,7 @@ class DetectionCalibrator(Sweeper):
             logger.warning("Unknown objective type: %s", objective)
             return None
     
-    def run(self):
+    def run(self,):
         """Run the calibration optimization process."""
         study = optuna.create_study(
             direction=self.calibration_cfg.direction.value,
