@@ -149,7 +149,7 @@ class DetectionEvalConfig(BaseConfig):
         assert (v == "cpu") or ("cuda" in v), f"Device must be one of ['cpu', 'cuda'], got: {v}"
         return v
     
-    def to_yolo_inference_config(self):
+    def to_yolo_inference_config(self,disable_detection_filtering:bool=False):
         return YoloInferenceConfig(
             weights=self.weights.localizer,
             imgsz=self.eval.imgsz,
@@ -159,6 +159,7 @@ class DetectionEvalConfig(BaseConfig):
             overlap_metric=self.eval.overlap_metric,
             task=self.eval.task,
             max_det=self.eval.max_det,
+            disable_detection_filtering=disable_detection_filtering
         )
 
 # Update forward references

@@ -20,9 +20,9 @@ class UltralyticsEvaluator(BaseEvaluator):
     Implements evaluation logic using Ultralytics metrics.
     """
 
-    def __init__(self, config: DetectionEvalConfig):
+    def __init__(self, config: DetectionEvalConfig,disable_detection_filtering:bool=False):
         super().__init__(config)
-        self.model = self._load_model()
+        self.model = self._load_model(disable_detection_filtering=disable_detection_filtering)
         self.dataloader = self._create_dataloader()
 
     def _set_data_cfg(self):
@@ -37,8 +37,8 @@ class UltralyticsEvaluator(BaseEvaluator):
                                                         force_merge=self.config.dataset.force_merge)
             self.config.dataset.data_cfg = data_cfg 
 
-    def _load_model(self) -> Detector:
-        localizer_config = self.config.to_yolo_inference_config()
+    def _load_model(self,disable_detection_filtering:bool=False) -> Detector:
+        localizer_config = self.config.to_yolo_inference_config(disable_detection_filtering=disable_detection_filtering)
         return Detector.from_config(localizer_config=localizer_config,classifier_ckpt=self.config.weights.classifier)
 
     def _create_dataloader(self) -> DataLoader:

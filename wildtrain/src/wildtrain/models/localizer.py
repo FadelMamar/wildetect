@@ -4,8 +4,7 @@ from typing import List, Tuple, Dict, Any, Union, Optional
 from abc import ABC, abstractmethod
 import supervision as sv
 from ultralytics import YOLO
-from omegaconf import DictConfig
-from ..shared.models import YoloInferenceConfig
+from ..shared.schemas.yolo import YoloInferenceConfig,MergingMethodConfig,OverlapMetricConfig
 
 class ObjectLocalizer(ABC):
     """
@@ -41,30 +40,45 @@ class UltralyticsLocalizer(ObjectLocalizer):
     
     def __init__(
         self,
-        weights: str,
-        imgsz:int,
+        weights: Optional[str]=None,
+        imgsz:int=800,
         device: str = "cpu",
         conf_thres: float = 0.25,
         iou_thres: float = 0.5,
-        overlap_metric='iou', 
+        overlap_metric:str='iou',
+        merging_method:str='nms',
+        disable_detection_filtering:bool=False,
         task="detect",
         max_det=300,
+        config:Optional[YoloInferenceConfig]=None,
     ):
         super().__init__()
 
-        self.model = YOLO(weights, task=task)
-        self.device = device
-        self.conf_thres = conf_thres
-        self.iou_thres = iou_thres
-        self.max_det = max_det
-        self.overlap_metric = overlap_metric.lower()
-        self.imgsz = imgsz
+        if config is not None:
+            self.model = YOLO(config.weights, task=config.task)
+            self.device = config.device
+            self.conf_thres = config.conf_thres
+            self.iou_thres = config.iou_thres
+            self.max_det = config.max_det
+            self.overlap_metric = OverlapMetricConfig(config.overlap_metric)
+            self.imgsz = imgsz
+            self.merging_method = MergingMethodConfig(config.merging_method)
+            self.disable_detection_filtering = config.disable_detection_filtering
+        else:
+            self.model = YOLO(weights, task=task)
+            self.device = device
+            self.conf_thres = conf_thres
+            self.iou_thres = iou_thres
+            self.max_det = max_det
+            self.overlap_metric = OverlapMetricConfig(overlap_metric)
+            self.imgsz = imgsz
+            self.merging_method = MergingMethodConfig(merging_method)
+            self.disable_detection_filtering = disable_detection_filtering
         
-        self.class_agnostic = False
-        
-        assert self.overlap_metric in ["iou","ios"]
-        self.metrics = {"iou":sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
-                   "ios":sv.detection.utils.iou_and_nms.OverlapMetric.IOS
+        self.class_agnostic = True # single class detection is localization        
+        assert self.overlap_metric in [OverlapMetricConfig.IOU,OverlapMetricConfig.IOS]
+        self.overlap_metrics = {OverlapMetricConfig.IOU:sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
+                   OverlapMetricConfig.IOS:sv.detection.utils.iou_and_nms.OverlapMetric.IOS
                    }
     
     @property
@@ -72,18 +86,28 @@ class UltralyticsLocalizer(ObjectLocalizer):
         return self.model.names
         
     @classmethod
-    def from_config(cls, config: YoloInferenceConfig):
-        
-        return cls(
-            weights=config.weights,
-            imgsz=config.imgsz,
-            device=config.device,
-            conf_thres=config.conf_thres,
-            iou_thres=config.iou_thres,
-            overlap_metric=config.overlap_metric.value,
-            task=getattr(config,"task","detect"),
-            max_det=getattr(config,"max_det",300),
-        )
+    def from_config(cls, config: YoloInferenceConfig):        
+        return cls(config=config)
+    
+    def _apply_filtering(
+        self,
+        detections: sv.Detections,
+    ) -> sv.Detections:
+        """Apply filtering to remove duplicate predictions."""
+        if self.merging_method == "nms":
+            return detections.with_nms(
+                threshold=self.iou_thres,
+                class_agnostic=self.class_agnostic,
+                overlap_metric=self.overlap_metrics[self.overlap_metric],
+            )
+        elif self.merging_method == "nmm":
+            return detections.with_nmm(
+                threshold=self.iou_thres,
+                class_agnostic=self.class_agnostic,
+                overlap_metric=self.overlap_metrics[self.overlap_metric],
+            )
+        else:
+            raise ValueError(f"Invalid merging method: {merging_method}")
 
 
     def predict(self, images: torch.Tensor) -> list[sv.Detections]:
@@ -103,15 +127,14 @@ class UltralyticsLocalizer(ObjectLocalizer):
             images,
             imgsz=self.imgsz,
             verbose=False,
-            conf=self.conf_thres,
+            conf=0.0, # disable confidence filtering
             iou=1.0, # disable nms
             device=self.device,
             max_det=self.max_det
         )
         detections = [sv.Detections.from_ultralytics(pred) for pred in predictions]
-        detections = [det.with_nms(threshold=self.iou_thres,
-                                   overlap_metric=self.metrics[self.overlap_metric],
-                                   class_agnostic=self.class_agnostic) for det in detections]
+        if not self.disable_detection_filtering:
+            detections = [self._apply_filtering(det) for det in detections]
         for det in detections:
             det.metadata["class_mapping"] = self.model.names
         

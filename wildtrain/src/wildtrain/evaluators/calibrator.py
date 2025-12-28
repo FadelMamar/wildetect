@@ -9,8 +9,8 @@ import csv
 import json
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional
-
+from typing import Any, Dict, Optional, Generator, List
+import supervision as sv
 import optuna
 
 from ..shared.sweeper import Sweeper
@@ -19,6 +19,7 @@ from ..shared.schemas import (
     DetectionEvalConfig,
     SweepObjectiveTypes,
     OverlapMetricConfig,
+    MergingMethodConfig,
 )
 from ..utils.logging import get_logger
 from .ultralytics import UltralyticsEvaluator
@@ -49,7 +50,101 @@ class DetectionCalibrator(Sweeper):
         self.counter = 0
         self.debug = debug
         self.study: Optional[optuna.Study] = None
-        
+        self.overlap_metrics = {OverlapMetricConfig.IOU:sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
+                   OverlapMetricConfig.IOS:sv.detection.utils.iou_and_nms.OverlapMetric.IOS
+                   }
+        self._gt_and_preds: List[dict[str, List[sv.Detections]]] = None
+    
+    def get_gt_and_preds(self,) -> Generator[Dict[str, List[sv.Detections]], None, None]:
+        if self._gt_and_preds is not None:
+            return self._gt_and_preds
+        logger.info("Running inference to collect predictions")
+        evaluator = UltralyticsEvaluator(self.base_cfg,disable_detection_filtering=True)
+        self._gt_and_preds = list(evaluator._run_inference())
+        return self._gt_and_preds
+    
+    def _apply_filtering(
+        self,
+        detections: sv.Detections,
+        iou_threshold: float,
+        merging_method: MergingMethodConfig = MergingMethodConfig.NMS,
+        overlap_metric: OverlapMetricConfig = OverlapMetricConfig.IOU,
+    ) -> sv.Detections:
+        """Apply filtering to remove duplicate predictions."""
+        overlap_metric = self.overlap_metrics[overlap_metric]
+        if merging_method == MergingMethodConfig.NMS:
+            return detections.with_nms(
+                threshold=iou_threshold,
+                class_agnostic=self.class_agnostic,
+                overlap_metric=overlap_metric,
+            )
+        elif merging_method == MergingMethodConfig.NMM:
+            return detections.with_nmm(
+                threshold=iou_threshold,
+                class_agnostic=self.class_agnostic,
+                overlap_metric=overlap_metric,
+            )
+        else:
+            raise ValueError(f"Invalid merging method: {merging_method}")
+
+    def _compute_metrics(
+        self,
+        iou_threshold: float,
+        match_iou_threshold: float,
+        conf_threshold: float = 0.0,
+        merging_method: str = "nms",
+        overlap_metric='iou',
+    ) -> Dict[str, float]:
+        """Compute precision, recall, F1 for given thresholds.
+
+        Handles duplicate predictions across images by collapsing them into groups.
+        If any prediction in a duplicate group matches GT, the entire group is
+        considered one true positive.
+
+        Args:
+            iou_threshold: IoU threshold for NMS filtering
+            conf_threshold: IoU threshold for pred-to-GT matching
+            merging_method: Method for merging duplicate predictions
+
+        Returns:
+            Dictionary with precision, recall, f1 metrics
+        """
+
+        preds = []
+        gts = []
+        for values in self.get_gt_and_preds():
+            preds.append(values["predictions"])
+            gts.append(values["ground_truth"])
+
+        preds = [
+            self._apply_filtering(
+                pred,
+                iou_threshold=iou_threshold,
+                overlap_metric=OverlapMetricConfig(overlap_metric),
+                merging_method=MergingMethodConfig(merging_method),
+            )
+            for pred in preds
+        ]
+        confusion_matrix = ConfusionMatrix.from_detections(
+            predictions=preds,
+            targets=gts,
+            classes=self.labels,
+            iou_threshold=match_iou_threshold,
+            conf_threshold=conf_threshold,
+        )
+
+        tp = confusion_matrix.matrix[0, 0]
+        fp = confusion_matrix.matrix[1, 0]
+        fn = confusion_matrix.matrix[0, 1]
+
+        e = 1e-6
+        precision = tp / (tp + fp + e)
+        recall = tp / (tp + fn + e)
+        f1 = 2 * precision * recall / (precision + recall + e)
+        # print("tn:",tn)
+
+        return {"precision": precision, "recall": recall, "f1": f1}
+     
     def __call__(self, trial: optuna.Trial) -> float:
         """Objective function for a single Optuna trial.
         
@@ -64,10 +159,7 @@ class DetectionCalibrator(Sweeper):
         """
         self.counter += 1
         
-        try:
-            # Create a copy of base config to avoid mutation issues
-            trial_cfg = deepcopy(self.base_cfg)
-            
+        try:            
             # Suggest hyperparameters
             params = self.calibration_cfg.parameters
             conf_thres = trial.suggest_categorical(
@@ -78,23 +170,18 @@ class DetectionCalibrator(Sweeper):
                 "iou_thres", 
                 params.iou_thres
             )
+            matching_iou_thres = trial.suggest_categorical(
+                "matching_iou_thres", 
+                params.matching_iou_thres
+            )
+            merging_method = trial.suggest_categorical(
+                "merging_method", 
+                [m.value for m in params.merging_method]
+            )
             overlap_metric = trial.suggest_categorical(
                 "overlap_metric", 
-                params.overlap_metrics
+                [m.value for m in params.overlap_metrics]
             )
-            
-            # Update config with suggested values
-            trial_cfg.eval.conf = conf_thres
-            trial_cfg.eval.iou = iou_thres
-            trial_cfg.eval.overlap_metric = OverlapMetricConfig(overlap_metric)
-            
-            # Optional: max_det calibration
-            if params.max_det is not None:
-                max_det = trial.suggest_categorical(
-                    "max_det",
-                    params.max_det
-                )
-                trial_cfg.eval.max_det = max_det
             
             logger.info(
                 "Running trial %d with params: conf_thres=%.3f, iou_thres=%.3f, overlap_metric=%s",
@@ -105,11 +192,16 @@ class DetectionCalibrator(Sweeper):
             )
             
             # Create evaluator and run evaluation
-            evaluator = UltralyticsEvaluator(trial_cfg)
-            report = evaluator.evaluate(debug=self.debug)
+            metrics = self._compute_metrics(
+                iou_threshold=iou_thres,
+                match_iou_threshold=matching_iou_thres,
+                conf_threshold=conf_thres,
+                merging_method=merging_method,
+                overlap_metric=overlap_metric,
+            )
             
             # Extract objective metric
-            objective_value = self._extract_objective(report)
+            objective_value = self._extract_objective(metrics)
             
             if objective_value is None:
                 logger.warning(
@@ -128,11 +220,11 @@ class DetectionCalibrator(Sweeper):
             logger.exception("Full traceback:")
             raise
     
-    def _extract_objective(self, report: Dict[str, Any]) -> Optional[float]:
+    def _extract_objective(self, metrics: Dict[str, float]) -> Optional[float]:
         """Extract the objective metric value from the evaluation report.
         
         Args:
-            report: Evaluation report dictionary from the evaluator.
+            metrics: Evaluation metrics dictionary from the evaluator.
             
         Returns:
             The objective metric value, or None if not found.
@@ -140,36 +232,14 @@ class DetectionCalibrator(Sweeper):
         objective = self.calibration_cfg.objective
         
         if objective == SweepObjectiveTypes.F1_SCORE:
-            # Extract best F1 score
-            best_f1 = report.get("best_f1", {})
-            if isinstance(best_f1, dict):
-                # Get the first (and only) value from the dict
-                values = list(best_f1.values())
-                return values[0] if values else None
-            return best_f1
+            return metrics['f1']
         
         elif objective == SweepObjectiveTypes.PRECISION:
-            best_precision = report.get("best_precision", {})
-            if isinstance(best_precision, dict):
-                values = list(best_precision.values())
-                return values[0] if values else None
-            return best_precision
+            return metrics['precision']
         
         elif objective == SweepObjectiveTypes.RECALL:
-            best_recall = report.get("best_recall", {})
-            if isinstance(best_recall, dict):
-                values = list(best_recall.values())
-                return values[0] if values else None
-            return best_recall
-        
-        elif objective == SweepObjectiveTypes.MAP_50:
-            mAP = report.get("mAP", {})
-            return mAP.get("mAP@50", None) if isinstance(mAP, dict) else mAP
-        
-        elif objective == SweepObjectiveTypes.MAP:
-            mAP = report.get("mAP", {})
-            return mAP.get("mAP@50-95", None) if isinstance(mAP, dict) else mAP
-        
+            return metrics['recall']
+                
         else:
             logger.warning("Unknown objective type: %s", objective)
             return None

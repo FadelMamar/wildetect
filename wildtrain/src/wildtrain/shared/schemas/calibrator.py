@@ -5,7 +5,7 @@ from pydantic import Field, field_validator
 
 from .base import BaseConfig, SweepObjectiveTypes, SweepDirectionTypes
 from .sweep import SweepOutputConfig
-
+from .yolo import MergingMethodConfig,OverlapMetricConfig
 
 class CalibrationParametersConfig(BaseConfig):
     """Parameters to calibrate (inference hyperparameters)."""
@@ -15,12 +15,15 @@ class CalibrationParametersConfig(BaseConfig):
     iou_thres: List[float] = Field(
         description="List of IoU threshold values to search"
     )
-    max_det: Optional[List[int]] = Field(
-        default=None,
-        description="List of maximum detections values to search (optional)"
+    matching_iou_thres: List[float] = Field(
+        description="List of matching IoU threshold values to search for ground truth matching"
     )
-    overlap_metrics: List[str] = Field(
-        default=['iou','ios'],
+    merging_method: List[MergingMethodConfig] = Field(
+        default=[MergingMethodConfig.NMS,MergingMethodConfig.NMM],
+        description="List of merging methods to search"
+    )
+    overlap_metrics: List[OverlapMetricConfig] = Field(
+        default=[OverlapMetricConfig.IOU,OverlapMetricConfig.IOS],
         description="List of overlap metrics to search"
     )
     
@@ -42,17 +45,6 @@ class CalibrationParametersConfig(BaseConfig):
         for value in v:
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"iou_thres values must be between 0.0 and 1.0, got {value}")
-        return v
-    
-    @field_validator('max_det')
-    @classmethod
-    def validate_max_det(cls, v):
-        if v is not None:
-            if len(v) == 0:
-                raise ValueError("max_det list cannot be empty if provided")
-            for value in v:
-                if value <= 0:
-                    raise ValueError(f"max_det values must be positive, got {value}")
         return v
 
 
