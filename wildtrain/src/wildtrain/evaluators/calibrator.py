@@ -7,6 +7,7 @@ detection models by evaluating on a validation dataset.
 
 import csv
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Optional, Generator, List
 import supervision as sv
@@ -44,7 +45,7 @@ class DetectionCalibrator(Sweeper):
         >>> calibrator.run()
     """
     
-    def __init__(self, calibration_config_path: str, debug: bool = False, save_gt_preds: bool = True, gt_preds_load_path: Optional[str] = None,):
+    def __init__(self, calibration_config_path: str, debug: bool = False,):
         self.calibration_config_path = calibration_config_path
         self.calibration_cfg = CalibrationConfig.from_yaml(calibration_config_path)
         self.base_cfg = DetectionEvalConfig.from_yaml(self.calibration_cfg.base_config)
@@ -54,22 +55,26 @@ class DetectionCalibrator(Sweeper):
         self.overlap_metrics = {OverlapMetricConfig.IOU:sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
                    OverlapMetricConfig.IOS:sv.detection.utils.iou_and_nms.OverlapMetric.IOS
                    }
-        self._gt_and_preds: List[dict[str, List[sv.Detections]]] = None if gt_preds_load_path is None else self.load_gt_preds(gt_preds_load_path)
+        self._gt_and_preds: Optional[List[dict[str, List[sv.Detections]]]] = None if self.calibration_cfg.gt_preds_load_path is None else self.load_gt_preds(self.calibration_cfg.gt_preds_load_path)
         self.class_mapping = None
         self.class_agnostic = self.base_cfg.dataset.load_as_single_class
         self.labels = None
-        self.save_gt_preds = save_gt_preds
+        self.save_gt_preds = self.calibration_cfg.save_gt_preds
 
         assert self.base_cfg.dataset.load_as_single_class, "Single class must be True for calibration"
         return None
     
+    @lru_cache(maxsize=1)
     def get_gt_and_preds(self,) -> List[dict[str, List[sv.Detections]]]:
-        if self._gt_and_preds is not None:
-            return self._gt_and_preds
+        
         logger.info("Running inference to collect predictions")
         evaluator = UltralyticsEvaluator(self.base_cfg,disable_detection_filtering=True)
         self.class_mapping = evaluator.class_mapping
         self.labels = evaluator.labels
+
+        if self._gt_and_preds is not None:
+            return self._gt_and_preds
+
         self._gt_and_preds = []
         top_k = 10 if self.debug else None
         for results in evaluator._run_inference():
