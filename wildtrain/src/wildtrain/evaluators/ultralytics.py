@@ -11,6 +11,7 @@ from supervision.metrics import (
     MeanAveragePrecision,
     MeanAverageRecall,
 )
+import pickle as pkl
 import supervision as sv
 from supervision.metrics.detection import ConfusionMatrix
 from logging import getLogger
@@ -36,7 +37,7 @@ class UltralyticsEvaluator:
         self.config = config      
         self.metrics = self._get_metrics()
         self._report: Dict[str, float] = dict()
-        self.gt_and_preds: List[dict[str, List[sv.Detections]]] = []
+        self._gt_and_preds: List[dict[str, List[sv.Detections]]] = []
         self._gt_labels_to_keep:list[int] = None
         self._pred_labels_to_keep:list[int] = None
 
@@ -48,7 +49,12 @@ class UltralyticsEvaluator:
     def labels(self)->List[str]:
         if self.class_mapping is None:
             return None
-        return [self.class_mapping[i] for i in sorted(self.class_mapping.keys())]    
+        return [self.class_mapping[i] for i in sorted(self.class_mapping.keys())] 
+
+    def get_gt_and_preds(self)->List[dict[str, List[sv.Detections]]]:
+        if self._gt_and_preds is None:
+            self._gt_and_preds = list(self._run_inference())
+        return self._gt_and_preds
     
     def _get_metrics(self,):
         boxes = sv.metrics.core.MetricTarget.BOXES
@@ -68,19 +74,23 @@ class UltralyticsEvaluator:
     def evaluate(
         self,
         debug:bool=False,
-        save_path:Optional[str]=None
+        save_path:Optional[str]=None,
+        load_path:Optional[str]=None,
     ) -> Dict[str, Any]:
         """
         Evaluate model using parameters from config dict passed via kwargs.
         """
         count = 0
-        for results in self._run_inference():
-            self.gt_and_preds.append(results)
+        if load_path:
+            self._load_gt_preds(load_path)
+        else:
+            self._gt_and_preds = list(self._run_inference())
+
+        for results in self._gt_and_preds():
             try:
                 self._compute_metrics(results)
             except Exception:
                 logger.error(f"Error computing metrics: {traceback.format_exc()}")
-                #logger.info(results)
                 raise
             count += 1
             if debug and count > 10:
@@ -89,11 +99,23 @@ class UltralyticsEvaluator:
         try:
             self._set_report(self._get_results())
             if save_path:
-                self.save_report(save_path)
+                self._save_report(save_path)
+                self._save_gt_preds(save_path)
         except Exception:
             logger.error(f"Error generating report: {traceback.format_exc()}")
 
         return self._report
+    
+    def _save_gt_preds(self,save_path: str):
+        p = Path(save_path).with_suffix(".pkl")
+        with open(p, "wb") as f:
+            pkl.dump(self._gt_and_preds, f)
+        return None
+    
+    def _load_gt_preds(self,path: str):
+        with open(path, "rb") as f:
+            self._gt_and_preds = pkl.load(f)
+        return None
 
     def _compute_metrics(self, results: Dict[str, List[sv.Detections]]) -> None:
         """
@@ -150,14 +172,14 @@ class UltralyticsEvaluator:
             best_score = getattr(results[name],f"{name}_scores")[argmax]
             best_iou = results[name].iou_thresholds[argmax]
             dfs[f'best_{name}'] = {f'{name}_at_{best_iou}': best_score}
-            dfs[f"{name}_scores"] = list(zip(results[name].iou_thresholds, getattr(results[name],f"{name}_scores")))
+            #dfs[f"{name}_scores"] = list(zip(results[name].iou_thresholds, getattr(results[name],f"{name}_scores")))
 
         self._report = dfs
 
     def _get_results(self) -> Dict[str, Any]:
         return {name: metric.compute() for name, metric in self.metrics.items()}
     
-    def save_report(self, path: str) -> None:
+    def _save_report(self, path: str) -> None:
         with open(path, 'w') as f:
             json.dump(self._report, f,indent=2)
         
