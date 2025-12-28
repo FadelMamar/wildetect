@@ -238,8 +238,14 @@ class LabelStudioParser:
     ) -> Iterator[ParsedResult]:
         """Iterate over results from annotations, predictions, or both.
         
+        Source determination is based on result.origin field:
+        - ANNOTATION: origin in (manual, prediction-changed, None) - human created or edited
+        - PREDICTION: origin in (model predictions, prediction-changed) - model predictions or edited predictions
+        
+        Also includes results from annotation.prediction.result for predictions.
+        
         Args:
-            source: Which results to include - "annotations", "predictions", or "both"
+            source: Which results to include - ANNOTATION or PREDICTION
             include_empty: If True, yield placeholder for tasks with no results
             labels: If provided, only yield results with these labels
             min_score: If provided, only yield results with score >= min_score
@@ -248,29 +254,51 @@ class LabelStudioParser:
         Yields:
             ParsedResult objects for each bounding box
         """
+        from .labelstudio_schemas import ResultOrigin
+        
         label_set = set(labels) if labels else None
         iter_tasks = self.tasks
         if show_progress:
             iter_tasks = tqdm(iter_tasks, desc=f"Processing {source}")
         
+        # Define which origins belong to which source type
+        prediction_origins = {ResultOrigin.PREDICTION,ResultOrigin.PREDICTION_CHANGED}
+        annotation_origins = {ResultOrigin.MANUAL, ResultOrigin.PREDICTION_CHANGED, None}
+        
         for task in iter_tasks:
             has_results = False
             
             for annotation in task.annotations:
-                # Process annotation results
-                if source == SourceType.ANNOTATION:
-                    for result in annotation.result:
+                # Process results based on their origin
+                for result in annotation.result:
+                    result_origin = result.origin
+                    
+                    # Check if this result matches the requested source
+                    if source == SourceType.ANNOTATION:
+                        if result_origin not in annotation_origins:
+                            continue
                         for parsed in self._yield_results_from_result(
                             task, result, label_set, min_score,
                             source_type=SourceType.ANNOTATION,
                             annotation_id=annotation.id,
                             completed_by=annotation.completed_by,
-                        ):
+                    ):
                             has_results = True
                             yield parsed
+                    
+                    elif source == SourceType.PREDICTION:
+                        # Predictions: origin == "prediction" (unmodified model output)
+                        if result_origin in prediction_origins:
+                            for parsed in self._yield_results_from_result(
+                                task, result, label_set, min_score,
+                                source_type=SourceType.PREDICTION,
+                                annotation_id=annotation.id,
+                            ):
+                                has_results = True
+                                yield parsed
                 
-                # Process prediction results from annotation.prediction
-                if (source == SourceType.PREDICTION) and annotation.prediction is not None:
+                # Also check annotation.prediction.result for predictions (if present)
+                if source == SourceType.PREDICTION and annotation.prediction is not None:
                     prediction = annotation.prediction
                     for result in prediction.result:
                         for parsed in self._yield_results_from_result(
@@ -357,7 +385,7 @@ class LabelStudioParser:
         labels: Optional[List[str]] = None,
         show_progress: bool = True,
     ) -> Iterator[ParsedResult]:
-        """Iterate over all annotations. Delegates to iter_results(source='annotations')."""
+        """Iterate over all annotations. Delegates to iter_results(source='annotations')."""       
         return self.iter_results(SourceType.ANNOTATION, include_empty, labels=labels, min_score=None, show_progress=show_progress)
     
     def iter_predictions(
@@ -421,13 +449,13 @@ class LabelStudioParser:
             Dictionary with summary statistics
         """
         annotations = self.get_all_annotations()
-        
+        predictions = self.get_all_predictions()        
         return {
             "total_tasks": self.task_count,
             "annotated_tasks": self.annotated_task_count,
             "empty_tasks": self.task_count - self.annotated_task_count,
             "total_annotations": len(annotations),
-            "total_predictions": len(self.get_all_predictions()),
+            "total_predictions": len(predictions),
             "unique_labels": self.labels,
             "label_counts": self.get_label_statistics(),
             "rotated_annotations": sum(1 for a in annotations if a.is_rotated),
