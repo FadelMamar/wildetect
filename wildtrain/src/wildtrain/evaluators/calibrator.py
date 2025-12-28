@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Generator, List
 import supervision as sv
 from supervision.metrics.detection import ConfusionMatrix
-
+import pickle as pkl
 import optuna
 
 from ..shared.sweeper import Sweeper
@@ -44,7 +44,7 @@ class DetectionCalibrator(Sweeper):
         >>> calibrator.run()
     """
     
-    def __init__(self, calibration_config_path: str, debug: bool = False,):
+    def __init__(self, calibration_config_path: str, debug: bool = False,save_gt_preds: bool = False,gt_preds_load_path: Optional[str] = None):
         self.calibration_config_path = calibration_config_path
         self.calibration_cfg = CalibrationConfig.from_yaml(calibration_config_path)
         self.base_cfg = DetectionEvalConfig.from_yaml(self.calibration_cfg.base_config)
@@ -54,8 +54,10 @@ class DetectionCalibrator(Sweeper):
         self.overlap_metrics = {OverlapMetricConfig.IOU:sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
                    OverlapMetricConfig.IOS:sv.detection.utils.iou_and_nms.OverlapMetric.IOS
                    }
-        self._gt_and_preds: List[dict[str, List[sv.Detections]]] = None
-
+        self._gt_and_preds: List[dict[str, List[sv.Detections]]] = None if gt_preds_load_path is None else self.load_gt_preds(gt_preds_load_path)
+        self.class_mapping = None
+        self.labels = None
+        self.save_gt_preds = save_gt_preds
         assert self.base_cfg.dataset.load_as_single_class, "Single class must be True for calibration"
     
     def get_gt_and_preds(self,) -> Generator[Dict[str, List[sv.Detections]], None, None]:
@@ -63,7 +65,19 @@ class DetectionCalibrator(Sweeper):
             return self._gt_and_preds
         logger.info("Running inference to collect predictions")
         evaluator = UltralyticsEvaluator(self.base_cfg,disable_detection_filtering=True)
+        self.class_mapping = evaluator.class_mapping
+        self.labels = evaluator.labels
         self._gt_and_preds = list(evaluator._run_inference())
+        if self.save_gt_preds:
+            self._save_gt_preds()
+        return self._gt_and_preds    
+    
+    def _save_gt_preds(self):
+        with open(self.calibration_cfg.calibration_name + "_gt_preds.pkl", "wb") as f:
+            pkl.dump(self._gt_and_preds, f)
+    def load_gt_preds(self,path: str):
+        with open(path, "rb") as f:
+            self._gt_and_preds = pkl.load(f)
         return self._gt_and_preds
     
     def _apply_filtering(
@@ -116,8 +130,8 @@ class DetectionCalibrator(Sweeper):
         preds = []
         gts = []
         for values in self.get_gt_and_preds():
-            preds.append(values["predictions"])
-            gts.append(values["ground_truth"])
+            preds.extend(values["predictions"])
+            gts.extend(values["ground_truth"])
 
         preds = [
             self._apply_filtering(
