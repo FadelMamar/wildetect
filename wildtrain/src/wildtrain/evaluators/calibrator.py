@@ -18,6 +18,7 @@ from ..shared.schemas import (
     CalibrationConfig,
     DetectionEvalConfig,
     SweepObjectiveTypes,
+    OverlapMetricConfig,
 )
 from ..utils.logging import get_logger
 from .ultralytics import UltralyticsEvaluator
@@ -68,32 +69,39 @@ class DetectionCalibrator(Sweeper):
             trial_cfg = deepcopy(self.base_cfg)
             
             # Suggest hyperparameters
+            params = self.calibration_cfg.parameters
             conf_thres = trial.suggest_categorical(
                 "conf_thres", 
-                self.calibration_cfg.parameters.conf_thres
+                params.conf_thres
             )
             iou_thres = trial.suggest_categorical(
                 "iou_thres", 
-                self.calibration_cfg.parameters.iou_thres
+                params.iou_thres
+            )
+            overlap_metric = trial.suggest_categorical(
+                "overlap_metric", 
+                params.overlap_metrics
             )
             
             # Update config with suggested values
             trial_cfg.eval.conf = conf_thres
             trial_cfg.eval.iou = iou_thres
+            trial_cfg.eval.overlap_metric = OverlapMetricConfig(overlap_metric)
             
             # Optional: max_det calibration
-            if self.calibration_cfg.parameters.max_det is not None:
+            if params.max_det is not None:
                 max_det = trial.suggest_categorical(
                     "max_det",
-                    self.calibration_cfg.parameters.max_det
+                    params.max_det
                 )
                 trial_cfg.eval.max_det = max_det
             
             logger.info(
-                "Running trial %d with params: conf_thres=%.3f, iou_thres=%.3f",
+                "Running trial %d with params: conf_thres=%.3f, iou_thres=%.3f, overlap_metric=%s",
                 self.counter,
                 conf_thres,
                 iou_thres,
+                overlap_metric,
             )
             
             # Create evaluator and run evaluation

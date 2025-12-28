@@ -19,6 +19,10 @@ class CalibrationParametersConfig(BaseConfig):
         default=None,
         description="List of maximum detections values to search (optional)"
     )
+    overlap_metrics: List[str] = Field(
+        default=['iou','ios'],
+        description="List of overlap metrics to search"
+    )
     
     @field_validator('conf_thres')
     @classmethod

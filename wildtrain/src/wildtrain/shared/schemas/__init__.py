@@ -47,6 +47,7 @@ from .yolo import (
     YoloModelConfig,
     YoloCustomConfig,
     YoloTrainConfig,
+    OverlapMetricConfig
 )
 
 # Detection configurations
@@ -133,6 +134,7 @@ __all__ = [
     "YoloModelConfig",
     "YoloCustomConfig",
     "YoloTrainConfig",
+    "OverlapMetricConfig",
     # Detection
     "DetectionConfig",
     "DetectionWeightsConfig",

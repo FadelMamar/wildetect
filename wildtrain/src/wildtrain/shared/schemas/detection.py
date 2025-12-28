@@ -13,7 +13,8 @@ from .yolo import (
     YoloModelConfig,
     YoloCustomConfig,
     YoloTrainConfig,
-    YoloInferenceConfig
+    YoloInferenceConfig,
+    OverlapMetricConfig
 )
 
 
@@ -75,6 +76,7 @@ class DetectionEvalParamsConfig(BaseConfig):
     max_det: int = Field(default=300, description="Maximum detections per image")
     verbose: bool = Field(default=False, description="Verbosity level")
     augment: bool = Field(default=False, description="Use Test Time Augmentation")
+    overlap_metric: OverlapMetricConfig = Field(default=OverlapMetricConfig.IOU, description="Overlap metric for evaluation")
     
     
     @field_validator('imgsz')
@@ -154,7 +156,7 @@ class DetectionEvalConfig(BaseConfig):
             device=self.device,
             conf_thres=self.eval.conf,
             iou_thres=self.eval.iou,
-            overlap_metric=self.eval.overlap_metric.value,
+            overlap_metric=self.eval.overlap_metric,
             task=self.eval.task,
             max_det=self.eval.max_det,
         )
