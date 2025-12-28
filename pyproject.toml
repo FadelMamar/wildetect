@@ -59,6 +59,7 @@ dependencies = [
     "mkdocstrings>=1.0.0",
     "mkdocstrings-python>=2.0.0",
     "fire>=0.7.1",
+    "optuna-dashboard>=0.20.0",
 ]
 
 [tool.ruff]
