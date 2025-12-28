@@ -6,7 +6,7 @@ from pydantic import Field, field_validator
 
 from .base import BaseConfig
 from .common import MLflowConfig
-from .yolo import YoloConfig
+from .yolo import YoloInferenceConfig
 
 
 class LabelStudioConfig(BaseConfig):
@@ -26,7 +26,7 @@ class FiftyOneConfig(BaseConfig):
 class DetectionVisualizationConfig(BaseConfig):
     """Visualization configuration."""
     fiftyone: FiftyOneConfig = Field(description="FiftyOne configuration")
-    localizer: YoloConfig = Field(description="Localizer configuration")
+    localizer: YoloInferenceConfig = Field(description="Localizer configuration")
     classifier_weights: Optional[str] = Field(default=None, description="Classifier weights path")
     batch_size: int = Field(gt=0, description="Processing batch size")
     debug: bool = Field(default=False, description="Debug mode")

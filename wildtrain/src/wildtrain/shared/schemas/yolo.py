@@ -2,11 +2,15 @@
 
 from typing import List, Dict, Optional
 from pydantic import Field
-
+from enum import StrEnum
 from .base import BaseConfig
 
+class OverlapMetricConfig(StrEnum):
+    """Overlap metric configuration for detection evaluation."""
+    IOU = "iou"
+    IOS = "ios"
 
-class YoloConfig(BaseConfig):
+class YoloInferenceConfig(BaseConfig):
     """YOLO model configuration."""
     weights: Optional[str] = Field(default=None, description="Model weights path")
     imgsz: int = Field(gt=0, description="Input image size")
@@ -14,7 +18,7 @@ class YoloConfig(BaseConfig):
     conf_thres: float = Field(default=0.2, ge=0.0, le=1.0, description="Confidence threshold")
     iou_thres: float = Field(default=0.3, ge=0.0, le=1.0, description="IoU threshold")
     max_det: int = Field(default=300, gt=0, description="Maximum detections")
-    overlap_metric: str = Field(default="IOU", description="Overlap metric")
+    overlap_metric: OverlapMetricConfig = Field(default=OverlapMetricConfig.IOU, description="Overlap metric")
     task: str = Field(default="detect", description="YOLO task type (detect, classify, segment)")
 
 

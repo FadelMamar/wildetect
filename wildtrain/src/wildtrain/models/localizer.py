@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import supervision as sv
 from ultralytics import YOLO
 from omegaconf import DictConfig
-from ..shared.models import YoloConfig
+from ..shared.models import YoloInferenceConfig
 
 class ObjectLocalizer(ABC):
     """
@@ -46,7 +46,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
         device: str = "cpu",
         conf_thres: float = 0.25,
         iou_thres: float = 0.5,
-        overlap_metric='IOU', 
+        overlap_metric='iou', 
         task="detect",
         max_det=300,
     ):
@@ -57,14 +57,14 @@ class UltralyticsLocalizer(ObjectLocalizer):
         self.conf_thres = conf_thres
         self.iou_thres = iou_thres
         self.max_det = max_det
-        self.overlap_metric = overlap_metric
+        self.overlap_metric = overlap_metric.lower()
         self.imgsz = imgsz
         
         self.class_agnostic = False
         
-        assert overlap_metric in ["IOU","IOS"]
-        self.metrics = {"IOU":sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
-                   "IOS":sv.detection.utils.iou_and_nms.OverlapMetric.IOS
+        assert self.overlap_metric in ["iou","ios"]
+        self.metrics = {"iou":sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
+                   "ios":sv.detection.utils.iou_and_nms.OverlapMetric.IOS
                    }
     
     @property
@@ -72,7 +72,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
         return self.model.names
         
     @classmethod
-    def from_config(cls, config: Union[DictConfig,YoloConfig]):
+    def from_config(cls, config: YoloInferenceConfig):
         
         return cls(
             weights=config.weights,
@@ -80,7 +80,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
             device=config.device,
             conf_thres=config.conf_thres,
             iou_thres=config.iou_thres,
-            overlap_metric=config.overlap_metric,
+            overlap_metric=config.overlap_metric.value,
             task=getattr(config,"task","detect"),
             max_det=getattr(config,"max_det",300),
         )
@@ -104,7 +104,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
             imgsz=self.imgsz,
             verbose=False,
             conf=self.conf_thres,
-            iou=0.1,
+            iou=1.0, # disable nms
             device=self.device,
             max_det=self.max_det
         )

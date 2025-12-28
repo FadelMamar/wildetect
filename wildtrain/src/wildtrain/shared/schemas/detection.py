@@ -13,6 +13,7 @@ from .yolo import (
     YoloModelConfig,
     YoloCustomConfig,
     YoloTrainConfig,
+    YoloInferenceConfig
 )
 
 
@@ -55,7 +56,6 @@ class DetectionMetricsConfig(BaseConfig):
     average: Literal["macro", "micro", "weighted"] = Field(default="macro", description="Averaging method for metrics")
     class_agnostic: bool = Field(default=False, description="Whether to use class-agnostic evaluation")
 
-
 class DetectionEvalParamsConfig(BaseConfig):
     """Evaluation parameters for detection."""
     imgsz: int = Field(default=640, description="Image size for evaluation")
@@ -75,6 +75,7 @@ class DetectionEvalParamsConfig(BaseConfig):
     max_det: int = Field(default=300, description="Maximum detections per image")
     verbose: bool = Field(default=False, description="Verbosity level")
     augment: bool = Field(default=False, description="Use Test Time Augmentation")
+    
     
     @field_validator('imgsz')
     @classmethod
@@ -145,7 +146,18 @@ class DetectionEvalConfig(BaseConfig):
     def validate_device(cls, v):
         assert (v == "cpu") or ("cuda" in v), f"Device must be one of ['cpu', 'cuda'], got: {v}"
         return v
-
+    
+    def to_yolo_inference_config(self):
+        return YoloInferenceConfig(
+            weights=self.weights.localizer,
+            imgsz=self.eval.imgsz,
+            device=self.device,
+            conf_thres=self.eval.conf,
+            iou_thres=self.eval.iou,
+            overlap_metric=self.eval.overlap_metric.value,
+            task=self.eval.task,
+            max_det=self.eval.max_det,
+        )
 
 # Update forward references
 DetectionEvalConfig.model_rebuild()

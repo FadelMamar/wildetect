@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
-from .yolo import YoloConfig
+from .yolo import YoloInferenceConfig
 
 
 class RegistrationBase(BaseConfig):
@@ -35,7 +35,7 @@ class LocalizerRegistrationConfig(BaseConfig):
     
     This configuration is specifically for registering localizer models.
     """
-    yolo: Optional[YoloConfig] = Field(None,description="yolo config")
+    yolo: Optional[YoloInferenceConfig] = Field(None,description="yolo config")
     processing: RegistrationBase = Field(description="processing information")
 
 
