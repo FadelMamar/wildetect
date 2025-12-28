@@ -40,6 +40,7 @@ class IoUTuner:
         matching_iou_range: Tuple[float, float] = (0.1, 0.7),
         conf_threshold_range: Tuple[float, float] = (0.0, 0.5),
         merging_methods: list[str] = ["nms", "nmm"],
+        overlap_metrics: list[str] = ["iou", "ios"],
         n_trials: int = 50,
         class_agnostic: bool = True,
         background_classes: list[str] = ["background"],
@@ -62,11 +63,11 @@ class IoUTuner:
         self.matching_iou_range = matching_iou_range
         self.conf_threshold_range = conf_threshold_range
         self.merging_methods = merging_methods
+        self.overlap_metrics = overlap_metrics
         self.n_trials = n_trials
         self.study: Optional[optuna.Study] = None
         self.class_agnostic = class_agnostic
         self.background_classes = background_classes
-        self.overlap_metrics = dict(iou=OverlapMetric.IOU, ios=OverlapMetric.IOS)
 
         if not self.class_agnostic:
             raise NotImplementedError("Class-agnostic mode is supported for IoUTuner")
@@ -220,7 +221,7 @@ class IoUTuner:
         match_iou_threshold: float,
         conf_threshold: float = 0.0,
         merging_method: str = "nms",
-        overlap_metric=OverlapMetric.IOU,
+        overlap_metric: str = "iou",
     ) -> Dict[str, float]:
         """Compute precision, recall, F1 for given thresholds.
 
@@ -236,6 +237,13 @@ class IoUTuner:
         Returns:
             Dictionary with precision, recall, f1 metrics
         """
+
+        if overlap_metric == "iou":
+            overlap_metric = OverlapMetric.IOU
+        elif overlap_metric == "ios":
+            overlap_metric = OverlapMetric.IOS
+        else:
+            raise ValueError(f"Invalid overlap metric: {overlap_metric}")
 
         preds = []
         gts = []
@@ -271,7 +279,6 @@ class IoUTuner:
         tp = confusion_matrix.matrix[0, 0]
         fp = confusion_matrix.matrix[1, 0]
         fn = confusion_matrix.matrix[0, 1]
-
         e = 1e-6
         precision = tp / (tp + fp + e)
         recall = tp / (tp + fn + e)
@@ -304,7 +311,7 @@ class IoUTuner:
             "merging_method", self.merging_methods
         )
         overlap_metric = trial.suggest_categorical(
-            "overlap_metric", tuple(self.overlap_metrics.keys())
+            "overlap_metric", self.overlap_metrics
         )
 
         metrics = self._compute_metrics(
@@ -312,7 +319,7 @@ class IoUTuner:
             match_iou_threshold=match_threshold,
             conf_threshold=conf_threshold,
             merging_method=merging_method,
-            overlap_metric=self.overlap_metrics[overlap_metric],
+            overlap_metric=overlap_metric,
         )
         return metrics["f1"]
 
@@ -354,7 +361,7 @@ class IoUTuner:
             match_iou_threshold=best_match,
             conf_threshold=best_conf,
             merging_method=best_merging_method,
-            overlap_metric=self.overlap_metrics[best_overlap_metric],
+            overlap_metric=best_overlap_metric,
         )
 
         logger.info("=" * 50)
