@@ -43,7 +43,7 @@ class DetectionCalibrator(Sweeper):
         >>> calibrator.run()
     """
     
-    def __init__(self, calibration_config_path: str, debug: bool = False):
+    def __init__(self, calibration_config_path: str, debug: bool = False,):
         self.calibration_config_path = calibration_config_path
         self.calibration_cfg = CalibrationConfig.from_yaml(calibration_config_path)
         self.base_cfg = DetectionEvalConfig.from_yaml(self.calibration_cfg.base_config)
@@ -54,6 +54,8 @@ class DetectionCalibrator(Sweeper):
                    OverlapMetricConfig.IOS:sv.detection.utils.iou_and_nms.OverlapMetric.IOS
                    }
         self._gt_and_preds: List[dict[str, List[sv.Detections]]] = None
+
+        assert self.base_cfg.dataset.load_as_single_class, "Single class must be True for calibration"
     
     def get_gt_and_preds(self,) -> Generator[Dict[str, List[sv.Detections]], None, None]:
         if self._gt_and_preds is not None:
