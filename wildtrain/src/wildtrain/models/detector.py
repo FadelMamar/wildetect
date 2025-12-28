@@ -35,6 +35,8 @@ class Detector(torch.nn.Module):
         self.localizer = localizer
         self.classifier = classifier
         self.metadata: Optional[Dict[str,Any]] = None
+
+        self.set_device(localizer.device)
     
     @property
     def input_shape(self,)->Tuple:
@@ -46,11 +48,14 @@ class Detector(torch.nn.Module):
         if hasattr(self.localizer,"device"):
             self.localizer.device = device
         if self.classifier is not None:
-            self.classifier.to(device)
+            self.classifier.eval()
+            self.classifier.to(device,non_blocking=True)
         logger.info(f"Detector set to device: {device}")
     
     @property
     def class_mapping(self):
+        if self.classifier:
+            return self.classifier.class_mapping
         return self.localizer.class_mapping
     
     @classmethod
@@ -226,6 +231,7 @@ class Detector(torch.nn.Module):
 
         return Detector._to_sv_detections(detections)
 
+    @torch.no_grad()
     def predict(self, images: torch.Tensor,return_as_dict:bool=False) -> Union[List[sv.Detections],List[Dict]]:
         """Detects objects in a batch of images and classifies each ROI."""
         b = images.shape[0]
@@ -290,7 +296,7 @@ class Detector(torch.nn.Module):
                 xyxy=det.xyxy,
                 confidence=det.confidence * scores,
                 class_id=class_ids,
-                metadata={"class_mapping":self.classifier.label_to_class_map},
+                metadata={"class_mapping":self.class_mapping},
             )
         
         if return_as_dict:

@@ -125,6 +125,10 @@ class GenericClassifier(nn.Module):
         self._onnx_providers.append('CPUExecutionProvider')
         return None
     
+    @property
+    def class_mapping(self)->dict:
+        return self.label_to_class_map
+    
     def set_onnx_program(self,
                     onnx_program:Optional[ort.InferenceSession]=None):
         self._onnx_program = onnx_program
@@ -266,7 +270,7 @@ class GenericClassifier(nn.Module):
         probs = torch.softmax(logits, dim=1)
         labels = probs.argmax(dim=1).cpu().tolist()
         classes = [
-            self.label_to_class_map.get(i,"None") for i in labels
+            self.class_mapping.get(i,"None") for i in labels
         ]
         scores = probs.max(dim=1).values.cpu().tolist()
         return [{"class": c, "score": s, "class_id":l} for c, s, l in zip(classes, scores, labels)]

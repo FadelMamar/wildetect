@@ -7,7 +7,7 @@ from tqdm import tqdm
 import supervision as sv
 from pathlib import Path
 from .base import BaseEvaluator
-from ..shared.models import DetectionEvalConfig
+from ..shared.models import DetectionEvalConfig, RegistrationBase
 from ..models.detector import Detector
 from ..utils.io import merge_data_cfg
 from ..data.filters.algorithms import FilterDataCfg
@@ -24,6 +24,7 @@ class UltralyticsEvaluator(BaseEvaluator):
         super().__init__(config)
         self.model = self._load_model(disable_detection_filtering=disable_detection_filtering)
         self.dataloader = self._create_dataloader()
+        self.class_mapping = self.model.class_mapping
 
     def _set_data_cfg(self):
         assert (self.config.dataset.data_cfg is not None) ^ (self.config.dataset.root_data_directory is not None), "Either data_cfg or root_data_directory must be provided"

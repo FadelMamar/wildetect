@@ -127,7 +127,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
             images,
             imgsz=self.imgsz,
             verbose=False,
-            conf=0.0, # disable confidence filtering
+            conf=0.05, # disable confidence filtering
             iou=1.0, # disable nms
             device=self.device,
             max_det=self.max_det
