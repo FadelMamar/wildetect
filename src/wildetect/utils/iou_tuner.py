@@ -36,9 +36,10 @@ class IoUTuner:
         df_annotations: pd.DataFrame,
         df_predictions: pd.DataFrame,
         duplicates_csv_path: Optional[str] = None,
-        nms_iou_range: Tuple[float, float] = (0.1, 0.9),
-        match_iou_range: Tuple[float, float] = (0.3, 0.8),
+        merging_iou_range: Tuple[float, float] = (0.1, 0.9),
+        matching_iou_range: Tuple[float, float] = (0.3, 0.8),
         conf_threshold_range: Tuple[float, float] = (0.0, 0.5),
+        merging_methods: list[str] = ["nms", "nmm"],
         n_trials: int = 50,
         class_agnostic: bool = True,
         background_classes: list[str] = ["background"],
@@ -57,13 +58,15 @@ class IoUTuner:
             conf_threshold_range: Range for confidence threshold search (min, max)
             n_trials: Number of Optuna trials
         """
-        self.nms_iou_range = nms_iou_range
-        self.match_iou_range = match_iou_range
+        self.merging_iou_range = merging_iou_range
+        self.matching_iou_range = matching_iou_range
         self.conf_threshold_range = conf_threshold_range
+        self.merging_methods = merging_methods
         self.n_trials = n_trials
         self.study: Optional[optuna.Study] = None
         self.class_agnostic = class_agnostic
         self.background_classes = background_classes
+        self.overlap_metrics = dict(iou=OverlapMetric.IOU, ios=OverlapMetric.IOS)
 
         if not self.class_agnostic:
             raise NotImplementedError("Class-agnostic mode is supported for IoUTuner")
@@ -163,6 +166,9 @@ class IoUTuner:
         Returns:
             sv.Detections object with xyxy format bboxes
         """
+        df = df.drop_duplicates(
+            subset=["x_pixel", "y_pixel", "width_pixel", "height_pixel"]
+        )
         if df.empty:
             return sv.Detections.empty()
 
@@ -185,11 +191,36 @@ class IoUTuner:
             class_id=class_id,
         )
 
+    def _apply_merging(
+        self,
+        detections: sv.Detections,
+        iou_threshold: float,
+        merging_method: str = "nms",
+        overlap_metric=OverlapMetric.IOU,
+    ) -> sv.Detections:
+        """Apply merging to remove duplicate predictions."""
+        if merging_method == "nms":
+            return detections.with_nms(
+                threshold=iou_threshold,
+                class_agnostic=self.class_agnostic,
+                overlap_metric=overlap_metric,
+            )
+        elif merging_method == "nmm":
+            return detections.with_nmm(
+                threshold=iou_threshold,
+                class_agnostic=self.class_agnostic,
+                overlap_metric=overlap_metric,
+            )
+        else:
+            raise ValueError(f"Invalid merging method: {merging_method}")
+
     def _compute_metrics(
         self,
-        nms_iou_threshold: float,
+        iou_threshold: float,
         match_iou_threshold: float,
         conf_threshold: float = 0.0,
+        merging_method: str = "nms",
+        overlap_metric=OverlapMetric.IOU,
     ) -> Dict[str, float]:
         """Compute precision, recall, F1 for given thresholds.
 
@@ -198,8 +229,9 @@ class IoUTuner:
         considered one true positive.
 
         Args:
-            nms_iou_threshold: IoU threshold for NMS filtering
-            match_iou_threshold: IoU threshold for pred-to-GT matching
+            iou_threshold: IoU threshold for NMS filtering
+            conf_threshold: IoU threshold for pred-to-GT matching
+            merging_method: Method for merging duplicate predictions
 
         Returns:
             Dictionary with precision, recall, f1 metrics
@@ -220,10 +252,11 @@ class IoUTuner:
             gts.append(self._df_to_detections(gt_df))
 
         preds = [
-            pred.with_nms(
-                threshold=nms_iou_threshold,
-                class_agnostic=self.class_agnostic,
-                overlap_metric=OverlapMetric.IOU,
+            self._apply_merging(
+                pred,
+                iou_threshold=iou_threshold,
+                overlap_metric=overlap_metric,
+                merging_method=merging_method,
             )
             for pred in preds
         ]
@@ -256,19 +289,30 @@ class IoUTuner:
         Returns:
             F1-score for the suggested parameters
         """
-        nms_threshold = trial.suggest_float(
-            "nms_iou_threshold", self.nms_iou_range[0], self.nms_iou_range[1]
+        iou_threshold = trial.suggest_float(
+            "iou_threshold", self.merging_iou_range[0], self.merging_iou_range[1]
         )
         match_threshold = trial.suggest_float(
-            "match_iou_threshold", self.match_iou_range[0], self.match_iou_range[1]
+            "match_iou_threshold",
+            self.matching_iou_range[0],
+            self.matching_iou_range[1],
         )
         conf_threshold = trial.suggest_float(
             "conf_threshold", self.conf_threshold_range[0], self.conf_threshold_range[1]
         )
+        merging_method = trial.suggest_categorical(
+            "merging_method", self.merging_methods
+        )
+        overlap_metric = trial.suggest_categorical(
+            "overlap_metric", tuple(self.overlap_metrics.keys())
+        )
+
         metrics = self._compute_metrics(
-            nms_iou_threshold=nms_threshold,
+            iou_threshold=iou_threshold,
             match_iou_threshold=match_threshold,
             conf_threshold=conf_threshold,
+            merging_method=merging_method,
+            overlap_metric=self.overlap_metrics[overlap_metric],
         )
         return metrics["f1"]
 
@@ -292,29 +336,39 @@ class IoUTuner:
         logger.info(f"Starting IoU threshold optimization with {self.n_trials} trials")
         self.study.optimize(self, n_trials=self.n_trials, show_progress_bar=True)
 
-        best_nms = self.study.best_params["nms_iou_threshold"]
+        best_iou = self.study.best_params["iou_threshold"]
         best_match = self.study.best_params["match_iou_threshold"]
         best_conf = self.study.best_params["conf_threshold"]
+        best_merging_method = self.study.best_params["merging_method"]
+        best_overlap_metric = self.study.best_params["overlap_metric"]
         best_metrics = self._compute_metrics(
-            nms_iou_threshold=best_nms,
+            iou_threshold=best_iou,
             match_iou_threshold=best_match,
             conf_threshold=best_conf,
+            merging_method=best_merging_method,
+            overlap_metric=self.overlap_metrics[best_overlap_metric],
         )
 
         logger.info("=" * 50)
         logger.info("IoU Tuning Complete!")
-        logger.info(f"Best NMS IoU threshold: {best_nms:.3f}")
+        logger.info(f"Best IoU threshold: {best_iou:.3f}")
+        logger.info(f"Best conf threshold: {best_conf:.3f}")
+        logger.info(f"Best merging method: {best_merging_method}")
         logger.info(f"Best Match IoU threshold: {best_match:.3f}")
+        logger.info(f"Best overlap metric: {best_overlap_metric}")
         logger.info(f"Best F1-score: {best_metrics['f1']:.3f}")
         logger.info(f"Precision: {best_metrics['precision']:.3f}")
         logger.info(f"Recall: {best_metrics['recall']:.3f}")
         logger.info("=" * 50)
 
         return {
-            "best_nms_iou_threshold": best_nms,
+            "best_iou_threshold": best_iou,
+            "best_conf_threshold": best_conf,
+            "best_merging_method": best_merging_method,
             "best_match_iou_threshold": best_match,
             "best_f1_score": best_metrics["f1"],
             "best_precision": best_metrics["precision"],
             "best_recall": best_metrics["recall"],
+            "best_overlap_metric": best_overlap_metric,
             "study": self.study,
         }
