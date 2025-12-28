@@ -279,10 +279,12 @@ class DetectionCalibrator(Sweeper):
     
     def run(self,):
         """Run the calibration optimization process."""
+        storage_path = Path(self.calibration_cfg.output.directory) / (self.calibration_cfg.calibration_name + ".db")
+        storage_path.parent.mkdir(parents=True, exist_ok=True)
         study = optuna.create_study(
             direction=self.calibration_cfg.direction.value,
             study_name=self.calibration_cfg.calibration_name,
-            storage=f"sqlite:///{self.calibration_cfg.calibration_name}.db",
+            storage=f"sqlite:///{str(storage_path)}",
             sampler=optuna.samplers.TPESampler(seed=self.calibration_cfg.seed),
             load_if_exists=True
         )
