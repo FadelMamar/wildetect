@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 from label_studio_converter import Converter
 from label_studio_sdk.client import LabelStudio
 
-from ..config import ROOT
-from .base_converter import BaseConverter
+from ...config import ROOT
+from ..base_converter import BaseConverter
 
 
 class LabelstudioConverter(BaseConverter):
@@ -31,7 +31,7 @@ class LabelstudioConverter(BaseConverter):
         """
         super().__init__()
 
-        self.dotenv_path = dotenv_path or ROOT/".env"
+        self.dotenv_path = dotenv_path
 
         if dotenv_path is not None:
             load_dotenv(dotenv_path)
@@ -39,7 +39,10 @@ class LabelstudioConverter(BaseConverter):
         label_studio_url = os.getenv("LABEL_STUDIO_URL")
         api_key = os.getenv("LABEL_STUDIO_API_KEY")
         try:
-            self.ls_client = client or LabelStudio(base_url=label_studio_url, api_key=api_key)
+            if client is None:
+                self.ls_client = LabelStudio(base_url=label_studio_url, api_key=api_key)
+            else:
+                self.ls_client = client
         except Exception as e:
             self.logger.error(
                 f"Failed to initialize Label Studio client: {e}. "

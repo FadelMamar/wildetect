@@ -8,7 +8,7 @@ from tqdm import tqdm
 import supervision as sv
 from pathlib import Path
 from .base import BaseEvaluator
-from ..shared.models import DetectionEvalConfig
+from ..shared.models import DetectionEvalConfig,YoloInferenceConfig
 from ..models.detector import Detector
 from ..utils.io import merge_data_cfg
 from ..data.filters.algorithms import FilterDataCfg
@@ -39,16 +39,7 @@ class UltralyticsEvaluator(BaseEvaluator):
             self.config.dataset.data_cfg = data_cfg 
 
     def _load_model(self) -> Detector:
-        localizer_config = OmegaConf.create({
-            'weights': str(self.config.weights.localizer),
-            'imgsz': self.config.eval.imgsz,
-            'device': self.config.device,
-            'conf_thres': self.config.eval.conf,
-            'iou_thres': self.config.eval.iou,
-            'overlap_metric': 'IOU',
-            'task': self.config.eval.task,
-            'max_det': self.config.eval.max_det,
-        })
+        localizer_config = self.config.to_yolo_inference_config()
         return Detector.from_config(localizer_config=localizer_config,classifier_ckpt=self.config.weights.classifier)
 
     def _create_dataloader(self) -> DataLoader:

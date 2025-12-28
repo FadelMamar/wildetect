@@ -6,10 +6,12 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import optuna
+import pandas as pd
+import supervision as sv
 import torch
 from tqdm import tqdm
 
@@ -46,10 +48,16 @@ class BenchmarkPipeline(object):
 
     def run(
         self,
+        run_name: str = "benmark-pipeline",
+        optuna_storage: str = "sqlite:///benmark-pipeline.db",
+        optuna_load_if_exists: bool = True,
     ):
         study = optuna.create_study(
             direction=self.execution_config.direction,
             sampler=optuna.samplers.TPESampler(seed=42),
+            storage=optuna_storage,
+            load_if_exists=optuna_load_if_exists,
+            study_name=run_name,
         )
 
         # Start the optimization process

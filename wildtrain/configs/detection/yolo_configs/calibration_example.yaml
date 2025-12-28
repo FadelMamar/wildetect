@@ -1,0 +1,58 @@
+# Example calibration configuration for detection inference hyperparameter optimization
+# This config optimizes conf_thres and iou_thres to maximize F1 score
+
+# Path to the base DetectionEvalConfig YAML file
+base_config: configs/detection/yolo_configs/yolo_eval.yaml
+
+# Calibration experiment name
+calibration_name: "detection_calibration_f1"
+
+# Number of Optuna trials to run
+n_trials: 20
+
+# Objective metric to optimize
+objective: f1_score  # Options: f1_score, precision, recall, map_50, map
+
+# Optimization direction
+direction: maximize
+
+# Random seed for reproducibility
+seed: 42
+
+# Maximum time for optimization in seconds (optional)
+timeout: null
+
+# Hyperparameter search space
+parameters:
+  # Confidence threshold values to search
+  conf_thres:
+    - 0.1
+    - 0.15
+    - 0.2
+    - 0.25
+    - 0.3
+    - 0.35
+    - 0.4
+    - 0.5
+
+  # IoU threshold values to search
+  iou_thres:
+    - 0.3
+    - 0.4
+    - 0.5
+    - 0.6
+    - 0.7
+
+  # Maximum detections (optional - uncomment to include in search)
+  # max_det:
+  #   - 100
+  #   - 300
+  #   - 500
+
+# Output configuration (optional)
+output:
+  directory: results/calibrations/detection_calibration_f1
+  save_results: true
+  save_plots: true
+  format: json  # Options: json, csv, both
+  include_optimization_history: true

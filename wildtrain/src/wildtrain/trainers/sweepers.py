@@ -2,7 +2,6 @@ import csv
 import json
 from typing import Any
 import optuna
-from abc import ABC, abstractmethod
 from pathlib import Path
 
 from .classification_trainer import ClassifierTrainer
@@ -15,19 +14,10 @@ from ..shared.models import (
     DetectionConfig
 )
 from ..shared.config_loader import ConfigLoader
+from ..shared.sweeper import Sweeper
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-class Sweeper(ABC):
-    
-    @abstractmethod
-    def __call__(self, trial: optuna.Trial) -> Any:
-        pass
-
-    @abstractmethod
-    def run(self):
-        pass
 
 
 class ClassifierSweeper(Sweeper):

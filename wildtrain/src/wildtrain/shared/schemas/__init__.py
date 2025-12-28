@@ -40,13 +40,14 @@ from .classification import (
 
 # YOLO configurations
 from .yolo import (
-    YoloConfig,
+    YoloInferenceConfig,
     YoloDatasetConfig,
     YoloCurriculumConfig,
     YoloPretrainingConfig,
     YoloModelConfig,
     YoloCustomConfig,
     YoloTrainConfig,
+    OverlapMetricConfig
 )
 
 # Detection configurations
@@ -69,6 +70,12 @@ from .sweep import (
     DetectionSweepTrainParametersConfig,
     DetectionSweepParametersConfig,
     DetectionSweepConfig,
+)
+
+# Calibrator configurations
+from .calibrator import (
+    CalibrationParametersConfig,
+    CalibrationConfig,
 )
 
 # Pipeline configurations
@@ -120,13 +127,14 @@ __all__ = [
     "ClassificationEvalDatasetConfig",
     "ClassificationEvalConfig",
     # YOLO
-    "YoloConfig",
+    "YoloInferenceConfig",
     "YoloDatasetConfig",
     "YoloCurriculumConfig",
     "YoloPretrainingConfig",
     "YoloModelConfig",
     "YoloCustomConfig",
     "YoloTrainConfig",
+    "OverlapMetricConfig",
     # Detection
     "DetectionConfig",
     "DetectionWeightsConfig",
@@ -143,6 +151,9 @@ __all__ = [
     "DetectionSweepTrainParametersConfig",
     "DetectionSweepParametersConfig",
     "DetectionSweepConfig",
+    # Calibrator
+    "CalibrationParametersConfig",
+    "CalibrationConfig",
     # Pipeline
     "TrainPipelineConfig",
     "EvalPipelineConfig",

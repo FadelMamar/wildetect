@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .classifier import GenericClassifier
 from .localizer import ObjectLocalizer, UltralyticsLocalizer
-from ..shared.models import YoloConfig, RegistrationBase
+from ..shared.models import YoloInferenceConfig, RegistrationBase
 from ..utils.mlflow import load_registered_model
 from ..utils.logging import get_logger
 
@@ -55,12 +55,10 @@ class Detector(torch.nn.Module):
     
     @classmethod
     def from_config(cls,
-    localizer_config:Union[YoloConfig, DictConfig],
+    localizer_config:Union[YoloInferenceConfig, DictConfig],
     classifier_ckpt:Optional[Union[str,Path]]=None,
     classifier_export_kwargs:Optional[RegistrationBase]=None
     ):
-        if isinstance(localizer_config):
-            raise NotImplementedError("Support only Yolo.")
         localizer = UltralyticsLocalizer.from_config(localizer_config)
         classifier = None
         if classifier_ckpt is not None:
