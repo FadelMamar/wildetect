@@ -6,26 +6,21 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import supervision as sv
 from pathlib import Path
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Union, List, Generator, Optional
+from typing import Any, Dict, List, Generator, Optional
 from supervision.metrics import (
     MeanAveragePrecision,
     MeanAverageRecall,
 )
 import supervision as sv
 from supervision.metrics.detection import ConfusionMatrix
-
-from copy import deepcopy
 from logging import getLogger
 import traceback
 from .metrics import MyPrecision,MyRecall,MyF1Score
 import json
 from ..shared.models import DetectionEvalConfig
-from .base import BaseEvaluator
 from ..shared.models import DetectionEvalConfig
 from ..models.detector import Detector
 from ..utils.io import merge_data_cfg
-from ..data.filters.algorithms import FilterDataCfg
 from ..data.utils import load_all_detection_datasets
 
 logger = getLogger(__name__)
