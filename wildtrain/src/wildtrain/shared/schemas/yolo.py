@@ -10,6 +10,11 @@ class OverlapMetricConfig(StrEnum):
     IOU = "iou"
     IOS = "ios"
 
+class MergingMethodConfig(StrEnum):
+    """Merging method configuration for detection evaluation."""
+    NMS = "nms"
+    NMM = "nmm"
+
 class YoloInferenceConfig(BaseConfig):
     """YOLO model configuration."""
     weights: Optional[str] = Field(default=None, description="Model weights path")
@@ -19,7 +24,9 @@ class YoloInferenceConfig(BaseConfig):
     iou_thres: float = Field(default=0.3, ge=0.0, le=1.0, description="IoU threshold")
     max_det: int = Field(default=300, gt=0, description="Maximum detections")
     overlap_metric: OverlapMetricConfig = Field(default=OverlapMetricConfig.IOU, description="Overlap metric")
+    merging_method: MergingMethodConfig = Field(default=MergingMethodConfig.NMS, description="Merging method")
     task: str = Field(default="detect", description="YOLO task type (detect, classify, segment)")
+    disable_detection_filtering: bool = Field(default=False, description="Disable detection filtering")
 
 
 class YoloDatasetConfig(BaseConfig):

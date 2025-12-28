@@ -1,5 +1,5 @@
 # Example calibration configuration for detection inference hyperparameter optimization
-# This config optimizes conf_thres and iou_thres to maximize F1 score
+# This config optimizes conf_thres, iou_thres, and matching parameters to maximize F1 score
 
 # Path to the base DetectionEvalConfig YAML file
 base_config: configs/detection/yolo_configs/yolo_eval.yaml
@@ -8,10 +8,10 @@ base_config: configs/detection/yolo_configs/yolo_eval.yaml
 calibration_name: "detection_calibration_f1"
 
 # Number of Optuna trials to run
-n_trials: 20
+n_trials: 50
 
 # Objective metric to optimize
-objective: f1_score  # Options: f1_score, precision, recall, map_50, map
+objective: f1_score  # Options: f1_score, precision, recall
 
 # Optimization direction
 direction: maximize
@@ -35,7 +35,7 @@ parameters:
     - 0.4
     - 0.5
 
-  # IoU threshold values to search
+  # IoU threshold values for NMS/NMM filtering
   iou_thres:
     - 0.3
     - 0.4
@@ -43,11 +43,22 @@ parameters:
     - 0.6
     - 0.7
 
-  # Maximum detections (optional - uncomment to include in search)
-  # max_det:
-  #   - 100
-  #   - 300
-  #   - 500
+  # Matching IoU threshold for ground truth matching
+  matching_iou_thres:
+    - 0.3
+    - 0.4
+    - 0.5
+    - 0.6
+
+  # Merging methods to search (nms, nmm)
+  merging_method:
+    - nms
+    - nmm
+
+  # Overlap metrics to search (iou, ios)
+  overlap_metrics:
+    - iou
+    - ios
 
 # Output configuration (optional)
 output:
