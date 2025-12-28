@@ -44,7 +44,7 @@ class DetectionCalibrator(Sweeper):
         >>> calibrator.run()
     """
     
-    def __init__(self, calibration_config_path: str, debug: bool = False,save_gt_preds: bool = False,gt_preds_load_path: Optional[str] = None):
+    def __init__(self, calibration_config_path: str, debug: bool = False, save_gt_preds: bool = True, gt_preds_load_path: Optional[str] = None):
         self.calibration_config_path = calibration_config_path
         self.calibration_cfg = CalibrationConfig.from_yaml(calibration_config_path)
         self.base_cfg = DetectionEvalConfig.from_yaml(self.calibration_cfg.base_config)
@@ -67,7 +67,7 @@ class DetectionCalibrator(Sweeper):
         evaluator = UltralyticsEvaluator(self.base_cfg,disable_detection_filtering=True)
         self.class_mapping = evaluator.class_mapping
         self.labels = evaluator.labels
-        self._gt_and_preds = list(evaluator._run_inference())
+        self._gt_and_preds = evaluator.get_gt_and_preds()
         if self.save_gt_preds:
             self._save_gt_preds()
         return self._gt_and_preds    
@@ -75,6 +75,7 @@ class DetectionCalibrator(Sweeper):
     def _save_gt_preds(self):
         with open(self.calibration_cfg.calibration_name + "_gt_preds.pkl", "wb") as f:
             pkl.dump(self._gt_and_preds, f)
+    
     def load_gt_preds(self,path: str):
         with open(path, "rb") as f:
             self._gt_and_preds = pkl.load(f)
