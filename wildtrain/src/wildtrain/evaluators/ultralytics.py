@@ -256,8 +256,7 @@ class UltralyticsEvaluator:
             if class_id in self._gt_labels_to_keep:
                 valid_indices.append(i)
         filtered_annotation.class_id = annotation.class_id[valid_indices]
-        if isinstance(annotation.confidence, np.ndarray):
-            filtered_annotation.confidence = annotation.confidence[valid_indices]
+        filtered_annotation.confidence = None
         filtered_annotation.xyxy = annotation.xyxy[valid_indices]
         filtered_annotation.metadata = annotation.metadata
 
