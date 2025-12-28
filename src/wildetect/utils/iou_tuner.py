@@ -37,7 +37,7 @@ class IoUTuner:
         df_predictions: pd.DataFrame,
         duplicates_csv_path: Optional[str] = None,
         merging_iou_range: Tuple[float, float] = (0.1, 0.9),
-        matching_iou_range: Tuple[float, float] = (0.3, 0.8),
+        matching_iou_range: Tuple[float, float] = (0.1, 0.7),
         conf_threshold_range: Tuple[float, float] = (0.0, 0.5),
         merging_methods: list[str] = ["nms", "nmm"],
         n_trials: int = 50,
@@ -316,7 +316,12 @@ class IoUTuner:
         )
         return metrics["f1"]
 
-    def run(self) -> Dict[str, Any]:
+    def run(
+        self,
+        run_name: str = "iou-tuner",
+        optuna_storage: str = "sqlite:///iou-tuner.db",
+        optuna_load_if_exists: bool = True,
+    ) -> Dict[str, Any]:
         """Run Optuna optimization and return best thresholds + metrics.
 
         Returns:
@@ -331,6 +336,9 @@ class IoUTuner:
         self.study = optuna.create_study(
             direction="maximize",
             sampler=optuna.samplers.TPESampler(seed=42),
+            load_if_exists=optuna_load_if_exists,
+            storage=optuna_storage,
+            study_name=run_name,
         )
 
         logger.info(f"Starting IoU threshold optimization with {self.n_trials} trials")
