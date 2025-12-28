@@ -7,7 +7,7 @@ import numpy as np
 import optuna
 import pandas as pd
 import supervision as sv
-from supervision.detection.utils.iou_and_nms import OverlapMetric, box_iou_batch
+from supervision.detection.utils.iou_and_nms import OverlapMetric
 from supervision.metrics.detection import ConfusionMatrix
 
 logger = logging.getLogger(__name__)
