@@ -34,3 +34,5 @@ def get_logger(name: str) -> logging.Logger:
         Configured logger
     """
     return logging.getLogger(name)
+
+setup_logging(level="INFO", log_file="wildtrain.log")

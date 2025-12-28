@@ -107,7 +107,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
                 overlap_metric=self.overlap_metrics[self.overlap_metric],
             )
         else:
-            raise ValueError(f"Invalid merging method: {merging_method}")
+            raise ValueError(f"Invalid merging method: {self.merging_method}")
 
 
     def predict(self, images: torch.Tensor) -> list[sv.Detections]:

@@ -38,7 +38,7 @@ def load_all_detection_datasets(
     all_datasets = path_manager.list_datasets()
     detection_datasets = []
 
-    logger.info(f"Loading datasets: {all_datasets}, split: {split}")
+    logger.info(f"Loading datasets from root data directory: {root_data_directory} for split: {split}")
     
     for dataset_name in all_datasets:
         # Check if split exists by checking for annotations file

@@ -7,10 +7,11 @@ detection models by evaluating on a validation dataset.
 
 import csv
 import json
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Optional, Generator, List
 import supervision as sv
+from supervision.metrics.detection import ConfusionMatrix
+
 import optuna
 
 from ..shared.sweeper import Sweeper

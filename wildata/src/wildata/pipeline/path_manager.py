@@ -187,6 +187,8 @@ class PathManager:
                     dataset_info_file = dataset_dir / "dataset_info.json"
                     if dataset_info_file.exists():
                         datasets.append(dataset_dir.name)
+        else:
+            raise ValueError(f"Data directory {self.data_dir} does not exist")
         return datasets
 
     def list_framework_datasets(self, framework: str) -> list:
