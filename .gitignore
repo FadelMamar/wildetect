@@ -40,7 +40,7 @@ runs/
 models-registry/
 /logs/
 *.prof
-
+results*
 .env
 *.db
 mlartifacts/

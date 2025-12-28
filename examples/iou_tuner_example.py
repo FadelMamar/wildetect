@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 # Path to your Label Studio JSON file - update this to your file
-LS_JSON_PATH = r"D:\workspace\repos\wildetect\project-200-at-2025-12-27-16-33-97d6912d.json"
+LS_JSON_PATH = r"project-200-at-2025-12-27-16-33-97d6912d.json"
 
 
 def load_from_labelstudio(json_path: str) -> pd.DataFrame:

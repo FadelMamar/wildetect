@@ -2,7 +2,7 @@
 # This config optimizes conf_thres, iou_thres, and matching parameters to maximize F1 score
 
 # Path to the base DetectionEvalConfig YAML file
-base_config: configs/detection/yolo_configs/yolo_eval.yaml
+base_config: wildtrain\configs\detection\yolo_configs\yolo_eval.yaml
 
 # Calibration experiment name
 calibration_name: "detection_calibration_f1"
