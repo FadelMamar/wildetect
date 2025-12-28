@@ -7,7 +7,8 @@ import numpy as np
 import optuna
 import pandas as pd
 import supervision as sv
-from supervision.detection.utils.iou_and_nms import box_iou_batch
+from supervision.detection.utils.iou_and_nms import OverlapMetric, box_iou_batch
+from supervision.metrics.detection import ConfusionMatrix
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,14 @@ class IoUTuner:
     def __init__(
         self,
         df_annotations: pd.DataFrame,
+        df_predictions: pd.DataFrame,
         duplicates_csv_path: Optional[str] = None,
         nms_iou_range: Tuple[float, float] = (0.1, 0.9),
         match_iou_range: Tuple[float, float] = (0.3, 0.8),
+        conf_threshold_range: Tuple[float, float] = (0.0, 0.5),
         n_trials: int = 50,
+        class_agnostic: bool = True,
+        background_classes: list[str] = ["background"],
     ):
         """Initialize IoU tuner.
 
@@ -49,13 +54,19 @@ class IoUTuner:
                 bounding box (result_id), duplicate (group ID)
             nms_iou_range: Range for NMS IoU threshold search (min, max)
             match_iou_range: Range for matching IoU threshold search (min, max)
+            conf_threshold_range: Range for confidence threshold search (min, max)
             n_trials: Number of Optuna trials
         """
-        self.df = df_annotations
         self.nms_iou_range = nms_iou_range
         self.match_iou_range = match_iou_range
+        self.conf_threshold_range = conf_threshold_range
         self.n_trials = n_trials
         self.study: Optional[optuna.Study] = None
+        self.class_agnostic = class_agnostic
+        self.background_classes = background_classes
+
+        if not self.class_agnostic:
+            raise NotImplementedError("Class-agnostic mode is supported for IoUTuner")
 
         # Validate required columns
         required_columns = [
@@ -73,8 +84,12 @@ class IoUTuner:
             raise ValueError(f"DataFrame missing required columns: {missing}")
 
         # Separate predictions and groundtruth based on source column
-        self.df_preds = df_annotations[df_annotations["source"] == "prediction"].copy()
-        self.df_gt = df_annotations[df_annotations["source"] == "annotation"].copy()
+        self.df_preds = df_predictions.copy()
+        self.df_gt = df_annotations.copy()
+        self.task_ids = self.get_task_ids()
+        self.labels = self.get_labels()
+        self.label_to_id = {label: i for i, label in enumerate(self.labels)}
+
         # drop nans
         self.df_preds = self.df_preds.dropna(
             subset=["x_pixel", "y_pixel", "width_pixel", "height_pixel"]
@@ -92,9 +107,30 @@ class IoUTuner:
         logger.info(
             f"IoUTuner initialized: {len(self.df_preds)} predictions, "
             f"{len(self.df_gt)} groundtruth boxes, "
-            f"{df_annotations['task_id'].nunique()} tasks, "
+            f"{len(self.task_ids)} tasks, "
             f"{len(self.duplicate_groups)} duplicate groups"
         )
+
+    def get_task_ids(self):
+        diff = set(self.df_preds["task_id"]).difference(set(self.df_gt["task_id"]))
+        if len(diff) > 0:
+            raise ValueError(
+                f"Task IDs do not match between predictions and groundtruth: {diff}"
+            )
+        return set(self.df_preds["task_id"]).union(set(self.df_gt["task_id"]))
+
+    def get_labels(self) -> list[str]:
+        labels = list(set(self.df_preds["label"]).union(set(self.df_gt["label"])))
+
+        if self.background_classes:
+            labels = [label for label in labels if label not in self.background_classes]
+
+        if self.class_agnostic:
+            labels = ["wildlife"]
+            self.df_preds["label"] = "wildlife"
+            self.df_gt["label"] = "wildlife"
+
+        return labels
 
     def _load_duplicates(self, csv_path: str) -> None:
         """Load duplicates CSV and build mapping.
@@ -141,11 +177,7 @@ class IoUTuner:
         )
 
         confidence = df["score"].fillna(1.0).values.astype(np.float32)
-
-        # Map labels to class IDs
-        unique_labels = df["label"].unique()
-        label_to_id = {label: i for i, label in enumerate(unique_labels)}
-        class_id = df["label"].map(label_to_id).values.astype(int)
+        class_id = df["label"].map(self.label_to_id).values.astype(int)
 
         return sv.Detections(
             xyxy=xyxy.astype(np.float32),
@@ -154,7 +186,10 @@ class IoUTuner:
         )
 
     def _compute_metrics(
-        self, nms_iou_threshold: float, match_iou_threshold: float
+        self,
+        nms_iou_threshold: float,
+        match_iou_threshold: float,
+        conf_threshold: float = 0.0,
     ) -> Dict[str, float]:
         """Compute precision, recall, F1 for given thresholds.
 
@@ -169,152 +204,44 @@ class IoUTuner:
         Returns:
             Dictionary with precision, recall, f1 metrics
         """
-        # Track matched predictions by their result_id
-        matched_result_ids: set = set()
-        all_pred_result_ids: set = set()
-        total_gt = 0
-        matched_gt_count = 0
 
-        for task_id in self.df["task_id"].unique():
+        preds = []
+        gts = []
+        for task_id in self.task_ids:
             # Get predictions and GT for this image
             preds_df = self.df_preds[self.df_preds["task_id"] == task_id]
             gt_df = self.df_gt[self.df_gt["task_id"] == task_id]
-
-            # Skip if no predictions or GT
-            if preds_df.empty:
-                total_gt += len(gt_df)
-                continue
-
-            # Track all prediction result_ids
-            result_ids = preds_df["result_id"].tolist()
-
             # Convert to sv.Detections
-            preds = self._df_to_detections(preds_df)
-            gt = self._df_to_detections(gt_df)
+            preds.append(self._df_to_detections(preds_df))
+            gts.append(self._df_to_detections(gt_df))
 
-            # Apply NMS on predictions, track which survive
-            if len(preds) > 0:
-                # Get indices that survive NMS
-                orig_len = len(preds)
-                preds = preds.with_nms(threshold=nms_iou_threshold)
-                # Note: NMS may reorder, but we track by result_id below
-
-            # For each surviving prediction, track its result_id
-            # Since NMS may filter, we use the filtered df
-            filtered_mask = np.zeros(len(preds_df), dtype=bool)
-            if len(preds) > 0:
-                # Match remaining xyxy back to original
-                for i in range(len(preds)):
-                    for j, (_, row) in enumerate(preds_df.iterrows()):
-                        orig_xyxy = [
-                            row["x_pixel"],
-                            row["y_pixel"],
-                            row["x_pixel"] + row["width_pixel"],
-                            row["y_pixel"] + row["height_pixel"],
-                        ]
-                        if np.allclose(preds.xyxy[i], orig_xyxy, atol=1e-3):
-                            filtered_mask[j] = True
-                            break
-
-            surviving_result_ids = [
-                rid for rid, mask in zip(result_ids, filtered_mask) if mask
-            ]
-            all_pred_result_ids.update(surviving_result_ids)
-
-            # Match predictions to GT
-            if len(gt) > 0:
-                total_gt += len(gt)
-                if len(preds) > 0:
-                    iou_matrix = box_iou_batch(preds.xyxy, gt.xyxy)
-                    matched_gt = set()
-                    for pred_idx in range(len(preds)):
-                        best_gt_idx = int(np.argmax(iou_matrix[pred_idx]))
-                        if iou_matrix[pred_idx, best_gt_idx] >= match_iou_threshold:
-                            if best_gt_idx not in matched_gt:
-                                matched_gt.add(best_gt_idx)
-                                # Mark this result_id as matched
-                                if pred_idx < len(surviving_result_ids):
-                                    matched_result_ids.add(
-                                        surviving_result_ids[pred_idx]
-                                    )
-                    matched_gt_count += len(matched_gt)
-
-        # Handle duplicate groups: collapse predictions in same group
-        # If any member of a duplicate group matched, count group as one TP
-        if self.duplicate_groups:
-            matched_groups = set()
-            non_dup_matched = set()
-
-            for result_id in matched_result_ids:
-                if result_id in self.duplicates_map:
-                    matched_groups.add(self.duplicates_map[result_id])
-                else:
-                    non_dup_matched.add(result_id)
-
-            # Count: matched non-duplicates + matched duplicate groups = TP
-            tp = len(non_dup_matched) + len(matched_groups)
-
-            # Count total predictions after collapsing duplicates
-            counted_groups = set()
-            non_dup_preds = set()
-            for result_id in all_pred_result_ids:
-                if result_id in self.duplicates_map:
-                    counted_groups.add(self.duplicates_map[result_id])
-                else:
-                    non_dup_preds.add(result_id)
-            total_preds = len(non_dup_preds) + len(counted_groups)
-
-            fp = total_preds - tp
-        else:
-            # No duplicates: simple counting
-            tp = len(matched_result_ids)
-            fp = len(all_pred_result_ids) - tp
-
-        fn = total_gt - matched_gt_count
-
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0
+        preds = [
+            pred.with_nms(
+                threshold=nms_iou_threshold,
+                class_agnostic=self.class_agnostic,
+                overlap_method=OverlapMetric.IOU,
+            )
+            for pred in preds
+        ]
+        confusion_matrix = ConfusionMatrix.from_detections(
+            predictions=preds,
+            targets=gts,
+            classes=self.labels,
+            iou_threshold=match_iou_threshold,
+            conf_threshold=conf_threshold,
         )
 
+        tp = confusion_matrix.matrix[0, 0]
+        fp = confusion_matrix.matrix[1, 0]
+        fn = confusion_matrix.matrix[0, 1]
+        tn = confusion_matrix.matrix[1, 1]
+
+        e = 1e-6
+        precision = tp / (tp + fp + e)
+        recall = tp / (tp + fn + e)
+        f1 = 2 * precision * recall / (precision + recall + e)
+
         return {"precision": precision, "recall": recall, "f1": f1}
-
-    def _match_detections(
-        self, preds: sv.Detections, gt: sv.Detections, match_threshold: float
-    ) -> Tuple[int, int, int]:
-        """Match predictions to GT using greedy IoU matching.
-
-        Args:
-            preds: Predicted detections
-            gt: Groundtruth detections
-            match_threshold: IoU threshold for a valid match
-
-        Returns:
-            Tuple of (true_positives, false_positives, false_negatives)
-        """
-        if len(gt) == 0:
-            return 0, len(preds), 0
-        if len(preds) == 0:
-            return 0, 0, len(gt)
-
-        iou_matrix = box_iou_batch(preds.xyxy, gt.xyxy)
-
-        # Greedy matching: for each prediction, find best matching GT
-        matched_gt = set()
-        tp = 0
-        for pred_idx in range(len(preds)):
-            best_gt_idx = int(np.argmax(iou_matrix[pred_idx]))
-            if iou_matrix[pred_idx, best_gt_idx] >= match_threshold:
-                if best_gt_idx not in matched_gt:
-                    tp += 1
-                    matched_gt.add(best_gt_idx)
-
-        fp = len(preds) - tp
-        fn = len(gt) - len(matched_gt)
-        return tp, fp, fn
 
     def __call__(self, trial: optuna.Trial) -> float:
         """Optuna objective function.
@@ -331,7 +258,14 @@ class IoUTuner:
         match_threshold = trial.suggest_float(
             "match_iou_threshold", self.match_iou_range[0], self.match_iou_range[1]
         )
-        metrics = self._compute_metrics(nms_threshold, match_threshold)
+        conf_threshold = trial.suggest_float(
+            "conf_threshold", self.conf_threshold_range[0], self.conf_threshold_range[1]
+        )
+        metrics = self._compute_metrics(
+            nms_iou_threshold=nms_threshold,
+            match_iou_threshold=match_threshold,
+            conf_threshold=conf_threshold,
+        )
         return metrics["f1"]
 
     def run(self) -> Dict[str, Any]:
@@ -356,7 +290,12 @@ class IoUTuner:
 
         best_nms = self.study.best_params["nms_iou_threshold"]
         best_match = self.study.best_params["match_iou_threshold"]
-        best_metrics = self._compute_metrics(best_nms, best_match)
+        best_conf = self.study.best_params["conf_threshold"]
+        best_metrics = self._compute_metrics(
+            nms_iou_threshold=best_nms,
+            match_iou_threshold=best_match,
+            conf_threshold=best_conf,
+        )
 
         logger.info("=" * 50)
         logger.info("IoU Tuning Complete!")
