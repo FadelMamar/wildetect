@@ -50,8 +50,6 @@ def main( n_trials: int = 50):
     print("\n" + "=" * 60)
     print(f"Running IoUTuner optimization ({n_trials} trials)")
     print("=" * 60)
-
-    #exit(1)
     
     tuner = IoUTuner(
         df_annotations=df[df['source'] == 'annotation'],
@@ -60,7 +58,8 @@ def main( n_trials: int = 50):
         merging_iou_range=(0., 1.),
         matching_iou_range=(0., 1.),
         n_trials=n_trials,
-        class_agnostic=True
+        class_agnostic=True,
+        overlap_metrics=["iou", "ios"]
     )
     
     result = tuner.run(run_name="iou-tuner-demo")
@@ -79,6 +78,5 @@ def main( n_trials: int = 50):
 
 
 if __name__ == "__main__":
-    # import fire
-    # fire.Fire(main)
-    main()
+    import fire
+    fire.Fire(main)
