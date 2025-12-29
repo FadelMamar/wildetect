@@ -84,6 +84,14 @@ class CalibrationConfig(BaseConfig):
         default=None,
         description="Output configuration (optional, uses defaults if not provided)"
     )
+    gt_preds_load_path: Optional[str] = Field(
+        default=None,
+        description="Path to load ground truth and predictions from"
+    )
+    save_gt_preds: bool = Field(
+        default=True,
+        description="Whether to save ground truth and predictions"
+    )
     
     @field_validator('calibration_name')
     @classmethod

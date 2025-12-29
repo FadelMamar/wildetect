@@ -60,6 +60,12 @@ parameters:
     - iou
     - ios
 
+# Path to load ground truth and predictions from
+gt_preds_load_path: results\calibrations\detection_calibration_f1\detection_calibration_f1_gt_preds.pkl
+
+# Whether to save ground truth and predictions
+save_gt_preds: true
+
 # Output configuration (optional)
 output:
   directory: results/calibrations/detection_calibration_f1
