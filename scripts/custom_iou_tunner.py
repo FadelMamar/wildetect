@@ -188,7 +188,7 @@ class LabelStudioDataLoader:
                                     results.append(row)
                             except Exception as e:
                                 logger.warning(
-                                    f"Failed to parse result {r.get('id')} in task {task_id}: {e}"
+                                    f"Failed to parse annotation result {r.get('id')} in task {task_id}: {e}"
                                 )
 
             # Process predictions
@@ -212,7 +212,7 @@ class LabelStudioDataLoader:
                                     results.append(row)
                             except Exception as e:
                                 logger.warning(
-                                    f"Failed to parse result {r.get('id')} in task {task_id}: {e}"
+                                    f"Failed to parse prediction result {r.get('id')} in task {task_id}: {e}"
                                 )
 
             return results
