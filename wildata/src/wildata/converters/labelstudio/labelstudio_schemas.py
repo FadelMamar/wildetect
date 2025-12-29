@@ -30,7 +30,7 @@ class ResultValue(BaseModel):
     width: float = Field(..., description="Width as percentage (0-100)")
     height: float = Field(..., description="Height as percentage (0-100)")
     rotation: float = Field(default=0.0, description="Rotation in degrees (clockwise)")
-    rectanglelabels: List[str] = Field(default_factory=list,le=1, description="Class labels")
+    rectanglelabels: List[str] = Field(default_factory=list, description="Class labels")
 
     def to_pixel_bbox(
         self, 
