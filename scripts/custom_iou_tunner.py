@@ -174,6 +174,11 @@ class LabelStudioDataLoader:
                 for ann in task.annotations:
                     if hasattr(ann, "result") and ann.result:
                         for r in ann.result:
+                            # Skip non-rectanglelabels or results missing required fields
+                            if r.get("type") != "rectanglelabels":
+                                continue
+                            if "original_width" not in r or "original_height" not in r:
+                                continue
                             try:
                                 parsed_result = Result.model_validate(r)
                                 # Include if bbox ID matches OR label matches species
@@ -191,6 +196,11 @@ class LabelStudioDataLoader:
                 for pred in task.predictions:
                     if hasattr(pred, "result") and pred.result:
                         for r in pred.result:
+                            # Skip non-rectanglelabels or results missing required fields
+                            if r.get("type") != "rectanglelabels":
+                                continue
+                            if "original_width" not in r or "original_height" not in r:
+                                continue
                             try:
                                 parsed_result = Result.model_validate(r)
                                 # Include if bbox ID matches OR label matches species
