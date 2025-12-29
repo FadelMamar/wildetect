@@ -14,12 +14,13 @@ import logging
 import os
 from dataclasses import dataclass
 from typing import Optional, Tuple
-
+from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
 from wildetect.core.visualization.labelstudio_manager import LabelStudioManager
 from wildetect.utils.iou_tuner import IoUTuner
+from wildata.converters.labelstudio.labelstudio_schemas import Result
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -96,7 +97,7 @@ class LabelStudioDataLoader:
         """Get set of valid bounding box IDs from CSV."""
         return set(self.df_csv["bounding box"].unique())
 
-    def _parse_result_to_row(self, result: "Result", task_id: int) -> dict:
+    def _parse_result_to_row(self, result: Result, task_id: int) -> dict:
         """Convert a Result object to a DataFrame row.
 
         Args:
@@ -146,7 +147,7 @@ class LabelStudioDataLoader:
         Returns:
             List of parsed Result rows matching valid_bbox_ids
         """
-        from wildata.converters.labelstudio.labelstudio_schemas import Result
+        
 
         try:
             task = self.ls_manager.get_task(task_id)
@@ -309,7 +310,7 @@ class LabelStudioDataLoader:
 
 
 def main(
-    csv_path: str = "animal duplicates.csv",
+    csv_path: str = "animal-duplicates.csv",
     base_url: str = "http://localhost:8080",
     n_trials: int = 50,
     class_agnostic: bool = True,
@@ -331,6 +332,9 @@ def main(
     # Load data from Label Studio
     loader = LabelStudioDataLoader(csv_path=csv_path, base_url=base_url)
     df_annotations, df_predictions = loader.to_dataframes()
+    stem = Path(csv_path).stem
+    df_annotations.to_csv(Path(csv_path).with_stem(stem + "_annotations"), index=False)
+    df_predictions.to_csv(Path(csv_path).with_stem(stem + "_predictions"), index=False)
 
     if df_annotations.empty or df_predictions.empty:
         logger.error("No data loaded. Check CSV and Label Studio connection.")
@@ -341,6 +345,8 @@ def main(
     print(f"  - Prediction rows: {len(df_predictions)}")
     print(f"  - Unique tasks (annotations): {df_annotations['task_id'].nunique()}")
     print(f"  - Unique tasks (predictions): {df_predictions['task_id'].nunique()}")
+
+    exit(1)
 
     print("\n" + "=" * 60)
     print(f"Running IoUTuner optimization ({n_trials} trials)")
