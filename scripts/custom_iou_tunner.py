@@ -97,7 +97,18 @@ class LabelStudioDataLoader:
         """Get set of valid bounding box IDs from CSV."""
         return set(self.df_csv["bounding box"].unique())
 
-    def _parse_result_to_row(self, result: Result, task_id: int) -> dict:
+    def get_task_species_map(self) -> dict:
+        """Get mapping of task_id to set of valid species labels (normalized)."""
+        task_species = {}
+        for _, row in self.df_csv.iterrows():
+            task_id = row["task_id"]
+            species = str(row["species"]).strip().lower()
+            if task_id not in task_species:
+                task_species[task_id] = set()
+            task_species[task_id].add(species)
+        return task_species
+
+    def _parse_result_to_row(self, result: "Result", task_id: int) -> dict:
         """Convert a Result object to a DataFrame row.
 
         Args:
@@ -137,15 +148,16 @@ class LabelStudioDataLoader:
         }
 
 
-    def fetch_task_data(self, task_id: int, valid_bbox_ids: set) -> list:
-        """Fetch task data from Label Studio and filter by valid bbox IDs.
+    def fetch_task_data(self, task_id: int, valid_bbox_ids: set, valid_species: set) -> list:
+        """Fetch task data from Label Studio and filter by valid bbox IDs or species.
 
         Args:
             task_id: Label Studio task ID
             valid_bbox_ids: Set of valid bbox IDs from CSV
+            valid_species: Set of valid species labels (normalized) for this task
 
         Returns:
-            List of parsed Result rows matching valid_bbox_ids
+            List of parsed Result rows matching valid_bbox_ids or valid_species
         """
         
 
@@ -162,34 +174,36 @@ class LabelStudioDataLoader:
                 for ann in task.annotations:
                     if hasattr(ann, "result") and ann.result:
                         for r in ann.result:
-                            # Only include results with IDs in the CSV
-                            if r.get("id") in valid_bbox_ids:
-                                try:
-                                    parsed_result = Result.model_validate(r)
+                            try:
+                                parsed_result = Result.model_validate(r)
+                                # Include if bbox ID matches OR label matches species
+                                result_label = (parsed_result.label or "").strip().lower()
+                                if r.get("id") in valid_bbox_ids or result_label in valid_species:
                                     row = self._parse_result_to_row(parsed_result, task_id)
                                     results.append(row)
-                                except Exception as e:
-                                    logger.warning(
-                                        f"Failed to parse result {r.get('id')} in task {task_id}: {e}"
-                                    )
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to parse result {r.get('id')} in task {task_id}: {e}"
+                                )
 
             # Process predictions
             if hasattr(task, "predictions") and task.predictions:
                 for pred in task.predictions:
                     if hasattr(pred, "result") and pred.result:
                         for r in pred.result:
-                            # Only include results with IDs in the CSV
-                            if r.get("id") in valid_bbox_ids:
-                                try:
-                                    parsed_result = Result.model_validate(r)
+                            try:
+                                parsed_result = Result.model_validate(r)
+                                # Include if bbox ID matches OR label matches species
+                                result_label = (parsed_result.label or "").strip().lower()
+                                if r.get("id") in valid_bbox_ids or result_label in valid_species:
                                     row = self._parse_result_to_row(parsed_result, task_id)
                                     # Override source for predictions
                                     row["origin"] = "prediction"
                                     results.append(row)
-                                except Exception as e:
-                                    logger.warning(
-                                        f"Failed to parse result {r.get('id')} in task {task_id}: {e}"
-                                    )
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to parse result {r.get('id')} in task {task_id}: {e}"
+                                )
 
             return results
 
@@ -252,6 +266,10 @@ class LabelStudioDataLoader:
         valid_bbox_ids = self.get_valid_bbox_ids()
         logger.info(f"Valid bbox IDs from CSV: {len(valid_bbox_ids)}")
 
+        # Build task to species mapping
+        task_species_map = self.get_task_species_map()
+        logger.info(f"Task species map built for {len(task_species_map)} tasks")
+
         # Get unique task IDs and fetch all task data upfront
         task_ids = self.get_unique_task_ids()
         logger.info(f"Fetching {len(task_ids)} tasks from Label Studio...")
@@ -259,7 +277,8 @@ class LabelStudioDataLoader:
         # Build results cache indexed by bbox_id
         results_cache = {}
         for task_id in tqdm(task_ids, desc="Fetching tasks"):
-            results = self.fetch_task_data(task_id, valid_bbox_ids)
+            valid_species = task_species_map.get(task_id, set())
+            results = self.fetch_task_data(task_id, valid_bbox_ids, valid_species)
             for row in results:
                 bbox_id = row.get("bbox_id")
                 if bbox_id:
