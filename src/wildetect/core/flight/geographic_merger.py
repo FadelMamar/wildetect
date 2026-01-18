@@ -35,7 +35,7 @@ class OverlapStrategy(ABC):
     def __init__(
         self,
     ):
-        self.stats = None
+        self.stats = dict()
 
     @abstractmethod
     def find_overlapping_images(
@@ -61,8 +61,13 @@ class GPSOverlapStrategy(OverlapStrategy):
         self,
     ):
         super().__init__()
+        self.stats = {
+                "avg_overlap_ratio": 0.0,
+                "max_overlap_ratio": 0.0,
+                "min_overlap_ratio": 0.0,
+        }
 
-    def _compute_iou(self, images: List[DroneImage]) -> np.ndarray:
+    def _compute_iou(self, images: List[DroneImage]) -> np.ndarray|None:
         """Compute Intersection over Union (IoU) between all pairs of image tiles.
         Args:
             images (List[Tile]): List of Tile objects.
@@ -70,12 +75,13 @@ class GPSOverlapStrategy(OverlapStrategy):
             np.ndarray: IoU matrix between all pairs of tiles.
         """
 
-        boxes = [img.geo_box for img in images]
+        boxes = [img.geo_box for img in images if img.geo_box is not None]
+        if len(boxes) == 0:
+            return None
         boxes = torch.tensor(boxes)
         box_ious = complete_intersection_over_union(
             preds=boxes, target=boxes, aggregate=False
         ).numpy()
-
         return box_ious
 
     def find_overlapping_images(
@@ -91,6 +97,8 @@ class GPSOverlapStrategy(OverlapStrategy):
         overlap_map = defaultdict(list)
         overlap_ratios = defaultdict(list)
         ious = self._compute_iou(images=images)
+        if ious is None:
+            return {}        
         for i, img1 in enumerate(tqdm(images, desc="Finding overlapping images")):
             for j, img2 in enumerate(images):
                 if i <= j:  # only consider above diagonal because it's symmetric
@@ -101,12 +109,10 @@ class GPSOverlapStrategy(OverlapStrategy):
 
         overlap_map = dict(overlap_map)
         overlap_ratios = dict(overlap_ratios)
-
         # compute stats
         self.stats = self.overlap_map_stats(overlap_map)
         overlap_ratios = self.overlap_ratio_stats(overlap_ratios)
         self.stats.update(overlap_ratios)
-
         return overlap_map
 
     def overlap_ratio_stats(
@@ -120,21 +126,17 @@ class GPSOverlapStrategy(OverlapStrategy):
         """
 
         ratios = []
-
         vals = list(overlap_ratios.values())
         vals = deepcopy(vals)
-
         for r in vals:
             values = [r.pop() for i in range(len(r)) if r[i] <= 0]
             ratios.extend(values)
-
         if len(ratios) == 0:
             return {
                 "avg_overlap_ratio": 0.0,
                 "max_overlap_ratio": 0.0,
                 "min_overlap_ratio": 0.0,
             }
-
         return {
             "avg_overlap_ratio": sum(ratios) / max(len(ratios), 1),
             "max_overlap_ratio": max(ratios),
@@ -541,13 +543,13 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
         stats["iou_statistics"] = all_iou_stats
 
         # Add geographic footprint statistics
-        stats["geographic_footprint_stats"] = self._get_geographic_footprint_stats(
+        stats["geographic_footprint_stats"] = self.get_geographic_footprint_stats(
             tiles
         )
 
         return stats
 
-    def _get_geographic_footprint_stats(
+    def get_geographic_footprint_stats(
         self, tiles: List[DroneImage]
     ) -> Dict[str, Any]:
         """Get statistics about geographic footprint availability across tiles.
@@ -666,15 +668,19 @@ class GeographicMerger:
         """Initialize the geographic merger."""
         self.overlap_strategy = GPSOverlapStrategy()
         self.duplicate_removal_strategy = CentroidProximityRemovalStrategy()
+    
+    def get_image_overlap_stats(self,):
+        return self.overlap_strategy.stats
 
     def find_overlapping_images(
-        self, drone_images: List[DroneImage]
+        self, drone_images: List[DroneImage], min_overlap_threshold: float = 0.0
     ) -> Dict[str, List[str]]:
         """Find overlapping images using the overlap strategy."""
-        return self.overlap_strategy.find_overlapping_images(drone_images)
+        return self.overlap_strategy.find_overlapping_images(drone_images,min_overlap_threshold=min_overlap_threshold)
+    
 
     def run(
-        self, drone_images: List[DroneImage], iou_threshold: float = 0.3
+        self, drone_images: List[DroneImage], iou_threshold: float = 0.3, min_overlap_threshold: float = 0.0
     ) -> List[DroneImage]:
         """Merge detections across overlapping geographic regions.
 
@@ -688,7 +694,7 @@ class GeographicMerger:
         logger.info(f"Merging detections from {len(drone_images)} drone images")
 
         # Validate geographic footprint availability
-        geo_stats = self.duplicate_removal_strategy._get_geographic_footprint_stats(
+        geo_stats = self.duplicate_removal_strategy.get_geographic_footprint_stats(
             drone_images
         )
         logger.info(f"Geographic footprint availability:")
@@ -706,7 +712,7 @@ class GeographicMerger:
             for tile_path in geo_stats["tiles_missing_gps_data"][:5]:  # Show first 5
                 logger.warning(f"  - {tile_path}")
 
-        overlap_map = self.overlap_strategy.find_overlapping_images(drone_images)
+        overlap_map = self.overlap_strategy.find_overlapping_images(drone_images,min_overlap_threshold=min_overlap_threshold)
 
         # Merge detections based on geographic proximity
         # The duplicate_removal_strategy modifies the drone_images in-place to remove duplicates

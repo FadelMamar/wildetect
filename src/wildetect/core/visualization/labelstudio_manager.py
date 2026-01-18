@@ -44,6 +44,7 @@ class LabelStudioManager:
         return self.client.projects.get(project_id)
 
     def get_task(self, task_id: int, as_sdk_task: bool = True):
+        assert isinstance(task_id, int), f"task_id must be an integer, got {task_id}"
         task = self.client.tasks.get(task_id)
         if as_sdk_task:
             return task

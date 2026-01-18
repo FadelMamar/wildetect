@@ -19,8 +19,13 @@ import pandas as pd
 from tqdm import tqdm
 
 from wildetect.core.visualization.labelstudio_manager import LabelStudioManager
+from wildetect.core.data import DroneImage
+from wildetect.core.config_models import FlightSpecs
+from wildetect.core.flight import GeographicMerger,CentroidProximityRemovalStrategy,GPSOverlapStrategy
 from wildetect.utils.iou_tuner import IoUTuner
-from wildata.converters.labelstudio.labelstudio_schemas import Result
+from wildata.converters.labelstudio.labelstudio_schemas import Result, Task
+
+import fire
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -73,10 +78,8 @@ class LabelStudioDataLoader:
 
         # Load and validate CSV
         self.df_csv = pd.read_csv(csv_path)
+        self.df_csv = self.df_csv.rename(columns={"image": "task_id","bounding box":"bbox_id"})
         self._validate_csv()
-
-        # Rename 'image' column to 'task_id' for IoUTuner compatibility
-        self.df_csv = self.df_csv.rename(columns={"image": "task_id"})
 
         logger.info(f"Loaded CSV with {len(self.df_csv)} rows")
         logger.info(f"Unique tasks: {self.df_csv['task_id'].nunique()}")
@@ -84,7 +87,7 @@ class LabelStudioDataLoader:
 
     def _validate_csv(self):
         """Validate required columns exist in CSV."""
-        required_columns = ["image", "bounding box", "species", "duplicate"]
+        required_columns = ["task_id", "bbox_id", "species", "duplicate"]
         missing = [col for col in required_columns if col not in self.df_csv.columns]
         if missing:
             raise ValueError(f"CSV missing required columns: {missing}")
@@ -94,8 +97,8 @@ class LabelStudioDataLoader:
         return self.df_csv["task_id"].unique().tolist()
 
     def get_valid_bbox_ids(self) -> set:
-        """Get set of valid bounding box IDs from CSV."""
-        return set(self.df_csv["bounding box"].unique())
+        """Get set of valid bbox_id IDs from CSV."""
+        return set(self.df_csv["bbox_id"].unique())
 
     def get_task_species_map(self) -> dict:
         """Get mapping of task_id to set of valid species labels (normalized)."""
@@ -108,7 +111,7 @@ class LabelStudioDataLoader:
             task_species[task_id].add(species)
         return task_species
 
-    def _parse_result_to_row(self, result: "Result", task_id: int) -> dict:
+    def _parse_result_to_row(self, result: Result, task_id: int) -> dict:
         """Convert a Result object to a DataFrame row.
 
         Args:
@@ -120,21 +123,8 @@ class LabelStudioDataLoader:
         """
         # Use the Result schema's built-in methods
         x_pixel, y_pixel, width_pixel, height_pixel = result.get_pixel_bbox()
-
-        # Determine source from origin field
-        if result.origin:
-            source = (
-                "prediction"
-                if result.origin in ["prediction", "prediction-changed"]
-                else "annotation"
-            )
-        else:
-            # Default to annotation if origin not specified
-            source = "annotation"
-
         # Get score - annotations default to 1.0
         score = result.score if result.score is not None else 1.0
-
         return {
             "task_id": task_id,
             "x_pixel": x_pixel,
@@ -143,12 +133,11 @@ class LabelStudioDataLoader:
             "height_pixel": height_pixel,
             "label": result.label or "unknown",
             "score": score,
-            "origin": source,
+            "origin": str(result.origin),
             "bbox_id": result.id,
         }
 
-
-    def fetch_task_data(self, task_id: int, valid_bbox_ids: set, valid_species: set) -> list:
+    def fetch_task_data(self, task_id: int, valid_bbox_ids: set, valid_species: set = set()) -> list:
         """Fetch task data from Label Studio and filter by valid bbox IDs or species.
 
         Args:
@@ -159,61 +148,22 @@ class LabelStudioDataLoader:
         Returns:
             List of parsed Result rows matching valid_bbox_ids or valid_species
         """
-        
 
         try:
-            task = self.ls_manager.get_task(task_id)
-            if task is None:
-                logger.warning(f"Task {task_id} not found")
-                return []
-
+            task: Task = self.ls_manager.get_task(task_id,as_sdk_task=False)
+            task = task.filter(valid_bbox_ids=valid_bbox_ids,valid_species=valid_species)
             results = []
-
-            # Process annotations
-            if hasattr(task, "annotations") and task.annotations:
-                for ann in task.annotations:
-                    if hasattr(ann, "result") and ann.result:
-                        for r in ann.result:
-                            # Skip non-rectanglelabels or results missing required fields
-                            if r.get("type") != "rectanglelabels":
-                                continue
-                            if "original_width" not in r or "original_height" not in r:
-                                continue
-                            try:
-                                parsed_result = Result.model_validate(r)
-                                # Include if bbox ID matches OR label matches species
-                                result_label = (parsed_result.label or "").strip().lower()
-                                if r.get("id") in valid_bbox_ids or result_label in valid_species:
-                                    row = self._parse_result_to_row(parsed_result, task_id)
-                                    results.append(row)
-                            except Exception as e:
-                                logger.warning(
-                                    f"Failed to parse annotation result {r.get('id')} in task {task_id}: {e}"
-                                )
-
-            # Process predictions
-            if hasattr(task, "predictions") and task.predictions:
-                for pred in task.predictions:
-                    if hasattr(pred, "result") and pred.result:
-                        for r in pred.result:
-                            # Skip non-rectanglelabels or results missing required fields
-                            if r.get("type") != "rectanglelabels":
-                                continue
-                            if "original_width" not in r or "original_height" not in r:
-                                continue
-                            try:
-                                parsed_result = Result.model_validate(r)
-                                # Include if bbox ID matches OR label matches species
-                                result_label = (parsed_result.label or "").strip().lower()
-                                if r.get("id") in valid_bbox_ids or result_label in valid_species:
-                                    row = self._parse_result_to_row(parsed_result, task_id)
-                                    # Override source for predictions
-                                    row["origin"] = "prediction"
-                                    results.append(row)
-                            except Exception as e:
-                                logger.warning(
-                                    f"Failed to parse prediction result {r.get('id')} in task {task_id}: {e}"
-                                )
+            task_image_path = task.image_path
+            for ann in task.annotations:
+                for r in ann.result:                   
+                    try:
+                        row = self._parse_result_to_row(r, task_id)
+                        row["image_path"] = task_image_path
+                        results.append(row)
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to parse annotation result {r.id} in task {task_id}: {e}"
+                        )
 
             return results
 
@@ -221,56 +171,11 @@ class LabelStudioDataLoader:
             logger.warning(f"Failed to fetch task {task_id}: {e}")
             return []
 
-
-    def _get_bbox_rows_for_duplicate_group(
-        self, group_df: pd.DataFrame, results_cache: dict
-    ) -> Tuple[list, list]:
-        """Process a duplicate group to create annotation and prediction rows.
-
-        For each duplicate group:
-        - First bounding box becomes the annotation (ground truth)
-        - All bounding boxes (including first) become predictions
-
-        Args:
-            group_df: DataFrame subset for one duplicate group
-            results_cache: Cache mapping bbox_id to parsed result row
+    def to_dataframe(self) -> pd.DataFrame:
+        """Fetch task data from Label Studio and return as DataFrame.
 
         Returns:
-            Tuple of (annotation_rows, prediction_rows)
-        """
-        annotation_rows = []
-        prediction_rows = []
-
-        # Get all bounding boxes for this group
-        bbox_ids = group_df["bounding box"].tolist()
-
-        if not bbox_ids:
-            return annotation_rows, prediction_rows
-
-        for idx, bbox_id in enumerate(bbox_ids):
-            # Look up the pre-parsed result by bbox_id
-            row = results_cache.get(bbox_id)
-            if not row:
-                logger.warning(f"Bbox {bbox_id} not found in results cache")
-                continue
-
-            # Make a copy to avoid modifying the cached row
-            row = row.copy()
-
-            # First bbox is annotation (ground truth), all are predictions
-            if idx == 0:
-                annotation_rows.append(row)
-
-            # All bboxes (including first) go into predictions
-            prediction_rows.append(row)
-
-        return annotation_rows, prediction_rows
-
-    def to_dataframes(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """Convert all duplicate groups to annotation and prediction DataFrames.
-
-        Returns:
-            Tuple of (df_annotations, df_predictions) with required columns for IoUTuner
+            DataFrame with bounding box data for all valid bbox IDs
         """
         # Get valid bbox IDs from CSV
         valid_bbox_ids = self.get_valid_bbox_ids()
@@ -287,8 +192,8 @@ class LabelStudioDataLoader:
         # Build results cache indexed by bbox_id
         results_cache = {}
         for task_id in tqdm(task_ids, desc="Fetching tasks"):
-            valid_species = task_species_map.get(task_id, set())
-            results = self.fetch_task_data(task_id, valid_bbox_ids, valid_species)
+            #valid_species = task_species_map.get(task_id, set())
+            results = self.fetch_task_data(task_id, valid_bbox_ids,)
             for row in results:
                 bbox_id = row.get("bbox_id")
                 if bbox_id:
@@ -296,23 +201,8 @@ class LabelStudioDataLoader:
 
         logger.info(f"Successfully fetched {len(results_cache)} matching results")
 
-        # Process each duplicate group
-        all_annotation_rows = []
-        all_prediction_rows = []
-
-        for dup_id, group_df in tqdm(
-            self.df_csv.groupby("duplicate"),
-            desc="Processing duplicate groups",
-        ):
-            ann_rows, pred_rows = self._get_bbox_rows_for_duplicate_group(
-                group_df, results_cache
-            )
-            all_annotation_rows.extend(ann_rows)
-            all_prediction_rows.extend(pred_rows)
-
-        # Create DataFrames
-        df_annotations = pd.DataFrame(all_annotation_rows)
-        df_predictions = pd.DataFrame(all_prediction_rows)
+        # Create DataFrame directly from cache values
+        df = pd.DataFrame(list(results_cache.values()))
 
         # Ensure required columns exist
         required_cols = [
@@ -324,19 +214,89 @@ class LabelStudioDataLoader:
             "origin",
             "score",
             "label",
+            "image_path",
         ]
 
         for col in required_cols:
-            if col not in df_annotations.columns:
-                df_annotations[col] = None
-            if col not in df_predictions.columns:
-                df_predictions[col] = None
+            if col not in df.columns:
+                df[col] = None
+        
+        df = df.merge(self.df_csv.drop('task_id', axis=1),on='bbox_id',how='outer')
 
-        logger.info(f"Created {len(df_annotations)} annotation rows")
-        logger.info(f"Created {len(df_predictions)} prediction rows")
+        logger.info(f"Created {len(df)} rows")
+        
+        return df
 
-        return df_annotations, df_predictions
 
+def load_detections(csv_path: str = "animal-duplicates.csv",
+    base_url: str = "http://localhost:8080",):
+
+    # Load data from Label Studio
+    loader = LabelStudioDataLoader(csv_path=csv_path, base_url=base_url)
+    df = loader.to_dataframe()
+    stem = Path(csv_path).stem
+    df.to_csv(Path(csv_path).with_stem(stem + "_detections"), index=False)
+
+    if df.empty:
+        logger.error("No data loaded. Check CSV and Label Studio connection.")
+        return
+
+    print(f"\nDataFrame summary:")
+    print(f"  - Rows: {len(df)}")
+    print(f"  - Unique tasks: {df['task_id'].nunique()}")
+
+
+def load_task_as_droneimage(task_id: int, base_url: str = "http://localhost:8080",):
+    """Load a task from Label Studio as a DroneImage object."""
+
+    ls_manager = LabelStudioManager(
+    url=base_url,
+    api_key='4f3c25bad9334596c5b2c3b270a2d3105c8b5d4a',
+    download_resources=False,
+    )
+
+    task = ls_manager.get_task(task_id,as_sdk_task=False)
+    flight_specs = FlightSpecs(sensor_height=24,focal_length=35,flight_height=180)
+    droneimage = DroneImage.from_ls_task(task,flight_specs=flight_specs)
+
+    print(droneimage)
+
+
+def load_remove_duplicates(csv_path: str = "animal-duplicates.csv",
+    base_url: str = "http://localhost:8080",):
+    """Load duplicates from CSV as DroneImage objects."""
+    
+    #loader = LabelStudioDataLoader(csv_path=csv_path, base_url=base_url)
+    #df = loader.to_dataframe()
+    df = pd.read_csv(csv_path).rename(columns={"image": "task_id","bounding box":"bbox_id"})
+    df['task_id'] = df['task_id'].apply(int)
+
+    ls_manager = LabelStudioManager(
+        url=base_url,
+        api_key='4f3c25bad9334596c5b2c3b270a2d3105c8b5d4a',
+        download_resources=False,
+    )
+    flight_specs = FlightSpecs(sensor_height=24,focal_length=35,flight_height=180)
+
+    merger = GeographicMerger()
+    
+    for group, df_group in df.groupby("duplicate"):
+        print(f"Group {group}: {len(df_group)} rows")
+        task_ids = set(df_group['task_id'])
+        print("Task ids: ",task_ids)
+
+        try:
+            images = []
+            for task_id in task_ids:
+                task = ls_manager.get_task(task_id,as_sdk_task=False)
+                task = task.filter(valid_bbox_ids=set(df_group['bbox_id'].unique()))
+                droneimage = DroneImage.from_ls_task(task,flight_specs=flight_specs)
+                images.append(droneimage)        
+            images = merger.run(images,iou_threshold=0.5,min_overlap_threshold=0.2)
+        except Exception as e:
+            print(e)     
+
+        break
 
 def main(
     csv_path: str = "animal-duplicates.csv",
@@ -360,26 +320,23 @@ def main(
 
     # Load data from Label Studio
     loader = LabelStudioDataLoader(csv_path=csv_path, base_url=base_url)
-    df_annotations, df_predictions = loader.to_dataframes()
+    df = loader.to_dataframe()
     stem = Path(csv_path).stem
-    df_annotations.to_csv(Path(csv_path).with_stem(stem + "_annotations"), index=False)
-    df_predictions.to_csv(Path(csv_path).with_stem(stem + "_predictions"), index=False)
+    df.to_csv(Path(csv_path).with_stem(stem + "_detections"), index=False)
 
-    if df_annotations.empty or df_predictions.empty:
+    if df.empty:
         logger.error("No data loaded. Check CSV and Label Studio connection.")
         return
 
     print(f"\nDataFrame summary:")
-    print(f"  - Annotation rows: {len(df_annotations)}")
-    print(f"  - Prediction rows: {len(df_predictions)}")
-    print(f"  - Unique tasks (annotations): {df_annotations['task_id'].nunique()}")
-    print(f"  - Unique tasks (predictions): {df_predictions['task_id'].nunique()}")
-
-    exit(1)
+    print(f"  - Rows: {len(df)}")
+    print(f"  - Unique tasks: {df['task_id'].nunique()}")
 
     print("\n" + "=" * 60)
     print(f"Running IoUTuner optimization ({n_trials} trials)")
     print("=" * 60)
+
+    exit(1)
 
     # Initialize and run IoUTuner
     tuner = IoUTuner(
@@ -405,6 +362,4 @@ def main(
 
 
 if __name__ == "__main__":
-    import fire
-
-    fire.Fire(main)
+    fire.Fire()

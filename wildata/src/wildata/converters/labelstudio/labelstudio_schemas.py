@@ -12,7 +12,7 @@ Label Studio coordinate system:
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, Set
 from urllib.parse import unquote
 from label_studio_tools.core.utils.io import get_local_path
 from enum import StrEnum
@@ -130,6 +130,9 @@ class ResultOrigin(StrEnum):
     PREDICTION = "prediction"
     PREDICTION_CHANGED = "prediction-changed"
 
+class ResultType(StrEnum):
+    RECTANGLELABELS = "rectanglelabels"
+
 class Result(BaseModel):
     """Single annotation result (one bounding box).
     
@@ -137,7 +140,7 @@ class Result(BaseModel):
     label, and metadata.
     """
     id: Optional[str] = Field(default=None, description="Unique result ID")
-    type: str = Field(..., description="Result type (e.g., 'rectanglelabels')")
+    type: ResultType = Field(..., description="Result type (e.g., 'rectanglelabels')")
     from_name: str = Field(..., description="Label control name in LS config")
     to_name: str = Field(..., description="Image control name in LS config")
     original_width: int = Field(..., description="Original image width in pixels")
@@ -345,6 +348,62 @@ class Task(BaseModel):
         for annotation in self.annotations:
             labels.update(annotation.get_labels())
         return list(labels)
+    
+    def filter(
+        self, 
+        valid_bbox_ids: Optional[Set[str]] = None, 
+        valid_species: Optional[Set[str]] = None
+    ) -> "Task":
+        """Filter task annotations based on provided result_ids or species labels.
+
+        Args:
+            valid_bbox_ids: Set of valid result IDs to keep.
+            valid_species: Set of valid species labels (normalized) to keep.
+
+        Returns:
+            A new Task object with filtered annotations.
+        """
+        valid_ids = valid_bbox_ids or set()
+        valid_labels = valid_species or set()
+        
+        # If no filters provided, return copy of self
+        if not valid_ids and not valid_labels:
+            return self.model_copy(deep=True)
+            
+        filtered_annotations = []
+        
+        for annotation in self.annotations:
+            filtered_results = []
+            for r in annotation.result:
+                if r.type != ResultType.RECTANGLELABELS:
+                    continue
+                    
+                should_include = False                
+                # Check ID
+                if r.id and r.id in valid_ids:
+                    should_include = True                
+                # Check Label (if not already included)
+                if not should_include and valid_labels:
+                    result_label = (r.label or "").strip().lower()
+                    if result_label in valid_labels:
+                        should_include = True
+                
+                if should_include:
+                    filtered_results.append(r)
+            
+            # If we have valid results, keep the annotation (with filtered results)
+            if filtered_results:
+                # Use model_dump to create dict, replace results, validate new Annotation
+                ann_dict = annotation.model_dump()
+                # Create dicts from filtered results
+                ann_dict["result"] = [r.model_dump() for r in filtered_results]
+                filtered_annotations.append(Annotation.model_validate(ann_dict))
+                
+        # Create new task with filtered annotations
+        task_dict = self.model_dump()
+        task_dict["annotations"] = [a.model_dump() for a in filtered_annotations]
+        
+        return Task.model_validate(task_dict)
     
     @classmethod
     def from_sdk_task(cls, sdk_task: "DataManagerTaskSerializer") -> "Task":
