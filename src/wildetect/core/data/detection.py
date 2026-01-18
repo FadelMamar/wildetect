@@ -335,17 +335,62 @@ class Detection:
         """
         det_objects = []
         for detection in detections:
-            for det in detection.result:
-                image_height = det["original_height"]
-                image_width = det["original_width"]
-                value = det["value"]
-                class_name = value["rectanglelabels"]  # size 1
-                x_min = value["x"] * image_width / 100
-                y_min = value["y"] * image_height / 100
-                w = value["width"] * image_width / 100
-                h = value["height"] * image_height / 100
+            # Handle both dictionary and object access for result
+            if isinstance(detection, dict):
+                results = detection.get("result", [])
+            else:
+                results = getattr(detection, "result", [])
 
-                assert len(class_name) == 1, "Error. Check out code or Labeling format."
+            for det in results:
+                # Helper to get value from dict or object
+                def get_val(obj, key, default=None):
+                    if isinstance(obj, dict):
+                        return obj.get(key, default)
+                    return getattr(obj, key, default)
+
+                # Helper to get required value from dict or object
+                def get_req_val(obj, key):
+                    if isinstance(obj, dict):
+                        return obj[key]
+                    return getattr(obj, key)
+
+                image_height = get_req_val(det, "original_height")
+                image_width = get_req_val(det, "original_width")
+                value = get_req_val(det, "value")
+                
+                class_name = get_req_val(value, "rectanglelabels")
+                if class_name is None and isinstance(value, dict): # Fallback for dict access if wrapper failed specific nested dict/obj case
+                     class_name = value.get("rectanglelabels")
+                
+                # If value is still a dict but det was an object, we might need to handle mixed types
+                # strict handling based on assuming value struct follows parent type
+                
+                if isinstance(value, dict):
+                     x_val = value["x"]
+                     y_val = value["y"]
+                     w_val = value["width"]
+                     h_val = value["height"]
+                     class_name = value.get("rectanglelabels")
+                else:
+                     x_val = getattr(value, "x")
+                     y_val = getattr(value, "y")
+                     w_val = getattr(value, "width")
+                     h_val = getattr(value, "height")
+                     class_name = getattr(value, "rectanglelabels")
+
+                x_min = x_val * image_width / 100
+                y_min = y_val * image_height / 100
+                w = w_val * image_width / 100
+                h = h_val * image_height / 100
+
+                # Ensure class_name is a list (Label Studio format)
+                if not isinstance(class_name, list):
+                     # If it's not a list, it might be a single string or None
+                     # But legacy code expected list: class_name = value["rectanglelabels"] # size 1
+                     # assert len(class_name) == 1
+                     pass
+
+                assert class_name and len(class_name) == 1, f"Error. Check out code or Labeling format. class_name: {class_name}"
                 assert (
                     int(x_min + w) <= image_width
                 ), "Error. Check out code or Labeling format."
@@ -361,15 +406,18 @@ class Detection:
                 ), f"Error. Check out code or Labeling format. ls_height: {image_height} != image_height: {height}"
 
                 class_name = class_name[0]
-                confidence = det.get("score", 1.0)
-                det = cls(
+                confidence = get_val(det, "score", 1.0)
+                if confidence is None:
+                    confidence = 1.0
+
+                det_obj = cls(
                     bbox=[int(x_min), int(y_min), int(x_min + w), int(y_min + h)],
                     class_id=0,
                     class_name=class_name,
-                    confidence=confidence,
+                    confidence=float(confidence),
                     parent_image=image_path,
                 )
-                det_objects.append(det)
+                det_objects.append(det_obj)
 
         # if empty, add empty detection
         if len(det_objects) == 0:

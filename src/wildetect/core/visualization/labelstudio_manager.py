@@ -6,6 +6,8 @@ from label_studio_sdk.client import LabelStudio
 from label_studio_tools.core.utils.io import get_local_path
 from tqdm import tqdm
 
+from wildata.converters.labelstudio.labelstudio_schemas import Task
+
 from ..data import Detection, DroneImage
 
 logger = logging.getLogger(__name__)
@@ -41,8 +43,11 @@ class LabelStudioManager:
     def get_project(self, project_id: int):
         return self.client.projects.get(project_id)
 
-    def get_task(self, task_id: int):
-        return self.client.tasks.get(task_id)
+    def get_task(self, task_id: int, as_sdk_task: bool = True):
+        task = self.client.tasks.get(task_id)
+        if as_sdk_task:
+            return task
+        return Task.from_sdk_task(task)
 
     def delete_project(self, project_id: int):
         return self.client.projects.delete(id=project_id)

@@ -345,6 +345,97 @@ class Task(BaseModel):
         for annotation in self.annotations:
             labels.update(annotation.get_labels())
         return list(labels)
+    
+    @classmethod
+    def from_sdk_task(cls, sdk_task: "DataManagerTaskSerializer") -> "Task":
+        """Convert a Label Studio SDK DataManagerTaskSerializer to a Task.
+        
+        This handles the type differences between the SDK's task representation
+        and this schema's Task model.
+        
+        Args:
+            sdk_task: DataManagerTaskSerializer from label_studio_sdk
+            
+        Returns:
+            Parsed Task object
+            
+        Raises:
+            ValueError: If required fields are missing
+        """
+        from label_studio_sdk.types import DataManagerTaskSerializer
+        
+        if sdk_task.id is None:
+            raise ValueError("Task ID is required")
+        
+        # Convert data dict to TaskData
+        data = TaskData(**sdk_task.data)
+        
+        # Convert annotations
+        annotations = []
+        if sdk_task.annotations:
+            for ann in sdk_task.annotations:
+                ann_dict = ann.model_dump() if hasattr(ann, 'model_dump') else dict(ann)
+                
+                # Extract completed_by user ID from dict if present
+                completed_by = ann_dict.get('completed_by')
+                if isinstance(completed_by, dict):
+                    ann_dict['completed_by'] = completed_by.get('id')
+                
+                # Ensure id is present (required in Annotation)
+                if ann_dict.get('id') is None:
+                    continue  # Skip annotations without ID
+                
+                # Parse result dicts into Result objects
+                result_list = []
+                raw_results = ann_dict.get('result') or []
+                for r in raw_results:
+                    try:
+                        result_list.append(Result(**r))
+                    except Exception:
+                        continue  # Skip malformed results
+                ann_dict['result'] = result_list
+                
+                try:
+                    annotations.append(Annotation(**ann_dict))
+                except Exception:
+                    continue  # Skip malformed annotations
+        
+        # Extract prediction IDs (SDK returns full objects)
+        prediction_ids = []
+        if sdk_task.predictions:
+            for pred in sdk_task.predictions:
+                pred_dict = pred.model_dump() if hasattr(pred, 'model_dump') else dict(pred)
+                if pred_dict.get('id') is not None:
+                    prediction_ids.append(pred_dict['id'])
+        
+        # Extract updated_by (SDK returns list of dicts, we want single int)
+        updated_by = None
+        if sdk_task.updated_by and len(sdk_task.updated_by) > 0:
+            first_user = sdk_task.updated_by[0]
+            if isinstance(first_user, dict):
+                updated_by = first_user.get('id')
+        
+        # Build the Task
+        return cls(
+            id=sdk_task.id,
+            data=data,
+            annotations=annotations,
+            drafts=list(sdk_task.drafts) if sdk_task.drafts else [],
+            predictions=prediction_ids,
+            meta=dict(sdk_task.meta) if sdk_task.meta else {},
+            created_at=sdk_task.created_at,
+            updated_at=sdk_task.updated_at,
+            inner_id=sdk_task.inner_id,
+            total_annotations=sdk_task.total_annotations or 0,
+            cancelled_annotations=sdk_task.cancelled_annotations or 0,
+            total_predictions=sdk_task.total_predictions or 0,
+            comment_count=sdk_task.comment_count or 0,
+            unresolved_comment_count=sdk_task.unresolved_comment_count or 0,
+            last_comment_updated_at=sdk_task.last_comment_updated_at,
+            project=sdk_task.project,
+            updated_by=updated_by,
+            comment_authors=list(sdk_task.comment_authors) if sdk_task.comment_authors else [],
+        )
 
 
 class LabelStudioExport(BaseModel):

@@ -484,3 +484,62 @@ class DroneImage(Tile):
             raise ValueError(
                 "Invalid input type. Please provide a valid Label Studio JSON path or project ID."
             )
+
+    @classmethod
+    def from_ls_task(
+        cls,
+        task_id: int,
+        flight_specs: FlightSpecs,
+        labelstudio_config: LabelStudioConfigModel,
+    ) -> "DroneImage":
+        """Create a DroneImage from a Label Studio task ID.
+        
+        Uses the Task schema from wildata to parse the Label Studio task
+        and extract annotations and predictions.
+        
+        Args:
+            task_id: Label Studio task ID to fetch
+            flight_specs: Flight specifications for the drone image
+            labelstudio_config: Label Studio configuration with url and api_key
+            
+        Returns:
+            DroneImage with annotations and predictions from the task
+        """
+        from wildata.converters.labelstudio.labelstudio_schemas import Task
+        from ..visualization.labelstudio_manager import LabelStudioManager
+
+        ls_client = LabelStudioManager(
+            url=labelstudio_config.url,
+            api_key=labelstudio_config.api_key,
+            download_resources=labelstudio_config.download_resources,
+        )
+        
+        # Fetch the task from Label Studio
+        sdk_task = ls_client.get_task(task_id)
+        
+        # Parse using wildata Task schema
+        task = Task.from_sdk_task(sdk_task)
+        
+        # Get image path from task data
+        image_path = task.image_path
+        
+        # Create DroneImage
+        drone_image = cls(image_path=image_path, flight_specs=flight_specs)
+        
+        # Extract annotations from the task
+        annotations = []
+        for annotation in task.annotations:
+            annotations.extend(
+                Detection.from_ls([annotation], image_path)
+            )
+        drone_image.set_annotations(annotations, update_gps=True)
+        
+        # Extract predictions from the task  
+        predictions = []
+        for prediction in task.predictions:
+            predictions.extend(
+                Detection.from_ls([prediction], image_path)
+            )
+        drone_image.set_predictions(predictions, update_gps=True)
+        
+        return drone_image
