@@ -33,6 +33,8 @@ class Detection:
     class_name: str
     metadata: Optional[Dict[str, Any]] = None
 
+    id: Optional[str] = None
+
     # Optional GPS fields
     geographic_footprint: Optional[GeographicBounds] = None
     gps_loc: Optional[str] = None
@@ -333,6 +335,19 @@ class Detection:
         Returns:
             list: List of Detection objects.
         """
+        # Helper to get value from dict or object
+        def get_val(obj, key, default=None):
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
+
+        # Helper to get required value from dict or object
+        def get_req_val(obj, key):
+            if isinstance(obj, dict):
+                return obj[key]
+            return getattr(obj, key)
+
+        
         det_objects = []
         for detection in detections:
             # Handle both dictionary and object access for result
@@ -342,41 +357,17 @@ class Detection:
                 results = getattr(detection, "result", [])
 
             for det in results:
-                # Helper to get value from dict or object
-                def get_val(obj, key, default=None):
-                    if isinstance(obj, dict):
-                        return obj.get(key, default)
-                    return getattr(obj, key, default)
-
-                # Helper to get required value from dict or object
-                def get_req_val(obj, key):
-                    if isinstance(obj, dict):
-                        return obj[key]
-                    return getattr(obj, key)
-
                 image_height = get_req_val(det, "original_height")
                 image_width = get_req_val(det, "original_width")
-                value = get_req_val(det, "value")
-                
+                id_ = get_req_val(det, "id")
+
+                value = get_req_val(det, "value")                
                 class_name = get_req_val(value, "rectanglelabels")
-                if class_name is None and isinstance(value, dict): # Fallback for dict access if wrapper failed specific nested dict/obj case
-                     class_name = value.get("rectanglelabels")
+                x_val = getattr(value, "x")
+                y_val = getattr(value, "y")
+                w_val = getattr(value, "width")
+                h_val = getattr(value, "height")
                 
-                # If value is still a dict but det was an object, we might need to handle mixed types
-                # strict handling based on assuming value struct follows parent type
-                
-                if isinstance(value, dict):
-                     x_val = value["x"]
-                     y_val = value["y"]
-                     w_val = value["width"]
-                     h_val = value["height"]
-                     class_name = value.get("rectanglelabels")
-                else:
-                     x_val = getattr(value, "x")
-                     y_val = getattr(value, "y")
-                     w_val = getattr(value, "width")
-                     h_val = getattr(value, "height")
-                     class_name = getattr(value, "rectanglelabels")
 
                 x_min = x_val * image_width / 100
                 y_min = y_val * image_height / 100
@@ -384,12 +375,6 @@ class Detection:
                 h = h_val * image_height / 100
 
                 # Ensure class_name is a list (Label Studio format)
-                if not isinstance(class_name, list):
-                     # If it's not a list, it might be a single string or None
-                     # But legacy code expected list: class_name = value["rectanglelabels"] # size 1
-                     # assert len(class_name) == 1
-                     pass
-
                 assert class_name and len(class_name) == 1, f"Error. Check out code or Labeling format. class_name: {class_name}"
                 assert (
                     int(x_min + w) <= image_width
@@ -416,6 +401,7 @@ class Detection:
                     class_name=class_name,
                     confidence=float(confidence),
                     parent_image=image_path,
+                    id=id_,
                 )
                 det_objects.append(det_obj)
 

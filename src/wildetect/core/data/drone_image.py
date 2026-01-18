@@ -12,6 +12,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 from wildata.converters import LabelstudioConverter
+from wildata.converters.labelstudio.labelstudio_schemas import Task
 
 from ..config import ROOT, FlightSpecs
 from ..config_models import LabelStudioConfigModel
@@ -19,7 +20,6 @@ from .detection import Detection
 from .tile import Tile
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class DroneImage(Tile):
@@ -488,9 +488,8 @@ class DroneImage(Tile):
     @classmethod
     def from_ls_task(
         cls,
-        task_id: int,
+        task: Task,
         flight_specs: FlightSpecs,
-        labelstudio_config: LabelStudioConfigModel,
     ) -> "DroneImage":
         """Create a DroneImage from a Label Studio task ID.
         
@@ -505,20 +504,6 @@ class DroneImage(Tile):
         Returns:
             DroneImage with annotations and predictions from the task
         """
-        from wildata.converters.labelstudio.labelstudio_schemas import Task
-        from ..visualization.labelstudio_manager import LabelStudioManager
-
-        ls_client = LabelStudioManager(
-            url=labelstudio_config.url,
-            api_key=labelstudio_config.api_key,
-            download_resources=labelstudio_config.download_resources,
-        )
-        
-        # Fetch the task from Label Studio
-        sdk_task = ls_client.get_task(task_id)
-        
-        # Parse using wildata Task schema
-        task = Task.from_sdk_task(sdk_task)
         
         # Get image path from task data
         image_path = task.image_path
