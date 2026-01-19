@@ -132,7 +132,7 @@ class TestGPSOverlapStrategy:
     def test_initialization(self):
         """Test GPSOverlapStrategy initialization."""
         assert self.strategy is not None
-        assert self.strategy.stats is None
+        assert isinstance(self.strategy.stats, dict)
 
     def test_compute_iou(self):
         """Test IoU computation between drone images."""
