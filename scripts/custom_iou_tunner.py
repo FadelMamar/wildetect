@@ -298,6 +298,64 @@ def load_remove_duplicates(csv_path: str = "animal-duplicates.csv",
 
         break
 
+
+def run_duplicate_tuner(
+    csv_path: str = "animal duplicates.csv",
+    base_url: str = "http://localhost:8080",
+    n_trials: int = 50,
+    iou_min: float = 0.1,
+    iou_max: float = 0.9,
+    overlap_min: float = 0.0,
+    overlap_max: float = 0.5,
+):
+    """Run hyperparameter tuning to optimize duplicate removal thresholds.
+    
+    Args:
+        csv_path: Path to CSV file with duplicate annotations
+        base_url: Label Studio server URL
+        n_trials: Number of Optuna optimization trials
+        iou_min: Minimum value for iou_threshold search range
+        iou_max: Maximum value for iou_threshold search range
+        overlap_min: Minimum value for min_overlap_threshold search range
+        overlap_max: Maximum value for min_overlap_threshold search range
+    """
+    from wildetect.utils.duplicate_removal_tuner import DuplicateRemovalTuner
+    
+    print("=" * 60)
+    print("Duplicate Removal Hyperparameter Tuning")
+    print("=" * 60)
+    
+    ls_manager = LabelStudioManager(
+        url=base_url,
+        api_key='4f3c25bad9334596c5b2c3b270a2d3105c8b5d4a',
+        download_resources=False,
+    )
+    flight_specs = FlightSpecs(sensor_height=24, focal_length=35, flight_height=180)
+    
+    tuner = DuplicateRemovalTuner(
+        csv_path=csv_path,
+        ls_manager=ls_manager,
+        flight_specs=flight_specs,
+        iou_threshold_range=(iou_min, iou_max),
+        min_overlap_threshold_range=(overlap_min, overlap_max),
+        n_trials=n_trials,
+    )
+    
+    result = tuner.run()
+    
+    print("\n" + "=" * 60)
+    print("OPTIMIZATION RESULTS")
+    print("=" * 60)
+    print(f"Best iou_threshold: {result['best_iou_threshold']:.4f}")
+    print(f"Best min_overlap_threshold: {result['best_min_overlap_threshold']:.4f}")
+    print(f"Best F1-score: {result['best_f1_score']:.4f}")
+    print(f"Precision: {result['best_precision']:.4f}")
+    print(f"Recall: {result['best_recall']:.4f}")
+    print("=" * 60)
+    
+    return result
+
+
 def main(
     csv_path: str = "animal-duplicates.csv",
     base_url: str = "http://localhost:8080",
