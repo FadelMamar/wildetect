@@ -348,9 +348,9 @@ def run_duplicate_tuner(
     print("=" * 60)
     print(f"Best iou_threshold: {result['best_iou_threshold']:.4f}")
     print(f"Best min_overlap_threshold: {result['best_min_overlap_threshold']:.4f}")
-    print(f"Best F1-score: {result['best_f1_score']:.4f}")
-    print(f"Precision: {result['best_precision']:.4f}")
-    print(f"Recall: {result['best_recall']:.4f}")
+    print(f"Best MAE: {result['best_mae']:.4f}")
+    print(f"Removal accuracy: {result['removal_accuracy']:.1%}")
+    print(f"Groups evaluated: {result['total_groups']}")
     print("=" * 60)
     
     return result

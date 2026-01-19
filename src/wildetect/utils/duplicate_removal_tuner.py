@@ -15,15 +15,19 @@ Usage:
 """
 
 import logging
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import numpy as np
 import optuna
 import pandas as pd
+from scipy.spatial.distance import cdist
 from tqdm import tqdm
 
 from wildetect.core.config import FlightSpecs
 from wildetect.core.data import DroneImage
+from wildetect.core.data.detection import Detection
 from wildetect.core.flight import GeographicMerger
 from wildetect.core.visualization.labelstudio_manager import LabelStudioManager
 
@@ -32,12 +36,112 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DuplicateGroup:
-    """Represents a group of duplicate detections."""
+    """Represents a group of duplicate detections with centroid distance analysis.
+
+    The detections in a group should represent the same animal appearing in
+    multiple overlapping images. Methods are provided to compute statistics
+    on how close the detection centroids are in UTM coordinates.
+    """
 
     group_id: int
     bbox_ids: Set[str]
     task_ids: Set[int]
     species: str
+    detections: List[Detection] = field(default_factory=list)
+
+    def add_detection(self, detection: Detection) -> None:
+        """Add a detection to this group."""
+        self.detections.append(detection)
+
+    def get_geo_centroids(self) -> List[Tuple[float, float]]:
+        """Get geographic centroids (UTM coordinates) for all detections.
+
+        Returns:
+            List of (easting, northing) tuples for each detection with a valid geo_box
+        """
+        centroids = []
+        for det in self.detections:
+            if det.geo_box is not None:
+                # geo_box is [west, south, east, north] in UTM
+                west, south, east, north = det.geo_box
+                centroid_easting = (east + west) / 2
+                centroid_northing = (north + south) / 2
+                centroids.append((centroid_easting, centroid_northing))
+        return centroids
+
+    def compute_pairwise_distances(self) -> List[float]:
+        """Compute pairwise Euclidean distances between detection centroids.
+
+        Uses scipy.spatial.distance.cdist for efficient vectorized computation.
+
+        Returns:
+            List of distances (in meters if using UTM) between all pairs of centroids
+        """
+
+        centroids = self.get_geo_centroids()
+        if len(centroids) < 2:
+            return []
+
+        # Convert to numpy array for cdist
+        centroids_array = np.array(centroids)
+
+        # Compute full distance matrix using Euclidean distance
+        distance_matrix = cdist(centroids_array, centroids_array, metric="euclidean")
+
+        # Extract upper triangle (excluding diagonal) to get unique pairwise distances
+        upper_triangle_indices = np.triu_indices(len(centroids), k=1)
+        distances = distance_matrix[upper_triangle_indices].tolist()
+
+        return distances
+
+    def get_distance_stats(self) -> Dict[str, float]:
+        """Compute statistics on centroid distances within this duplicate group.
+
+        Returns:
+            Dict with:
+                - mean_distance: Average pairwise distance (meters)
+                - max_distance: Maximum pairwise distance (meters)
+                - min_distance: Minimum pairwise distance (meters)
+                - std_distance: Standard deviation of distances
+                - num_detections: Number of detections with valid geo_box
+                - num_pairs: Number of pairwise comparisons
+        """
+        distances = self.compute_pairwise_distances()
+        centroids = self.get_geo_centroids()
+
+        if len(distances) == 0:
+            return {
+                "mean_distance": float("nan"),
+                "max_distance": float("nan"),
+                "min_distance": float("nan"),
+                "std_distance": float("nan"),
+                "num_detections": len(centroids),
+                "num_pairs": 0,
+            }
+
+        return {
+            "mean_distance": float(np.mean(distances)),
+            "max_distance": float(np.max(distances)),
+            "min_distance": float(np.min(distances)),
+            "std_distance": float(np.std(distances)),
+            "num_detections": len(centroids),
+            "num_pairs": len(distances),
+        }
+
+    def get_centroid_spread(self) -> float:
+        """Get the maximum spread (diameter) of centroids in meters.
+
+        This represents the largest distance between any two detections
+        in the group, useful for understanding how spread out the
+        "same animal" detections are across images.
+
+        Returns:
+            Maximum distance between any two centroids, or NaN if < 2 detections
+        """
+        distances = self.compute_pairwise_distances()
+        if len(distances) == 0:
+            return float("nan")
+        return float(np.max(distances))
 
 
 class DuplicateRemovalTuner:
@@ -198,45 +302,52 @@ class DuplicateRemovalTuner:
         iou_threshold: float,
         min_overlap_threshold: float,
     ) -> Dict[str, float]:
-        """Compute precision, recall, F1 for given thresholds.
+        """Compute MAE (Mean Absolute Error) for duplicate removal accuracy.
 
-        Metrics are computed based on duplicate removal accuracy:
-        - TP: Correctly identified and removed duplicates
-        - FP: Removed bboxes that shouldn't have been removed (over-merging)
-        - FN: Duplicates that should have been removed but weren't
+        For each duplicate group:
+        - Expected removals = N - 1 (where N = number of bboxes representing same animal)
+        - Actual removals = original_count - remaining_count after merging
+        - Error = |expected - actual|
+
+        MAE = average error across all groups (lower is better)
         """
+        errors = []
         total_expected = 0
         total_actual = 0
         total_original = 0
+        groups_evaluated = 0
 
         for group in self.duplicate_groups:
             result = self._evaluate_group(group, iou_threshold, min_overlap_threshold)
-            total_expected += result["expected_removals"]
-            total_actual += result["actual_removals"]
+
+            if result["original_count"] == 0:
+                continue
+
+            expected = result["expected_removals"]
+            actual = result["actual_removals"]
+            error = abs(expected - actual)
+            errors.append(error)
+
+            total_expected += expected
+            total_actual += actual
             total_original += result["original_count"]
+            groups_evaluated += 1
 
-        if total_expected == 0:
-            return {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+        if groups_evaluated == 0:
+            return {"mae": float("inf"), "total_groups": 0}
 
-        # TP: min of expected and actual (correctly removed duplicates)
-        # FP: actual - TP (over-removed, shouldn't have been removed)
-        # FN: expected - TP (under-removed, should have been removed)
-        tp = min(total_expected, total_actual)
-        fp = max(0, total_actual - total_expected)
-        fn = max(0, total_expected - total_actual)
+        mae = sum(errors) / groups_evaluated
 
-        e = 1e-6
-        precision = tp / (tp + fp + e)
-        recall = tp / (tp + fn + e)
-        f1 = 2 * precision * recall / (precision + recall + e)
+        # Also compute removal accuracy (percentage of expected removals achieved)
+        removal_accuracy = total_actual / max(total_expected, 1)
 
         return {
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
+            "mae": mae,
+            "removal_accuracy": removal_accuracy,
             "total_expected_removals": total_expected,
             "total_actual_removals": total_actual,
             "total_original_bboxes": total_original,
+            "total_groups": groups_evaluated,
         }
 
     def __call__(self, trial: optuna.Trial) -> float:
@@ -246,7 +357,7 @@ class DuplicateRemovalTuner:
             trial: Optuna trial object
 
         Returns:
-            F1-score for the suggested parameters
+            MAE (Mean Absolute Error) - lower is better
         """
         iou_threshold = trial.suggest_float(
             "iou_threshold",
@@ -262,10 +373,10 @@ class DuplicateRemovalTuner:
         metrics = self._compute_metrics(iou_threshold, min_overlap_threshold)
 
         # Log intermediate results
-        trial.set_user_attr("precision", metrics["precision"])
-        trial.set_user_attr("recall", metrics["recall"])
+        trial.set_user_attr("removal_accuracy", metrics["removal_accuracy"])
+        trial.set_user_attr("total_groups", metrics["total_groups"])
 
-        return metrics["f1"]
+        return metrics["mae"]
 
     def run(
         self,
@@ -279,13 +390,12 @@ class DuplicateRemovalTuner:
             Dictionary containing:
                 - best_iou_threshold: Optimal detection-level IoU threshold
                 - best_min_overlap_threshold: Optimal image-level overlap threshold
-                - best_f1_score: F1-score at optimal thresholds
-                - best_precision: Precision at optimal thresholds
-                - best_recall: Recall at optimal thresholds
+                - best_mae: MAE at optimal thresholds (lower is better)
+                - removal_accuracy: Percentage of expected removals achieved
                 - study: Optuna study object for further analysis
         """
         self.study = optuna.create_study(
-            direction="maximize",
+            direction="minimize",  # MAE should be minimized
             sampler=optuna.samplers.TPESampler(seed=42),
             load_if_exists=optuna_load_if_exists,
             storage=optuna_storage,
@@ -294,7 +404,7 @@ class DuplicateRemovalTuner:
 
         logger.info(
             f"Starting duplicate removal threshold optimization "
-            f"with {self.n_trials} trials"
+            f"with {self.n_trials} trials (minimizing MAE)"
         )
         self.study.optimize(self, n_trials=self.n_trials, show_progress_bar=True)
 
@@ -306,18 +416,18 @@ class DuplicateRemovalTuner:
         logger.info("Duplicate Removal Tuning Complete!")
         logger.info(f"Best iou_threshold: {best_iou:.3f}")
         logger.info(f"Best min_overlap_threshold: {best_overlap:.3f}")
-        logger.info(f"Best F1-score: {best_metrics['f1']:.3f}")
-        logger.info(f"Precision: {best_metrics['precision']:.3f}")
-        logger.info(f"Recall: {best_metrics['recall']:.3f}")
+        logger.info(f"Best MAE: {best_metrics['mae']:.3f}")
+        logger.info(f"Removal accuracy: {best_metrics['removal_accuracy']:.1%}")
+        logger.info(f"Groups evaluated: {best_metrics['total_groups']}")
         logger.info("=" * 60)
 
         return {
             "best_iou_threshold": best_iou,
             "best_min_overlap_threshold": best_overlap,
-            "best_f1_score": best_metrics["f1"],
-            "best_precision": best_metrics["precision"],
-            "best_recall": best_metrics["recall"],
+            "best_mae": best_metrics["mae"],
+            "removal_accuracy": best_metrics["removal_accuracy"],
             "total_expected_removals": best_metrics["total_expected_removals"],
             "total_actual_removals": best_metrics["total_actual_removals"],
+            "total_groups": best_metrics["total_groups"],
             "study": self.study,
         }
