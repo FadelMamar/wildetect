@@ -6,7 +6,6 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -62,12 +61,12 @@ class GPSOverlapStrategy(OverlapStrategy):
     ):
         super().__init__()
         self.stats = {
-                "avg_overlap_ratio": 0.0,
-                "max_overlap_ratio": 0.0,
-                "min_overlap_ratio": 0.0,
+            "avg_overlap_ratio": 0.0,
+            "max_overlap_ratio": 0.0,
+            "min_overlap_ratio": 0.0,
         }
 
-    def _compute_iou(self, images: List[DroneImage]) -> np.ndarray|None:
+    def _compute_iou(self, images: List[DroneImage]) -> np.ndarray | None:
         """Compute Intersection over Union (IoU) between all pairs of image tiles.
         Args:
             images (List[Tile]): List of Tile objects.
@@ -98,7 +97,7 @@ class GPSOverlapStrategy(OverlapStrategy):
         overlap_ratios = defaultdict(list)
         ious = self._compute_iou(images=images)
         if ious is None:
-            return {}        
+            return {}
         for i, img1 in enumerate(tqdm(images, desc="Finding overlapping images")):
             for j, img2 in enumerate(images):
                 if i <= j:  # only consider above diagonal because it's symmetric
@@ -110,60 +109,54 @@ class GPSOverlapStrategy(OverlapStrategy):
         overlap_map = dict(overlap_map)
         overlap_ratios = dict(overlap_ratios)
         # compute stats
-        self.stats = self.overlap_map_stats(overlap_map)
-        overlap_ratios = self.overlap_ratio_stats(overlap_ratios)
-        self.stats.update(overlap_ratios)
+        self.stats = self.overlap_map_stats(overlap_map, overlap_ratios)
         return overlap_map
 
-    def overlap_ratio_stats(
-        self, overlap_ratios: Dict[str, List[float]]
+    def overlap_map_stats(
+        self, overlap_map: Dict[str, List[str]], overlap_ratios: Dict[str, List[float]]
     ) -> Dict[str, Any]:
-        """Compute statistics on the overlap ratios.
-        Args:
-            overlap_ratios (Dict[str, List[float]]): Map of image IDs to their overlapping neighbor image IDs.
-        Returns:
-            Dict[str, Any]: Statistics including number of images, average, max, min neighbors, and neighbor counts list.
-        """
-
-        ratios = []
-        vals = list(overlap_ratios.values())
-        vals = deepcopy(vals)
-        for r in vals:
-            values = [r.pop() for i in range(len(r)) if r[i] <= 0]
-            ratios.extend(values)
-        if len(ratios) == 0:
-            return {
-                "avg_overlap_ratio": 0.0,
-                "max_overlap_ratio": 0.0,
-                "min_overlap_ratio": 0.0,
-            }
-        return {
-            "avg_overlap_ratio": sum(ratios) / max(len(ratios), 1),
-            "max_overlap_ratio": max(ratios),
-            "min_overlap_ratio": min(ratios),
-        }
-
-    def overlap_map_stats(self, overlap_map: dict) -> dict:
-        """Compute statistics on the overlap_map.
+        """Compute statistics on the overlap map and overlap ratios.
         Args:
             overlap_map (dict): Map of image IDs to their overlapping neighbor image IDs.
+            overlap_ratios (Dict[str, List[float]]): Map of image IDs to their overlap IoU values.
         Returns:
-            dict: Statistics including number of images, average, max, min neighbors, and neighbor counts list.
+            dict: Statistics including number of images, neighbor counts, and overlap ratios.
         """
+        # Compute neighbor statistics
         num_images = len(overlap_map)
         neighbor_counts = [len(neighs) for neighs in overlap_map.values()]
         if neighbor_counts:
-            avg_neighbors = sum(neighbor_counts) / max(len(neighbor_counts), 1)
+            avg_neighbors = sum(neighbor_counts) / len(neighbor_counts)
         else:
             avg_neighbors = 0.0
         max_neighbors = max(neighbor_counts) if neighbor_counts else 0
         min_neighbors = min(neighbor_counts) if neighbor_counts else 0
+
+        # Compute overlap ratio statistics using NumPy vectorization
+        vals = list(overlap_ratios.values())
+        if vals:
+            all_ratios = np.concatenate(vals)
+            positive_ratios = all_ratios[all_ratios > 0]
+        else:
+            positive_ratios = np.array([])
+
+        if len(positive_ratios) > 0:
+            avg_overlap_ratio = float(np.mean(positive_ratios))
+            max_overlap_ratio = float(np.max(positive_ratios))
+            min_overlap_ratio = float(np.min(positive_ratios))
+        else:
+            avg_overlap_ratio = 0.0
+            max_overlap_ratio = 0.0
+            min_overlap_ratio = 0.0
+
         return {
             "num_images": num_images,
             "avg_neighbors": avg_neighbors,
             "max_neighbors": max_neighbors,
             "min_neighbors": min_neighbors,
-            # 'neighbor_counts': neighbor_counts,
+            "avg_overlap_ratio": avg_overlap_ratio,
+            "max_overlap_ratio": max_overlap_ratio,
+            "min_overlap_ratio": min_overlap_ratio,
         }
 
 
@@ -197,7 +190,7 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
     def __init__(
         self,
     ):
-        pass
+        self.invalid_iou = -999.0
 
     def _compute_iou(
         self, detections_1: List[Detection], detections_2: List[Detection]
@@ -215,7 +208,7 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
             i for i, det in enumerate(detections_1) if det.geo_box is None
         ]
         missing_geo_boxes_2 = [
-            det for i, det in enumerate(detections_2) if det.geo_box is None
+            i for i, det in enumerate(detections_2) if det.geo_box is None
         ]
 
         if missing_geo_boxes_1:
@@ -228,7 +221,7 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
             )
 
         # Initialize IoU matrix with -1 (invalid)
-        ious = np.full((len(detections_1), len(detections_2)), -1.0)
+        ious = np.full((len(detections_1), len(detections_2)), self.invalid_iou)
 
         # Get valid detections with geo_boxes
         valid_detections_1 = [
@@ -263,31 +256,6 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
 
         return ious
 
-    def _ensure_geographic_footprints(self, tile: DroneImage) -> None:
-        """Ensure all detections in a tile have geographic footprints.
-        If geo_box is missing, compute it from image coordinates using GPSDetectionService.
-        """
-        assert isinstance(tile, DroneImage), "tile must be a DroneImage"
-
-        # Skip geographic footprint validation for test cases where tiles don't have GPS data
-        if tile.geographic_footprint is None:
-            logger.warning(
-                f"Tile {tile.image_path} missing geographic footprint - skipping validation"
-            )
-            return
-
-        count = 0
-        for det in tile.get_non_empty_predictions():
-            if det.geographic_footprint is None:
-                count += 1
-        if count > 0:
-            logger.warning(
-                f"Tile {tile.image_path} has {count} detections missing geographic footprints"
-            )
-
-        # tile._set_geographic_footprint()
-        # tile.update_detection_gps()
-
     def _prune_duplicates_between_tiles(
         self, tile1: DroneImage, tile2: DroneImage, iou_threshold: float = 0.8
     ) -> Tuple[Dict[Tuple[str, str], List[Detection]], Dict[str, Any]]:
@@ -308,6 +276,10 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
             "total_ious_computed": 0,
         }
 
+        # Cache predictions to avoid repeated calls
+        dets1 = tile1.get_non_empty_predictions()
+        dets2 = tile2.get_non_empty_predictions()
+
         # Validate that tiles have GPS data for geographic footprint computation
         if tile1.geographic_footprint is None:
             logger.warning(
@@ -318,17 +290,9 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
                 f"Tile2 {tile2.image_path} missing GPS data required for geographic footprint computation"
             )
 
-        # Ensure all detections have geographic footprints before computing IoU
-        self._ensure_geographic_footprints(tile1)
-        self._ensure_geographic_footprints(tile2)
-
         # Check how many detections still lack geographic footprints
-        missing_geo_1 = [
-            det for det in tile1.get_non_empty_predictions() if det.geo_box is None
-        ]
-        missing_geo_2 = [
-            det for det in tile2.get_non_empty_predictions() if det.geo_box is None
-        ]
+        missing_geo_1 = [det for det in dets1 if det.geo_box is None]
+        missing_geo_2 = [det for det in dets2 if det.geo_box is None]
 
         if missing_geo_1:
             logger.warning(
@@ -339,43 +303,30 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
                 f"Tile2 {tile2.image_path} has {len(missing_geo_2)} detections without geographic footprints"
             )
 
-        if (
-            len(tile1.get_non_empty_predictions()) == 0
-            or len(tile2.get_non_empty_predictions()) == 0
-        ):
+        if len(dets1) == 0 or len(dets2) == 0:
             return (
                 {
-                    (
-                        str(tile1.image_path),
-                        str(tile2.image_path),
-                    ): tile1.get_non_empty_predictions(),
-                    (
-                        str(tile2.image_path),
-                        str(tile1.image_path),
-                    ): tile2.get_non_empty_predictions(),
+                    (str(tile1.image_path), str(tile2.image_path)): dets1,
+                    (str(tile2.image_path), str(tile1.image_path)): dets2,
                 },
                 iou_stats,
             )
 
-        ious = self._compute_iou(
-            tile1.get_non_empty_predictions(), tile2.get_non_empty_predictions()
-        )  # shape [N1, N2]
-        keep1 = np.ones(len(tile1.get_non_empty_predictions()), dtype=bool)
-        keep2 = np.ones(len(tile2.get_non_empty_predictions()), dtype=bool)
+        ious = self._compute_iou(dets1, dets2)  # shape [N1, N2]
+        keep1 = np.ones(len(dets1), dtype=bool)
+        keep2 = np.ones(len(dets2), dtype=bool)
 
         # Update IoU statistics
         iou_stats["iou_matrix_shape"] = ious.shape
         iou_stats["total_ious_computed"] = ious.size
-
         if ious.size > 0:
-            valid_ious = ious[ious > -1]  # Exclude invalid (-1) values
+            valid_ious = ious[ious != self.invalid_iou]  # Exclude invalid values
             if len(valid_ious) > 0:
                 iou_stats["iou_range"]["min"] = float(valid_ious.min())
                 iou_stats["iou_range"]["max"] = float(valid_ious.max())
                 iou_stats["iou_range"]["mean"] = float(valid_ious.mean())
                 above_threshold = valid_ious[valid_ious > iou_threshold]
                 iou_stats["above_threshold_count"] = len(above_threshold)
-
                 # Log IoU matrix summary for debugging
                 logger.debug(f"IoU matrix shape: {ious.shape}")
                 logger.debug(
@@ -386,39 +337,34 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
                     f"Detections above IoU threshold ({iou_threshold}): {len(above_threshold)}"
                 )
 
-        # Only compare predictions of the same class
-        for i, det1 in enumerate(tile1.get_non_empty_predictions()):
-            for j, det2 in enumerate(tile2.get_non_empty_predictions()):
+        dets1 = tile1.get_non_empty_predictions()
+        dets2 = tile2.get_non_empty_predictions()
+
+        # Filter out predictions of different classes
+        for i, det1 in enumerate(dets1):
+            for j, det2 in enumerate(dets2):
                 if det1.class_name != det2.class_name:
-                    ious[i, j] = -1  # Mark as invalid
+                    ious[i, j] = self.invalid_iou
                     logger.debug(
                         f"det1.class_name: {det1.class_name}, det2.class_name: {det2.class_name}"
                     )
-
-        logger.info(f"ious : {ious.round(2).tolist()}")
-
-        # print("tile1.get_non_empty_predictions", tile1.get_non_empty_predictions)
-        # print("tile2.get_non_empty_predictions", tile2.get_non_empty_predictions)
+        logger.debug(f"ious : {ious.round(2).tolist()}")
         idxs1, idxs2 = np.where(ious > iou_threshold)
         for i, j in zip(idxs1, idxs2):
-            det1 = tile1.get_non_empty_predictions()[i]
-            det2 = tile2.get_non_empty_predictions()[j]
+            det1 = dets1[i]
+            det2 = dets2[j]
             current_iou = ious[i, j]
-
             if det1.is_empty or det2.is_empty:
                 logger.debug(f"Skipping empty detection: {det1} or {det2}")
                 keep1[i] = False
                 keep2[j] = False
                 continue
-
             # Only process if both are still marked to keep
             if not (keep1[i] and keep2[j]):
                 continue
-
             logger.debug(
                 f"det1.class_name: {det1.class_name}, det2.class_name: {det2.class_name}"
             )
-
             # Collect IoU data for this duplicate pair
             duplicate_pair_data = {
                 "iou": float(current_iou),
@@ -442,40 +388,36 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
             )
 
             if det1.distance_to_centroid == det2.distance_to_centroid:
-                logger.info(
+                logger.debug(
                     f"Keeping det2 (same centroid distance), removing det1 - IoU: {current_iou:.3f}"
                 )
                 keep1[i] = False
                 duplicate_pair_data["det2_kept"] = True
             elif det1.distance_to_centroid < det2.distance_to_centroid:
-                logger.info(
+                logger.debug(
                     f"Keeping det1 (closer to centroid), removing det2 - IoU: {current_iou:.3f}"
                 )
                 keep2[j] = False
                 duplicate_pair_data["det1_kept"] = True
             else:
-                logger.info(
-                    f"Keeping det2 (further from centroid), removing det1 - IoU: {current_iou:.3f}"
+                logger.debug(
+                    f"Keeping det2 (closer to centroid), removing det1 - IoU: {current_iou:.3f}"
                 )
                 keep1[i] = False
                 duplicate_pair_data["det2_kept"] = True
 
             iou_stats["duplicate_pairs"].append(duplicate_pair_data)
 
-        pruned_detections_stats_1 = [
-            det for i, det in enumerate(tile1.get_non_empty_predictions()) if keep1[i]
-        ]
-        pruned_detections_stats_2 = [
-            det for j, det in enumerate(tile2.get_non_empty_predictions()) if keep2[j]
-        ]
+        pruned_detections_stats_1 = [det for i, det in enumerate(dets1) if keep1[i]]
+        pruned_detections_stats_2 = [det for j, det in enumerate(dets2) if keep2[j]]
 
         # Log summary of what was kept
-        original_count_1 = len(tile1.get_non_empty_predictions())
-        original_count_2 = len(tile2.get_non_empty_predictions())
+        original_count_1 = len(dets1)
+        original_count_2 = len(dets2)
         kept_count_1 = len(pruned_detections_stats_1)
         kept_count_2 = len(pruned_detections_stats_2)
 
-        logger.info(
+        logger.debug(
             f"Tile pruning summary - "
             f"Tile1: {kept_count_1}/{original_count_1} detections kept, "
             f"Tile2: {kept_count_2}/{original_count_2} detections kept"
@@ -487,9 +429,6 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
                 f"Tile1 removed: {original_count_1 - kept_count_1}, "
                 f"Tile2 removed: {original_count_2 - kept_count_2}"
             )
-
-        # print("pruned_detections_stats_1", pruned_detections_stats_1)
-        # print("pruned_detections_stats_2", pruned_detections_stats_2)
 
         tile1.set_predictions(pruned_detections_stats_1, update_gps=False)
         tile2.set_predictions(pruned_detections_stats_2, update_gps=False)
@@ -543,15 +482,11 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
         stats["iou_statistics"] = all_iou_stats
 
         # Add geographic footprint statistics
-        stats["geographic_footprint_stats"] = self.get_geographic_footprint_stats(
-            tiles
-        )
+        stats["geographic_footprint_stats"] = self.get_geographic_footprint_stats(tiles)
 
         return stats
 
-    def get_geographic_footprint_stats(
-        self, tiles: List[DroneImage]
-    ) -> Dict[str, Any]:
+    def get_geographic_footprint_stats(self, tiles: List[DroneImage]) -> Dict[str, Any]:
         """Get statistics about geographic footprint availability across tiles.
 
         Args:
@@ -620,7 +555,6 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
         }
 
         total_removed = 0
-        confidence_improvements = []
         class_stats = defaultdict(list)
 
         for (img1, img2), detections in pruned_detections.items():
@@ -668,19 +602,25 @@ class GeographicMerger:
         """Initialize the geographic merger."""
         self.overlap_strategy = GPSOverlapStrategy()
         self.duplicate_removal_strategy = CentroidProximityRemovalStrategy()
-    
-    def get_image_overlap_stats(self,):
+
+    def get_image_overlap_stats(
+        self,
+    ):
         return self.overlap_strategy.stats
 
     def find_overlapping_images(
         self, drone_images: List[DroneImage], min_overlap_threshold: float = 0.0
     ) -> Dict[str, List[str]]:
         """Find overlapping images using the overlap strategy."""
-        return self.overlap_strategy.find_overlapping_images(drone_images,min_overlap_threshold=min_overlap_threshold)
-    
+        return self.overlap_strategy.find_overlapping_images(
+            drone_images, min_overlap_threshold=min_overlap_threshold
+        )
 
     def run(
-        self, drone_images: List[DroneImage], iou_threshold: float = 0.3, min_overlap_threshold: float = 0.0
+        self,
+        drone_images: List[DroneImage],
+        iou_threshold: float = 0.3,
+        min_overlap_threshold: float = 0.0,
     ) -> List[DroneImage]:
         """Merge detections across overlapping geographic regions.
 
@@ -712,7 +652,9 @@ class GeographicMerger:
             for tile_path in geo_stats["tiles_missing_gps_data"][:5]:  # Show first 5
                 logger.warning(f"  - {tile_path}")
 
-        overlap_map = self.overlap_strategy.find_overlapping_images(drone_images,min_overlap_threshold=min_overlap_threshold)
+        overlap_map = self.overlap_strategy.find_overlapping_images(
+            drone_images, min_overlap_threshold=min_overlap_threshold
+        )
 
         # Merge detections based on geographic proximity
         # The duplicate_removal_strategy modifies the drone_images in-place to remove duplicates
