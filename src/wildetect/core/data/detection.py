@@ -335,6 +335,7 @@ class Detection:
         Returns:
             list: List of Detection objects.
         """
+
         # Helper to get value from dict or object
         def get_val(obj, key, default=None):
             if isinstance(obj, dict):
@@ -347,7 +348,6 @@ class Detection:
                 return obj[key]
             return getattr(obj, key)
 
-        
         det_objects = []
         for detection in detections:
             # Handle both dictionary and object access for result
@@ -361,13 +361,12 @@ class Detection:
                 image_width = get_req_val(det, "original_width")
                 id_ = get_req_val(det, "id")
 
-                value = get_req_val(det, "value")                
+                value = get_req_val(det, "value")
                 class_name = get_req_val(value, "rectanglelabels")
                 x_val = getattr(value, "x")
                 y_val = getattr(value, "y")
                 w_val = getattr(value, "width")
                 h_val = getattr(value, "height")
-                
 
                 x_min = x_val * image_width / 100
                 y_min = y_val * image_height / 100
@@ -375,13 +374,15 @@ class Detection:
                 h = h_val * image_height / 100
 
                 # Ensure class_name is a list (Label Studio format)
-                assert class_name and len(class_name) == 1, f"Error. Check out code or Labeling format. class_name: {class_name}"
+                assert (
+                    class_name and len(class_name) == 1
+                ), f"Error. Check out code or Labeling format. class_name: {class_name}"
                 assert (
                     int(x_min + w) <= image_width
-                ), "Error. Check out code or Labeling format."
+                ), f"Error. Check out code or Labeling format. x_min: {x_min} + w: {w} = {x_min + w} > image_width: {image_width}"
                 assert (
                     int(y_min + h) <= image_height
-                ), "Error. Check out code or Labeling format."
+                ), f"Error. Check out code or Labeling format. y_min: {y_min} + h: {h} = {y_min + h} > image_height: {image_height}"
                 width, height = get_image_dimensions(image_path)
                 assert (
                     image_width == width
