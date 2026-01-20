@@ -510,6 +510,7 @@ class DroneImage(Tile):
         
         # Create DroneImage
         drone_image = cls(image_path=image_path, flight_specs=flight_specs)
+        update_gps = drone_image.tile_gps_loc is not None
         
         # Extract annotations from the task
         annotations = []
@@ -517,7 +518,7 @@ class DroneImage(Tile):
             annotations.extend(
                 Detection.from_ls([annotation], image_path)
             )
-        drone_image.set_annotations(annotations, update_gps=True)
+        drone_image.set_annotations(annotations, update_gps=update_gps)
         
         # Extract predictions from the task  
         predictions = []
@@ -525,6 +526,6 @@ class DroneImage(Tile):
             predictions.extend(
                 Detection.from_ls([prediction], image_path)
             )
-        drone_image.set_predictions(predictions, update_gps=True)
+        drone_image.set_predictions(predictions, update_gps=update_gps)
         
         return drone_image

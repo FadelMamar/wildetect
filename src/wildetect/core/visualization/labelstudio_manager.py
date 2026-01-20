@@ -1,5 +1,6 @@
+from __future__ import annotations
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 from urllib.parse import unquote
 
 from label_studio_sdk.client import LabelStudio
@@ -8,7 +9,8 @@ from tqdm import tqdm
 
 from wildata.converters.labelstudio.labelstudio_schemas import Task
 
-from ..data import Detection, DroneImage
+if TYPE_CHECKING:
+    from ..data import Detection, DroneImage
 
 logger = logging.getLogger(__name__)
 

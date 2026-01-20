@@ -1,23 +1,26 @@
 """
 Geographic bounds visualization for drone images using Folium maps.
 
+
 This module provides functionality to visualize the geographic footprints
 of DroneImage instances on interactive maps, including overlap analysis
 and coverage statistics.
 """
 
+from __future__ import annotations
 import logging
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import folium
 import numpy as np
 
-from ..data.detection import Detection
-from ..data.drone_image import DroneImage
-from ..flight.geographic_merger import GPSOverlapStrategy
+if TYPE_CHECKING:
+    from ..data.detection import Detection
+    from ..data.drone_image import DroneImage
+    from ..flight.geographic_merger import GPSOverlapStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +63,7 @@ class GeographicVisualizer:
             config: Configuration for visualization settings
         """
         self.config = config or VisualizationConfig()
+        from ..flight.geographic_merger import GPSOverlapStrategy
         self.overlap_strategy = GPSOverlapStrategy()
 
     def _extract_geographic_data(

@@ -14,10 +14,12 @@ Usage:
     >>> print(f"Best IoU threshold: {result['best_iou_threshold']}")
 """
 
+from __future__ import annotations
+
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 import numpy as np
 import optuna
@@ -26,10 +28,12 @@ from scipy.spatial.distance import cdist
 from tqdm import tqdm
 
 from wildetect.core.config import FlightSpecs
-from wildetect.core.data import DroneImage
-from wildetect.core.data.detection import Detection
-from wildetect.core.flight import GeographicMerger
 from wildetect.core.visualization.labelstudio_manager import LabelStudioManager
+
+if TYPE_CHECKING:
+    from wildetect.core.data import DroneImage
+    from wildetect.core.data.detection import Detection
+    from wildetect.core.flight import GeographicMerger
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +52,9 @@ class DuplicateGroup:
     task_ids: Set[int]
     species: str
     detections: List[Detection] = field(default_factory=list)
+
+    def __post_init__(self):
+        self.task_ids = set(map(int, self.task_ids))
 
     def add_detection(self, detection: Detection) -> None:
         """Add a detection to this group."""
@@ -230,6 +237,7 @@ class DuplicateRemovalTuner:
         Returns:
             Tuple of (list of DroneImages, original bbox count)
         """
+        from wildetect.core.data import DroneImage
         images = []
         original_bbox_count = 0
 
@@ -244,7 +252,18 @@ class DuplicateRemovalTuner:
                 drone_image = DroneImage.from_ls_task(
                     filtered_task, flight_specs=self.flight_specs
                 )
-                original_bbox_count += len(drone_image.get_non_empty_predictions())
+                # Skip if no GPS location
+                if drone_image.tile_gps_loc is None:
+                    continue
+                logger.debug(f"Loaded DroneImage for task {task_id}")
+
+                num_bboxes = len(drone_image.get_non_empty_annotations())
+                # Skip if no bboxes
+                if num_bboxes == 0:
+                    continue
+                logger.debug(f"Loaded {num_bboxes} bboxes for task {task_id}")
+
+                original_bbox_count += num_bboxes
                 images.append(drone_image)
             except Exception as e:
                 logger.warning(f"Failed to create DroneImage for task {task_id}: {e}")
@@ -265,10 +284,14 @@ class DuplicateRemovalTuner:
         Returns:
             Dict with 'expected_removals', 'actual_removals', 'original_count'
         """
+        from wildetect.core.flight import GeographicMerger
+
         images, original_count = self._load_group_images(group)
 
         if len(images) < 2 or original_count == 0:
             return {"expected_removals": 0, "actual_removals": 0, "original_count": 0}
+        
+        logger.debug(f"Evaluating group {group.group_id} with {len(images)} images")
 
         # Run the merger
         merger = GeographicMerger()
@@ -321,6 +344,9 @@ class DuplicateRemovalTuner:
             result = self._evaluate_group(group, iou_threshold, min_overlap_threshold)
 
             if result["original_count"] == 0:
+                logger.debug(
+                    f"Group {group.group_id} has no original bboxes, skipping"
+                )
                 continue
 
             expected = result["expected_removals"]
@@ -334,7 +360,14 @@ class DuplicateRemovalTuner:
             groups_evaluated += 1
 
         if groups_evaluated == 0:
-            return {"mae": float("inf"), "total_groups": 0}
+            return {
+                "mae": np.inf,
+                "removal_accuracy": 0.0,
+                "total_expected_removals": 0,
+                "total_actual_removals": 0,
+                "total_original_bboxes": 0,
+                "total_groups": 0,
+            }
 
         mae = sum(errors) / groups_evaluated
 

@@ -1,15 +1,17 @@
 """
 FiftyOne integration for WildDetect.
 
+
 This module handles dataset creation, visualization, and annotation collection
 using FiftyOne for wildlife detection datasets.
 """
 
+from __future__ import annotations
 import json
 import logging
 import os
 import traceback
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 import fiftyone as fo
 import fiftyone.brain as fob
@@ -17,7 +19,9 @@ import fiftyone.utils.geojson as fogeojson
 from fiftyone import ViewField as F
 
 from ..config import ROOT
-from ..data.drone_image import DroneImage
+
+if TYPE_CHECKING:
+    from ..data.drone_image import DroneImage
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +138,7 @@ class FiftyOneManager:
         self._ensure_dataset_initialized()
 
         assert isinstance(drone_images, list), "drone_images must be a list"
+        from ..data.drone_image import DroneImage
         for drone_image in drone_images:
             assert isinstance(
                 drone_image, DroneImage
