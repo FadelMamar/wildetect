@@ -300,7 +300,7 @@ def load_remove_duplicates(csv_path: str = "animal-duplicates.csv",
 
 
 def run_duplicate_tuner(
-    csv_path: str = "animal duplicates.csv",
+    csv_path: str = "animal-duplicates.csv",
     base_url: str = "http://localhost:8080",
     n_trials: int = 50,
     iou_min: float = 0.1,
@@ -341,6 +341,8 @@ def run_duplicate_tuner(
         n_trials=n_trials,
     )
     
+    #exit(1)
+
     result = tuner.run()
     
     print("\n" + "=" * 60)
@@ -353,7 +355,7 @@ def run_duplicate_tuner(
     print(f"Groups evaluated: {result['total_groups']}")
     print("=" * 60)
     
-    return result
+    #return result
 
 
 def main(

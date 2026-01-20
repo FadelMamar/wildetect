@@ -2,18 +2,18 @@
 
 # Path to the trained YOLO weights file
 weights:
-  localizer: models/best.pt
-  classifier: D:/workspace/repos/wildtrain/checkpoints/classification/unified_classifier/best.ckpt
+  localizer: D:\PhD\workspace\wildetect\models\labeler\9\artifacts\best.pt
+  classifier: D:\PhD\workspace\wildetect\checkpoints\classification\base_dinov2\best-v6.ckpt
 
 dataset:
   data_cfg: null
   load_as_single_class: true
-  root_data_directory: D:/workspace/data/demo-dataset
+  root_data_directory: D:\PhD\workspace\data
   force_merge: true
   keep_classes: null # either keep_classes or discard_classes must be provided, not both
   discard_classes: ["rocks","vegetation","item","other","termite mound","label","detection","background"]
 
-device: "cpu"  # Device to run the evaluation on (cuda/cpu)
+device: "cuda"  # Device to run the evaluation on (cuda/cpu)
 
 metrics:
   average: macro # weighted, macro, micro
@@ -27,7 +27,7 @@ eval:
   iou: 0.5
   single_cls: true   # Treat dataset as single-class
   half: false
-  batch_size: 8       # Batch size for DataLoader
+  batch_size: 32       # Batch size for DataLoader
   num_workers: 0       # Number of DataLoader workers (0 for Windows compatibility)
   rect: false          # Use rectangular batches
   stride: 32           # Model stride

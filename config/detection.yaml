@@ -9,7 +9,7 @@ model:
 
 # list of image paths
 image_paths: 
- - D:\PhD\Data per camp\Orthos\Dry season orthos\ortho_k_1_4_5_rep_1.tif
+ - D:\PhD\Data per camp\Orthos\Dry season orthos\ortho_l_29_32_rep_3.tif
 
 # or image directory path
 image_dir: null
@@ -67,7 +67,7 @@ profiling:
 
 # Output Configuration
 output:
-  directory: "results-raster"
+  directory: D:\PhD\Data per camp\Orthos\Dry season orthos
   dataset_name: null  # if null, fiftyone dataset upload is disabled
 
 # Logging Configuration
