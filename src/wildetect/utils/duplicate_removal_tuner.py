@@ -252,6 +252,8 @@ class DuplicateRemovalTuner:
                 drone_image = DroneImage.from_ls_task(
                     filtered_task, flight_specs=self.flight_specs
                 )
+                # Set predictions to annotations for duplicate removal tuning
+                drone_image.predictions = drone_image.annotations 
                 # Skip if no GPS location
                 if drone_image.tile_gps_loc is None:
                     continue
