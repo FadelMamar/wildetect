@@ -302,7 +302,7 @@ def load_remove_duplicates(csv_path: str = "animal-duplicates.csv",
 def run_duplicate_tuner(
     csv_path: str = "animal-duplicates.csv",
     base_url: str = "http://localhost:8080",
-    n_trials: int = 50,
+    n_trials: int = 150,
     iou_min: float = 0.1,
     iou_max: float = 0.9,
     overlap_min: float = 0.0,
