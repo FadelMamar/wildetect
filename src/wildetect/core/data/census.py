@@ -121,7 +121,7 @@ class CensusDataManager:
 
     def create_drone_images(
         self,
-        gps_coords_loader:Optional[Callable[[str], Tuple[float, float, float]]] = None,
+        gps_coords_loader: Optional[Callable[[str], Tuple[float, float, float]]] = None,
     ) -> None:
         """Create DroneImage instances from the loaded image paths.
 
@@ -197,14 +197,18 @@ class CensusDataManager:
 
         return self.flight_efficiency
 
-    def merge_detections_geographically(self, iou_threshold: float = 0.8) -> None:
+    def merge_detections_geographically(
+        self, iou_threshold: float = 0.2, min_overlap_threshold: float = 0.0
+    ) -> None:
         """Merge detections across overlapping geographic regions."""
         if not self.drone_images:
             logger.warning("No drone images available for geographic merging")
             return None
 
         merged_drone_images = self.geographic_merger.run(
-            self.drone_images, iou_threshold=iou_threshold
+            self.drone_images,
+            iou_threshold=iou_threshold,
+            min_overlap_threshold=min_overlap_threshold,
         )
         self.drone_images = merged_drone_images
         return None

@@ -60,12 +60,16 @@ def detect(
         pred_config = loaded_config.to_prediction_config()
         loader_config = loaded_config.to_loader_config()
 
-
         # Set output directory
         output_dir = Path(loaded_config.output.directory)
         dataset_name = loaded_config.output.dataset_name
 
-        assert (image_paths is not None) ^ (image_dir is not None) ^ (loaded_config.labelstudio.project_id is not None) ^ (loaded_config.exif_gps_update.image_folder is not None), "Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided"
+        assert (
+            (image_paths is not None)
+            ^ (image_dir is not None)
+            ^ (loaded_config.labelstudio.project_id is not None)
+            ^ (loaded_config.exif_gps_update.image_folder is not None)
+        ), "Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided"
 
         # load image paths from label studio
         image_paths_task_ids = dict()
@@ -226,11 +230,19 @@ def census(
             image_paths = get_images_paths(loaded_config.detection.image_dir)
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
 
-        check = (image_paths is not None) + (loaded_config.detection.labelstudio.project_id is not None) + (loaded_config.detection.exif_gps_update.image_folder is not None)
+        check = (
+            (image_paths is not None)
+            + (loaded_config.detection.labelstudio.project_id is not None)
+            + (loaded_config.detection.exif_gps_update.image_folder is not None)
+        )
 
-        if check!=1:
-            console.print(f"[red]Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided[/red]")
-            console.print(f"[red]image_paths {loaded_config.detection.image_paths}, image_dir {loaded_config.detection.image_dir}, labelstudio.project_id {loaded_config.detection.labelstudio.project_id}, exif_gps_update.image_folder {loaded_config.detection.exif_gps_update.image_folder}[/red]")
+        if check != 1:
+            console.print(
+                f"[red]Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided[/red]"
+            )
+            console.print(
+                f"[red]image_paths {loaded_config.detection.image_paths}, image_dir {loaded_config.detection.image_dir}, labelstudio.project_id {loaded_config.detection.labelstudio.project_id}, exif_gps_update.image_folder {loaded_config.detection.exif_gps_update.image_folder}[/red]"
+            )
             raise typer.Exit(1)
 
         image_paths_task_ids = dict()
@@ -302,6 +314,8 @@ def census(
             loader_config=loader_config,
             prediction_config=pred_config,
             metadata=campaign_metadata,
+            detection_merging_iou_threshold=loaded_config.detection.merging_iou_threshold,
+            detection_merging_min_overlap_threshold=loaded_config.detection.merging_min_overlap_threshold,
             fiftyone_dataset_name=f"campaign_{campaign_id}",
             labelstudio_url=loaded_config.detection.labelstudio.url
             or os.getenv("LABEL_STUDIO_URL"),
@@ -337,7 +351,8 @@ def census(
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
                     export_to_labelstudio=loaded_config.detection.labelstudio.project_id
-                    is None and loaded_config.export.export_to_labelstudio,
+                    is None
+                    and loaded_config.export.export_to_labelstudio,
                 )
             else:
                 results = campaign_manager.run_complete_campaign(
@@ -345,7 +360,8 @@ def census(
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
                     export_to_labelstudio=loaded_config.detection.labelstudio.project_id
-                    is None and loaded_config.export.export_to_labelstudio,
+                    is None
+                    and loaded_config.export.export_to_labelstudio,
                 )
 
         # Display results
