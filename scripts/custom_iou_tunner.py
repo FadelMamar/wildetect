@@ -324,6 +324,7 @@ def load_remove_duplicates(csv_path: str = "animal-duplicates.csv",
 def run_duplicate_tuner(
     csv_path: str = "animal-duplicates.csv",
     base_url: str = "http://localhost:8080",
+    verbose: bool = False,
     n_trials: int = 150,
     iou_min: float = -1.0,
     iou_max: float = 0.9,
@@ -332,6 +333,9 @@ def run_duplicate_tuner(
     sensor_height:int=24, 
     focal_length:int=35, 
     flight_height:int=180,
+    run_name: str = "duplicate-tuner",
+    optuna_storage: str = "sqlite:///duplicate-tuner.db",
+    optuna_load_if_exists: bool = True,
 ):
     """Run hyperparameter tuning to optimize duplicate removal thresholds.
     
@@ -364,9 +368,12 @@ def run_duplicate_tuner(
         iou_threshold_range=(iou_min, iou_max),
         min_overlap_threshold_range=(overlap_min, overlap_max),
         n_trials=n_trials,
+        verbose=verbose,
     )
-
-    result = tuner.run()
+    result = tuner.run(optuna_load_if_exists=optuna_load_if_exists,
+                        run_name=run_name,
+                        optuna_storage=optuna_storage
+                    )
     
     print("\n" + "=" * 60)
     print("OPTIMIZATION RESULTS")

@@ -170,6 +170,7 @@ class DuplicateRemovalTuner:
         iou_threshold_range: Tuple[float, float] = (-1.0, 1.0),
         min_overlap_threshold_range: Tuple[float, float] = (0.0, 0.1),
         n_trials: int = 50,
+        verbose: bool = False,
     ):
         """Initialize the duplicate removal tuner.
 
@@ -189,7 +190,7 @@ class DuplicateRemovalTuner:
         self.min_overlap_threshold_range = min_overlap_threshold_range
         self.n_trials = n_trials
         self.study: Optional[optuna.Study] = None
-
+        self.verbose = verbose
         # Load and parse CSV
         self.df = pd.read_csv(csv_path).rename(
             columns={"image": "task_id", "bounding box": "bbox_id"}
@@ -296,7 +297,7 @@ class DuplicateRemovalTuner:
         logger.debug(f"Evaluating group {group.group_id} with {len(images)} images")
 
         # Run the merger
-        merger = GeographicMerger()
+        merger = GeographicMerger(verbose=self.verbose)
         try:
             merged_images = merger.run(
                 images,
