@@ -16,8 +16,8 @@ detection:
   # or image directory path
   image_dir: null
 
-  detection_merging_iou_threshold: 0.2
-  detection_merging_min_overlap_threshold: 0.0
+  detection_merging_iou_threshold: -0.7036
+  detection_merging_min_overlap_threshold: 0.078
 
   # or exif gps update configuration
   exif_gps_update:
