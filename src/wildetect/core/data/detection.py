@@ -378,10 +378,10 @@ class Detection:
                 assert class_name and len(class_name) == 1, f"Error. Check out code or Labeling format. class_name: {class_name}"
                 assert (
                     int(x_min + w) <= image_width
-                ), "Error. Check out code or Labeling format."
+                ), f"Error. Check out code or Labeling format. x_min: {x_min}, w: {w}, image_width: {image_width}"
                 assert (
                     int(y_min + h) <= image_height
-                ), "Error. Check out code or Labeling format."
+                ), f"Error. Check out code or Labeling format. y_min: {y_min}, h: {h}, image_height: {image_height}"
                 width, height = get_image_dimensions(image_path)
                 assert (
                     image_width == width

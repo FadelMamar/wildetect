@@ -18,6 +18,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
+from wildetect.core.visualization.geographic import visualize_geographic_bounds
 from wildetect.core.visualization.labelstudio_manager import LabelStudioManager
 from wildetect.core.data import DroneImage
 from wildetect.core.config_models import FlightSpecs
@@ -262,6 +263,26 @@ def load_task_as_droneimage(task_id: int, base_url: str = "http://localhost:8080
     print(droneimage)
 
 
+def visualize_duplicates(csv_path: str = "animal-duplicates.csv",
+    base_url: str = "http://localhost:8080"):
+    """Visualize duplicates on a map."""
+
+    ls_manager = LabelStudioManager(
+        url=base_url,
+        api_key='4f3c25bad9334596c5b2c3b270a2d3105c8b5d4a',
+        download_resources=False,
+    )
+    flight_specs = FlightSpecs(sensor_height=24,focal_length=35,flight_height=180)
+    df = pd.read_csv(csv_path).rename(columns={"image": "task_id","bounding box":"bbox_id"})
+    droneimages = []
+    for task_id in map(int, df['task_id']):
+        task = ls_manager.get_task(task_id,as_sdk_task=False)    
+        droneimage = DroneImage.from_ls_task(task,flight_specs=flight_specs)
+        droneimage.predictions = droneimage.annotations # Set predictions to annotations for duplicate removal tuning
+        droneimages.append(droneimage)
+
+    visualize_geographic_bounds(droneimages,output_path="duplicates_visualization.html")
+
 def load_remove_duplicates(csv_path: str = "animal-duplicates.csv",
     base_url: str = "http://localhost:8080",):
     """Load duplicates from CSV as DroneImage objects."""
@@ -291,6 +312,7 @@ def load_remove_duplicates(csv_path: str = "animal-duplicates.csv",
                 task = ls_manager.get_task(task_id,as_sdk_task=False)
                 task = task.filter(valid_bbox_ids=set(df_group['bbox_id'].unique()))
                 droneimage = DroneImage.from_ls_task(task,flight_specs=flight_specs)
+                droneimage.predictions = droneimage.annotations # Set predictions to annotations for duplicate removal tuning
                 images.append(droneimage)        
             images = merger.run(images,iou_threshold=0.5,min_overlap_threshold=0.2)
         except Exception as e:
@@ -303,10 +325,13 @@ def run_duplicate_tuner(
     csv_path: str = "animal-duplicates.csv",
     base_url: str = "http://localhost:8080",
     n_trials: int = 150,
-    iou_min: float = 0.1,
+    iou_min: float = -1.0,
     iou_max: float = 0.9,
     overlap_min: float = 0.0,
     overlap_max: float = 0.5,
+    sensor_height:int=24, 
+    focal_length:int=35, 
+    flight_height:int=180,
 ):
     """Run hyperparameter tuning to optimize duplicate removal thresholds.
     
@@ -330,7 +355,7 @@ def run_duplicate_tuner(
         api_key='4f3c25bad9334596c5b2c3b270a2d3105c8b5d4a',
         download_resources=False,
     )
-    flight_specs = FlightSpecs(sensor_height=24, focal_length=35, flight_height=180)
+    flight_specs = FlightSpecs(sensor_height=sensor_height, focal_length=focal_length, flight_height=flight_height)
     
     tuner = DuplicateRemovalTuner(
         csv_path=csv_path,
@@ -340,8 +365,6 @@ def run_duplicate_tuner(
         min_overlap_threshold_range=(overlap_min, overlap_max),
         n_trials=n_trials,
     )
-    
-    #exit(1)
 
     result = tuner.run()
     
@@ -356,70 +379,6 @@ def run_duplicate_tuner(
     print("=" * 60)
     
     #return result
-
-
-def main(
-    csv_path: str = "animal-duplicates.csv",
-    base_url: str = "http://localhost:8080",
-    n_trials: int = 50,
-    class_agnostic: bool = True,
-    run_name: str = "custom-iou-tuner",
-):
-    """Run custom IoU tuner with Label Studio data.
-
-    Args:
-        csv_path: Path to CSV file with duplicate annotations
-        base_url: Label Studio server URL
-        n_trials: Number of Optuna optimization trials
-        class_agnostic: Whether to treat all classes as one
-        run_name: Name for the Optuna study
-    """
-    print("=" * 60)
-    print("Custom IoU Tuner - Label Studio Integration")
-    print("=" * 60)
-
-    # Load data from Label Studio
-    loader = LabelStudioDataLoader(csv_path=csv_path, base_url=base_url)
-    df = loader.to_dataframe()
-    stem = Path(csv_path).stem
-    df.to_csv(Path(csv_path).with_stem(stem + "_detections"), index=False)
-
-    if df.empty:
-        logger.error("No data loaded. Check CSV and Label Studio connection.")
-        return
-
-    print(f"\nDataFrame summary:")
-    print(f"  - Rows: {len(df)}")
-    print(f"  - Unique tasks: {df['task_id'].nunique()}")
-
-    print("\n" + "=" * 60)
-    print(f"Running IoUTuner optimization ({n_trials} trials)")
-    print("=" * 60)
-
-    exit(1)
-
-    # Initialize and run IoUTuner
-    tuner = IoUTuner(
-        df_annotations=df_annotations,
-        df_predictions=df_predictions,
-        merging_iou_range=(0.0, 1.0),
-        matching_iou_range=(0.0, 1.0),
-        n_trials=n_trials,
-        class_agnostic=class_agnostic,
-        overlap_metrics=["iou", "ios"],
-    )
-
-    result = tuner.run(run_name=run_name)
-
-    print("\n" + "=" * 60)
-    print("RESULTS")
-    print("=" * 60)
-    for k, v in result.items():
-        if k != "study":
-            print(f"{k}: {v}")
-
-    return result
-
 
 if __name__ == "__main__":
     fire.Fire()

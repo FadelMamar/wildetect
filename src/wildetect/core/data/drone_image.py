@@ -514,10 +514,10 @@ class DroneImage(Tile):
         
         # Extract annotations from the task
         annotations = []
-        for annotation in task.annotations:
-            annotations.extend(
-                Detection.from_ls([annotation], image_path)
-            )
+        #for annotation in task.annotations:
+        annotations.extend(
+            Detection.from_ls(task.annotations, image_path)
+        )
         drone_image.set_annotations(annotations, update_gps=update_gps)
         
         # Extract predictions from the task  
