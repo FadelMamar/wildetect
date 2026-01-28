@@ -167,8 +167,8 @@ class DuplicateRemovalTuner:
         csv_path: str,
         ls_manager: LabelStudioManager,
         flight_specs: FlightSpecs,
-        iou_threshold_range: Tuple[float, float] = (0.1, 0.9),
-        min_overlap_threshold_range: Tuple[float, float] = (0.0, 0.5),
+        iou_threshold_range: Tuple[float, float] = (-1.0, 1.0),
+        min_overlap_threshold_range: Tuple[float, float] = (0.0, 0.1),
         n_trials: int = 50,
     ):
         """Initialize the duplicate removal tuner.
