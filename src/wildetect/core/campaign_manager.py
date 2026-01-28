@@ -10,10 +10,11 @@ import logging
 import random
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-from concurrent.futures import ThreadPoolExecutor
+
 from PIL import Image
 from tqdm import tqdm
 
@@ -44,7 +45,8 @@ class CampaignConfig:
     # Detection configuration
     prediction_config: PredictionConfig
 
-    detection_merging_threshold: float = 0.2
+    detection_merging_iou_threshold: float = 0.2
+    detection_merging_min_overlap_threshold: float = 0.0
 
     # Optional configurations
     metadata: Optional[Dict[str, Any]] = None
@@ -236,7 +238,8 @@ class CampaignManager:
     ) -> None:
         """Merge detections across overlapping geographic regions."""
         self.census_manager.merge_detections_geographically(
-            iou_threshold=self.config.detection_merging_threshold
+            iou_threshold=self.config.detection_merging_iou_threshold,
+            min_overlap_threshold=self.config.detection_merging_min_overlap_threshold,
         )
         return None
 
@@ -302,15 +305,19 @@ class CampaignManager:
         self.census_manager.export_detection_report(output_path)
 
         # save all detections
-        save_dir = Path(output_path).parent if Path(output_path).is_file() else Path(output_path)
+        save_dir = (
+            Path(output_path).parent
+            if Path(output_path).is_file()
+            else Path(output_path)
+        )
         self.detection_pipeline.save_all_detections(str(save_dir))
 
         #
-        #results = self.get_drone_images(as_dict=True)
-        #path = Path(output_path).with_name("detections_and_images.json")
-        #with open(path, "w") as f:
+        # results = self.get_drone_images(as_dict=True)
+        # path = Path(output_path).with_name("detections_and_images.json")
+        # with open(path, "w") as f:
         #    json.dump(results, f, indent=4)
-        #logger.info(f"Images and their detections saved to: {path}")
+        # logger.info(f"Images and their detections saved to: {path}")
 
     def get_campaign_statistics(self) -> Dict[str, Any]:
         """Get comprehensive campaign statistics.
@@ -393,7 +400,7 @@ class CampaignManager:
             valid_images.append(image_path)
             pbar.update(1)
             return
-       
+
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.map(validate_image, image_paths)
 
@@ -491,7 +498,6 @@ class CampaignManager:
                 project_id = self.export_to_labelstudio()
         except Exception as e:
             logger.error(f"{traceback.format_exc()}")
-            
 
         # Step 9: Export final report
         report_path = None
@@ -500,7 +506,7 @@ class CampaignManager:
                 report_path = Path(output_dir) / "campaign_report.json"
                 self.export_detection_report(str(report_path))
         except Exception as e:
-            logger.error(f"Error exporting detection report: {e}")            
+            logger.error(f"Error exporting detection report: {e}")
 
         # Compile results
         results = {

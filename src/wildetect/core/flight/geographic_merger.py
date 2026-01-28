@@ -619,7 +619,7 @@ class GeographicMerger:
     def run(
         self,
         drone_images: List[DroneImage],
-        iou_threshold: float = 0.3,
+        iou_threshold: float = 0.2,
         min_overlap_threshold: float = 0.0,
     ) -> List[DroneImage]:
         """Merge detections across overlapping geographic regions.

@@ -291,6 +291,14 @@ class DetectConfigModel(BaseModel):
     logging: LoggingConfigModel = Field(default_factory=LoggingConfigModel)
     labelstudio: LabelStudioConfigModel = Field(default_factory=LabelStudioConfigModel)
 
+    merging_iou_threshold: float = Field(
+        default=0.2,
+        description="Detection merging IOU threshold between overlapping images",
+    )
+    merging_min_overlap_threshold: float = Field(
+        default=0.0, description="Minimum overlap threshold between overlapping images"
+    )
+
     def to_prediction_config(self, verbose: bool = False) -> PredictionConfig:
         """Convert to existing PredictionConfig dataclass."""
         return PredictionConfig(
