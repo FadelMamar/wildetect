@@ -3,7 +3,7 @@
 
 # Campaign Configuration
 campaign:
-  id: "Sabie_granite"
+  id: "K6_8_R1_D"
   pilot_name: "Unknown"
   target_species: null  # List of target species for detection
 
@@ -14,20 +14,20 @@ detection:
   image_paths: null
 
   # or image directory path
-  image_dir: null
+  image_dir: D:\PhD\Data per camp\Dry season\Kapiri\Camp 6-8\Rep 1
 
   detection_merging_iou_threshold: -0.7036
   detection_merging_min_overlap_threshold: 0.078
 
   # or exif gps update configuration
-  exif_gps_update:
-    image_folder: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\cam0  # Path to folder containing images
-    csv_path: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\SE_SabieRiver_GraniteB_Rectimage.csv  # Path to CSV file with GPS coordinates
-    skip_rows: 4  # Number of rows to skip in CSV (e.g., header row)
-    filename_col: "filename"  # CSV column name for filenames
-    lat_col: "latitude"  # CSV column name for latitude
-    lon_col: "longitude"  # CSV column name for longitude
-    alt_col: "altitude"  # CSV column name for altitude
+  # exif_gps_update: 
+   # image_folder: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\cam0  # Path to folder containing images
+   # csv_path: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\SE_SabieRiver_GraniteB_Rectimage.csv  # Path to CSV file with GPS coordinates
+   # skip_rows: 4  # Number of rows to skip in CSV (e.g., header row)
+   # filename_col: "filename"  # CSV column name for filenames
+   # lat_col: "latitude"  # CSV column name for latitude
+   # lon_col: "longitude"  # CSV column name for longitude
+   # alt_col: "altitude"  # CSV column name for altitude
 
   # Model Configuration
   model:
@@ -58,9 +58,9 @@ detection:
   
   # Flight Specifications
   flight_specs:
-    sensor_height: 15.6  # mm
-    focal_length: 16.0   # mm
-    flight_height: 120.0  # meters
+    sensor_height: 24  # mm
+    focal_length: 35   # mm
+    flight_height: 180.0  # meters
     gsd: null # cm/px  *MANDATORY FOR RASTER DETECTION*
 
   # Inference Service Configuration

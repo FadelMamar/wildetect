@@ -10,6 +10,16 @@ class OverlapMetricConfig(StrEnum):
     IOU = "iou"
     IOS = "ios"
 
+    @classmethod
+    def _missing_(cls, value: object):
+        """Allow case-insensitive lookup by name or value."""
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for member in cls:
+                if member.value == value_lower or member.name.lower() == value_lower:
+                    return member
+        return None
+
 class MergingMethodConfig(StrEnum):
     """Merging method configuration for detection evaluation."""
     NMS = "nms"
