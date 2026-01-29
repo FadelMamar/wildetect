@@ -45,7 +45,7 @@ class CampaignConfig:
     # Detection configuration
     prediction_config: PredictionConfig
 
-    detection_merging_iou_threshold: float = 0.2
+    detection_merging_iou_threshold: float = -0.7
     detection_merging_min_overlap_threshold: float = 0.0
 
     # Optional configurations
