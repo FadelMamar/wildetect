@@ -233,15 +233,15 @@ def census(
         check = (
             (image_paths is not None)
             + (loaded_config.detection.labelstudio.project_id is not None)
-            + (loaded_config.detection.exif_gps_update.image_folder is not None)
+            + (loaded_config.detection.exif_gps_update is not None)
         )
 
         if check != 1:
             console.print(
-                f"[red]Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided[/red]"
+                f"[red]Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update must be provided[/red]"
             )
             console.print(
-                f"[red]image_paths {loaded_config.detection.image_paths}, image_dir {loaded_config.detection.image_dir}, labelstudio.project_id {loaded_config.detection.labelstudio.project_id}, exif_gps_update.image_folder {loaded_config.detection.exif_gps_update.image_folder}[/red]"
+                f"[red]image_paths {loaded_config.detection.image_paths}, image_dir {loaded_config.detection.image_dir}, labelstudio.project_id {loaded_config.detection.labelstudio.project_id}, exif_gps_update {loaded_config.detection.exif_gps_update}[/red]"
             )
             raise typer.Exit(1)
 
@@ -260,7 +260,7 @@ def census(
             image_dir = None
             console.print(f"[green]Processing {len(image_paths)} images[/green]")
 
-        elif loader_config.csv_data is not None:
+        elif loaded_config.detection.exif_gps_update is not None:
             image_folder = loaded_config.detection.exif_gps_update.image_folder
             image_paths = get_images_paths(image_folder)
             image_dir = image_folder
