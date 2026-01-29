@@ -16,8 +16,8 @@ detection:
   # or image directory path
   image_dir: D:\PhD\Data per camp\Dry season\Kapiri\Camp 6-8\Rep 1
 
-  detection_merging_iou_threshold: -0.7036
-  detection_merging_min_overlap_threshold: 0.078
+  merging_iou_threshold: -0.7036
+  merging_min_overlap_threshold: 0.078
 
   # or exif gps update configuration
   # exif_gps_update: 
