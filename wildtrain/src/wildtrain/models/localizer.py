@@ -62,8 +62,8 @@ class UltralyticsLocalizer(ObjectLocalizer):
             self.max_det = config.max_det
             self.overlap_metric = OverlapMetricConfig(config.overlap_metric)
             self.imgsz = imgsz
-            self.merging_method = MergingMethodConfig(config.merging_method)
-            self.disable_detection_filtering = config.disable_detection_filtering
+            self.merging_method = MergingMethodConfig(config.merging_method) if hasattr(config, 'merging_method') else MergingMethodConfig.NMS
+            self.disable_detection_filtering = config.disable_detection_filtering if hasattr(config, 'disable_detection_filtering') else False
         else:
             self.model = YOLO(weights, task=task)
             self.device = device

@@ -25,6 +25,16 @@ class MergingMethodConfig(StrEnum):
     NMS = "nms"
     NMM = "nmm"
 
+    @classmethod
+    def _missing_(cls, value: object):
+        """Allow case-insensitive lookup by name or value."""
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for member in cls:
+                if member.value == value_lower or member.name.lower() == value_lower:
+                    return member
+        return None
+
 class YoloInferenceConfig(BaseConfig):
     """YOLO model configuration."""
     weights: Optional[str] = Field(default=None, description="Model weights path")
