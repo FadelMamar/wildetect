@@ -7,7 +7,6 @@ weights:
 
 dataset:
   data_cfg: null
-  load_as_single_class: true
   root_data_directory: D:\PhD\workspace\data
   force_merge: true
   keep_classes: null # either keep_classes or discard_classes must be provided, not both

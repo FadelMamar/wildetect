@@ -57,11 +57,11 @@ class DetectionCalibrator(Sweeper):
                    }
         self._gt_and_preds: Optional[List[dict[str, List[sv.Detections]]]] = None if self.calibration_cfg.gt_preds_load_path is None else self.load_gt_preds(self.calibration_cfg.gt_preds_load_path)
         self.class_mapping = None
-        self.class_agnostic = self.base_cfg.dataset.load_as_single_class
+        self.class_agnostic = self.base_cfg.train.single_cls
         self.labels = None
         self.save_gt_preds = self.calibration_cfg.save_gt_preds
 
-        assert self.base_cfg.dataset.load_as_single_class, "Single class must be True for calibration"
+        assert self.base_cfg.train.single_cls, "Single class must be True for calibration"
         return None
     
     @lru_cache(maxsize=1)

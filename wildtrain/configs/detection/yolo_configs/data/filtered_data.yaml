@@ -1,0 +1,33 @@
+names:
+  0: class_0
+  1: class_1
+  2: class_2
+  3: class_3
+  4: class_4
+  5: class_5
+  6: class_6
+  7: class_7
+  8: class_8
+  9: class_9
+  10: class_10
+  11: class_11
+  12: class_12
+  13: class_13
+  14: class_14
+  15: class_15
+  16: class_16
+  17: class_17
+  18: class_18
+  19: class_19
+  20: class_20
+  21: class_21
+  22: class_22
+  23: class_23
+  24: class_24
+  25: class_25
+  26: class_26
+  27: class_27
+nc: 28
+path: D:\PhD\workspace\data\framework_formats\yolo
+train: ..\..\..\wildetect\wildtrain\data\yolo_trainer\train_flatten.txt
+val: ..\..\..\wildetect\wildtrain\data\yolo_trainer\val_flatten.txt

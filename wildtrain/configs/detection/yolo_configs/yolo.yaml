@@ -1,8 +1,7 @@
 
 dataset:
-  data_cfg: null
-  load_as_single_class: true
-  root_data_directory: D:/workspace/data/demo-dataset
+  data_cfg: D:\PhD\workspace\wildetect\wildtrain\configs\detection\yolo_configs\data\kapiri-leopardRock.yaml
+  root_data_directory: null
   force_merge: true
   keep_classes: null # either keep_classes or discard_classes must be provided, not both
   discard_classes: ["rocks","vegetation","other","termite mound"]
@@ -26,11 +25,11 @@ pretraining:
 # Initialization of localizer model
 model:
   pretrained: true
-  weights: models/yolo12s.pt
-  architecture_file: configs/detection/yolo_configs/models/yolo12n.yaml
+  weights: yolo12s.pt
+  architecture_file: null
 
 # run name and project name for tracking
-name: yolo12-d0
+name: yolo12s-d0
 project: wildai-localization
 
 mlflow:
@@ -61,6 +60,8 @@ train:
   patience: 10
   iou: 0.4
   imgsz: 800
+
+  single_cls: true
   
   # loss weights
   box: 3.5

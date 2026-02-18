@@ -1,15 +1,15 @@
 
 classifier:
-  weights: null #
+  weights: "D:/PhD/workspace/wildetect/models-registry/detector/4/artifacts/best-v6.ckpt"
   processing:
     batch_size: 8 # used for onnx export
     export_format: "torchscript" # torchscript or onnx
 
 localizer:
   yolo:
-    weights: models/best.pt
+    weights: "C:/Users/Machine Learning/Desktop/workspace-wildAI/datalabeling/runs/mlflow/771014640604815853/b0968b69fae440b8b51c711bdd791565/artifacts/finetuned/artifacts/best.pt"
     imgsz: 800
-    device: "cpu"
+    device: "cuda"
     conf_thres: 0.1
     iou_thres: 0.3
     max_det: 300

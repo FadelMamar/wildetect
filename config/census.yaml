@@ -3,7 +3,7 @@
 
 # Campaign Configuration
 campaign:
-  id: "K6_8_R1_D"
+  id: "K6_8_R1_D_3"
   pilot_name: "Unknown"
   target_species: null  # List of target species for detection
 
@@ -32,7 +32,7 @@ detection:
   # Model Configuration
   model:
     mlflow_model_name: "detector"
-    mlflow_model_alias: "by-paul"
+    mlflow_model_alias: "obb-version18"
     device: "cuda"  # auto, cpu, cuda
   
   # Processing Configuration
@@ -77,9 +77,9 @@ detection:
 
 # Export Configuration
 export:
-  to_fiftyone: false
+  to_fiftyone: true
   create_map: true
-  output_directory: null  # Will use campaign_id if null
+  output_directory: D:\PhD\Data per camp\raw image counts\K6_8\K6_8_R1_D_3  # Will use campaign_id if null
   export_to_labelstudio: true
 
 # Logging Configuration

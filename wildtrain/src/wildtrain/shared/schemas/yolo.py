@@ -52,8 +52,7 @@ class YoloInferenceConfig(BaseConfig):
 class YoloDatasetConfig(BaseConfig):
     """YOLO dataset configuration."""
     data_cfg: Optional[str] = Field(default=None, description="str to data configuration file")
-    load_as_single_class: bool = Field(default=True, description="Load dataset as single class")
-    root_data_directory: str = Field(default="", description="Root data directory")
+    root_data_directory: Optional[str] = Field(default=None, description="Root data directory")
     force_merge: bool = Field(default=False, description="Force merge")
     keep_classes: Optional[List[str]] = Field(default=None, description="Keep classes")
     discard_classes: Optional[List[str]] = Field(default=None, description="Discard classes")

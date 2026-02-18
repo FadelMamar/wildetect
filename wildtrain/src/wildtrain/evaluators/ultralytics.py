@@ -279,7 +279,7 @@ class UltralyticsEvaluator:
         filtered_annotation.xyxy = annotation.xyxy[valid_indices]
         filtered_annotation.metadata = annotation.metadata
 
-        if self.config.dataset.load_as_single_class:
+        if self.config.eval.single_cls:
             filtered_annotation.class_id = np.zeros_like(filtered_annotation.class_id,dtype=int)
         
         return filtered_annotation

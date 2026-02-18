@@ -1,7 +1,7 @@
 call cd /d %~dp0
 
 call deactivate
-call deactivate
+call conda deactivate
 
 call ..\.venv-ls\Scripts\activate
 call uv pip install label-studio==1.20.0

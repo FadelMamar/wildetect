@@ -33,7 +33,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
         self.metrics: Optional[dict] = None
         self.best_model_score = None
 
-        if not self.config.dataset.load_as_single_class:
+        if not self.config.train.single_cls:
             raise ValueError("Not supported. Current pipeline only trains a localizer.")
         
         assert ((self.config.dataset.root_data_directory is not None) ^
