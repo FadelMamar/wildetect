@@ -1,0 +1,139 @@
+names:
+  0: class_0
+  1: class_1
+  2: class_2
+  3: class_3
+  4: class_4
+  5: class_5
+  6: class_6
+  7: class_7
+  8: class_8
+  9: class_9
+  10: class_10
+  11: class_11
+  12: class_12
+  13: class_13
+  14: class_14
+  15: class_15
+  16: class_16
+  17: class_17
+  18: class_18
+  19: class_19
+  20: class_20
+  21: class_21
+  22: class_22
+  23: class_23
+  24: class_24
+  25: class_25
+  26: class_26
+  27: class_27
+nc: 28
+path: D:\PhD\workspace\data\framework_formats\yolo
+train:
+- 100stevensonhamiltonnw\images\train
+- 101satarawest\images\train
+- 103redrocksshingwedzi\images\train
+- 105olifantslookout\images\train
+- 109fiftyone_campaign_lr_farm_south\images\train
+- 110fiftyone_campaign_lr_farm_north\images\train
+- 111fiftyone_campaign_lr_farm_east\images\train
+- 114fiftyone_campaign_kapiri_farm_2\images\train
+- 115kapiri_farm_1\images\train
+- 116fiftyone_campaign_kapiri_farm_3\images\train
+- 117fiftyone_campaign_kapiri_farm_4\images\train
+- 118fiftyone_campaign_kapiri_farm_5\images\train
+- 119fiftyone_campaign_kapiri_farm_6\images\train
+- 120fiftyone_campaign_kapiri_farm_7\images\train
+- 121fiftyone_campaign_kapiri_farm_8\images\train
+- 122fiftyone_campaign_kapiri_farm_9\images\train
+- 123fiftyone_campaign_kapiri_farm_10\images\train
+- 124fiftyone_campaign_kapiri_farm_11\images\train
+- 125fiftyone_campaign_kapiri_farm_12\images\train
+- 126fiftyone_campaign_kapiri_farm_13\images\train
+- 127fiftyone_campaign_kapiri_farm_15\images\train
+- 128fiftyone_campaign_kapiri_farm_16\images\train
+- 129fiftyone_campaign_kapiri_farm_14\images\train
+- 130fiftyone_campaign_lr_farmwest\images\train
+- 96sataraeast\images\train
+- 98shabenioutcrop\images\train
+- ap2019day1\images\train
+- ap2019day2\images\train
+- bushriver-extratrainingdata\images\train
+- bushriver-extratrainingdatawet\images\train
+- bushriver-extratrainingdatawet2\images\train
+- bushrivermay24\images\train
+- dryseason-kapiri-camp1-4-5-rep1\images\train
+- dryseason-kapiri-camp2-rep1\images\train
+- dryseason-kapiri-camp2extradata\images\train
+- dryseason-kapiri-camp3-rep1\images\train
+- dryseason-kapiri-camp6-8-rep1\images\train
+- dryseason-kapiri-camp6extradata\images\train
+- dryseason-kapiri-camp6extradata2\images\train
+- dryseason-kapiri-camp8extradata\images\train
+- dryseason-kapiri-camp9-11-rep1\images\train
+- dryseason-kapiricamp-1-4-5-rep2\images\train
+- dryseason-kapiricamp-1-4-5-rep3\images\train
+- dryseason-kapiricamp-2-rep2\images\train
+- dryseason-kapiricamp-2-rep3\images\train
+- dryseason-kapiricamp-3-rep2\images\train
+- dryseason-kapiricamp-3-rep3\images\train
+- dryseason-kapiricamp-6-8-rep2\images\train
+- dryseason-kapiricamp-6-8-rep3\images\train
+- dryseason-kapiricamp-9-11-rep2\images\train
+- dryseason-kapiricamp-9-11-rep3\images\train
+- dryseason-leopardrock-camp1-8-rep1\images\train
+- dryseason-leopardrock-camp1-8-rep2\images\train
+- dryseason-leopardrock-camp22+37-40-rep1\images\train
+- dryseason-leopardrock-camp22+37-40-rep2\images\train
+- dryseason-leopardrock-camp23-26-rep1\images\train
+- dryseason-leopardrock-camp23-26-rep2\images\train
+- dryseason-leopardrock-camp29-32-rep1\images\train
+- dryseason-leopardrock-camp29-32-rep2\images\train
+- dryseason-leopardrock-camp35+36-rep1\images\train
+- dryseason-leopardrock-camp35+36-rep2\images\train
+- dryseason-leopardrockcamp-1-8-rep3\images\train
+- dryseason-leopardrockcamp-2237-40-rep3\images\train
+- dryseason-leopardrockcamp-23-26-rep3\images\train
+- dryseason-leopardrockcamp-29-32-rep3\images\train
+- dryseason-leopardrockcamp-35+36-rep3\images\train
+- julydata\images\train
+- kapiri-dryseason-camp1extra\images\train
+- kapiri-dryseason-camp4extradata\images\train
+- letababasaltahalf\images\train
+- sanparks\images\train
+- savmapv2splits\images\train
+- wetseason-kapiri-camp1-rep1(2)\images\train
+- wetseason-kapiri-camp1-rep2\images\train
+- wetseason-kapiri-camp1-rep3\images\train
+- wetseason-kapiri-camp2-rep1(2)\images\train
+- wetseason-kapiri-camp2-rep2\images\train
+- wetseason-kapiri-camp3-rep1\images\train
+- wetseason-kapiri-camp4_5-rep1(2)\images\train
+- wetseason-kapiri-camp4_5-rep2\images\train
+- wetseason-kapiri-camp4_5-rep3\images\train
+- wetseason-kapiri-camp6-8-rep1\images\train
+- wetseason-kapiri-camp6_8-rep2\images\train
+- wetseason-kapiri-camp6_8-rep3\images\train
+- wetseason-kapiri-camp9_11-rep1\images\train
+- wetseason-kapiri-camp9_11-rep2\images\train
+- wetseason-kapiri-camp9_11-rep3\images\train
+- wetseason-leopardrock-camp23-28-rep2\images\train
+- wetseason-leopardrock-camp23-28-rep3\images\train
+- wetseason-leopardrockcamp1_8+35-36rep1\images\train
+- wetseason-leopardrockcamp23-28rep1\images\train
+val:
+- 102satarasouth\images\val
+- 97phalaborwashikumbu\images\val
+- 99stevensonhamiltons\images\val
+- dryseason-kapiri-camp6-8-rep1\images\val
+- dryseason-kapiri-camp6extradata\images\val
+- dryseason-kapiri-camp6extradata2\images\val
+- dryseason-kapiri-camp8extradata\images\val
+- dryseason-kapiricamp-6-8-rep2\images\val
+- dryseason-kapiricamp-6-8-rep3\images\val
+- dryseason-leopardrock-camp1-8-rep1\images\val
+- dryseason-leopardrock-camp1-8-rep2\images\val
+- dryseason-leopardrock-camp35+36-rep1\images\val
+- dryseason-leopardrock-camp35+36-rep2\images\val
+- dryseason-leopardrockcamp-1-8-rep3\images\val
+- dryseason-leopardrockcamp-35+36-rep3\images\val

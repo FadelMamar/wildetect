@@ -55,7 +55,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
             merge_data_cfg(root_data_directory=self.config.dataset.root_data_directory,
                                                         output_path=data_cfg,
                                                         force_merge=self.config.dataset.force_merge)
-            self.config.dataset.data_cfg = data_cfg      
+            self.config.dataset.data_cfg = data_cfg.as_posix()   
         
     def validate_config(self) -> None:
         if (
@@ -208,7 +208,6 @@ class UltralyticsDetectionTrainer(ModelTrainer):
 
         # Run training
         self.model.train(
-            single_cls=self.config.dataset.load_as_single_class,
             data=data_cfg,
             name=self.config.name,
             project=self.config.project,

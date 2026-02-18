@@ -61,6 +61,7 @@ class YoloDatasetConfig(BaseConfig):
 
 class YoloCurriculumConfig(BaseConfig):
     """YOLO curriculum learning configuration."""
+    enable: bool = Field(default=False, description="Enable curriculum learning")
     data_cfg: Optional[str] = Field(default=None, description="Curriculum data configuration")
     ratios: List[float] = Field(default_factory=list, description="Curriculum ratios")
     epochs: List[int] = Field(default_factory=list, description="Curriculum epochs")
@@ -113,6 +114,9 @@ class YoloTrainConfig(BaseConfig):
     patience: int = Field(default=10, description="Patience")
     iou: float = Field(default=0.65, description="IoU threshold")
     imgsz: int = Field(description="Image size")
+
+    # Single class -> Train as localiser if True
+    single_cls: bool = Field(default=True, description="Single class")
     
     # Loss weights
     box: float = Field(default=3.5, description="Box loss weight")

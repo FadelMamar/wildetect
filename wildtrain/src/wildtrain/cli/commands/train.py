@@ -2,7 +2,7 @@
 
 import typer
 from pathlib import Path
-
+import traceback
 from ...shared.config_loader import ConfigLoader
 from ...trainers.classification_trainer import ClassifierTrainer
 from ...trainers.detection_trainer import UltralyticsDetectionTrainer
@@ -63,7 +63,9 @@ def detector(
         
     except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
         console.print(f"[bold red]✗[/bold red] Configuration error: {str(e)}")
+        traceback.print_exc()
         raise typer.Exit(1)
     except Exception as e:
         console.print(f"[bold red]✗[/bold red] Training failed: {str(e)}")
+        traceback.print_exc()
         raise typer.Exit(1)
