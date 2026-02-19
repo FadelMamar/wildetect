@@ -48,8 +48,11 @@ custom_yolo_kwargs:
   box_size: 224
 
 train:
-  batch: 4
+  # batch size: 32 is recommended for faster training.
+  batch: 32
   epochs: 25
+
+  # optimizer: either 'AdamW' or 'Adam'.
   optimizer: AdamW
   lr0: 0.0001
   lrf: 0.1
@@ -67,8 +70,9 @@ train:
   box: 3.5
   cls: 1.0
   dfl: 1.5
-
-  device: cpu
+  
+  # device: either 'cpu' or 'cuda'. 'cuda' is recommended for faster training.
+  device: "cuda"
   workers: 0
 
   # augmentations
