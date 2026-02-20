@@ -30,6 +30,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
         self.save_dir  = ROOT / "data" / "yolo_trainer"
         self.single_class_name="wildlife"
         self.best_fitness: Optional[float] = None
+        self.best_model_path: Optional[str] = None
         self.metrics: Optional[dict] = None
         self.best_model_score = None
 
@@ -123,7 +124,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
             # load best weights
             if self.best_model_path is not None:
                 logger.info(f"Loading best model from {self.best_model_path}")
-                self.config.model.weights = self.best_model_path
+                self.config.model.weights = str(self.best_model_path)
 
             cl_cfg_path = self.filter.get_data_cfg_paths_for_cl(
                 ratio=ratio,
@@ -217,7 +218,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
         )
         
         # record path to the best model w.r.t mAP50
-        self.best_model_path = self.model.trainer.best
+        self.best_model_path = str(self.model.trainer.best)
         self.best_fitness = self.model.trainer.best_fitness
         self.metrics = self.model.trainer.metrics
     
