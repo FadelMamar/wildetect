@@ -2,19 +2,20 @@
 path: D:\PhD\Data per camp\DetectionDataset
 
 train:
-  - bushriver\images
-  - Extra-Dry-Kapiri-Camps-1-2-4-6-8\images
+#  - bushriver\images
+#  - Extra-Dry-Kapiri-Camps-1-2-4-6-8\images
   - Rep 3\train\images
   - Rep 2\train\images
-  - Rep 1 - Wet\val\images
-  - WAID\val\images
-  - savmap\images
+  - Rep 1\train\images
+#  - Rep 1 - Wet\train\images
+#  - WAID\val\images
+#  - savmap\images
+
+val:
   - Rep 3\val\images
   - Rep 2\val\images
   - Rep 1\val\images
-
-val:
-  - Rep 1\train\images
+#  - Rep 1 - Wet\val\images
 
 # test:  # test images (optional)
 

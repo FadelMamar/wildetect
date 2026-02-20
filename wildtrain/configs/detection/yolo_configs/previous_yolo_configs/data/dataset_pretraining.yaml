@@ -9,12 +9,13 @@ train:
   - delplanque_tiled_data\val_tiled\images
   - delplanque_tiled_data\test_tiled\images
   - savmap\images
-  - Rep 1\val\images
-  - Rep 1 - Wet\val\images
+  - Rep 1\train\images
+  - Rep 1 - Wet\train\images
 
 val:
   - Rep 3\val\images
   - Rep 2\val\images
+  - Rep 1\val\images
   
 
 # test:  # test images (optional)
