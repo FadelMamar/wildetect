@@ -1,0 +1,15 @@
+path: D:\PhD\Data per camp\IdentificationDataset
+train:
+- train\images
+val:
+- val\images
+test:
+- test\images
+nc: 6
+names:
+  0: buffalo
+  1: impala
+  2: nyala
+  3: nyala(m)
+  4: roan
+  5: sable

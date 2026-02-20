@@ -1,0 +1,20 @@
+# dataset root dir
+path: D:\PhD\Data per camp\DetectionDataset
+
+train:
+  - delplanque_tiled_data\train_tiled\images
+  - delplanque_tiled_data\val_tiled\images
+  - Rep 1\train\images
+  - Rep 2\train\images
+  - WAID\images\valid
+
+val:
+  - Rep 2\val\images
+  - Rep 1\val\images
+
+# test:  # test images (optional)
+
+# Classes
+nc: 1 # number of classes
+names:
+  0: wildlife
