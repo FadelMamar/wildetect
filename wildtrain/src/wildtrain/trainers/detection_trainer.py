@@ -78,11 +78,11 @@ class UltralyticsDetectionTrainer(ModelTrainer):
         logger.info("\n\n------------ Pretraining ----------\n")
         
         self.config.name += f"-PTR_freeze_{self.config.train.freeze}"
-        self.config.train.epochs = self.config.train.ptr_epochs
-        self.config.train.lr0 = self.config.train.ptr_lr0
-        self.config.train.lrf = self.config.train.ptr_lrf
-        self.config.train.freeze = self.config.train.ptr_freeze
-        self.config.dataset.data_cfg = self.config.pretraining.data_cfg
+        self.config.train.epochs = self.config.pretraining.epochs
+        self.config.train.lr0 = self.config.pretraining.lr0
+        self.config.train.lrf = self.config.pretraining.lrf
+        self.config.train.freeze = self.config.pretraining.freeze
+        self.config.dataset.data_cfg = str(self.config.pretraining.data_cfg)
         
 
         save_dir = self.config.pretraining.save_dir
