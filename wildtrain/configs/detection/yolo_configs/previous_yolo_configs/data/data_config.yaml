@@ -1,0 +1,23 @@
+path: D:\workspace\data # dataset root dir
+
+train:
+  - savmap_dataset_v2\annotated_py_paul\yolo_format\images
+  - general_dataset\tiled-data\val\images
+
+val:
+  # - savmap_dataset_v2\annotated_py_paul\yolo_format\images
+  - general_dataset\tiled-data\test\images
+
+# test:  # test images (optional)
+#   - test\images
+
+# Classes
+nc: 6  # number of classes
+
+names:
+  0: sp1
+  1: sp2
+  2: sp3
+  3: sp4
+  4: sp5
+  5: sp6

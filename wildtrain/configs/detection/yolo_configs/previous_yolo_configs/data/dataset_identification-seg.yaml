@@ -1,0 +1,10 @@
+path: D:\PhD\Data per camp\DetectionDataset\Identification-split
+train:
+- train\Segmentations\images
+val:
+- val\Segmentations\images
+test:
+- test\Segmentations\images
+nc: 1
+names:
+  0: wildlife
