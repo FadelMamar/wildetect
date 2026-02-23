@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
+
 from wildata.converters import LabelstudioConverter
 from wildata.converters.labelstudio.labelstudio_schemas import Task
 
@@ -20,6 +21,7 @@ from .detection import Detection
 from .tile import Tile
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DroneImage(Tile):
@@ -427,10 +429,9 @@ class DroneImage(Tile):
     ) -> List["DroneImage"]:
         from ..visualization.labelstudio_manager import LabelStudioManager
 
-        assert (
-            (labelstudio_config.project_id is not None)
-            ^ (labelstudio_config.json_path is not None)
-        ), "Either project_id and labelstudio_config or json_path and dotenv_path must be provided"
+        assert (labelstudio_config.project_id is not None) ^ (
+            labelstudio_config.json_path is not None
+        ), "Provide either `project_id` or `json_path`"
 
         if isinstance(labelstudio_config.project_id, int) and isinstance(
             labelstudio_config, LabelStudioConfigModel
@@ -492,40 +493,36 @@ class DroneImage(Tile):
         flight_specs: FlightSpecs,
     ) -> "DroneImage":
         """Create a DroneImage from a Label Studio task ID.
-        
+
         Uses the Task schema from wildata to parse the Label Studio task
         and extract annotations and predictions.
-        
+
         Args:
             task_id: Label Studio task ID to fetch
             flight_specs: Flight specifications for the drone image
             labelstudio_config: Label Studio configuration with url and api_key
-            
+
         Returns:
             DroneImage with annotations and predictions from the task
         """
-        
+
         # Get image path from task data
         image_path = task.image_path
-        
+
         # Create DroneImage
         drone_image = cls(image_path=image_path, flight_specs=flight_specs)
         update_gps = drone_image.tile_gps_loc is not None
-        
+
         # Extract annotations from the task
         annotations = []
-        #for annotation in task.annotations:
-        annotations.extend(
-            Detection.from_ls(task.annotations, image_path)
-        )
+        # for annotation in task.annotations:
+        annotations.extend(Detection.from_ls(task.annotations, image_path))
         drone_image.set_annotations(annotations, update_gps=update_gps)
-        
-        # Extract predictions from the task  
+
+        # Extract predictions from the task
         predictions = []
         for prediction in task.predictions:
-            predictions.extend(
-                Detection.from_ls([prediction], image_path)
-            )
+            predictions.extend(Detection.from_ls([prediction], image_path))
         drone_image.set_predictions(predictions, update_gps=update_gps)
-        
+
         return drone_image

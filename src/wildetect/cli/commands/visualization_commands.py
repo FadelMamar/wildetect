@@ -12,7 +12,7 @@ import typer
 from rich.console import Console
 
 from ...core.config_loader import ROOT, load_config_with_pydantic
-from ...core.config_models import VisualizeConfigModel
+from ...core.config_models import DetectionTypes, VisualizeConfigModel
 from ...core.data.drone_image import DroneImage
 from ...core.visualization.geographic import GeographicVisualizer, VisualizationConfig
 from ..utils import export_detection_report, setup_logging
@@ -42,7 +42,7 @@ def visualize(
 
     try:
         raise NotImplementedError("Visualization is not implemented yet")
-        
+
         # Load configuration from YAML
         loaded_config = load_config_with_pydantic("visualize", config)
 
@@ -124,7 +124,7 @@ def extract_gps_coordinates(
 
     if loaded_config.labelstudio.json_path is not None:
         assert (
-            loaded_config.detection_type == "annotations"
+            loaded_config.detection_type == DetectionTypes.ANNOTATIONS
         ), "Detection type must be annotations when using Label Studio JSON path"
 
     drone_images = DroneImage.from_ls(
