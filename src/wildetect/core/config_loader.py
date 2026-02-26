@@ -64,26 +64,11 @@ class ConfigLoader:
     ) -> Union[DictConfig, ListConfig]:
         """Load base configuration with fallback chain."""
 
-        # 1. Try user-specified config file
         if config_path and Path(config_path).exists():
             logger.info(f"Loading user-specified config: {config_path}")
             return OmegaConf.load(config_path)
 
-        # 2. Try command-specific default config
-        default_config_path = ROOT / "config" / f"{command_type}.yaml"
-        if default_config_path.exists():
-            logger.info(f"Loading default config: {default_config_path}")
-            return OmegaConf.load(str(default_config_path))
-
-        # 3. Try global settings
-        global_config_path = ROOT / "config" / "settings.yaml"
-        if global_config_path.exists():
-            logger.info(f"Loading global config: {global_config_path}")
-            return OmegaConf.load(str(global_config_path))
-
-        # 4. Use built-in defaults
-        logger.info("Using built-in defaults")
-        return OmegaConf.create(self._get_builtin_defaults(command_type))
+        raise FileNotFoundError(f"Config file not found: {config_path}")
 
     def _merge_overrides(
         self, base_config: Union[DictConfig, ListConfig], overrides: Dict[str, Any]
