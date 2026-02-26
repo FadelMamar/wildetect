@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import logging
-from typing import Dict, List, Optional, TYPE_CHECKING
+from concurrent.futures import ThreadPoolExecutor
+from typing import TYPE_CHECKING, Dict, List, Optional
 from urllib.parse import unquote
 
 from label_studio_sdk.client import LabelStudio
@@ -104,17 +106,17 @@ class LabelStudioManager:
     ) -> List[dict]:
         tasks = self.get_tasks(project_id)
         detections = []
-
-        logger.info(f"Getting detections for {len(tasks)} tasks...")
-
-        # with ThreadPoolExecutor(max_workers=3) as executor:
-        for dets in tqdm(
-            map(self.get_detections, tasks),
-            total=len(tasks),
-            desc="Getting detections from Label Studio",
-        ):
-            if dets is not None:
-                detections.append(dets)
+        num_tasks = sum([1 for _ in tasks])
+        logger.info(f"Getting detections for {num_tasks} tasks...")
+        progress_bar = tqdm(
+            total=num_tasks, desc="Getting detections from Label Studio"
+        )
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for dets in executor.map(self.get_detections, tasks):
+                progress_bar.update(1)
+                if dets is not None:
+                    detections.append(dets)
+        progress_bar.close()
         return detections
 
     def upload_drone_images(
