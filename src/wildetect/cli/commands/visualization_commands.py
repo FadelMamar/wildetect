@@ -130,6 +130,7 @@ def extract_gps_coordinates(
     drone_images = DroneImage.from_ls(
         flight_specs=flight_specs,
         labelstudio_config=loaded_config.labelstudio,
+        exif_gps_update=loaded_config.exif_gps_update,
     )
 
     # Save detection gps coordinates to csv

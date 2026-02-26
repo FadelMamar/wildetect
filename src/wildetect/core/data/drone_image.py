@@ -426,8 +426,35 @@ class DroneImage(Tile):
         cls,
         flight_specs: FlightSpecs,
         labelstudio_config: Optional[LabelStudioConfigModel] = None,
+        exif_gps_update: Optional[Any] = None,
     ) -> List["DroneImage"]:
         from ..visualization.labelstudio_manager import LabelStudioManager
+
+        csv_dict = None
+        if exif_gps_update is not None:
+            df = exif_gps_update.to_df()
+            cfg_rename = {
+                exif_gps_update.lat_col: "latitude",
+                exif_gps_update.lon_col: "longitude",
+                exif_gps_update.alt_col: "altitude",
+                exif_gps_update.filename_col: "image_path",
+            }
+            csv_dict = (
+                df.rename(columns=cfg_rename)
+                .set_index("image_path")
+                .to_dict(orient="index")
+            )
+
+        def get_image_gps_coords(
+            img_path: str
+        ) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+            if csv_dict is not None and img_path in csv_dict:
+                return (
+                    csv_dict[img_path].get("latitude"),
+                    csv_dict[img_path].get("longitude"),
+                    csv_dict[img_path].get("altitude"),
+                )
+            return None, None, None
 
         assert (labelstudio_config.project_id is not None) ^ (
             labelstudio_config.json_path is not None
@@ -448,7 +475,16 @@ class DroneImage(Tile):
             for output in tqdm(
                 outputs, total=len(outputs), desc="Loading images from Label Studio"
             ):
-                image = cls(image_path=output["image_path"], flight_specs=flight_specs)
+                latitude, longitude, altitude = get_image_gps_coords(
+                    output["image_path"]
+                )
+                image = cls(
+                    image_path=output["image_path"],
+                    flight_specs=flight_specs,
+                    latitude=latitude,
+                    longitude=longitude,
+                    altitude=altitude,
+                )
                 image.set_annotations(output["annotations"], update_gps=True)
                 image.set_predictions(
                     output["predictions"],
@@ -476,7 +512,14 @@ class DroneImage(Tile):
                 total=len(images_and_annotations),
                 desc="Loading images from Label Studio",
             ):
-                image = cls(image_path=image_path, flight_specs=flight_specs)
+                latitude, longitude, altitude = get_image_gps_coords(image_path)
+                image = cls(
+                    image_path=image_path,
+                    flight_specs=flight_specs,
+                    latitude=latitude,
+                    longitude=longitude,
+                    altitude=altitude,
+                )
                 image.set_annotations(annotations, update_gps=True)
                 all_drone_images.append(image)
             return all_drone_images
