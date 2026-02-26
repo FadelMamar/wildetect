@@ -485,11 +485,15 @@ class DroneImage(Tile):
                     longitude=longitude,
                     altitude=altitude,
                 )
-                image.set_annotations(output["annotations"], update_gps=True)
-                image.set_predictions(
-                    output["predictions"],
-                    update_gps=True,
+                # Convert Label Studio SDK objects to Detection objects
+                annotations = Detection.from_ls(
+                    output["annotations"], output["image_path"]
                 )
+                predictions = Detection.from_ls(
+                    output["predictions"], output["image_path"]
+                )
+                image.set_annotations(annotations, update_gps=True)
+                image.set_predictions(predictions, update_gps=True)
                 all_drone_images.append(image)
             return all_drone_images
 

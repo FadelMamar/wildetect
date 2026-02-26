@@ -359,14 +359,14 @@ class Detection:
             for det in results:
                 image_height = get_req_val(det, "original_height")
                 image_width = get_req_val(det, "original_width")
-                id_ = get_req_val(det, "id")
+                id_ = get_val(det, "id", None)
 
                 value = get_req_val(det, "value")
                 class_name = get_req_val(value, "rectanglelabels")
-                x_val = getattr(value, "x")
-                y_val = getattr(value, "y")
-                w_val = getattr(value, "width")
-                h_val = getattr(value, "height")
+                x_val = get_req_val(value, "x")
+                y_val = get_req_val(value, "y")
+                w_val = get_req_val(value, "width")
+                h_val = get_req_val(value, "height")
 
                 x_min = x_val * image_width / 100
                 y_min = y_val * image_height / 100
