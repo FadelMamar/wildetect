@@ -96,6 +96,28 @@ class ExifGPSUpdateConfig(BaseModel):
         with open(path, "w") as f:
             yaml.dump(self.model_dump(), f, default_flow_style=False)
 
+    def to_df(self) -> pd.DataFrame:
+        """Convert configuration to DataFrame."""
+        try:
+            df = pd.read_csv(
+                self.csv_path,
+                skiprows=self.skip_rows,
+                sep=";",
+            )
+        except Exception:
+            logger.debug(
+                f"Failed to read CSV file {self.csv_path} with separator ';', trying with ','"
+            )
+            df = pd.read_csv(
+                self.csv_path,
+                skiprows=self.skip_rows,
+                sep=",",
+            )
+        df[self.filename_col] = df[self.filename_col].apply(
+            lambda x: os.path.join(self.image_folder, os.path.basename(x))
+        )
+        return df
+
 
 class ModelConfigModel(BaseModel):
     """Model configuration model."""
@@ -323,35 +345,15 @@ class DetectConfigModel(BaseModel):
     def to_loader_config(self) -> LoaderConfig:
         """Convert to existing LoaderConfig dataclass."""
         cfg = dict()
-        if self.exif_gps_update is not None:
-            if (self.exif_gps_update.csv_path is not None) and (
-                self.exif_gps_update.image_folder is not None
-            ):
-                try:
-                    df = pd.read_csv(
-                        self.exif_gps_update.csv_path,
-                        skiprows=self.exif_gps_update.skip_rows,
-                        sep=";",
-                    )
-                except Exception:
-                    logger.info(
-                        f"Failed to read CSV file {self.exif_gps_update.csv_path} with separator ';', trying with ','"
-                    )
-                    df = pd.read_csv(
-                        self.exif_gps_update.csv_path,
-                        skiprows=self.exif_gps_update.skip_rows,
-                        sep=",",
-                    )
-                df["image_path"] = df[self.exif_gps_update.filename_col].apply(
-                    lambda x: os.path.join(self.exif_gps_update.image_folder, x)
-                )
-
-                cfg = dict(
-                    lat_col=self.exif_gps_update.lat_col,
-                    lon_col=self.exif_gps_update.lon_col,
-                    alt_col=self.exif_gps_update.alt_col,
-                    csv_data=df,
-                )
+        if isinstance(self.exif_gps_update, ExifGPSUpdateConfig):
+            df = self.exif_gps_update.to_df()
+            cfg = dict(
+                lat_col=self.exif_gps_update.lat_col,
+                lon_col=self.exif_gps_update.lon_col,
+                alt_col=self.exif_gps_update.alt_col,
+                csv_data=df,
+                filename_col=self.exif_gps_update.filename_col,
+            )
 
         return LoaderConfig(
             tile_size=self.processing.tile_size,
@@ -389,6 +391,9 @@ class VisualizeConfigModel(BaseModel):
     csv_output_path: Optional[str] = Field(default=None, description="CSV output path")
     detection_type: DetectionTypes = Field(
         default=DetectionTypes.ANNOTATIONS, description="Detection type"
+    )
+    exif_gps_update: Optional[ExifGPSUpdateConfig] = Field(
+        default=None, description="EXIF GPS update configuration"
     )
 
 
