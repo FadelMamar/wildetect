@@ -60,5 +60,5 @@ transformations:
     stride: 640
     min_visibility: 0.7
     max_negative_tiles_in_negative_image: 2
-    negative_positive_ratio: 1.0
+    negative_positive_ratio: 5.0
     dark_threshold: 0.7 

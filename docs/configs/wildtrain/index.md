@@ -101,6 +101,8 @@ evaluation:
 
 **File**: `configs/detection/yolo_configs/yolo.yaml`
 
+> **Plain English Guide**: See [YOLO Config Guide](yolo-config-guide.md) for a detailed, non-technical explanation of every setting.
+
 ```yaml
 model:
   framework: "yolo"
