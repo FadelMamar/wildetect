@@ -295,9 +295,9 @@ class Task(BaseModel):
     data: TaskData = Field(..., description="Task data with image path")
     annotations: List[Annotation] = Field(default_factory=list, description="Human annotations")
     drafts: List[Any] = Field(default_factory=list, description="Draft annotations")
-    predictions: List[int] = Field(
+    predictions: List[Prediction] = Field(
         default_factory=list, 
-        description="Predictions IDs"
+        description="Model predictions"
     )
     meta: Dict[str, Any] = Field(default_factory=dict, description="Task metadata")
     created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
@@ -459,13 +459,26 @@ class Task(BaseModel):
                 except Exception:
                     continue  # Skip malformed annotations
         
-        # Extract prediction IDs (SDK returns full objects)
-        prediction_ids = []
+        # Parse full prediction objects (SDK returns full objects)
+        predictions = []
         if sdk_task.predictions:
             for pred in sdk_task.predictions:
                 pred_dict = pred.model_dump() if hasattr(pred, 'model_dump') else dict(pred)
-                if pred_dict.get('id') is not None:
-                    prediction_ids.append(pred_dict['id'])
+                
+                # Parse result dicts into Result objects
+                result_list = []
+                raw_results = pred_dict.get('result') or []
+                for r in raw_results:
+                    try:
+                        result_list.append(Result(**r))
+                    except Exception:
+                        continue  # Skip malformed results
+                pred_dict['result'] = result_list
+                
+                try:
+                    predictions.append(Prediction(**pred_dict))
+                except Exception:
+                    continue  # Skip malformed predictions
         
         # Extract updated_by (SDK returns list of dicts, we want single int)
         updated_by = None
@@ -480,7 +493,7 @@ class Task(BaseModel):
             data=data,
             annotations=annotations,
             drafts=list(sdk_task.drafts) if sdk_task.drafts else [],
-            predictions=prediction_ids,
+            predictions=predictions,
             meta=dict(sdk_task.meta) if sdk_task.meta else {},
             created_at=sdk_task.created_at,
             updated_at=sdk_task.updated_at,

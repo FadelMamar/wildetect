@@ -47,11 +47,9 @@ class LabelStudioManager:
     def get_project(self, project_id: int):
         return self.client.projects.get(project_id)
 
-    def get_task(self, task_id: int, as_sdk_task: bool = True):
+    def get_task(self, task_id: int) -> Task:
         assert isinstance(task_id, int), f"task_id must be an integer, got {task_id}"
         task = self.client.tasks.get(task_id)
-        if as_sdk_task:
-            return task
         return Task.from_sdk_task(task)
 
     def delete_project(self, project_id: int):
@@ -77,8 +75,11 @@ class LabelStudioManager:
             hostname=self.url,
         )
 
-    def get_tasks(self, project_id: int):
-        return self.client.tasks.list(project=project_id)
+    def get_tasks(self, project_id: int) -> List[Task]:
+        return [
+            Task.from_sdk_task(task)
+            for task in self.client.tasks.list(project=project_id)
+        ]
 
     def get_tasks_paths(self, project_id: int) -> Dict[str, int]:
         tasks = self.get_tasks(project_id)
@@ -87,17 +88,17 @@ class LabelStudioManager:
 
     def get_detections(
         self,
-        task,
+        task: Task,
     ) -> Optional[dict]:
-        annotations = self.client.annotations.list(id=task.id)
-        predictions = self.client.predictions.list(task=task.id)
-        image_path = task.storage_filename
+        image_path = task.image_path
 
-        if len(annotations) == 0 and len(predictions) == 0:
+        if len(task.annotations) == 0 and len(task.predictions) == 0:
             return None
 
         return dict(
-            image_path=image_path, annotations=annotations, predictions=predictions
+            image_path=image_path,
+            annotations=task.annotations,
+            predictions=task.predictions,
         )
 
     def get_all_project_detections(

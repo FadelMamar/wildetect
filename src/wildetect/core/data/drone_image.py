@@ -485,7 +485,7 @@ class DroneImage(Tile):
                     longitude=longitude,
                     altitude=altitude,
                 )
-                # Convert Label Studio SDK objects to Detection objects
+                # Convert Label Studio Annotation objects to Detection objects
                 annotations = Detection.from_ls(
                     output["annotations"], output["image_path"]
                 )
