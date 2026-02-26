@@ -3,16 +3,24 @@
 
 labelstudio:
   url: http://localhost:8080
-  api_key: null # <<< TO change HERE
+  api_key: 4f3c25bad9334596c5b2c3b270a2d3105c8b5d4a # <<< TO change HERE
   download_resources: false
-  project_id: null
+  project_id: 200
   json_path: null  # <<< TO change HERE
   dotenv_path: .env
   parse_ls_config: true
   ls_xml_config: null
 
+exif_gps_update: 
+  image_folder: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\cam0 # Path to folder containing images
+  csv_path: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\SE_SabieRiver_GraniteB_Rectimage.csv  # Path to CSV file with GPS coordinates
+  skip_rows: 4  # Number of rows to skip in CSV (e.g., header row)
+  filename_col: "filename"  # CSV column name for filenames
+  lat_col: "latitude"  # CSV column name for latitude
+  lon_col: "longitude"  # CSV column name for longitude
+  alt_col: "altitude"  # CSV column name for altitude
 
-csv_output_path: D:\PhD\Harvard Kruger River Surveys\20231017_LetabaRiver_BasaltA\annotations\detections_v2.csv
+csv_output_path: D:\PhD\GIS\Sabie_Granite\Detections_P200_23_2_2026.csv
 detection_type: "annotations" # annotations, predictions
 
 
