@@ -197,6 +197,7 @@ class LoaderConfig:
     lat_col: Optional[str] = None
     lon_col: Optional[str] = None
     alt_col: Optional[str] = None
+    filename_col: Optional[str] = None
 
     def csv_data_to_dict(self) -> Dict[str, Any]:
         """Convert CSV data to dictionary."""
@@ -204,11 +205,13 @@ class LoaderConfig:
             (self.lat_col is not None)
             and (self.lon_col is not None)
             and (self.alt_col is not None)
-        ), "lat_col, lon_col, and alt_col must be provided"
+            and (self.filename_col is not None)
+        ), "lat_col, lon_col, alt_col, and filename_col must be provided"
         cfg = {
             self.lat_col: "latitude",
             self.lon_col: "longitude",
             self.alt_col: "altitude",
+            self.filename_col: "image_path",
         }
         return (
             self.csv_data.rename(columns=cfg)
