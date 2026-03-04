@@ -386,10 +386,10 @@ class Detection:
                 width, height = get_image_dimensions(image_path)
                 assert (
                     image_width == width
-                ), f"Error. Check out code or Labeling format. ls_width: {image_width} != image_width: {width}"
+                ), f"Error. Check out code or Labeling format. ls_width: {image_width} != image_width: {width} for image: {image_path}"
                 assert (
                     image_height == height
-                ), f"Error. Check out code or Labeling format. ls_height: {image_height} != image_height: {height}"
+                ), f"Error. Check out code or Labeling format. ls_height: {image_height} != image_height: {height} for image: {image_path}"
 
                 class_name = class_name[0]
                 confidence = get_val(det, "score", 1.0)

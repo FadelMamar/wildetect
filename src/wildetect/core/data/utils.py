@@ -29,7 +29,7 @@ def read_image(image_path: str) -> Image.Image:
 def get_image_dimensions(image_path: str) -> Tuple[int, int]:
     """Get the dimensions of an image."""
     image = read_image(image_path)
-    width, height = image.size
+    width, height = image.width, image.height
     return width, height
 
 

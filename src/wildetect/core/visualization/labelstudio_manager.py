@@ -90,13 +90,12 @@ class LabelStudioManager:
         self,
         task: Task,
     ) -> Optional[dict]:
-        image_path = task.image_path
 
         if len(task.annotations) == 0 and len(task.predictions) == 0:
             return None
 
         return dict(
-            image_path=image_path,
+            image_path=task.image_path,
             annotations=task.annotations,
             predictions=task.predictions,
         )
