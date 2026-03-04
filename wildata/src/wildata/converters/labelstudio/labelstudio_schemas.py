@@ -421,7 +421,6 @@ class Task(BaseModel):
         Raises:
             ValueError: If required fields are missing
         """
-        from label_studio_sdk.types import DataManagerTaskSerializer
         
         if sdk_task.id is None:
             raise ValueError("Task ID is required")
@@ -507,6 +506,92 @@ class Task(BaseModel):
             project=sdk_task.project,
             updated_by=updated_by,
             comment_authors=list(sdk_task.comment_authors) if sdk_task.comment_authors else [],
+        )
+    
+    @classmethod
+    def from_json(cls, json_path:str) -> List["Task"]:
+        with open(json_path, "r") as f:
+            data = json.load(f)
+        return [Task.from_dict(task) for task in data]
+
+
+    @classmethod
+    def from_dict(cls, task_dict: Dict[str, Any]) -> "Task":
+        """Convert a task dictionary (e.g. from JSON) to a Task.
+
+        This handles the same type normalizations as from_sdk_task, such as
+        extracting completed_by/updated_by from nested user dicts and parsing
+        results into Result objects.
+
+        Args:
+            task_dict: Raw task dictionary (e.g. from Label Studio export JSON)
+
+        Returns:
+            Parsed Task object
+
+        Raises:
+            ValueError: If required fields are missing
+        """
+        task_id = task_dict.get("id")
+        if task_id is None:
+            raise ValueError("Task ID is required")
+
+        # Convert data dict to TaskData
+        data = TaskData(**task_dict.get("data", {}))
+
+        # Convert annotations
+        annotations = []
+        for ann in task_dict.get("annotations") or []:
+            ann_dict = dict(ann)
+
+            # Extract completed_by user ID from dict if present
+            completed_by = ann_dict.get("completed_by")
+            if isinstance(completed_by, dict):
+                ann_dict["completed_by"] = completed_by.get("id")
+
+            # Ensure id is present (required in Annotation)
+            if ann_dict.get("id") is None:
+                continue
+
+            # Parse result dicts into Result objects
+            result_list = []
+            for r in ann_dict.get("result") or []:
+                try:
+                    result_list.append(Result(**r))
+                except Exception:
+                    continue
+            ann_dict["result"] = result_list
+
+            try:
+                annotations.append(Annotation(**ann_dict))
+            except Exception:
+                continue
+
+        # TODO: Parse prediction dicts into Prediction objects
+        predictions = []
+
+        # Extract updated_by (may be list of dicts, we want single int)
+        updated_by = task_dict.get("updated_by")
+
+        return cls(
+            id=task_id,
+            data=data,
+            annotations=annotations,
+            drafts=list(task_dict.get("drafts") or []),
+            predictions=predictions,
+            meta=dict(task_dict.get("meta") or {}),
+            created_at=task_dict.get("created_at"),
+            updated_at=task_dict.get("updated_at"),
+            inner_id=task_dict.get("inner_id"),
+            total_annotations=task_dict.get("total_annotations") or 0,
+            cancelled_annotations=task_dict.get("cancelled_annotations") or 0,
+            total_predictions=task_dict.get("total_predictions") or 0,
+            comment_count=task_dict.get("comment_count") or 0,
+            unresolved_comment_count=task_dict.get("unresolved_comment_count") or 0,
+            last_comment_updated_at=task_dict.get("last_comment_updated_at"),
+            project=task_dict.get("project"),
+            updated_by=updated_by,
+            comment_authors=list(task_dict.get("comment_authors") or []),
         )
 
 

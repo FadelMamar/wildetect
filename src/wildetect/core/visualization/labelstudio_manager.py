@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import json
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Dict, List, Optional
 from urllib.parse import unquote
@@ -80,6 +81,10 @@ class LabelStudioManager:
             Task.from_sdk_task(task)
             for task in self.client.tasks.list(project=project_id)
         ]
+
+    @staticmethod
+    def get_tasks_from_json(json_path: str) -> List[Task]:
+        return Task.from_json(json_path)
 
     def get_tasks_paths(self, project_id: int) -> Dict[str, int]:
         tasks = self.get_tasks(project_id)
