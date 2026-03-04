@@ -427,8 +427,13 @@ class DroneImage(Tile):
         flight_specs: FlightSpecs,
         labelstudio_config: Optional[LabelStudioConfigModel] = None,
         exif_gps_update: Optional[ExifGPSUpdateConfig] = None,
+        load_annotations: bool = True,
+        load_predictions: bool = True,
     ) -> List["DroneImage"]:
         from ..visualization.labelstudio_manager import LabelStudioManager
+
+        if load_predictions:
+            raise NotImplementedError
 
         csv_dict = None
         if exif_gps_update is not None:
@@ -464,84 +469,53 @@ class DroneImage(Tile):
             labelstudio_config.json_path is not None
         ), "Provide either `project_id` or `json_path`"
 
-        if isinstance(labelstudio_config.project_id, int):
-            ls_client = LabelStudioManager(
+        ls_client = LabelStudioManager(
                 url=labelstudio_config.url,
                 api_key=labelstudio_config.api_key,
                 download_resources=labelstudio_config.download_resources,
             )
-            #outputs = ls_client.get_all_project_detections(
-            #    labelstudio_config.project_id
-            #)
-            all_drone_images = []
+        if isinstance(labelstudio_config.project_id, int):            
             all_tasks = ls_client.get_tasks(labelstudio_config.project_id)
-            errors = 0
-            for task in tqdm(
-                all_tasks, total=len(all_tasks), desc="Loading images from Label Studio"
-            ):
-                try:
-                    latitude, longitude, altitude = get_image_gps_coords(task.image_path)
-                    image = DroneImage.from_ls_task(
-                        task=task,
-                        flight_specs=flight_specs,
-                        latitude=latitude,
-                        longitude=longitude,
-                        altitude=altitude,
-                    )
-                    all_drone_images.append(image)
-                except Exception as e:
-                    logger.warning(f"Failed to load image {task.image_path}: {e}")
-                    logger.info(f"task dump: {task.model_dump()}")
-                    #logger.error(traceback.format_exc())
-                    #exit(1)
-                    errors += 1
-                    if errors > 5:
-                        raise Exception("Stopping due to too many errors.")
-                    continue
-            
-            return all_drone_images
+            logger.info("Loading from project_id")
+        else:
+            all_tasks = ls_client.get_tasks_from_json(labelstudio_config.json_path)
+            logger.info("Loading from json file")
 
-        elif isinstance(labelstudio_config.json_path, str):
-            ls_converter = LabelstudioConverter(
-                dotenv_path=labelstudio_config.dotenv_path
-                or Path(ROOT).joinpath(".env")
-            )
-            _, coco_data = ls_converter.convert(
-                labelstudio_config.json_path,
-                dataset_name="loading-images",
-                parse_ls_config=labelstudio_config.parse_ls_config,
-                ls_xml_config=labelstudio_config.ls_xml_config,
-            )
-
-            images_and_annotations = Detection.from_coco(coco_data)
-            all_drone_images = []
-            for image_path, annotations in tqdm(
-                images_and_annotations.items(),
-                total=len(images_and_annotations),
-                desc="Loading images from Label Studio",
-            ):
-                latitude, longitude, altitude = get_image_gps_coords(image_path)
-                image = cls(
-                    image_path=image_path,
+        all_drone_images = []
+        errors = 0
+        for task in tqdm(
+            all_tasks, total=len(all_tasks), desc="Loading images from Label Studio"
+        ):
+            try:
+                latitude, longitude, altitude = get_image_gps_coords(task.image_path)
+                image = DroneImage.from_ls_task(
+                    task=task,
                     flight_specs=flight_specs,
                     latitude=latitude,
                     longitude=longitude,
                     altitude=altitude,
+                    load_predictions=load_predictions,
+                    load_annotations=load_annotations
                 )
-                image.set_annotations(annotations, update_gps=True)
                 all_drone_images.append(image)
-            return all_drone_images
+            except Exception as e:
+                logger.warning(f"Failed to load image {task.image_path}: {e}")
+                logger.info(f"task dump: {task.model_dump()}")
+                logger.error(traceback.format_exc())
+                #exit(1)
+                errors += 1
+                if errors > 5:
+                    raise Exception("Stopping due to too many errors.")
 
-        else:
-            raise ValueError(
-                "Invalid input type. Please provide a valid Label Studio JSON path or project ID."
-            )
+        return all_drone_images
 
     @classmethod
     def from_ls_task(
         cls,
         task: Task,
         flight_specs: FlightSpecs,
+        load_annotations: bool = True,
+        load_predictions: bool = True,
         **kwargs
     ) -> "DroneImage":
         """Create a DroneImage from a Label Studio task ID.
@@ -566,14 +540,17 @@ class DroneImage(Tile):
         update_gps = drone_image.tile_gps_loc is not None
 
         # Extract annotations from the task
-        annotations = []
-        # for annotation in task.annotations:
-        annotations.extend(Detection.from_ls(task.annotations, image_path))
-        drone_image.set_annotations(annotations, update_gps=update_gps)
+        if load_annotations:
+            annotations = []
+            # for annotation in task.annotations:
+            annotations.extend(Detection.from_ls(task.annotations, image_path))
+            drone_image.set_annotations(annotations, update_gps=update_gps)
 
         # Extract predictions from the task
-        predictions = []
-        predictions.extend(Detection.from_ls(task.predictions, image_path))
-        drone_image.set_predictions(predictions, update_gps=update_gps)
+        if load_predictions:
+            raise NotImplementedError("Not yet implemented")
+            predictions = []
+            predictions.extend(Detection.from_ls(task.predictions, image_path))
+            drone_image.set_predictions(predictions, update_gps=update_gps)
 
         return drone_image

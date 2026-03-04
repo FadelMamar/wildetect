@@ -131,6 +131,8 @@ def extract_gps_coordinates(
         flight_specs=flight_specs,
         labelstudio_config=loaded_config.labelstudio,
         exif_gps_update=loaded_config.exif_gps_update,
+        load_annotations=loaded_config.detection_type == DetectionTypes.ANNOTATIONS,
+        load_predictions=loaded_config.detection_type == DetectionTypes.PREDICTIONS,
     )
 
     # Save detection gps coordinates to csv
