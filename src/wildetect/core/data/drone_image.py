@@ -7,7 +7,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-
+import traceback
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
@@ -16,7 +16,7 @@ from wildata.converters import LabelstudioConverter
 from wildata.converters.labelstudio.labelstudio_schemas import Task
 
 from ..config import ROOT, FlightSpecs
-from ..config_models import LabelStudioConfigModel
+from ..config_models import LabelStudioConfigModel, ExifGPSUpdateConfig
 from .detection import Detection
 from .tile import Tile
 
@@ -426,7 +426,7 @@ class DroneImage(Tile):
         cls,
         flight_specs: FlightSpecs,
         labelstudio_config: Optional[LabelStudioConfigModel] = None,
-        exif_gps_update: Optional[Any] = None,
+        exif_gps_update: Optional[ExifGPSUpdateConfig] = None,
     ) -> List["DroneImage"]:
         from ..visualization.labelstudio_manager import LabelStudioManager
 
@@ -448,53 +448,57 @@ class DroneImage(Tile):
         def get_image_gps_coords(
             img_path: str
         ) -> Tuple[Optional[float], Optional[float], Optional[float]]:
-            if csv_dict is not None and img_path in csv_dict:
+            if csv_dict is None:
+                return None, None, None
+            else:
+                if img_path not in csv_dict:
+                    logger.warning(f"Image path {img_path} not found in csv_dict")
+                    return None, None, None
                 return (
-                    csv_dict[img_path].get("latitude"),
-                    csv_dict[img_path].get("longitude"),
-                    csv_dict[img_path].get("altitude"),
+                    csv_dict[img_path]["latitude"],
+                    csv_dict[img_path]["longitude"],
+                    csv_dict[img_path]["altitude"],
                 )
-            return None, None, None
 
         assert (labelstudio_config.project_id is not None) ^ (
             labelstudio_config.json_path is not None
         ), "Provide either `project_id` or `json_path`"
 
-        if isinstance(labelstudio_config.project_id, int) and isinstance(
-            labelstudio_config, LabelStudioConfigModel
-        ):
+        if isinstance(labelstudio_config.project_id, int):
             ls_client = LabelStudioManager(
                 url=labelstudio_config.url,
                 api_key=labelstudio_config.api_key,
                 download_resources=labelstudio_config.download_resources,
             )
-            outputs = ls_client.get_all_project_detections(
-                labelstudio_config.project_id
-            )
+            #outputs = ls_client.get_all_project_detections(
+            #    labelstudio_config.project_id
+            #)
             all_drone_images = []
-            for output in tqdm(
-                outputs, total=len(outputs), desc="Loading images from Label Studio"
+            all_tasks = ls_client.get_tasks(labelstudio_config.project_id)
+            errors = 0
+            for task in tqdm(
+                all_tasks, total=len(all_tasks), desc="Loading images from Label Studio"
             ):
-                latitude, longitude, altitude = get_image_gps_coords(
-                    output["image_path"]
-                )
-                image = cls(
-                    image_path=output["image_path"],
-                    flight_specs=flight_specs,
-                    latitude=latitude,
-                    longitude=longitude,
-                    altitude=altitude,
-                )
-                # Convert Label Studio Annotation objects to Detection objects
-                annotations = Detection.from_ls(
-                    output["annotations"], output["image_path"]
-                )
-                predictions = Detection.from_ls(
-                    output["predictions"], output["image_path"]
-                )
-                image.set_annotations(annotations, update_gps=True)
-                image.set_predictions(predictions, update_gps=True)
-                all_drone_images.append(image)
+                try:
+                    latitude, longitude, altitude = get_image_gps_coords(task.image_path)
+                    image = DroneImage.from_ls_task(
+                        task=task,
+                        flight_specs=flight_specs,
+                        latitude=latitude,
+                        longitude=longitude,
+                        altitude=altitude,
+                    )
+                    all_drone_images.append(image)
+                except Exception as e:
+                    logger.warning(f"Failed to load image {task.image_path}: {e}")
+                    logger.info(f"task dump: {task.model_dump()}")
+                    #logger.error(traceback.format_exc())
+                    #exit(1)
+                    errors += 1
+                    if errors > 5:
+                        raise Exception("Stopping due to too many errors.")
+                    continue
+            
             return all_drone_images
 
         elif isinstance(labelstudio_config.json_path, str):
@@ -538,6 +542,7 @@ class DroneImage(Tile):
         cls,
         task: Task,
         flight_specs: FlightSpecs,
+        **kwargs
     ) -> "DroneImage":
         """Create a DroneImage from a Label Studio task ID.
 
@@ -557,7 +562,7 @@ class DroneImage(Tile):
         image_path = task.image_path
 
         # Create DroneImage
-        drone_image = cls(image_path=image_path, flight_specs=flight_specs)
+        drone_image = cls(image_path=image_path, flight_specs=flight_specs, **kwargs)
         update_gps = drone_image.tile_gps_loc is not None
 
         # Extract annotations from the task
@@ -568,8 +573,7 @@ class DroneImage(Tile):
 
         # Extract predictions from the task
         predictions = []
-        for prediction in task.predictions:
-            predictions.extend(Detection.from_ls([prediction], image_path))
+        predictions.extend(Detection.from_ls(task.predictions, image_path))
         drone_image.set_predictions(predictions, update_gps=update_gps)
 
         return drone_image
