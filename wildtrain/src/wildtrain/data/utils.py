@@ -1,14 +1,14 @@
-from torchvision import transforms as T
+import traceback
+from pathlib import Path
+
+import supervision as sv
 import torch
+from torchvision import transforms as T
 from wildata.datasets.detection import load_detection_dataset
 from wildata.pipeline.path_manager import PathManager
-from pathlib import Path
-import supervision as sv
-import traceback
 
-from ..utils.logging import get_logger
 from ..utils.io import read_image
-
+from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -39,7 +39,7 @@ def load_all_detection_datasets(
     detection_datasets = []
 
     logger.info(f"Loading datasets from root data directory: {root_data_directory} for split: {split}")
-    
+
     for dataset_name in all_datasets:
         # Check if split exists by checking for annotations file
         annotations_file = path_manager.get_dataset_split_annotations_file(
@@ -47,7 +47,7 @@ def load_all_detection_datasets(
         )
         if not annotations_file.exists():
             continue
-            
+
         try:
             dataset, class_mapping = load_detection_dataset(
                 root_data_directory=root_data_directory,
@@ -62,7 +62,7 @@ def load_all_detection_datasets(
             logger.error(f"Error loading dataset {dataset_name}: {e}")
             logger.error(traceback.format_exc())
             continue
-    
+
     # merge all datasets into one
     merged_dataset = sv.DetectionDataset.merge(detection_datasets)
     logger.info(

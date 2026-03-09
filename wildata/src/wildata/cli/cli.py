@@ -17,13 +17,13 @@ from ..config import (
     ROOT,
     AugmentationConfig,
     BboxClippingConfig,
-    TilingConfig,
-    TransformationConfig,
     BulkCreateROIDatasetConfig,
     BulkImportDatasetConfig,
     ExifGPSUpdateConfig,
     ImportDatasetConfig,
     ROIDatasetConfig,
+    TilingConfig,
+    TransformationConfig,
 )
 from ..logging_config import setup_logging
 from ..pipeline import DataPipeline
@@ -141,7 +141,7 @@ def import_dataset(
             raise typer.Exit(1)
         try:
             config = ImportDatasetConfig.from_yaml(config_file)
-        except Exception as e:
+        except Exception:
             typer.echo(f"[ERROR] Failed to load config file: {traceback.format_exc()}")
             raise typer.Exit(1)
     else:
@@ -222,7 +222,7 @@ def import_dataset(
         try:
             config = ImportDatasetConfig(**config_data)
         except ValidationError as e:
-            typer.echo(f"[ERROR] Configuration validation error:")
+            typer.echo("[ERROR] Configuration validation error:")
             for error in e.errors():
                 typer.echo(f"   {error['loc'][0]}: {error['msg']}")
             raise typer.Exit(1)
@@ -265,7 +265,7 @@ def bulk_import_datasets(
         raise typer.Exit(1)
     try:
         config = BulkImportDatasetConfig.from_yaml(config_file)
-    except Exception as e:
+    except Exception:
         typer.echo(f"[ERROR] Failed to load YAML config file: {traceback.format_exc()}")
         raise typer.Exit(1)
 
@@ -335,7 +335,7 @@ def create_roi_dataset(
     # Only config file is allowed
     try:
         config = ROIDatasetConfig.from_yaml(config_file)
-    except Exception as e:
+    except Exception:
         typer.echo(f"[ERROR] Failed to load config file: {traceback.format_exc()}")
         raise typer.Exit(1)
 
@@ -370,7 +370,7 @@ def bulk_create_roi_datasets(
         raise typer.Exit(1)
     try:
         config = BulkCreateROIDatasetConfig.from_yaml(config_file)
-    except Exception as e:
+    except Exception:
         typer.echo(f"[ERROR] Failed to load YAML config file: {traceback.format_exc()}")
         raise typer.Exit(1)
 
@@ -450,7 +450,7 @@ def list_datasets(
                 )
                 typer.echo(f"     Splits: {dataset.get('splits', 'Unknown')}")
 
-    except Exception as e:
+    except Exception:
         typer.echo(f"[ERROR] Failed to list datasets: {str(traceback.format_exc())}")
         raise typer.Exit(1)
 
@@ -574,7 +574,7 @@ def update_gps_from_csv(
             raise typer.Exit(1)
         try:
             config = ExifGPSUpdateConfig.from_yaml(config_file)
-        except Exception as e:
+        except Exception:
             typer.echo(f"[ERROR] Failed to load config file: {traceback.format_exc()}")
             raise typer.Exit(1)
     else:
@@ -606,7 +606,7 @@ def update_gps_from_csv(
         try:
             config = ExifGPSUpdateConfig(**config_data)
         except ValidationError as e:
-            typer.echo(f"[ERROR] Configuration validation error:")
+            typer.echo("[ERROR] Configuration validation error:")
             for error in e.errors():
                 typer.echo(f"   {error['loc'][0]}: {error['msg']}")
             raise typer.Exit(1)

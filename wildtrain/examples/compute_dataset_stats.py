@@ -15,7 +15,7 @@ def main():
     Example usage of the compute_dataset_stats function.
     """
     # Example configuration
-    data_dir = "D:\PhD\workspace\data"  # Update this to your data directory
+    data_dir = r"D:\PhD\workspace\data"  # Update this to your data directory
     batch_size = 32
 
     # Create the data module
@@ -33,7 +33,7 @@ def main():
         num_workers=0,
     )
 
-    print(f"\nStandalone function results:")
+    print("\nStandalone function results:")
     print(f"Mean: {mean.tolist()}")
     print(f"Std: {std.tolist()}")
 

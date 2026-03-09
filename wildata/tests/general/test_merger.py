@@ -6,6 +6,7 @@ import copy
 from typing import Any, Dict, List
 
 import pytest
+
 from wildata.partitioning.merger import COCODatasetMerger
 
 

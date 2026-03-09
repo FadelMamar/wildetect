@@ -3,11 +3,10 @@ Geographic merging for combining detections across overlapping drone images.
 """
 
 import logging
-import math
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -618,7 +617,7 @@ class GeographicMerger:
         return self.overlap_strategy.find_overlapping_images(
             drone_images, min_overlap_threshold=min_overlap_threshold
         )
-    
+
     def _log(self, message: str):
         if self.verbose:
             logger.info(message)
@@ -644,7 +643,7 @@ class GeographicMerger:
         geo_stats = self.duplicate_removal_strategy.get_geographic_footprint_stats(
             drone_images
         )
-        self._log(f"Geographic footprint availability:")
+        self._log("Geographic footprint availability:")
         self._log(f"  Tiles with GPS data: {geo_stats['tiles_with_gps']}/{geo_stats['total_tiles']}")
         self._log(f"  Detections with geographic footprints: {geo_stats['detections_with_geographic_footprints']}/{geo_stats['total_detections']}")
 

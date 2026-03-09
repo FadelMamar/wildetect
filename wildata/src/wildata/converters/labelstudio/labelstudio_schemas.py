@@ -10,14 +10,14 @@ Label Studio coordinate system:
 - Rotation is in degrees, clockwise
 """
 
-from datetime import datetime
-from pathlib import Path
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union, Set
-from urllib.parse import unquote
-from label_studio_tools.core.utils.io import get_local_path
+from datetime import datetime
 from enum import StrEnum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from urllib.parse import unquote
 
+from label_studio_tools.core.utils.io import get_local_path
 from pydantic import BaseModel, Field
 
 
@@ -34,8 +34,8 @@ class ResultValue(BaseModel):
     rectanglelabels: List[str] = Field(default_factory=list, description="Class labels")
 
     def to_pixel_bbox(
-        self, 
-        original_width: int, 
+        self,
+        original_width: int,
         original_height: int
     ) -> Tuple[float, float, float, float]:
         """Convert percentage bbox to pixel coordinates.
@@ -52,7 +52,7 @@ class ResultValue(BaseModel):
         pw = self.width / 100.0 * original_width
         ph = self.height / 100.0 * original_height
         return (px, py, pw, ph)
-    
+
     def to_normalized_bbox(self) -> Tuple[float, float, float, float]:
         """Convert percentage bbox to normalized (0-1) coordinates.
         
@@ -60,12 +60,12 @@ class ResultValue(BaseModel):
             Tuple of (x, y, width, height) in normalized coordinates
         """
         return (
-            self.x / 100.0, 
-            self.y / 100.0, 
-            self.width / 100.0, 
+            self.x / 100.0,
+            self.y / 100.0,
+            self.width / 100.0,
             self.height / 100.0
         )
-    
+
     def to_coco_bbox(
         self,
         original_width: int,
@@ -82,7 +82,7 @@ class ResultValue(BaseModel):
         """
         px, py, pw, ph = self.to_pixel_bbox(original_width, original_height)
         return [px, py, pw, ph]
-    
+
     def to_yolo_bbox(self) -> Tuple[float, float, float, float]:
         """Convert to YOLO format (center_x, center_y, width, height) normalized.
         
@@ -94,13 +94,13 @@ class ResultValue(BaseModel):
         y_norm = self.y / 100.0
         w_norm = self.width / 100.0
         h_norm = self.height / 100.0
-        
+
         # Convert to center coordinates
         cx = x_norm + w_norm / 2
         cy = y_norm + h_norm / 2
-        
+
         return (cx, cy, w_norm, h_norm)
-    
+
     def clip_to_bounds(self) -> "ResultValue":
         """Return a new ResultValue with coordinates clipped to [0, 100].
         
@@ -115,12 +115,12 @@ class ResultValue(BaseModel):
             rotation=self.rotation,
             rectanglelabels=self.rectanglelabels.copy()
         )
-    
+
     @property
     def label(self) -> Optional[str]:
         """Get the primary label (first in the list)."""
         return self.rectanglelabels[0] if self.rectanglelabels else None
-    
+
     @property
     def is_rotated(self) -> bool:
         """Check if this box has rotation."""
@@ -149,11 +149,11 @@ class Result(BaseModel):
     image_rotation: int = Field(default=0, description="Image rotation applied")
     value: ResultValue = Field(..., description="Bounding box value")
     origin: Optional[ResultOrigin] = Field(
-        default=None, 
+        default=None,
         description="Origin of the result"
     )
     score: Optional[float] = Field(
-        default=None, 
+        default=None,
         description="Confidence score for predictions"
     )
 
@@ -161,20 +161,20 @@ class Result(BaseModel):
     def label(self) -> Optional[str]:
         """Get the primary label."""
         return self.value.label
-    
+
     @property
     def labels(self) -> List[str]:
         """Get all labels."""
         return self.value.rectanglelabels
-    
+
     def get_pixel_bbox(self) -> Tuple[float, float, float, float]:
         """Get bounding box in pixel coordinates."""
         return self.value.to_pixel_bbox(self.original_width, self.original_height)
-    
+
     def get_coco_bbox(self) -> List[float]:
         """Get bounding box in COCO format [x, y, width, height] pixels."""
         return self.value.to_coco_bbox(self.original_width, self.original_height)
-    
+
     def get_coco_area(self) -> float:
         """Calculate area in pixels for COCO format."""
         bbox = self.get_pixel_bbox()
@@ -230,17 +230,17 @@ class Annotation(BaseModel):
 
     class Config:
         extra = "ignore"  # Ignore additional fields
-    
+
     @property
     def has_annotations(self) -> bool:
         """Check if this annotation contains any results."""
         return len(self.result) > 0
-    
+
     @property
     def annotation_count(self) -> int:
         """Get the number of bounding boxes in this annotation."""
         return len(self.result)
-    
+
     def get_labels(self) -> List[str]:
         """Get all unique labels in this annotation."""
         labels = set()
@@ -258,7 +258,7 @@ class TaskData(BaseModel):
 
     class Config:
         extra = "allow"  # Allow additional data fields
-    
+
     def get_image_filename(self) -> str:
         """Extract the filename from the image path.
         
@@ -268,7 +268,7 @@ class TaskData(BaseModel):
             Image filename without path
         """
         return Path(self.get_image_path()).name
-    
+
     def get_image_path(self) -> str:
         """Get the decoded image path.
         
@@ -276,7 +276,7 @@ class TaskData(BaseModel):
             Decoded image path
         """
         decoded = unquote(self.image)
-        
+
         try:
             return get_local_path(decoded, download_resources=False)
         except (FileNotFoundError, Exception):
@@ -297,7 +297,7 @@ class Task(BaseModel):
     annotations: List[Annotation] = Field(default_factory=list, description="Human annotations")
     drafts: List[Any] = Field(default_factory=list, description="Draft annotations")
     predictions: List[Prediction] = Field(
-        default_factory=list, 
+        default_factory=list,
         description="Model predictions"
     )
     meta: Dict[str, Any] = Field(default_factory=dict, description="Task metadata")
@@ -316,43 +316,43 @@ class Task(BaseModel):
 
     class Config:
         extra = "ignore"  # Ignore additional fields
-    
+
     @property
     def image_filename(self) -> str:
         """Get the image filename."""
         return self.data.get_image_filename()
-    
+
     @property
     def image_path(self) -> str:
         """Get the decoded image path."""
         return self.data.get_image_path()
-    
+
     @property
     def has_annotations(self) -> bool:
         """Check if task has any annotations with results."""
         return any(ann.has_annotations for ann in self.annotations)
-    
+
     def get_all_results(self) -> List[Result]:
         """Get all annotation results across all annotations."""
         results = []
         for annotation in self.annotations:
             results.extend(annotation.result)
         return results
-    
+
     def get_annotation_count(self) -> int:
         """Get total number of bounding boxes across all annotations."""
         return sum(ann.annotation_count for ann in self.annotations)
-    
+
     def get_labels(self) -> List[str]:
         """Get all unique labels in this task."""
         labels = set()
         for annotation in self.annotations:
             labels.update(annotation.get_labels())
         return list(labels)
-    
+
     def filter(
-        self, 
-        valid_bbox_ids: Optional[Set[str]] = None, 
+        self,
+        valid_bbox_ids: Optional[Set[str]] = None,
         valid_species: Optional[Set[str]] = None
     ) -> "Task":
         """Filter task annotations based on provided result_ids or species labels.
@@ -366,32 +366,32 @@ class Task(BaseModel):
         """
         valid_ids = valid_bbox_ids or set()
         valid_labels = valid_species or set()
-        
+
         # If no filters provided, return copy of self
         if not valid_ids and not valid_labels:
             return self.model_copy(deep=True)
-            
+
         filtered_annotations = []
-        
+
         for annotation in self.annotations:
             filtered_results = []
             for r in annotation.result:
                 if r.type != ResultType.RECTANGLELABELS:
                     continue
-                    
-                should_include = False                
+
+                should_include = False
                 # Check ID
                 if r.id and r.id in valid_ids:
-                    should_include = True                
+                    should_include = True
                 # Check Label (if not already included)
                 if not should_include and valid_labels:
                     result_label = (r.label or "").strip().lower()
                     if result_label in valid_labels:
                         should_include = True
-                
+
                 if should_include:
                     filtered_results.append(r)
-            
+
             # If we have valid results, keep the annotation (with filtered results)
             if filtered_results:
                 # Use model_dump to create dict, replace results, validate new Annotation
@@ -399,13 +399,13 @@ class Task(BaseModel):
                 # Create dicts from filtered results
                 ann_dict["result"] = [r.model_dump() for r in filtered_results]
                 filtered_annotations.append(Annotation.model_validate(ann_dict))
-                
+
         # Create new task with filtered annotations
         task_dict = self.model_dump()
         task_dict["annotations"] = [a.model_dump() for a in filtered_annotations]
-        
+
         return Task.model_validate(task_dict)
-    
+
     @classmethod
     def from_sdk_task(cls, sdk_task: "DataManagerTaskSerializer") -> "Task":
         """Convert a Label Studio SDK DataManagerTaskSerializer to a Task.
@@ -422,28 +422,28 @@ class Task(BaseModel):
         Raises:
             ValueError: If required fields are missing
         """
-        
+
         if sdk_task.id is None:
             raise ValueError("Task ID is required")
-        
+
         # Convert data dict to TaskData
         data = TaskData(**sdk_task.data)
-        
+
         # Convert annotations
         annotations = []
         if sdk_task.annotations:
             for ann in sdk_task.annotations:
                 ann_dict = ann.model_dump() if hasattr(ann, 'model_dump') else dict(ann)
-                
+
                 # Extract completed_by user ID from dict if present
                 completed_by = ann_dict.get('completed_by')
                 if isinstance(completed_by, dict):
                     ann_dict['completed_by'] = completed_by.get('id')
-                
+
                 # Ensure id is present (required in Annotation)
                 if ann_dict.get('id') is None:
                     continue  # Skip annotations without ID
-                
+
                 # Parse result dicts into Result objects
                 result_list = []
                 raw_results = ann_dict.get('result') or []
@@ -453,18 +453,18 @@ class Task(BaseModel):
                     except Exception:
                         continue  # Skip malformed results
                 ann_dict['result'] = result_list
-                
+
                 try:
                     annotations.append(Annotation(**ann_dict))
                 except Exception:
                     continue  # Skip malformed annotations
-        
+
         # Parse full prediction objects (SDK returns full objects)
         predictions = []
         if sdk_task.predictions:
             for pred in sdk_task.predictions:
                 pred_dict = pred.model_dump() if hasattr(pred, 'model_dump') else dict(pred)
-                
+
                 # Parse result dicts into Result objects
                 result_list = []
                 raw_results = pred_dict.get('result') or []
@@ -474,19 +474,19 @@ class Task(BaseModel):
                     except Exception:
                         continue  # Skip malformed results
                 pred_dict['result'] = result_list
-                
+
                 try:
                     predictions.append(Prediction(**pred_dict))
                 except Exception:
                     continue  # Skip malformed predictions
-        
+
         # Extract updated_by (SDK returns list of dicts, we want single int)
         updated_by = None
         if sdk_task.updated_by and len(sdk_task.updated_by) > 0:
             first_user = sdk_task.updated_by[0]
             if isinstance(first_user, dict):
                 updated_by = first_user.get('id')
-        
+
         # Build the Task
         return cls(
             id=sdk_task.id,
@@ -508,7 +508,7 @@ class Task(BaseModel):
             updated_by=updated_by,
             comment_authors=list(sdk_task.comment_authors) if sdk_task.comment_authors else [],
         )
-    
+
     @classmethod
     def from_json(cls, json_path:str) -> List["Task"]:
         with open(json_path, "r") as f:
@@ -614,12 +614,12 @@ class LabelStudioExport(BaseModel):
             Parsed LabelStudioExport object
         """
         import json
-        
+
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        
+
         return cls.from_list(data)
-    
+
     @classmethod
     def from_list(cls, data: List[Dict[str, Any]]) -> "LabelStudioExport":
         """Create export from a list of task dictionaries.
@@ -632,7 +632,7 @@ class LabelStudioExport(BaseModel):
         """
         tasks = [Task.model_validate(task) for task in data]
         return cls(tasks=tasks)
-    
+
     @classmethod
     def from_json(cls, json_str: str) -> "LabelStudioExport":
         """Create export from a JSON string.
@@ -644,27 +644,27 @@ class LabelStudioExport(BaseModel):
             Parsed LabelStudioExport object
         """
         import json
-        
+
         data = json.loads(json_str)
         return cls.from_list(data)
-    
+
     @property
     def task_count(self) -> int:
         """Get total number of tasks."""
         return len(self.tasks)
-    
+
     @property
     def annotated_task_count(self) -> int:
         """Get number of tasks with at least one annotation."""
         return sum(1 for task in self.tasks if task.has_annotations)
-    
+
     def get_all_labels(self) -> List[str]:
         """Get all unique labels across all tasks."""
         labels = set()
         for task in self.tasks:
             labels.update(task.get_labels())
         return sorted(labels)
-    
+
     def get_label_counts(self) -> Dict[str, int]:
         """Get count of annotations per label.
         
@@ -677,7 +677,7 @@ class LabelStudioExport(BaseModel):
                 for label in result.labels:
                     counts[label] = counts.get(label, 0) + 1
         return counts
-    
+
     def filter_by_labels(self, labels: List[str]) -> "LabelStudioExport":
         """Create a new export with only specified labels.
         
@@ -689,13 +689,13 @@ class LabelStudioExport(BaseModel):
         """
         label_set = set(labels)
         filtered_tasks = []
-        
+
         for task in self.tasks:
             # Filter results within each annotation
             filtered_annotations = []
             for annotation in task.annotations:
                 filtered_results = [
-                    r for r in annotation.result 
+                    r for r in annotation.result
                     if any(lbl in label_set for lbl in r.labels)
                 ]
                 if filtered_results:
@@ -703,10 +703,10 @@ class LabelStudioExport(BaseModel):
                     ann_dict = annotation.model_dump()
                     ann_dict["result"] = [r.model_dump() for r in filtered_results]
                     filtered_annotations.append(Annotation.model_validate(ann_dict))
-            
+
             if filtered_annotations:
                 task_dict = task.model_dump()
                 task_dict["annotations"] = [a.model_dump() for a in filtered_annotations]
                 filtered_tasks.append(Task.model_validate(task_dict))
-        
+
         return LabelStudioExport(tasks=filtered_tasks)

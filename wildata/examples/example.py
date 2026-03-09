@@ -5,14 +5,16 @@ Created on Fri Jul 11 15:57:28 2025
 @author: FADELCO
 """
 
+from wildata.config import ROOT, ROIConfig
 from wildata.pipeline.data_pipeline import DataPipeline
-from wildata.pipeline.path_manager import PathManager
-from wildata.transformations import TransformationPipeline, TilingTransformer, AugmentationTransformer, BoundingBoxClippingTransformer
-from wildata.config import ROOT,ROIConfig
+from wildata.transformations import (
+    BoundingBoxClippingTransformer,
+    TransformationPipeline,
+)
 
 ROOT_DATA = r"D:\workspace\data\demo-dataset"
 SOURCE_PATH = r"D:\workspace\savmap\coco\annotations\train.json"
-#SOURCE_PATH = r"D:\workspace\data\project-4-at-2025-07-14-10-55-95d5eea7.json" 
+#SOURCE_PATH = r"D:\workspace\data\project-4-at-2025-07-14-10-55-95d5eea7.json"
 
 def main():
 
@@ -28,9 +30,9 @@ def main():
             background_class="background",
             save_format="jpg",
         )
-    
+
     ls_xml_config=str(ROOT / "configs" / "label_studio_config.xml")
-    dotenv_path = ROOT / ".env" 
+    dotenv_path = ROOT / ".env"
 
     pipeline = DataPipeline(root=ROOT_DATA,
                             transformation_pipeline=trs,

@@ -38,7 +38,7 @@ def test_config_validation():
         )
         print("❌ Should have failed with invalid format")
         return False
-    except Exception as e:
+    except Exception:
         print("✅ Correctly rejected invalid source format")
 
     # Test invalid split name
@@ -51,7 +51,7 @@ def test_config_validation():
         )
         print("❌ Should have failed with invalid split")
         return False
-    except Exception as e:
+    except Exception:
         print("✅ Correctly rejected invalid split name")
 
     # Test ROI configuration

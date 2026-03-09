@@ -5,9 +5,11 @@ Created on Mon Jul 21 16:46:54 2025
 @author: FADELCO
 """
 
-from omegaconf import OmegaConf, DictConfig
-from wildtrain.trainers import UltralyticsDetectionTrainer
 import traceback
+
+from omegaconf import DictConfig, OmegaConf
+
+from wildtrain.trainers import UltralyticsDetectionTrainer
 
 
 def main():

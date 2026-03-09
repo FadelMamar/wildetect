@@ -4,6 +4,7 @@ Basic API tests.
 
 import pytest
 from fastapi.testclient import TestClient
+
 from wildata.api.main import app
 
 

@@ -5,12 +5,11 @@ Automatically detects CUDA availability and installs appropriate PyTorch version
 """
 
 import logging
-import platform
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 
 def setup_logging():

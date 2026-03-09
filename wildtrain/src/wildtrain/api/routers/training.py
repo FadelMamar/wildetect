@@ -1,24 +1,19 @@
 """Training endpoints for the WildTrain API."""
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import Dict, Any, Optional
-import logging
+from typing import Any, Optional
 
+from fastapi import APIRouter, HTTPException
+
+from ..dependencies import get_logger
 from ..models.requests import (
     ClassificationTrainingRequest,
     DetectionTrainingRequest,
-    JobStatusRequest,
-    JobCancelRequest
+    JobCancelRequest,
 )
-from ..models.responses import (
-    TrainingResponse,
-    JobDetailResponse,
-    JobListResponse
-)
-from ..utils.background_tasks import job_manager, create_background_job, JobStatus
-from ..utils.error_handling import JobNotFoundError, JobExecutionError
-from ..dependencies import get_settings, get_logger
+from ..models.responses import JobDetailResponse, JobListResponse, TrainingResponse
 from ..services.training_service import TrainingService
+from ..utils.background_tasks import JobStatus, create_background_job, job_manager
+from ..utils.error_handling import JobNotFoundError
 
 logger = get_logger("training")
 
@@ -188,7 +183,7 @@ async def cancel_training_job(request: JobCancelRequest) -> JobDetailResponse:
 def _train_classifier_task(config: Any) -> None:
     """Background task for classifier training using actual CLI integration."""
     logger.info("Starting classifier training task with CLI integration")
-    
+
     try:
         # Use the training service to run actual CLI training
         TrainingService.train_classifier(config)
@@ -202,7 +197,7 @@ def _train_classifier_task(config: Any) -> None:
 def _train_detector_task(config: Any) -> None:
     """Background task for detector training using actual CLI integration."""
     logger.info("Starting detector training task with CLI integration")
-    
+
     try:
         # Use the training service to run actual CLI training
         TrainingService.train_detector(config)

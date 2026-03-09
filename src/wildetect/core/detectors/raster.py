@@ -246,7 +246,7 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
         self.data_thread: Optional[threading.Thread] = None
         self.detection_thread: Optional[threading.Thread] = None
 
-        logger.info(f"Initialized MultiThreadedRasterDetectionPipeline")
+        logger.info("Initialized MultiThreadedRasterDetectionPipeline")
 
     def _data_loading_worker(
         self,
@@ -356,7 +356,7 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
                         detections, batch_bounds, gps_coords
                     )
 
-                except Exception as e:
+                except Exception:
                     self.error_count += 1
 
                 if self.error_count > self.config.max_errors:

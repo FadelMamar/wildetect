@@ -22,7 +22,13 @@ Example usage:
     coco_data = parser.to_coco_format()
 """
 
-from .labelstudio_parser import LabelStudioParser, ParsedResult, ParsedAnnotation, ParsedPrediction
+from .labelstudio_converter import LabelstudioConverter
+from .labelstudio_parser import (
+    LabelStudioParser,
+    ParsedAnnotation,
+    ParsedPrediction,
+    ParsedResult,
+)
 from .labelstudio_schemas import (
     Annotation,
     LabelStudioExport,
@@ -32,7 +38,6 @@ from .labelstudio_schemas import (
     Task,
     TaskData,
 )
-from .labelstudio_converter import LabelstudioConverter
 
 __all__ = [
     # Parser

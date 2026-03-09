@@ -1,11 +1,12 @@
 """Evaluation service for integrating CLI functionality with the API."""
 
+import logging
 import tempfile
 from pathlib import Path
-from typing import Dict, Any
-import logging
+from typing import Any, Dict
 
 from omegaconf import OmegaConf
+
 from ...cli.config_loader import ConfigLoader
 from ...cli.models import ClassificationEvalConfig, DetectionEvalConfig
 from ...shared.config_types import ConfigType

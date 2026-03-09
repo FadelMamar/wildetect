@@ -8,23 +8,23 @@ This example shows how to:
 4. Analyze clustering results and crop diversity
 """
 
-import torch
-from torchvision import transforms
 import traceback
+
 from torch.utils.data import DataLoader
+from torchvision import transforms
 
 from wildtrain.data.curriculum.dataset import CurriculumDetectionDataset, PatchDataset
+from wildtrain.data.filters import CropClusteringFilter
 from wildtrain.shared.models import CurriculumConfig
-from wildtrain.data.filters import CropClusteringFilter, ClassificationRebalanceFilter
 
 
 def main():
     """Main example function."""
-    
+
     print("=" * 70)
     print("PatchDataset with ClusteringFilter (Adapter Pattern) Example")
     print("=" * 70)
-    
+
     # 1. Create curriculum configuration
     curriculum_config = CurriculumConfig(
         enabled=True,
@@ -50,7 +50,7 @@ def main():
             transform=transform
         )
 
-        print(f"✅ Base dataset loaded successfully!")
+        print("✅ Base dataset loaded successfully!")
         print(f"✅ Number of samples: {len(dataset)}")
         print(f"✅ Classes: {dataset.classes}")
 
@@ -63,25 +63,25 @@ def main():
             p_draw_annotations=0.0  # No annotations for cleaner crops
         )
 
-        print(f"✅ PatchDataset created successfully!")
+        print("✅ PatchDataset created successfully!")
         print(f"✅ Number of crops: {len(crop_dataset)}")
 
         # 5. Analyze class distribution before clustering
         print("\n📊 Class distribution before clustering:")
         annotations_before = crop_dataset.get_annotations_for_filter()
-        
+
         # Count crops per class
         class_counts_before = {}
         for ann in annotations_before:
             class_name = ann['class_name']
             class_counts_before[class_name] = class_counts_before.get(class_name, 0) + 1
-        
+
         for class_name, count in class_counts_before.items():
             print(f"   {class_name}: {count} crops")
 
         # 6. Create ClusteringFilter and adapter
         print("\n🔄 Creating ClusteringFilter with adapter...")
-        
+
         # Create the base clustering filter
         clustering_filter = CropClusteringFilter(
             crop_dataset=crop_dataset,
@@ -95,31 +95,31 @@ def main():
         #     exclude_extremes=True,
         #     random_seed=42
         # )
-        
+
         # Apply filter to create clustered dataset
         clustered_crop_dataset = (crop_dataset
                                     #.apply_rebalance_filter(rebalance_filter)
                                     .apply_clustering_filter(clustering_filter)
                                     )
 
-        print(f"✅ Clustered PatchDataset created successfully!")
+        print("✅ Clustered PatchDataset created successfully!")
         print(f"✅ Number of crops after clustering: {len(clustered_crop_dataset)}")
 
         # 7. Analyze class distribution after clustering
         print("\n📊 Class distribution after clustering:")
         annotations_after = clustered_crop_dataset.get_annotations_for_filter()
-        
+
         class_counts_after = {}
         for ann in annotations_after:
             class_name = ann['class_name']
             class_counts_after[class_name] = class_counts_after.get(class_name, 0) + 1
-        
+
         for class_name, count in class_counts_after.items():
             print(f"   {class_name}: {count} crops")
 
         # 8. Test DataLoader compatibility
         print("\n🧪 Testing DataLoader compatibility...")
-        
+
         # Create DataLoader with clustered dataset
         dataloader = DataLoader(
             clustered_crop_dataset,
@@ -137,18 +137,18 @@ def main():
 
         # 9. Demonstrate utility methods
         print("\n🔧 Testing utility methods:")
-        
+
         # Get crops by class (assuming class_id 0 is wildlife)
         if len(dataset.classes) > 0:
             wildlife_crops = clustered_crop_dataset.get_crops_by_class(0)
             print(f"   Wildlife crops: {len(wildlife_crops)} indices")
-        
+
         # Get crops by type
         detection_crops = clustered_crop_dataset.get_crops_by_type('detection')
         random_crops = clustered_crop_dataset.get_crops_by_type('random')
         print(f"   Detection crops: {len(detection_crops)} indices")
         print(f"   Random crops: {len(random_crops)} indices")
-        
+
         # Get detailed info for first crop
         if len(clustered_crop_dataset) > 0:
             crop_info = clustered_crop_dataset.get_crop_info(0)

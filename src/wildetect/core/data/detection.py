@@ -2,11 +2,10 @@
 Detection data structures for wildlife detection results.
 """
 
-import json
 import logging
 import math
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import fiftyone as fo
 import supervision as sv

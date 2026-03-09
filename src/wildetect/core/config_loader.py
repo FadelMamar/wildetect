@@ -7,7 +7,6 @@ with Pydantic validation.
 """
 
 import logging
-import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 

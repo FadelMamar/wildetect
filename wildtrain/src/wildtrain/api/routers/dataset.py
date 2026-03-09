@@ -1,13 +1,13 @@
 """Dataset endpoints for the WildTrain API."""
 
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any, List
-import logging
 from pathlib import Path
+from typing import Any, Dict
 
+from fastapi import APIRouter, HTTPException
+
+from ..dependencies import get_logger
 from ..models.requests import DatasetStatsRequest
 from ..models.responses import DatasetStatsResponse
-from ..dependencies import get_logger
 from ..services.dataset_service import DatasetService
 
 logger = get_logger("dataset")
@@ -18,17 +18,17 @@ router = APIRouter()
 @router.post("/stats", response_model=DatasetStatsResponse)
 async def get_dataset_stats(request: DatasetStatsRequest) -> DatasetStatsResponse:
     """Get dataset statistics."""
-    
+
     try:
         logger.info(f"Computing dataset statistics for {request.data_dir}")
-        
+
         # Use the dataset service to run actual CLI dataset stats
         results = DatasetService.get_dataset_stats(
             data_dir=request.data_dir,
             split=request.split,
             output_file=request.output_file
         )
-        
+
         return DatasetStatsResponse(
             success=True,
             message="Dataset statistics computed successfully",
@@ -39,7 +39,7 @@ async def get_dataset_stats(request: DatasetStatsRequest) -> DatasetStatsRespons
             total_samples=results.get("total_samples", 0),
             split_info=results["split_info"]
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to compute dataset statistics: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,8 +1,6 @@
 import os
-import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from fractions import Fraction
-from functools import partial
 from pathlib import Path
 from typing import Optional
 
@@ -128,7 +126,7 @@ class ExifGPSManager:
             try:
                 df = pd.read_csv(csv_path, skiprows=skip_rows, sep=";")
                 df[filename_col]
-            except Exception as e:
+            except Exception:
                 df = pd.read_csv(csv_path, skiprows=skip_rows, sep=",")
                 df[filename_col]
         else:

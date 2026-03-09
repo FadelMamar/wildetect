@@ -1,6 +1,4 @@
-import sys
 from wildtrain.evaluators.classification import ClassificationEvaluator
-from omegaconf import OmegaConf
 
 if __name__ == "__main__":
     import argparse
@@ -14,4 +12,4 @@ if __name__ == "__main__":
     results = evaluator.evaluate(debug=args.debug, save_path=args.save_path)
     print("Evaluation Results:")
     for k, v in results.items():
-        print(f"{k}: {v}") 
+        print(f"{k}: {v}")

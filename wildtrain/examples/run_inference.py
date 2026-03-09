@@ -1,7 +1,7 @@
-from wildtrain.models.detector import Detector
+
 import torch
-import json
-import requests
+
+from wildtrain.models.detector import Detector
 
 url = "http://localhost:4141/predict"
 data = torch.rand(1,3,800,800)

@@ -1,13 +1,12 @@
 """Training service for integrating CLI functionality with the API."""
 
-import tempfile
-import subprocess
-import sys
-from pathlib import Path
-from typing import Dict, Any, Optional
 import logging
+import tempfile
+from pathlib import Path
+from typing import Any, Dict
 
 from omegaconf import OmegaConf
+
 from ...cli.config_loader import ConfigLoader
 from ...cli.models import ClassificationConfig, DetectionConfig
 from ...shared.config_types import ConfigType
@@ -23,7 +22,7 @@ class TrainingService:
         """Train a classification model using the CLI."""
         try:
             validated_config = ClassificationConfig(**config)
-            
+
             # Create a temporary config file
             with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
                 config_dict = validated_config.model_dump()
@@ -51,9 +50,9 @@ class TrainingService:
     def train_detector(config: Dict[str, Any]) -> None:
         """Train a detection model using the CLI."""
         try:
-            
+
             validated_config = DetectionConfig(**config)
-            
+
             # Create a temporary config file
             with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
                 config_dict = validated_config.model_dump()

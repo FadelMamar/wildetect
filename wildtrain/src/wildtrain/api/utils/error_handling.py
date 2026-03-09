@@ -1,16 +1,17 @@
 """Error handling utilities for the WildTrain API."""
 
-from fastapi import HTTPException, Request
-from fastapi.responses import JSONResponse
-from typing import Dict, Any, Optional
 import logging
+from typing import Any, Dict, Optional
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
 
 class WildTrainAPIException(Exception):
     """Base exception for WildTrain API errors."""
-    
+
     def __init__(
         self,
         message: str,
@@ -27,7 +28,7 @@ class WildTrainAPIException(Exception):
 
 class ValidationError(WildTrainAPIException):
     """Exception for validation errors."""
-    
+
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(
             message=message,
@@ -39,7 +40,7 @@ class ValidationError(WildTrainAPIException):
 
 class FileNotFoundAPIError(WildTrainAPIException):
     """Exception for file not found errors."""
-    
+
     def __init__(self, file_path: str):
         super().__init__(
             message=f"File not found: {file_path}",
@@ -50,7 +51,7 @@ class FileNotFoundAPIError(WildTrainAPIException):
 
 class JobNotFoundError(WildTrainAPIException):
     """Exception for job not found errors."""
-    
+
     def __init__(self, job_id: str):
         super().__init__(
             message=f"Job not found: {job_id}",
@@ -61,7 +62,7 @@ class JobNotFoundError(WildTrainAPIException):
 
 class JobExecutionError(WildTrainAPIException):
     """Exception for job execution errors."""
-    
+
     def __init__(self, job_id: str, error: str):
         super().__init__(
             message=f"Job execution failed: {error}",
@@ -73,7 +74,7 @@ class JobExecutionError(WildTrainAPIException):
 
 class ConfigurationError(WildTrainAPIException):
     """Exception for configuration errors."""
-    
+
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(
             message=message,
@@ -85,7 +86,7 @@ class ConfigurationError(WildTrainAPIException):
 
 async def wildtrain_exception_handler(request: Request, exc: WildTrainAPIException) -> JSONResponse:
     """Exception handler for WildTrain API exceptions."""
-    
+
     logger.error(
         f"WildTrain API Exception: {exc.message}",
         extra={
@@ -96,14 +97,14 @@ async def wildtrain_exception_handler(request: Request, exc: WildTrainAPIExcepti
             "method": request.method
         }
     )
-    
+
     response_content = {
         "success": False,
         "message": exc.message,
         "error_code": exc.error_code,
         "details": exc.details
     }
-    
+
     return JSONResponse(
         status_code=exc.status_code,
         content=response_content
@@ -119,7 +120,7 @@ def handle_validation_error(error: Exception) -> ValidationError:
     else:
         details = None
         message = str(error)
-    
+
     return ValidationError(message=message, details=details)
 
 

@@ -1,6 +1,6 @@
 # Converters package for converting between annotation formats
+from .labelstudio import LabelstudioConverter, LabelStudioExport, LabelStudioParser
 from .yolo_to_master import YOLOToMasterConverter
-from .labelstudio import LabelstudioConverter, LabelStudioParser, LabelStudioExport
 
 __all__ = [
     "LabelstudioConverter",

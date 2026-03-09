@@ -1,12 +1,8 @@
 """Dataset service for integrating CLI functionality with the API."""
 
-import tempfile
-import json
-from pathlib import Path
-from typing import Dict, Any, Optional
 import logging
-
-from ...cli.config_loader import ConfigLoader
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +44,17 @@ class DatasetService:
         """Get available dataset splits."""
         try:
             from ...data.classification_datamodule import ClassificationDataModule
-            
+
             # Create the data module to check available splits
             datamodule = ClassificationDataModule(
-                root_data_directory=str(data_dir), 
-                batch_size=32, 
-                transforms=None, 
+                root_data_directory=str(data_dir),
+                batch_size=32,
+                transforms=None,
                 load_as_single_class=True
             )
-            
+
             splits = {}
-            
+
             # Check which splits exist
             try:
                 datamodule.setup(stage="fit")
@@ -68,7 +64,7 @@ class DatasetService:
                 }
             except Exception:
                 splits["train"] = {"exists": False, "count": 0}
-            
+
             try:
                 datamodule.setup(stage="validate")
                 splits["val"] = {
@@ -77,7 +73,7 @@ class DatasetService:
                 }
             except Exception:
                 splits["val"] = {"exists": False, "count": 0}
-            
+
             try:
                 datamodule.setup(stage="test")
                 splits["test"] = {
@@ -86,7 +82,7 @@ class DatasetService:
                 }
             except Exception:
                 splits["test"] = {"exists": False, "count": 0}
-            
+
             return {
                 "splits": splits,
                 "total_splits": len([s for s in splits.values() if s["exists"]])

@@ -7,22 +7,23 @@ detection models by evaluating on a validation dataset.
 
 import csv
 import json
+import pickle as pkl
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional, Generator, List
+from typing import Any, Dict, List, Optional
+
+import optuna
 import supervision as sv
 from supervision.metrics.detection import ConfusionMatrix
-import pickle as pkl
-import optuna
 
-from ..shared.sweeper import Sweeper
 from ..shared.schemas import (
     CalibrationConfig,
     DetectionEvalConfig,
-    SweepObjectiveTypes,
-    OverlapMetricConfig,
     MergingMethodConfig,
+    OverlapMetricConfig,
+    SweepObjectiveTypes,
 )
+from ..shared.sweeper import Sweeper
 from ..utils.logging import get_logger
 from .ultralytics import UltralyticsEvaluator
 
@@ -44,7 +45,7 @@ class DetectionCalibrator(Sweeper):
         >>> calibrator = DetectionCalibrator("calibration_config.yaml")
         >>> calibrator.run()
     """
-    
+
     def __init__(self, calibration_config_path: str, debug: bool = False,):
         self.calibration_config_path = calibration_config_path
         self.calibration_cfg = CalibrationConfig.from_yaml(calibration_config_path)
@@ -63,10 +64,10 @@ class DetectionCalibrator(Sweeper):
 
         assert self.base_cfg.train.single_cls, "Single class must be True for calibration"
         return None
-    
+
     @lru_cache(maxsize=1)
     def get_gt_and_preds(self,) -> List[dict[str, List[sv.Detections]]]:
-        
+
         logger.info("Running inference to collect predictions")
         evaluator = UltralyticsEvaluator(self.base_cfg,disable_detection_filtering=True)
         self.class_mapping = evaluator.class_mapping
@@ -83,8 +84,8 @@ class DetectionCalibrator(Sweeper):
             self._gt_and_preds.append(results)
         if self.save_gt_preds:
             self._save_gt_preds()
-        return self._gt_and_preds    
-    
+        return self._gt_and_preds
+
     def _save_gt_preds(self):
         path = Path(self.calibration_cfg.output.directory) / (self.calibration_cfg.calibration_name + "_gt_preds.pkl")
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -95,7 +96,7 @@ class DetectionCalibrator(Sweeper):
         with open(path, "rb") as f:
             self._gt_and_preds = pkl.load(f)
         return self._gt_and_preds
-    
+
     def _apply_filtering(
         self,
         detections: sv.Detections,
@@ -177,7 +178,7 @@ class DetectionCalibrator(Sweeper):
         # print("tn:",tn)
 
         return {"precision": precision, "recall": recall, "f1": f1}
-     
+
     def __call__(self, trial: optuna.Trial) -> float:
         """Objective function for a single Optuna trial.
         
@@ -191,31 +192,31 @@ class DetectionCalibrator(Sweeper):
             The objective metric value (e.g., best F1 score).
         """
         self.counter += 1
-        
-        try:            
+
+        try:
             # Suggest hyperparameters
             params = self.calibration_cfg.parameters
             conf_thres = trial.suggest_categorical(
-                "conf_thres", 
+                "conf_thres",
                 params.conf_thres
             )
             iou_thres = trial.suggest_categorical(
-                "iou_thres", 
+                "iou_thres",
                 params.iou_thres
             )
             matching_iou_thres = trial.suggest_categorical(
-                "matching_iou_thres", 
+                "matching_iou_thres",
                 params.matching_iou_thres
             )
             merging_method = trial.suggest_categorical(
-                "merging_method", 
+                "merging_method",
                 [m.value for m in params.merging_method]
             )
             overlap_metric = trial.suggest_categorical(
-                "overlap_metric", 
+                "overlap_metric",
                 [m.value for m in params.overlap_metrics]
             )
-            
+
             logger.info(
                 "Running trial %d with params: conf_thres=%.3f, iou_thres=%.3f, overlap_metric=%s",
                 self.counter,
@@ -223,7 +224,7 @@ class DetectionCalibrator(Sweeper):
                 iou_thres,
                 overlap_metric,
             )
-            
+
             # Create evaluator and run evaluation
             metrics = self._compute_metrics(
                 iou_threshold=iou_thres,
@@ -232,27 +233,27 @@ class DetectionCalibrator(Sweeper):
                 merging_method=merging_method,
                 overlap_metric=overlap_metric,
             )
-            
+
             # Extract objective metric
             objective_value = self._extract_objective(metrics)
-            
+
             if objective_value is None:
                 logger.warning(
                     "Trial %d completed but objective metric is None. Pruning trial.",
                     self.counter
                 )
                 raise optuna.TrialPruned("Evaluation completed but objective metric is None")
-            
+
             logger.info("Trial %d result: %.6f", self.counter, objective_value)
             return objective_value
-            
+
         except optuna.TrialPruned:
             raise
         except Exception as e:
             logger.error("Trial %d failed with error: %s", self.counter, e)
             logger.exception("Full traceback:")
             raise
-    
+
     def _extract_objective(self, metrics: Dict[str, float]) -> Optional[float]:
         """Extract the objective metric value from the evaluation report.
         
@@ -263,20 +264,20 @@ class DetectionCalibrator(Sweeper):
             The objective metric value, or None if not found.
         """
         objective = self.calibration_cfg.objective
-        
+
         if objective == SweepObjectiveTypes.F1_SCORE:
             return metrics['f1']
-        
+
         elif objective == SweepObjectiveTypes.PRECISION:
             return metrics['precision']
-        
+
         elif objective == SweepObjectiveTypes.RECALL:
             return metrics['recall']
-                
+
         else:
             logger.warning("Unknown objective type: %s", objective)
             return None
-    
+
     def run(self,):
         """Run the calibration optimization process."""
         storage_path = Path(self.calibration_cfg.output.directory) / (self.calibration_cfg.calibration_name + ".db")
@@ -288,20 +289,20 @@ class DetectionCalibrator(Sweeper):
             sampler=optuna.samplers.TPESampler(seed=self.calibration_cfg.seed),
             load_if_exists=True
         )
-        
+
         self.study = study
-        
+
         logger.info(
-            "Starting Optuna calibration: %s", 
+            "Starting Optuna calibration: %s",
             self.calibration_cfg.calibration_name
         )
-        
+
         study.optimize(
             self,
             n_trials=self.calibration_cfg.n_trials,
             timeout=self.calibration_cfg.timeout,
         )
-        
+
         # Output the best result
         best_trial = study.best_trial
         logger.info("\n" + "=" * 50)
@@ -313,11 +314,11 @@ class DetectionCalibrator(Sweeper):
             logger.info("  %s: %s", key, value)
         logger.info("Total trials completed: %d", len(study.trials))
         logger.info("=" * 50)
-        
+
         # Save results if configured
         if self.calibration_cfg.output and self.calibration_cfg.output.save_results:
             self._save_calibration_results()
-    
+
     def _save_calibration_results(self):
         """Save calibration results to the specified output directory."""
         try:
@@ -326,14 +327,14 @@ class DetectionCalibrator(Sweeper):
                 f"results/calibrations/{self.calibration_cfg.calibration_name}"
             )
             output_path.mkdir(parents=True, exist_ok=True)
-            
+
             if self.study is None:
                 logger.warning("No study found. Results cannot be saved.")
                 return
-            
+
             study = self.study
             output_format = output_cfg.format if output_cfg else "json"
-            
+
             # Extract best trial data
             best_trial = study.best_trial
             best_trial_data = {
@@ -341,7 +342,7 @@ class DetectionCalibrator(Sweeper):
                 "value": best_trial.value,
                 "params": best_trial.params,
             }
-            
+
             # Extract all trials data
             all_trials_data = []
             include_history = output_cfg.include_optimization_history if output_cfg else True
@@ -354,7 +355,7 @@ class DetectionCalibrator(Sweeper):
                         "state": trial.state.name if trial.state else None,
                     }
                     all_trials_data.append(trial_data)
-            
+
             # Study metadata
             study_metadata = {
                 "direction": study.direction.name,
@@ -363,7 +364,7 @@ class DetectionCalibrator(Sweeper):
                 "best_value": best_trial.value,
                 "objective": self.calibration_cfg.objective.value,
             }
-            
+
             # Save JSON
             if output_format in ("json", "both"):
                 json_data = {
@@ -372,12 +373,12 @@ class DetectionCalibrator(Sweeper):
                 }
                 if include_history:
                     json_data["all_trials"] = all_trials_data
-                
+
                 json_file = output_path / "calibration_results.json"
                 with open(json_file, "w", encoding="utf-8") as f:
                     json.dump(json_data, f, indent=2, ensure_ascii=False)
                 logger.info("Saved JSON results to: %s", json_file)
-            
+
             # Save CSV
             if output_format in ("csv", "both"):
                 csv_file = output_path / "calibration_results.csv"
@@ -389,15 +390,15 @@ class DetectionCalibrator(Sweeper):
                             "value": trial.value,
                             "params": trial.params,
                         })
-                    
+
                     if trials_for_csv:
                         fieldnames = ["trial_number", "value"]
                         param_names = list(trials_for_csv[0]["params"].keys())
                         fieldnames.extend(param_names)
-                        
+
                         writer = csv.DictWriter(f, fieldnames=fieldnames)
                         writer.writeheader()
-                        
+
                         for trial_data in trials_for_csv:
                             row = {
                                 "trial_number": trial_data["number"],
@@ -405,9 +406,9 @@ class DetectionCalibrator(Sweeper):
                             }
                             row.update(trial_data["params"])
                             writer.writerow(row)
-                    
+
                 logger.info("Saved CSV results to: %s", csv_file)
-            
+
             # Generate plots if requested
             save_plots = output_cfg.save_plots if output_cfg else True
             if save_plots:
@@ -418,7 +419,7 @@ class DetectionCalibrator(Sweeper):
                     logger.info("Saved optimization history plot to: %s", plot_file)
                 except Exception as e:
                     logger.warning("Failed to generate optimization history plot: %s", e)
-                
+
                 try:
                     fig = optuna.visualization.plot_parallel_coordinate(study)
                     plot_file = output_path / "parallel_coordinate.html"
@@ -426,7 +427,7 @@ class DetectionCalibrator(Sweeper):
                     logger.info("Saved parallel coordinate plot to: %s", plot_file)
                 except Exception as e:
                     logger.warning("Failed to generate parallel coordinate plot: %s", e)
-                
+
                 try:
                     if len(study.trials) > 1:
                         fig = optuna.visualization.plot_param_importances(study)
@@ -435,12 +436,12 @@ class DetectionCalibrator(Sweeper):
                         logger.info("Saved parameter importance plot to: %s", plot_file)
                 except Exception as e:
                     logger.warning("Failed to generate parameter importance plot: %s", e)
-            
+
             logger.info("Calibration results saved to: %s", output_path)
-            
+
         except Exception as e:
             logger.warning("Failed to save calibration results: %s", e)
-    
+
     def get_best_params(self) -> Optional[Dict[str, Any]]:
         """Get the best hyperparameters found during calibration.
         

@@ -7,8 +7,7 @@ metadata-based partitioning.
 """
 
 import logging
-import random
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 from sklearn.cluster import DBSCAN

@@ -7,7 +7,7 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 from rich.console import Console
@@ -88,12 +88,12 @@ def display_results(drone_images: List[DroneImage], output_dir: Optional[str] = 
     console.print(table)
 
     # Summary
-    console.print(f"\n[bold green]Summary:[/bold green]")
+    console.print("\n[bold green]Summary:[/bold green]")
     console.print(f"  Images processed: {len(drone_images)}")
     console.print(f"  Total detections: {total_detections}")
 
     if class_counts:
-        console.print(f"  Classes found:")
+        console.print("  Classes found:")
         for class_name, count in sorted(
             class_counts.items(), key=lambda x: x[1], reverse=True
         ):
@@ -136,7 +136,7 @@ def display_results(drone_images: List[DroneImage], output_dir: Optional[str] = 
 
                 # Get coverage statistics
                 coverage_stats = visualizer.get_coverage_statistics(drone_images)
-                console.print(f"[green]✓ Coverage statistics calculated[/green]")
+                console.print("[green]✓ Coverage statistics calculated[/green]")
                 console.print(f"  Images with GPS: {coverage_stats['images_with_gps']}")
                 console.print(
                     f"  Images with footprints: {coverage_stats['images_with_footprints']}"
@@ -150,7 +150,7 @@ def display_results(drone_images: List[DroneImage], output_dir: Optional[str] = 
                 console.print(
                     f"[red]✗ Failed to create geographic visualization: {e}[/red]"
                 )
-                console.print(f"[yellow]Continuing without visualization...[/yellow]")
+                console.print("[yellow]Continuing without visualization...[/yellow]")
         else:
             console.print(
                 "[yellow]No images with detections found for visualization[/yellow]"
@@ -192,7 +192,7 @@ def display_census_results(
     # Geographic coverage
     if census_manager.drone_images:
         geo_stats = get_geographic_coverage(census_manager.drone_images)
-        console.print(f"\n[bold green]Geographic Coverage:[/bold green]")
+        console.print("\n[bold green]Geographic Coverage:[/bold green]")
         console.print(f"  Images with GPS: {geo_stats['images_with_gps']}")
         console.print(
             f"  Images with footprints: {geo_stats['images_with_footprints']}"
@@ -202,7 +202,7 @@ def display_census_results(
             geo_stats["geographic_bounds"], dict
         ):
             bounds = geo_stats["geographic_bounds"]
-            console.print(f"  Coverage bounds:")
+            console.print("  Coverage bounds:")
             console.print(
                 f"    Latitude: {bounds.get('min_lat', 0):.6f} to {bounds.get('max_lat', 0):.6f}"
             )
@@ -288,7 +288,7 @@ def analyze_detection_results(results: Union[dict, list]) -> dict:
 
 def display_analysis_results(analysis_results: dict):
     """Display analysis results."""
-    console.print(f"\n[bold blue]Analysis Results[/bold blue]")
+    console.print("\n[bold blue]Analysis Results[/bold blue]")
 
     table = Table(title="Detection Analysis")
     table.add_column("Metric", style="cyan")
@@ -304,7 +304,7 @@ def display_analysis_results(analysis_results: dict):
 
     # Species breakdown
     if analysis_results.get("species_breakdown"):
-        console.print(f"\n[bold green]Species Breakdown:[/bold green]")
+        console.print("\n[bold green]Species Breakdown:[/bold green]")
         for species, count in sorted(
             analysis_results["species_breakdown"].items(),
             key=lambda x: x[1],

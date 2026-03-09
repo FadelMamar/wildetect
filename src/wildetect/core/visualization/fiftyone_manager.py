@@ -7,11 +7,12 @@ using FiftyOne for wildlife detection datasets.
 """
 
 from __future__ import annotations
+
 import json
 import logging
 import os
 import traceback
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import fiftyone as fo
 import fiftyone.brain as fob

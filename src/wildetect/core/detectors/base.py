@@ -5,13 +5,12 @@ import traceback
 from abc import ABC, abstractmethod
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import pandas as pd
 import supervision as sv
 import torch
 from tqdm import tqdm
-
 from wildtrain.models.detector import Detector
 from wildtrain.utils.mlflow import load_registered_model
 

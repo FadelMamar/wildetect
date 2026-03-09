@@ -2,10 +2,7 @@ import json
 import os
 import shutil
 import tempfile
-from pathlib import Path
 
-import pytest
-from PIL import Image
 from wildata.validators.coco_validator import COCOValidator
 from wildata.validators.yolo_validator import YOLOValidator
 

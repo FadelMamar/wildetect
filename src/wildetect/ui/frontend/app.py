@@ -7,7 +7,6 @@ A modern web interface for the WildDetect wildlife detection system.
 import reflex as rx
 
 from .pages.index import index
-from .state import WildDetectState
 
 # Create the Reflex app
 app = rx.App()

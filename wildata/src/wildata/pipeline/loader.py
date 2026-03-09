@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from ..converters.labelstudio import LabelstudioConverter
 from ..converters.yolo_to_master import YOLOToMasterConverter

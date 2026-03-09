@@ -2,13 +2,11 @@
 ROI dataset management endpoints.
 """
 
-import asyncio
-from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from ..dependencies import get_background_task_semaphore, verify_token
-from ..exceptions import DatasetError, NotFoundError, ValidationError
+from ..exceptions import NotFoundError
 from ..models.requests import (
     BulkCreateROIRequest,
     CreateROIRequest,
@@ -16,7 +14,6 @@ from ..models.requests import (
 from ..models.responses import (
     BulkCreateROIResponse,
     CreateROIResponse,
-    DatasetInfo,
 )
 from ..services.job_queue import get_job_queue
 from ..services.task_handlers import (

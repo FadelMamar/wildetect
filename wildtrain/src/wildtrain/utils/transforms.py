@@ -4,6 +4,7 @@ Transform utilities for creating torchvision transforms from configuration.
 
 import traceback
 from typing import Any
+
 from omegaconf import DictConfig
 
 
@@ -20,8 +21,8 @@ def create_transforms(transforms: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dictionary with 'train' and 'val' keys containing composed transforms
     """
-    import torchvision.transforms.v2 as T
     import torchvision.transforms.functional as F
+    import torchvision.transforms.v2 as T
 
     def create_transform_list(transform_configs: list) -> T.Compose:
         """Create a list of transforms from configuration."""
@@ -76,7 +77,7 @@ def create_transforms(transforms: dict[str, Any]) -> dict[str, Any]:
             try:
                 transform_instance = transform_class(**params)
                 transform_list.append(transform_instance)
-            except Exception as e:
+            except Exception:
                 raise ValueError(
                     f"Failed to create transform {transform_name} with params {params}: {traceback.format_exc()}"
                 )
@@ -99,4 +100,4 @@ def create_transforms(transforms: dict[str, Any]) -> dict[str, Any]:
         # Default validation transforms
         result["val"] = T.Compose([T.ToTensor()])
 
-    return result 
+    return result

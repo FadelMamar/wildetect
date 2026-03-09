@@ -1,21 +1,19 @@
-import os
-from typing import Any, Optional, Tuple, Union
-import torch
-from torch.utils.data import DataLoader, ConcatDataset
-import lightning as L
-from torchvision import transforms as T
-from wildata.datasets.roi import load_all_splits_concatenated, ROIDataset
 from pathlib import Path
-import numpy as np
-from tqdm import tqdm
-import sys
-from ..utils.logging import get_logger
-from .filters import ClassificationRebalanceFilter
-from .curriculum.dataset import PatchDataset, CurriculumDetectionDataset
-from .curriculum.mixins import CurriculumDataModuleMixin
-from ..shared.models import CurriculumConfig
+from typing import Any, Optional, Tuple, Union
+
+import lightning as L
+import torch
 from omegaconf import DictConfig, OmegaConf
+from torch.utils.data import ConcatDataset, DataLoader
+from tqdm import tqdm
+from wildata.datasets.roi import ROIDataset, load_all_splits_concatenated
+
+from ..shared.models import CurriculumConfig
+from ..utils.logging import get_logger
 from ..utils.transforms import create_transforms
+from .curriculum.dataset import CurriculumDetectionDataset, PatchDataset
+from .curriculum.mixins import CurriculumDataModuleMixin
+from .filters import ClassificationRebalanceFilter
 
 logger = get_logger(__name__)
 
@@ -162,18 +160,18 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
             elif not isinstance(curriculum_config, CurriculumConfig):
                 logger.warning(f"Invalid curriculum_config type: {type(curriculum_config)}. Disabling curriculum.")
                 curriculum_config = None
-        
+
         CurriculumDataModuleMixin.__init__(self, curriculum_config)
         L.LightningDataModule.__init__(self)
         #super().__init__()
-        
+
         self.batch_size = batch_size
         self.root_data_directory = Path(root_data_directory).resolve()
         self.dataset_type = dataset_type
 
         if not load_as_single_class:
             raise ValueError("Current workflow does not support multi-class datasets")
-        
+
         self.num_workers = num_workers
 
         # ROI dataset configuration
@@ -198,7 +196,7 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         self.preserve_aspect_ratio = preserve_aspect_ratio
 
         self.transforms = transforms
-        
+
         # Initialize datasets
         self.train_dataset: Optional[Union[ROIDataset, ConcatDataset, PatchDataset]] = None
         self.val_dataset: Optional[Union[ROIDataset, ConcatDataset, PatchDataset]] = None
@@ -208,8 +206,8 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         # Rebalancing
         if rebalance:
             self.resample_func = ClassificationRebalanceFilter(
-                class_key="class_id", 
-                random_seed=41, 
+                class_key="class_id",
+                random_seed=41,
                 method=rebalance_method,
                 exclude_extremes=rebalance_exclude_extremes
             )
@@ -231,11 +229,11 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         config_path = Path(config_path)
         if not config_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
-        
+
         # Load configuration
         config = OmegaConf.load(config_path)
         logger.info(f"Creating ClassificationDataModule from config: {config_path}")
-        
+
         return cls.from_dict_config(config)
 
     @classmethod
@@ -250,12 +248,12 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
             ClassificationDataModule instance
         """
         dataset_config = config.dataset
-        
+
         # Extract parameters using helper method
         params = cls._extract_config_params(dataset_config)
 
         params["num_workers"] = config.train.num_workers
-                
+
         return cls(**params)
 
     @classmethod
@@ -273,7 +271,7 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         root_data_directory = dataset_config.root_data_directory
         batch_size = dataset_config.get("batch_size", 8)
         dataset_type = dataset_config.get("dataset_type", "roi")
-        
+
         # Handle transforms - convert to dict if it's a ListConfig
         transforms = dataset_config.get("transforms")
         if transforms is not None:
@@ -282,7 +280,7 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
                 transforms = dict(transforms)
             # Process transforms using the create_transforms function
             transforms = create_transforms(transforms)
-        
+
         # ROI dataset parameters
         single_class_config = dataset_config.get("single_class", {})
         load_as_single_class = single_class_config.get("enable", False)
@@ -290,21 +288,21 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         single_class_name = single_class_config.get("single_class_name", "wildlife")
         keep_classes = single_class_config.get("keep_classes")
         discard_classes = single_class_config.get("discard_classes")
-        
+
         # Convert to proper types if needed
         if keep_classes is not None and not isinstance(keep_classes, list):
             keep_classes = [keep_classes] if keep_classes else None
         if discard_classes is not None and not isinstance(discard_classes, list):
             discard_classes = [discard_classes] if discard_classes else None
-        
+
         # Rebalancing
         rebalance = dataset_config.get("rebalance", False)
-        
+
         # Crop dataset parameters
         crop_size = dataset_config.get("crop_size", 224)
         max_tn_crops = dataset_config.get("max_tn_crops", 1)
         p_draw_annotations = dataset_config.get("p_draw_annotations", 0.0)
-        
+
         # Curriculum parameters
         curriculum_config = dataset_config.get("curriculum_config")
         compute_difficulties = dataset_config.get("compute_difficulties", True)
@@ -346,13 +344,13 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         # Ensure proper types for keep_classes and discard_classes
         keep_classes = self.single_class_config["keep_classes"]
         discard_classes = self.single_class_config["discard_classes"]
-        
+
         # Convert to proper types if needed
         if keep_classes is not None and not isinstance(keep_classes, list):
             keep_classes = [keep_classes] if keep_classes else None
         if discard_classes is not None and not isinstance(discard_classes, list):
             discard_classes = [discard_classes] if discard_classes else None
-        
+
         return load_all_splits_concatenated(
             self.root_data_directory,
             splits=splits,
@@ -376,17 +374,17 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
             compute_difficulties=self.compute_difficulties,
             preserve_aspect_ratio=self.preserve_aspect_ratio,
         )
-        
+
         # Ensure proper types for keep_classes and discard_classes
         keep_classes = self.single_class_config["keep_classes"]
         discard_classes = self.single_class_config["discard_classes"]
-        
+
         # Convert to proper types if needed
         if keep_classes is not None and not isinstance(keep_classes, list):
             keep_classes = [keep_classes] if keep_classes else None
         if discard_classes is not None and not isinstance(discard_classes, list):
             discard_classes = [discard_classes] if discard_classes else None
-        
+
         # Create crop dataset
         crop_dataset = PatchDataset(
             dataset=detection_dataset,
@@ -399,11 +397,11 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
             keep_classes=keep_classes,
             discard_classes=discard_classes,
         )
-        
+
         # Apply rebalancing if needed
         if self.resample_func:
             crop_dataset = crop_dataset.apply_rebalance_filter(self.resample_func)
-        
+
         return crop_dataset
 
     def setup(self, stage: Optional[str] = None):
@@ -412,26 +410,26 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
             if self.dataset_type == "roi":
                 # Load ROI datasets
                 train_data = self._load_roi_dataset(
-                    splits=["train"], 
+                    splits=["train"],
                     resample_function=self.resample_func
                 )
-                
+
                 # Check if val split exists
                 available_splits = ["train", "val", "test"]
                 val_data = {}
                 if "val" in available_splits:
                     try:
                         val_data = self._load_roi_dataset(
-                            splits=["val"], 
+                            splits=["val"],
                             resample_function=None
                         )
                     except Exception as e:
                         logger.warning(f"Val split not found, using train split for validation: {e}")
                         val_data = {"val": train_data["train"]}
-                
+
                 self.train_dataset = train_data["train"]
                 self.val_dataset = val_data.get("val", train_data["train"])  # Fallback to train if val not found
-                
+
             elif self.dataset_type == "crop":
                 # Load crop datasets
                 self.train_dataset = self._load_crop_dataset("train")
@@ -440,13 +438,13 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
                 except Exception as e:
                     logger.warning(f"Val split not found, using train split for validation: {e}")
                     self.val_dataset = self.train_dataset
-            
+
             # Get class mapping
             if self.train_dataset is not None:
                 self.class_mapping = self._get_class_mapping(self.train_dataset)
             if self.val_dataset is not None:
                 val_class_mapping = self._get_class_mapping(self.val_dataset)
-                
+
                 # For crop datasets, class mappings might differ due to different crops
                 # Only assert if both datasets have the same number of classes
                 if len(self.class_mapping) == len(val_class_mapping):
@@ -461,7 +459,7 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
                     else:
                         logger.info("Using val dataset class mapping")
                         self.class_mapping = val_class_mapping
-            
+
         elif stage == "validate":
             if self.dataset_type == "roi":
                 try:
@@ -478,10 +476,10 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
                 except Exception as e:
                     logger.warning(f"Val split not found, using train split: {e}")
                     self.val_dataset = self._load_crop_dataset("train")
-            
+
             if self.val_dataset is not None:
                 self.class_mapping = self._get_class_mapping(self.val_dataset)
-            
+
         elif stage == "test":
             if self.dataset_type == "roi":
                 try:
@@ -498,7 +496,7 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
                 except Exception as e:
                     logger.warning(f"Test split not found, using train split: {e}")
                     self.test_dataset = self._load_crop_dataset("train")
-            
+
             if self.test_dataset is not None:
                 self.class_mapping = self._get_class_mapping(self.test_dataset)
         else:
@@ -508,9 +506,9 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         if self.train_dataset is None:
             raise ValueError("Train dataset not found")
         return DataLoader(
-            self.train_dataset, 
-            batch_size=self.batch_size, 
-            shuffle=False if self.is_curriculum_enabled() else True, 
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=False if self.is_curriculum_enabled() else True,
             num_workers=self.num_workers,
             pin_memory=torch.cuda.is_available(),
             persistent_workers=self.num_workers > 0
@@ -520,9 +518,9 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         if self.val_dataset is None:
             raise ValueError("Validation dataset not found")
         return DataLoader(
-            self.val_dataset, 
-            batch_size=self.batch_size, 
-            shuffle=False, 
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
             num_workers=self.num_workers,
             pin_memory=torch.cuda.is_available(),
             persistent_workers=self.num_workers > 0
@@ -532,9 +530,9 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         if self.test_dataset is None:
             raise ValueError("Test dataset not found")
         return DataLoader(
-            self.test_dataset, 
-            batch_size=self.batch_size, 
-            shuffle=False, 
+            self.test_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
             num_workers=self.num_workers,
             pin_memory=torch.cuda.is_available(),
             persistent_workers=self.num_workers > 0

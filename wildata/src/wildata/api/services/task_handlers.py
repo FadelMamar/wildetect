@@ -2,10 +2,8 @@
 Background task handlers for API operations.
 """
 
-import asyncio
-from typing import Any, Dict, Optional
+from typing import Any
 
-from ..exceptions import JobError
 from ..models.jobs import JobResult, JobStatus
 from ..services.job_queue import get_job_queue
 

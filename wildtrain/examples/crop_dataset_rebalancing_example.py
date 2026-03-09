@@ -8,24 +8,22 @@ This example shows how to:
 4. Analyze class distributions before and after rebalancing
 """
 
-import torch
-from torchvision import transforms
-from tqdm import tqdm
 import traceback
-from pathlib import Path
+
+from torchvision import transforms
 
 # Import our modules
 from wildtrain.data.curriculum.dataset import CurriculumDetectionDataset, PatchDataset
-from wildtrain.shared.models import CurriculumConfig
 from wildtrain.data.filters import ClassificationRebalanceFilter
+from wildtrain.shared.models import CurriculumConfig
 
 
 def main():
     """Main example function."""
-    
+
     print("PatchDataset with Rebalancing Example")
     print("=" * 60)
-    
+
     # 1. Create curriculum configuration
     curriculum_config = CurriculumConfig(
         enabled=True,
@@ -51,7 +49,7 @@ def main():
             transform=transform
         )
 
-        print(f"✅ Base dataset loaded successfully!")
+        print("✅ Base dataset loaded successfully!")
         print(f"✅ Number of samples: {len(dataset)}")
         print(f"✅ Classes: {dataset.classes}")
 
@@ -69,25 +67,25 @@ def main():
             discard_classes=["rocks","vegetation","other","termite mound"]
         )
 
-        print(f"✅ PatchDataset created successfully!")
+        print("✅ PatchDataset created successfully!")
         print(f"✅ Number of patches: {len(crop_dataset)}")
 
         # 5. Analyze class distribution before rebalancing
         print("\n📊 Class distribution before rebalancing:")
         annotations_before = crop_dataset.get_annotations_for_filter()
-        
+
         # Count crops per class
         class_counts_before = {}
         for ann in annotations_before:
             class_name = ann['class_name']
             class_counts_before[class_name] = class_counts_before.get(class_name, 0) + 1
-        
+
         for class_name, count in class_counts_before.items():
             print(f"   {class_name}: {count} crops")
 
         # 6. Create and apply ClassificationRebalanceFilter
         print("\n🔄 Applying ClassificationRebalanceFilter...")
-        
+
         # Create filter with mean balancing
         rebalance_filter = ClassificationRebalanceFilter(
             class_key="class_id",
@@ -99,26 +97,26 @@ def main():
         # Apply filter to create balanced dataset
         balanced_crop_dataset = crop_dataset.apply_rebalance_filter(rebalance_filter)
 
-        print(f"✅ Balanced PatchDataset created successfully!")
+        print("✅ Balanced PatchDataset created successfully!")
         print(f"✅ Number of patches after balancing: {len(balanced_crop_dataset)}")
 
         # 7. Analyze class distribution after rebalancing
         print("\n📊 Class distribution after rebalancing:")
         annotations_after = balanced_crop_dataset.get_annotations_for_filter()
-        
+
         class_counts_after = {}
         for ann in annotations_after:
             class_name = ann['class_name']
             class_counts_after[class_name] = class_counts_after.get(class_name, 0) + 1
-        
+
         for class_name, count in class_counts_after.items():
             print(f"   {class_name}: {count} crops")
 
         # 8. Test DataLoader compatibility
         print("\n🧪 Testing DataLoader compatibility...")
-        
+
         from torch.utils.data import DataLoader
-        
+
         # Create DataLoader with balanced dataset
         dataloader = DataLoader(
             balanced_crop_dataset,
@@ -136,13 +134,13 @@ def main():
 
         # 9. Demonstrate utility methods
         print("\n🔧 Testing utility methods:")
-                
+
         # Get crops by type
         detection_crops = balanced_crop_dataset.get_crops_by_type('detection')
         random_crops = balanced_crop_dataset.get_crops_by_type('random')
         print(f"   Detection crops: {len(detection_crops)} indices")
         print(f"   Random crops: {len(random_crops)} indices")
-        
+
         # Get detailed info for first crop
         if len(balanced_crop_dataset) > 0:
             crop_info = balanced_crop_dataset.get_crop_info(0)
@@ -150,7 +148,7 @@ def main():
 
         # 10. Demonstrate different filter methods
         print("\n🔄 Testing different filter methods:")
-        
+
         # Min-based filter
         min_filter = ClassificationRebalanceFilter(
             class_key="class_id",
@@ -158,10 +156,10 @@ def main():
             exclude_extremes=False,
             random_seed=42
         )
-        
+
         min_balanced = crop_dataset.apply_rebalance_filter(min_filter)
         print(f"   Min-balanced dataset: {len(min_balanced)} crops")
-        
+
         # Mean-based filter (exclude extremes)
         mean_filter = ClassificationRebalanceFilter(
             class_key="class_id",
@@ -169,7 +167,7 @@ def main():
             exclude_extremes=True,
             random_seed=42
         )
-        
+
         mean_balanced = crop_dataset.apply_rebalance_filter(mean_filter)
         print(f"   Mean-balanced dataset: {len(mean_balanced)} crops")
 

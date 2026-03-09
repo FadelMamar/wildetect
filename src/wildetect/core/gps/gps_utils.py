@@ -3,8 +3,7 @@ GPS utilities for wildlife detection with optional dependencies.
 """
 
 import logging
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Union
 
 import numpy as np
 
@@ -63,7 +62,7 @@ def get_pixel_gps_coordinates(
     else:
         try:
             lat, lon = utm.to_latlon(easting, northing, zone_num, zone_let)
-        except Exception as e:
+        except Exception:
             raise ValueError(
                 f"Invalid UTM coordinates: {easting}, {northing}, {zone_num}, {zone_let}"
                 + f"or Invalid input values {x}, {y}, {lat_center}, {lon_center}, {W}, {H}, {gsd}."
@@ -205,7 +204,7 @@ def get_gsd(
         except Exception as e:
             logger.warning(f"Error getting exif: {e}")
             return None
-    
+
     if image_height is None:
         if image:
             image_height = ImageOps.exif_transpose(image).height

@@ -5,15 +5,13 @@ This module provides feature extraction capabilities for clustering
 and filtering algorithms in object detection training data selection.
 """
 
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Union
 
-import numpy as np
-import torch
-from PIL import Image
 import timm
+import torch
 import torch.nn as nn
 import torchvision.transforms as T
+from PIL import Image
 
 
 class FeatureExtractor(nn.Module):
@@ -77,9 +75,9 @@ class FeatureExtractor(nn.Module):
             images = torch.stack([self.pil_to_tensor(image) for image in images],dim=0)
             images = images.float()
             images = self.transform(images).to(self.device)
-        
+
         return self._forward(images)
-    
+
     def _forward(self,images:torch.Tensor) -> torch.Tensor:
         if "vit" in self.backbone and self.use_cls_token: # get CLS token for ViT models
             x = self.model.forward_features(images)[:,0,:]

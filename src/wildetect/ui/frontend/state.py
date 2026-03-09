@@ -3,7 +3,6 @@ State management for WildDetect Reflex frontend.
 """
 
 import asyncio
-import json
 from typing import Dict, List, Optional
 
 import httpx

@@ -1,9 +1,11 @@
-from timm.models.nfnet import model_cfgs
-import torch
-import shap
 from typing import Optional
-from wildtrain.models.classifier import GenericClassifier
+
+import shap
+import torch
+
 from wildtrain.data.classification_datamodule import ClassificationDataModule
+from wildtrain.models.classifier import GenericClassifier
+
 
 class ClassifierSHAPExplainer:
     """

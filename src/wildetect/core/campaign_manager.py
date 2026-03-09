@@ -5,9 +5,7 @@ This module provides a high-level interface that integrates data management,
 detection processing, flight analysis, and reporting into a unified pipeline.
 """
 
-import json
 import logging
-import random
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
@@ -488,7 +486,7 @@ class CampaignManager:
         try:
             if export_to_fiftyone:
                 self.export_to_fiftyone()
-        except Exception as e:
+        except Exception:
             logger.error(f"{traceback.format_exc()}")
 
         # Step 8: Export to LabelStudio (optional)
@@ -496,7 +494,7 @@ class CampaignManager:
         try:
             if export_to_labelstudio:
                 project_id = self.export_to_labelstudio()
-        except Exception as e:
+        except Exception:
             logger.error(f"{traceback.format_exc()}")
 
         # Step 9: Export final report

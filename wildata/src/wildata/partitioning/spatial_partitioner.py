@@ -5,10 +5,7 @@ This module provides functionality to extract and use spatial information
 from image metadata for robust train-val-test partitioning.
 """
 
-import json
-import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 

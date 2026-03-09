@@ -1,10 +1,15 @@
 import os
 from pathlib import Path
 from typing import Optional
-from ..trainers.detection_trainer import UltralyticsDetectionTrainer
+
 from ..evaluators.ultralytics import UltralyticsEvaluator
+from ..shared.models import (
+    DetectionConfig,
+    DetectionEvalConfig,
+    DetectionPipelineConfig,
+)
+from ..trainers.detection_trainer import UltralyticsDetectionTrainer
 from ..utils.logging import get_logger
-from ..shared.models import DetectionPipelineConfig, DetectionEvalConfig, DetectionConfig
 
 logger = get_logger(__name__)
 

@@ -1,19 +1,17 @@
 """Visualization endpoints for the WildTrain API."""
 
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
-import logging
+from typing import Any, Dict
 
+from fastapi import APIRouter, HTTPException
+
+from ..dependencies import get_logger
 from ..models.requests import (
     ClassificationVisualizationRequest,
-    DetectionVisualizationRequest
+    DetectionVisualizationRequest,
 )
-from ..models.responses import (
-    VisualizationResponse
-)
-from ..utils.background_tasks import job_manager, create_background_job, JobStatus
-from ..dependencies import get_logger
+from ..models.responses import VisualizationResponse
 from ..services.visualization_service import VisualizationService
+from ..utils.background_tasks import create_background_job, job_manager
 
 logger = get_logger("visualization")
 
@@ -141,7 +139,7 @@ async def get_visualization_status(job_id: str) -> Dict[str, Any]:
 def _visualize_classifier_task(config: Any) -> None:
     """Background task for classifier visualization using actual CLI integration."""
     logger.info("Starting classifier visualization task with CLI integration")
-    
+
     try:
         # Use the visualization service to run actual CLI visualization
         VisualizationService.visualize_classifier_predictions(config)
@@ -155,7 +153,7 @@ def _visualize_classifier_task(config: Any) -> None:
 def _visualize_detector_task(config: Any) -> None:
     """Background task for detector visualization using actual CLI integration."""
     logger.info("Starting detector visualization task with CLI integration")
-    
+
     try:
         # Use the visualization service to run actual CLI visualization
         VisualizationService.visualize_detector_predictions(config)

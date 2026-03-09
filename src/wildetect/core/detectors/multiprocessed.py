@@ -1,5 +1,4 @@
 import logging
-import os
 import queue
 import time
 import traceback
@@ -103,7 +102,7 @@ def _detection_worker(
                 if data_queue.empty() and stop_event.is_set():
                     break
                 continue
-            except Exception as e:
+            except Exception:
                 stop_event.set()
                 raise Exception(f"{traceback.format_exc()}")
 

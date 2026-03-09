@@ -6,10 +6,9 @@ import json
 import logging
 import os
 import shutil
-import tempfile
 import traceback
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List
 
 import yaml
 

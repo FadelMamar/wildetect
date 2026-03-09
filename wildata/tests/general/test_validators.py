@@ -1,6 +1,7 @@
 import os
 
 import pytest
+
 from wildata.validators.coco_validator import COCOValidator
 from wildata.validators.yolo_validator import YOLOValidator
 

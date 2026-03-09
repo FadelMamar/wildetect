@@ -1,7 +1,8 @@
-from wildtrain.utils.mlflow import load_registered_model
-from wildtrain.models.detector import Detector
 import torch
 from omegaconf import OmegaConf
+
+from wildtrain.models.detector import Detector
+from wildtrain.utils.mlflow import load_registered_model
 
 
 def load_detector():
@@ -11,7 +12,7 @@ def load_detector():
     #print(model.localizer is None,model.classifier is None)
 
     print(model.predict(torch.rand(1,3,640,640),return_as_dict=True))
-    
+
 
 def load_from_config():
     localizer_cfg = OmegaConf.load("models-registry/detector/10/artifacts/localizer_config.yaml")

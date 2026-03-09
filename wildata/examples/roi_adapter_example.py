@@ -11,14 +11,14 @@ This script shows how to:
 
 from pathlib import Path
 
-from wildata.pipeline import PathManager,Loader,FrameworkDataManager
 from wildata.config import ROIConfig
+from wildata.pipeline import FrameworkDataManager, Loader, PathManager
 
 
 def main():
     """Example of saving ROI data to disk."""
     print("\n=== Saving ROI Data to Disk ===")
-    
+
     ROOT = Path(r"D:\workspace\data\demo-dataset")
     SOURCE_PATH = r"D:\workspace\data\savmap_dataset_v2\annotated_py_paul\yolo_format\data_config.yaml"
 
@@ -42,25 +42,25 @@ def main():
                                                 roi_config=roi_config,
                                                 draw_original_bboxes=True,
                                                 )
-        
-    
+
+
     print(f"Saved ROI data to {ROOT}")
-    
+
 
 if __name__ == "__main__":
     print("ROI Adapter Examples")
     print("=" * 50)
-    
+
     try:
         # Run examples
         # example_basic_usage()
         # example_with_callback()
         main()
-        
+
         print("\n" + "=" * 50)
         print("All examples completed successfully!")
-        
+
     except Exception as e:
         print(f"Error running examples: {e}")
         import traceback
-        traceback.print_exc() 
+        traceback.print_exc()

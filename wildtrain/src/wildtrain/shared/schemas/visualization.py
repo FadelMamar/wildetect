@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Optional
+
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
@@ -45,28 +46,28 @@ class ClassificationVisualizationConfig(BaseConfig):
     debug: bool = Field(default=False, description="If set, only process a small number of samples for debugging")
     mlflow: MLflowConfig = Field(description="MLflow configuration")
     label_to_class_map: Optional[dict] = Field(default=None, description="Label to class map")
-        
+
     @field_validator('weights')
     @classmethod
     def validate_checkpoint_exists(cls, v):
         if not Path(v).exists():
             raise ValueError(f"Classifier checkpoint does not exist: {v}")
         return v
-      
+
     @field_validator('batch_size')
     @classmethod
     def validate_batch_size(cls, v):
         if v <= 0:
             raise ValueError(f"Batch size must be positive, got: {v}")
         return v
-    
+
     @field_validator('dataset_name')
     @classmethod
     def validate_dataset_name(cls, v):
         if not v or not v.strip():
             raise ValueError("Dataset name cannot be empty")
         return v.strip()
-    
+
     @field_validator('prediction_field')
     @classmethod
     def validate_prediction_field(cls, v):

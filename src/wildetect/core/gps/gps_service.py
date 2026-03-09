@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Union
 
 import geopy
 import numpy as np
-from PIL import Image
 
 from ..data.detection import Detection
 from ..gps.geographic_bounds import GeographicBounds
@@ -116,7 +115,7 @@ class GPSDetectionService:
             detection.gps_loc = GPSDetectionService.compute_detection_gps(
                 detection, tile
             )
-        except Exception as e:
+        except Exception:
             logger.error(
                 f"Failed to compute GPS location of detection: {traceback.format_exc()}"
             )

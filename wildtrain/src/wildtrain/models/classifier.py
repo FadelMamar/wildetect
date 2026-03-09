@@ -1,15 +1,14 @@
+import tempfile
+import traceback
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, Union
+
+import onnxruntime as ort
+import timm
 import torch
 import torch.nn as nn
-import torchvision.transforms.v2 as T
 import torch.nn.functional as F
 from torch.export import Dim
-from pathlib import Path
-import timm
-from typing import Optional,Tuple,Union,Dict,Any
-import traceback
-import json
-import onnxruntime as ort
-import tempfile
 
 from ..utils.logging import get_logger
 from ..utils.mlflow import load_registered_model
@@ -23,12 +22,12 @@ class ResizeNormalize(nn.Module):
         self.register_buffer('std', std.view(1, 3, 1, 1))
         self.input_size = input_size
         assert isinstance(self.input_size,int), f"input_size must be an integer, received {type(self.input_size)}"
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.interpolate(
-            x, 
-            size=(self.input_size, self.input_size), 
-            mode='bicubic', 
+            x,
+            size=(self.input_size, self.input_size),
+            mode='bicubic',
             align_corners=False
         )
         # Normalize using registered buffers
@@ -109,10 +108,10 @@ class GenericClassifier(nn.Module):
         self.pretrained = pretrained
 
         self.backbone_trfs,self.feature_extractor = self._get_backbone()
-        self.fc = ClassifierHead(input_dim=self.feature_extractor.num_features, 
-                                num_classes=self.num_classes.item(), 
-                                dropout=self.dropout.item(), 
-                                hidden_dim=self.hidden_dim.item(), 
+        self.fc = ClassifierHead(input_dim=self.feature_extractor.num_features,
+                                num_classes=self.num_classes.item(),
+                                dropout=self.dropout.item(),
+                                hidden_dim=self.hidden_dim.item(),
                                 num_layers=self.num_layers.item())
 
         # Initialize preprocessing
@@ -124,11 +123,11 @@ class GenericClassifier(nn.Module):
             self._onnx_providers=['CUDAExecutionProvider']
         self._onnx_providers.append('CPUExecutionProvider')
         return None
-    
+
     @property
     def class_mapping(self)->dict:
         return self.label_to_class_map
-    
+
     def set_onnx_program(self,
                     onnx_program:Optional[ort.InferenceSession]=None):
         self._onnx_program = onnx_program
@@ -161,7 +160,7 @@ class GenericClassifier(nn.Module):
         norm_std = torch.tensor(data_cfg.get('std', self.std))
         trfs = BackboneNormalize(norm_mean, norm_std)
 
-        # Set input size    
+        # Set input size
         try:
             model.set_input_size((self.input_size.item(),self.input_size.item()))
         except Exception:
@@ -183,7 +182,7 @@ class GenericClassifier(nn.Module):
         else:
             x = self.feature_extractor(x)
         return self.fc(x)
-    
+
     def export(self,mode:str,output_path:str,batch_size:int=8)->"GenericClassifier":
         if mode == "torchscript":
             return self.to_torchscript(output_path=output_path)
@@ -200,8 +199,8 @@ class GenericClassifier(nn.Module):
         if output_path is not None:
             torch.jit.save(module,output_path)
         return self
-    
-    def to_onnx(self, 
+
+    def to_onnx(self,
                 output_path:str,
                 report:bool=False,
                 batch_size:int=8,
@@ -210,7 +209,7 @@ class GenericClassifier(nn.Module):
         b,c,h,w = batch_size,3,self.input_size.item(),self.input_size.item()
         x = torch.rand(b,c,h,w,dtype=torch.float32)
         self.forward(x)
-        
+
         # export program
         dynamic_shapes={"x": {0: Dim("batch_size",min=1,max=b),
                                 1:c,
@@ -242,7 +241,7 @@ class GenericClassifier(nn.Module):
         self.load_as_onnx = True
         self._onnx_batch_size = b
         return onnx_program
-        
+
     def _save_onnx_program(self,onnx_program:torch.onnx.ONNXProgram,
                         #exported_program:torch.export.ExportedProgram,
                         #shape:Tuple[int,int,int,int],
@@ -253,7 +252,7 @@ class GenericClassifier(nn.Module):
             #torch.export.save(exported_program, exported_program_path,extra_files={"shape":json.dumps(list(shape))})
         except Exception:
             logger.error(f"Failed to save ONNX program to {output_path}. {traceback.format_exc()}")
-    
+
     def _predict_onnx(self, x: torch.Tensor) -> torch.Tensor:
         assert isinstance(self._onnx_program, ort.InferenceSession), "ONNX program not created. Call to_onnx() first."
         out = self._onnx_program.run(['output'], {'input': x.cpu().numpy()})
@@ -266,7 +265,7 @@ class GenericClassifier(nn.Module):
             self.eval()
             with torch.no_grad():
                 logits = self.forward(x)
-        
+
         probs = torch.softmax(logits, dim=1)
         labels = probs.argmax(dim=1).cpu().tolist()
         classes = [
@@ -274,7 +273,7 @@ class GenericClassifier(nn.Module):
         ]
         scores = probs.max(dim=1).values.cpu().tolist()
         return [{"class": c, "score": s, "class_id":l} for c, s, l in zip(classes, scores, labels)]
-    
+
     @classmethod
     def load_from_checkpoint(cls, checkpoint_path: str, map_location: str = "cpu",label_to_class_map:Optional[dict]=None):
         if str(checkpoint_path).endswith(".onnx"):
@@ -290,18 +289,18 @@ class GenericClassifier(nn.Module):
     def _load_from_lightning_ckpt(cls, checkpoint_path: str, map_location: str = "cpu"):
         """Load from a PyTorch Lightning checkpoint by extracting the underlying model."""
         checkpoint = torch.load(checkpoint_path, map_location=map_location)
-        
+
         # Check if this is a Lightning checkpoint
         if 'state_dict' in checkpoint and 'hyper_parameters' in checkpoint:
             # Extract the model state dict from the Lightning checkpoint
             state_dict = checkpoint['state_dict']
-            
+
             # Remove the 'model.' prefix from state dict keys
             model_state_dict = {k.replace('model.', ''): v for k, v in state_dict.items() if k.startswith('model.')}
-            
+
             # Get hyperparameters from the Lightning module
             hparams = checkpoint['hyper_parameters']
-            
+
             # Create model instance using saved hyperparameters
             model = cls(
                 label_to_class_map=hparams['label_to_class_map'],
@@ -316,8 +315,8 @@ class GenericClassifier(nn.Module):
                 hidden_dim=hparams['hidden_dim'],
             )
             # Initialize the model
-            model(torch.rand(1, 3, hparams['input_size'], hparams['input_size']))  
-            
+            model(torch.rand(1, 3, hparams['input_size'], hparams['input_size']))
+
             # Load the model weights
             model.load_state_dict(model_state_dict)
             return model
@@ -326,7 +325,7 @@ class GenericClassifier(nn.Module):
 
     @classmethod
     def _load_from_checkpoint(cls, checkpoint_path: Optional[str]=None, map_location: str = "cpu",state_dict:Optional[dict]=None) -> 'GenericClassifier':
-        
+
         if state_dict is None:
             assert checkpoint_path is not None, "checkpoint_path must be provided if state_dict is not provided"
             state_dict = torch.load(checkpoint_path, map_location=map_location)
@@ -348,14 +347,14 @@ class GenericClassifier(nn.Module):
         model.load_state_dict(state_dict)
 
         return model
-    
+
     @classmethod
     def _load_onnx(cls,onnx_path:str,label_to_class_map: dict)->"GenericClassifier":
         model = cls(label_to_class_map=label_to_class_map,pretrained=False)
         ort_sess = ort.InferenceSession(onnx_path,providers=model._onnx_providers)
         model._onnx_program = ort_sess
         return model
-    
+
     @classmethod
     def from_mlflow(cls,name:str,alias:str,dwnd_location:Optional[str]=None,mlflow_tracking_uri:str="http://localhost:5000")->'GenericClassifier':
         model = load_registered_model(alias=alias,name=name,

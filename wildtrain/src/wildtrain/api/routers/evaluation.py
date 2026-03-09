@@ -1,20 +1,15 @@
 """Evaluation endpoints for the WildTrain API."""
 
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any, Optional
-import logging
+from typing import Any, Dict, Optional
 
-from ..models.requests import (
-    ClassificationEvalRequest,
-    DetectionEvalRequest
-)
-from ..models.responses import (
-    EvaluationResponse
-)
-from ..utils.background_tasks import job_manager, create_background_job, JobStatus
-from ..utils.error_handling import JobNotFoundError
+from fastapi import APIRouter, HTTPException
+
 from ..dependencies import get_logger
+from ..models.requests import ClassificationEvalRequest, DetectionEvalRequest
+from ..models.responses import EvaluationResponse
 from ..services.evaluation_service import EvaluationService
+from ..utils.background_tasks import JobStatus, create_background_job, job_manager
+from ..utils.error_handling import JobNotFoundError
 
 logger = get_logger("evaluation")
 
@@ -30,7 +25,7 @@ async def evaluate_classifier(request: ClassificationEvalRequest) -> EvaluationR
         config = request.config
         job_id = create_background_job(
             task_func=_evaluate_classifier_task,
-            config=config,            
+            config=config,
             debug=request.debug,
             metadata={
                 "task_type": "classification_evaluation",
@@ -164,7 +159,7 @@ async def list_evaluation_jobs(
 def _evaluate_classifier_task(config: Any,debug: bool) -> Dict[str, Any]:
     """Background task for classifier evaluation using actual CLI integration."""
     logger.info("Starting classifier evaluation task with CLI integration")
-    
+
     try:
         # Use the evaluation service to run actual CLI evaluation
         results = EvaluationService.evaluate_classifier(config,debug)
@@ -178,7 +173,7 @@ def _evaluate_classifier_task(config: Any,debug: bool) -> Dict[str, Any]:
 def _evaluate_detector_task(config: Any,model_type: str,debug: bool) -> Dict[str, Any]:
     """Background task for detector evaluation using actual CLI integration."""
     logger.info("Starting detector evaluation task with CLI integration")
-    
+
     try:
         # Use the evaluation service to run actual CLI evaluation
         results = EvaluationService.evaluate_detector(config,model_type,debug)

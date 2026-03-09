@@ -1,13 +1,12 @@
 """Pipeline service for integrating CLI functionality with the API."""
 
-import tempfile
-import subprocess
-import sys
-from pathlib import Path
-from typing import Dict, Any, Optional
 import logging
+import tempfile
+from pathlib import Path
+from typing import Any, Dict
 
 from omegaconf import OmegaConf
+
 from ...cli.config_loader import ConfigLoader
 from ...cli.models import ClassificationPipelineConfig, DetectionPipelineConfig
 from ...shared.config_types import ConfigType
@@ -39,7 +38,7 @@ class PipelineService:
             Path(temp_config_path).unlink(missing_ok=True)
 
             logger.info("Classification pipeline completed successfully")
-            return 
+            return
 
         except Exception as e:
             logger.error(f"Classification pipeline failed: {e}")
@@ -66,7 +65,7 @@ class PipelineService:
             Path(temp_config_path).unlink(missing_ok=True)
 
             logger.info("Detection pipeline completed successfully")
-            return 
+            return
 
         except Exception as e:
             logger.error(f"Detection pipeline failed: {e}")

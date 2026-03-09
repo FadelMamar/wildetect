@@ -12,9 +12,7 @@ import subprocess
 import sys
 import tempfile
 import traceback
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional
 
 import mlflow
 import pandas as pd
@@ -391,7 +389,7 @@ def results_tab():
                         st.write(
                             f"**Total Detections:** {result.get('total_detections', 0)}"
                         )
-                        st.write(f"**Species Found:**")
+                        st.write("**Species Found:**")
                         for species, count in result.get("class_counts", {}).items():
                             st.write(f"- {species}: {count}")
 

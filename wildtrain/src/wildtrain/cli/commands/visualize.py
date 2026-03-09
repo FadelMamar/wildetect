@@ -1,16 +1,20 @@
 """Visualization-related CLI commands."""
 
 import traceback
-import typer
 from pathlib import Path
-from omegaconf import OmegaConf
 
-from ...shared.config_loader import ConfigLoader
-from ...visualization import Visualizer
-from ...models.detector import Detector
+import typer
+
 from ...models.classifier import GenericClassifier
-from ...shared.validation import ConfigFileNotFoundError, ConfigParseError, ConfigValidationError
-from .utils import console, setup_logging, log_file_path
+from ...models.detector import Detector
+from ...shared.config_loader import ConfigLoader
+from ...shared.validation import (
+    ConfigFileNotFoundError,
+    ConfigParseError,
+    ConfigValidationError,
+)
+from ...visualization import Visualizer
+from .utils import console, log_file_path, setup_logging
 
 visualize_app = typer.Typer(name="visualize", help="Visualization commands")
 
@@ -20,25 +24,25 @@ def classifier_predictions(
     config: Path = typer.Option("", "--config", "-c",help="Path to classification visualization configuration YAML file"),
 ) -> None:
     """Upload classifier predictions to a FiftyOne dataset for visualization using YAML configuration."""
-        
+
     console.print(f"[bold green]Loading classification visualization config from:[/bold green] {config}")
-    
+
     try:
         # Load and validate configuration using Pydantic
         cfg = ConfigLoader.load_classification_visualization_config(config)
-        console.print(f"[bold green]✓[/bold green] Classification visualization configuration validated successfully")
-        
+        console.print("[bold green]✓[/bold green] Classification visualization configuration validated successfully")
+
         # Convert validated config back to DictConfig for backward compatibility
         console.print("cfg:",cfg)
-        
+
         # Extract configuration values
         dataset_name = cfg.dataset_name
         prediction_field = cfg.prediction_field
         batch_size = cfg.batch_size
         debug = cfg.debug
-        
+
         console.print(f"[bold green]Uploading classifier predictions to FiftyOne dataset:[/bold green] {dataset_name}")
-        
+
         log_file = log_file_path("visualize_classifier_predictions")
         setup_logging(log_file=log_file)
 
@@ -57,11 +61,11 @@ def classifier_predictions(
         visualizer = Visualizer(fiftyone_dataset_name=dataset_name)
         visualizer.add_predictions_from_classifier(model=model,prediction_field=prediction_field,batch_size=batch_size,debug=debug)
         console.print(f"[bold blue]Classifier predictions uploaded to FiftyOne dataset:[/bold blue] {dataset_name}")
-        
-    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
+
+    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError):
         console.print(f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}")
         raise typer.Exit(1)
-    except Exception as e:
+    except Exception:
         console.print(f"[bold red]✗[/bold red] Visualization failed: {traceback.format_exc()}")
         raise typer.Exit(1)
 
@@ -71,21 +75,21 @@ def detector_predictions(
     config: Path = typer.Option("", "--config", "-c",help="Path to visualization configuration YAML file"),
 ) -> None:
     """Upload detector predictions to a FiftyOne dataset for visualization using YAML configuration."""
-        
+
     console.print(f"[bold green]Loading visualization config from:[/bold green] {config}")
-    
+
     try:
         # Load and validate configuration using Pydantic
         cfg = ConfigLoader.load_detection_visualization_config(config)
-        console.print(f"[bold green]✓[/bold green] Detection visualization configuration validated successfully")        
+        console.print("[bold green]✓[/bold green] Detection visualization configuration validated successfully")
         console.print("cfg:",cfg)
-        
+
         # Extract configuration values
         dataset_name = cfg.fiftyone.dataset_name
         prediction_field = cfg.fiftyone.prediction_field
-                
+
         console.print(f"[bold green]Uploading detector predictions to FiftyOne dataset:[/bold green] {dataset_name}")
-                
+
         # Create detector
         if cfg.mlflow.alias is not None and cfg.mlflow.name is not None:
             console.print(f"[bold green]Loading detector from MLflow:[/bold green] {cfg.mlflow.name} {cfg.mlflow.alias}")
@@ -99,7 +103,7 @@ def detector_predictions(
             detector = Detector.from_config(localizer_config=cfg.localizer,
                                             classifier_ckpt=cfg.classifier_weights
                                         )
-        
+
         log_file = log_file_path("visualize_detector_predictions")
         setup_logging(log_file=log_file)
 
@@ -116,10 +120,10 @@ def detector_predictions(
                                                 model_tag=cfg.label_studio.model_tag
                                                 )
         console.print(f"[bold blue]Detector predictions uploaded to FiftyOne dataset:[/bold blue] {dataset_name}")
-        
-    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
+
+    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError):
         console.print(f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}")
         raise typer.Exit(1)
-    except Exception as e:
+    except Exception:
         console.print(f"[bold red]✗[/bold red] Visualization failed: {traceback.format_exc()}")
         raise typer.Exit(1)

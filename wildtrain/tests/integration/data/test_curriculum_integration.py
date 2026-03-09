@@ -5,21 +5,19 @@ Test script to verify curriculum learning integration with classification traine
 
 import sys
 from pathlib import Path
-import hydra
-from omegaconf import DictConfig
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from wildtrain.trainers.classification_trainer import ClassifierTrainer
 from wildtrain.data import ClassificationDataModule
 from wildtrain.shared.models import CurriculumConfig
+from wildtrain.trainers.classification_trainer import ClassifierTrainer
 
 
 def test_curriculum_config():
     """Test curriculum configuration creation."""
     print("Testing curriculum configuration...")
-    
+
     # Test basic curriculum config
     config = CurriculumConfig(
         enabled=True,
@@ -30,7 +28,7 @@ def test_curriculum_config():
         warmup_epochs=2,
         log_frequency=1
     )
-    
+
     print(f"✓ Curriculum config created: {config}")
     return config
 
@@ -38,10 +36,10 @@ def test_curriculum_config():
 def test_datamodule_curriculum():
     """Test datamodule with curriculum integration."""
     print("\nTesting datamodule curriculum integration...")
-    
+
     # Create curriculum config
     curriculum_config = test_curriculum_config()
-    
+
     # Test datamodule creation with curriculum
     try:
         datamodule = ClassificationDataModule(
@@ -52,18 +50,18 @@ def test_datamodule_curriculum():
             compute_difficulties=True,
             preserve_aspect_ratio=True
         )
-        
+
         print("✓ ClassificationDataModule created with curriculum")
         print(f"✓ Curriculum enabled: {datamodule.is_curriculum_enabled()}")
-        
+
         # Test curriculum state
         if datamodule.is_curriculum_enabled():
             datamodule.setup_curriculum(10)  # 10 epochs
             state = datamodule.get_curriculum_state()
             print(f"✓ Curriculum state: {state}")
-        
+
         return datamodule
-        
+
     except Exception as e:
         print(f"✗ Error creating datamodule with curriculum: {e}")
         return None
@@ -72,11 +70,11 @@ def test_datamodule_curriculum():
 def test_curriculum_callback():
     """Test curriculum callback creation."""
     print("\nTesting curriculum callback...")
-    
+
     datamodule = test_datamodule_curriculum()
     if datamodule is None:
         return None
-    
+
     try:
         callback = CurriculumCallback(datamodule)
         print("✓ CurriculumCallback created successfully")
@@ -89,7 +87,7 @@ def test_curriculum_callback():
 def test_trainer_integration():
     """Test trainer integration with curriculum."""
     print("\nTesting trainer integration...")
-    
+
     try:
         # Create a simple config for testing
         config_dict = {
@@ -143,20 +141,20 @@ def test_trainer_integration():
                 "log_model": False
             }
         }
-        
+
         from omegaconf import OmegaConf
         config = OmegaConf.create(config_dict)
-        
+
         # Test trainer creation
         trainer = ClassifierTrainer(config)
         print("✓ ClassifierTrainer created with curriculum config")
-        
+
         # Test callback creation
         callbacks, mlflow_logger = trainer.get_callbacks()
         print(f"✓ Base callbacks created: {len(callbacks)} callbacks")
-        
+
         return trainer
-        
+
     except Exception as e:
         print(f"✗ Error in trainer integration: {e}")
         import traceback
@@ -169,13 +167,13 @@ def main():
     print("=" * 60)
     print("Testing Curriculum Learning Integration")
     print("=" * 60)
-    
+
     # Run tests
     test_curriculum_config()
     test_datamodule_curriculum()
     test_curriculum_callback()
     test_trainer_integration()
-    
+
     print("\n" + "=" * 60)
     print("Curriculum integration test completed!")
     print("=" * 60)

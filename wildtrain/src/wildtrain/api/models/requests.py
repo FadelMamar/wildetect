@@ -1,18 +1,17 @@
 """Request models for the WildTrain API."""
 
-from pydantic import BaseModel, Field
-from typing import Optional, Union, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, Optional
+
+from pydantic import Field
 
 from ...cli.models import (
-    ClassificationConfig,
-    DetectionConfig,
     ClassificationEvalConfig,
-    DetectionEvalConfig,
     ClassificationPipelineConfig,
-    DetectionPipelineConfig,
     ClassificationVisualizationConfig,
-    DetectionVisualizationConfig
+    DetectionEvalConfig,
+    DetectionPipelineConfig,
+    DetectionVisualizationConfig,
 )
 from .common import BaseRequest
 

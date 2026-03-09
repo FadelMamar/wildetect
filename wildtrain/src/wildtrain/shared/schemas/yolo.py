@@ -1,9 +1,12 @@
 """YOLO-specific configuration models."""
 
-from typing import List, Dict, Optional
-from pydantic import Field
 from enum import StrEnum
+from typing import Dict, List, Optional
+
+from pydantic import Field
+
 from .base import BaseConfig
+
 
 class OverlapMetricConfig(StrEnum):
     """Overlap metric configuration for detection evaluation."""
@@ -116,15 +119,15 @@ class YoloTrainConfig(BaseConfig):
 
     # Single class -> Train as localiser if True
     single_cls: bool = Field(default=True, description="Single class")
-    
+
     # Loss weights
     box: float = Field(default=3.5, description="Box loss weight")
     cls: float = Field(default=1.0, description="Class loss weight")
     dfl: float = Field(default=1.5, description="DFL loss weight")
-    
+
     device: str = Field(default="cpu", description="Device")
     workers: int = Field(default=0, description="Number of workers")
-    
+
     # Augmentations
     degrees: float = Field(default=45.0, description="Rotation degrees")
     mixup: float = Field(default=0.0, description="Mixup probability")
@@ -142,7 +145,7 @@ class YoloTrainConfig(BaseConfig):
     mosaic: float = Field(default=0.0, description="Mosaic probability")
     multi_scale: bool = Field(default=False, description="Multi-scale")
     perspective: float = Field(default=0.0, description="Perspective")
-    
+
     deterministic: bool = Field(default=False, description="Deterministic")
     seed: int = Field(default=41, description="Random seed")
     freeze: int = Field(default=9, description="Freeze layers")

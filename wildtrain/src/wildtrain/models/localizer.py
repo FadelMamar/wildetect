@@ -1,10 +1,16 @@
-import torch
-import torch.nn as nn
-from typing import List, Tuple, Dict, Any, Union, Optional
 from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional
+
 import supervision as sv
+import torch
 from ultralytics import YOLO
-from ..shared.schemas.yolo import YoloInferenceConfig,MergingMethodConfig,OverlapMetricConfig
+
+from ..shared.schemas.yolo import (
+    MergingMethodConfig,
+    OverlapMetricConfig,
+    YoloInferenceConfig,
+)
+
 
 class ObjectLocalizer(ABC):
     """
@@ -22,7 +28,7 @@ class ObjectLocalizer(ABC):
     def forward(self,images:torch.Tensor)->list[sv.Detections]:
         """ """
         return self.predict(images)
-        
+
 
     @property
     def class_mapping(self):
@@ -37,7 +43,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
         device (str): Device to run inference on ('cpu' or 'cuda').
         conf_thres (float): Confidence threshold for detections.
     """
-    
+
     def __init__(
         self,
         weights: Optional[str]=None,
@@ -74,21 +80,21 @@ class UltralyticsLocalizer(ObjectLocalizer):
             self.imgsz = imgsz
             self.merging_method = MergingMethodConfig(merging_method)
             self.disable_detection_filtering = disable_detection_filtering
-        
-        self.class_agnostic = True # single class detection is localization        
+
+        self.class_agnostic = True # single class detection is localization
         assert self.overlap_metric in [OverlapMetricConfig.IOU,OverlapMetricConfig.IOS]
         self.overlap_metrics = {OverlapMetricConfig.IOU:sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
                    OverlapMetricConfig.IOS:sv.detection.utils.iou_and_nms.OverlapMetric.IOS
                    }
-    
+
     @property
     def class_mapping(self):
         return self.model.names
-        
+
     @classmethod
-    def from_config(cls, config: YoloInferenceConfig):        
+    def from_config(cls, config: YoloInferenceConfig):
         return cls(config=config)
-    
+
     def _apply_filtering(
         self,
         detections: sv.Detections,
@@ -120,9 +126,9 @@ class UltralyticsLocalizer(ObjectLocalizer):
         """
         if images.dim() == 3:
             images = images.unsqueeze(0)
-            
+
         assert images.min()>=0. and images.max()<=1., "Images must be normalized to [0,1]"
-            
+
         predictions = self.model.predict(
             images,
             imgsz=self.imgsz,
@@ -137,7 +143,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
             detections = [self._apply_filtering(det) for det in detections]
         for det in detections:
             det.metadata["class_mapping"] = self.model.names
-        
+
         if len(self.model.names) == 1:
             for det in detections:
                 det.class_id = det.class_id + 1

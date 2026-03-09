@@ -3,7 +3,6 @@ Data manager for storing and managing datasets in COCO format.
 """
 
 import json
-import logging
 import os
 import shutil
 import traceback

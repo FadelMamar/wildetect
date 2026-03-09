@@ -3,19 +3,18 @@ Drone image representation with tiles and geographic footprint.
 """
 
 import logging
+import traceback
 from copy import deepcopy
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
-import traceback
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
-
 from wildata.converters.labelstudio.labelstudio_schemas import Task
 
 from ..config import FlightSpecs
-from ..config_models import LabelStudioConfigModel, ExifGPSUpdateConfig
+from ..config_models import ExifGPSUpdateConfig, LabelStudioConfigModel
 from .detection import Detection
 from .tile import Tile
 
@@ -449,7 +448,7 @@ class DroneImage(Tile):
                 .set_index("image_path")
                 .to_dict(orient="index")
             )
-        
+
         def get_image_gps_coords(
             img_path: str
         ) -> Tuple[Optional[float], Optional[float], Optional[float]]:
@@ -477,7 +476,7 @@ class DroneImage(Tile):
                 api_key=labelstudio_config.api_key,
                 download_resources=labelstudio_config.download_resources,
             )
-        if isinstance(labelstudio_config.project_id, int):            
+        if isinstance(labelstudio_config.project_id, int):
             all_tasks = ls_client.get_tasks(labelstudio_config.project_id)
             logger.info("Loading from project_id")
         else:

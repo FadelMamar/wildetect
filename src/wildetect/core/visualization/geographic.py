@@ -8,11 +8,12 @@ and coverage statistics.
 """
 
 from __future__ import annotations
+
 import logging
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import folium
 import numpy as np
@@ -20,7 +21,6 @@ import numpy as np
 if TYPE_CHECKING:
     from ..data.detection import Detection
     from ..data.drone_image import DroneImage
-    from ..flight.geographic_merger import GPSOverlapStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -317,7 +317,7 @@ class GeographicVisualizer:
         """Create HTML popup content for a detection."""
         content = f"<div style='max-width: {self.config.popup_max_width}px;'>"
 
-        content += f"<strong>Detection:</strong><br>"
+        content += "<strong>Detection:</strong><br>"
         content += f"<strong>Class:</strong> {detection.class_name}<br>"
         content += f"<strong>Confidence:</strong> {detection.confidence:.3f}<br>"
         content += f"<strong>BBox:</strong> {detection.bbox}<br>"

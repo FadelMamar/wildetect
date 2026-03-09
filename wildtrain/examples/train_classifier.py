@@ -11,9 +11,11 @@ Usage:
     python examples/train_classifier.py
 """
 
-from omegaconf import OmegaConf, DictConfig
-from wildtrain.trainers import ClassifierTrainer
 import traceback
+
+from omegaconf import DictConfig, OmegaConf
+
+from wildtrain.trainers import ClassifierTrainer
 
 
 def main():
@@ -37,7 +39,7 @@ def main():
         trainer = ClassifierTrainer(DictConfig(config))
         trainer.run(debug=True)
         print("✅ Training completed successfully!")
-    except Exception as e:
+    except Exception:
         print(f"❌ Training failed: {traceback.format_exc()}")
 
 

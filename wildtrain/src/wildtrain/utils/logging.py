@@ -1,7 +1,7 @@
 import logging
 import sys
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
 ROOT = Path(__file__).parents[3]
 ENV_FILE = ROOT / ".env"

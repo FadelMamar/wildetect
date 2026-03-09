@@ -1,18 +1,16 @@
-from typing import Any, Dict, Optional, List, Union
-from omegaconf import DictConfig
-import mlflow
-from ultralytics import YOLO
-from ultralytics import settings
 import os
-import pandas as pd
 from pathlib import Path
+from typing import Optional
 
+import mlflow
+from ultralytics import YOLO, settings
+
+from ..data.filters.algorithms import FilterDataCfg
+from ..shared.models import DetectionConfig
+from ..utils.io import merge_data_cfg, remove_label_cache
 from ..utils.logging import ROOT, get_logger
 from .base import ModelTrainer
 from .yolo_utils import CustomYOLO
-from ..utils.io import merge_data_cfg,remove_label_cache
-from ..data.filters.algorithms import FilterDataCfg
-from ..shared.models import DetectionConfig
 
 logger = get_logger(__name__)
 
@@ -36,7 +34,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
 
         if not self.config.train.single_cls:
             raise ValueError("Not supported. Current pipeline only trains a localizer.")
-        
+
         assert ((self.config.dataset.root_data_directory is not None) ^
                 (self.config.dataset.data_cfg is not None)), "Either root_data_directory or data_cfg must be provided"
 
@@ -46,18 +44,18 @@ class UltralyticsDetectionTrainer(ModelTrainer):
             keep_classes=self.config.dataset.keep_classes,
             discard_classes=self.config.dataset.discard_classes
         )
-    
+
     def _set_data_cfg(self):
         assert (self.config.dataset.data_cfg is not None) ^ (self.config.dataset.root_data_directory is not None), "Either data_cfg or root_data_directory must be provided"
-        
+
         # updating data_cfg
         if self.config.dataset.root_data_directory is not None:
             data_cfg = self.save_dir/f"{self.config.name}_merged.yaml"
             merge_data_cfg(root_data_directory=self.config.dataset.root_data_directory,
                                                         output_path=data_cfg,
                                                         force_merge=self.config.dataset.force_merge)
-            self.config.dataset.data_cfg = data_cfg.as_posix()   
-        
+            self.config.dataset.data_cfg = data_cfg.as_posix()
+
     def validate_config(self) -> None:
         if (
             self.config.model.architecture_file is None
@@ -66,24 +64,24 @@ class UltralyticsDetectionTrainer(ModelTrainer):
             raise ValueError("Either architecture_file or weights must be provided")
 
         if self.config.dataset.data_cfg is None:
-            raise ValueError("data_cfg must be provided")        
-            
+            raise ValueError("data_cfg must be provided")
+
     def pretrain(self,debug:bool=False):
         """
         Run pretraining phase for the model if enabled in configuration.
         """
         if not os.path.exists(self.config.pretraining.data_cfg):
             raise FileNotFoundError(f"Pretraining data config file not found: {self.config.pretraining.data_cfg}")
-        
+
         logger.info("\n\n------------ Pretraining ----------\n")
-        
+
         self.config.name += f"-PTR_freeze_{self.config.train.freeze}"
         self.config.train.epochs = self.config.pretraining.epochs
         self.config.train.lr0 = self.config.pretraining.lr0
         self.config.train.lrf = self.config.pretraining.lrf
         self.config.train.freeze = self.config.pretraining.freeze
         self.config.dataset.data_cfg = str(self.config.pretraining.data_cfg)
-        
+
 
         save_dir = self.config.pretraining.save_dir
         if save_dir is None:
@@ -94,7 +92,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
         logger.info(f"Pretraining will be saved in {self.save_dir}")
 
         self._train(debug=debug)
-    
+
     def curriculum_learning(self, debug:bool=False):
         """
         Run continual learning strategy for the model.
@@ -116,7 +114,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
             assert len(flag) == len(self.config.curriculum.lr0s), (
                 f"All cl_* flags should match length. {len(flag)} != {len(self.config.curriculum.lr0s)}"
             )
-                
+
         original_run_name = self.config.name
         for lr, ratio, num_epochs, freeze in zip(
             self.config.curriculum.lr0s, self.config.curriculum.ratios, self.config.curriculum.epochs, self.config.curriculum.freeze,
@@ -174,38 +172,38 @@ class UltralyticsDetectionTrainer(ModelTrainer):
 
         if self.config.pretraining.data_cfg is not None:
             self.pretrain(debug=debug)
-        
+
         if self.config.curriculum.enable:
             self.curriculum_learning(debug=debug)
         else:
             self.standard_training(debug=debug)
-    
+
     def _train(self,debug:bool=False) -> None:
         """
         Run training phase for the model.
         """
         mlflow.set_tracking_uri(self.config.mlflow.tracking_uri)
-        
+
         settings.update({"mlflow": True})
 
         self.validate_config()
 
         # Load model
         self.model =  self.get_model()
-        
+
         # Training parameters
         train_cfg = dict(self.config.train)
 
         if isinstance(self.config.dataset.data_cfg, list):
             data_cfg = os.path.join(self.save_dir, f"{self.config.name}_merged.yaml")
-            merge_data_cfg(data_configs=self.config.dataset.data_cfg, 
+            merge_data_cfg(data_configs=self.config.dataset.data_cfg,
             output_path=data_cfg,
             force_merge=self.config.dataset.force_merge)
         else:
             assert isinstance(self.config.dataset.data_cfg, (str,Path)), f"data_cfg must be str or path, got {type(self.config.dataset.data_cfg)}"
-            data_cfg = self.config.dataset.data_cfg  
+            data_cfg = self.config.dataset.data_cfg
 
-        remove_label_cache(data_cfg)      
+        remove_label_cache(data_cfg)
 
         # Run training
         self.model.train(
@@ -216,9 +214,8 @@ class UltralyticsDetectionTrainer(ModelTrainer):
             save=True,
             **train_cfg,
         )
-        
+
         # record path to the best model w.r.t mAP50
         self.best_model_path = str(self.model.trainer.best)
         self.best_fitness = self.model.trainer.best_fitness
         self.metrics = self.model.trainer.metrics
-    

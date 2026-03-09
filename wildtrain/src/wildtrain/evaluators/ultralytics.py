@@ -1,28 +1,26 @@
-from typing import Any, Dict, Tuple, List, Generator
+import json
+import pickle as pkl
+import traceback
+from logging import getLogger
+from pathlib import Path
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import numpy as np
-import torch
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 import supervision as sv
-from pathlib import Path
-from typing import Any, Dict, List, Generator, Optional
+import torch
 from supervision.metrics import (
     MeanAveragePrecision,
     MeanAverageRecall,
 )
-import pickle as pkl
-import supervision as sv
 from supervision.metrics.detection import ConfusionMatrix
-from logging import getLogger
-import traceback
-from .metrics import MyPrecision,MyRecall,MyF1Score
-import json
-from ..shared.models import DetectionEvalConfig
-from ..shared.models import DetectionEvalConfig
-from ..models.detector import Detector
-from ..utils.io import merge_data_cfg
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
 from ..data.utils import load_all_detection_datasets
+from ..models.detector import Detector
+from ..shared.models import DetectionEvalConfig
+from ..utils.io import merge_data_cfg
+from .metrics import MyF1Score, MyPrecision, MyRecall
 
 logger = getLogger(__name__)
 
@@ -34,7 +32,7 @@ class UltralyticsEvaluator:
     """
 
     def __init__(self, config: DetectionEvalConfig,disable_detection_filtering:bool=False):
-        self.config = config      
+        self.config = config
         self.metrics = self._get_metrics()
         self._report: Dict[str, float] = dict()
         self._gt_and_preds: Optional[List[dict[str, List[sv.Detections]]]] = None
@@ -42,20 +40,20 @@ class UltralyticsEvaluator:
         self._pred_labels_to_keep:list[int] = None
 
         self.model = self._load_model(disable_detection_filtering=disable_detection_filtering)
-        self.class_mapping = self.model.class_mapping        
+        self.class_mapping = self.model.class_mapping
         self.dataloader = self._create_dataloader()
-    
+
     @property
     def labels(self)->List[str]:
         if self.class_mapping is None:
             return None
-        return [self.class_mapping[i] for i in sorted(self.class_mapping.keys())] 
+        return [self.class_mapping[i] for i in sorted(self.class_mapping.keys())]
 
     def get_gt_and_preds(self)->List[dict[str, List[sv.Detections]]]:
         if self._gt_and_preds is None:
             self._gt_and_preds = list(self._run_inference())
         return self._gt_and_preds
-    
+
     def _get_metrics(self,):
         boxes = sv.metrics.core.MetricTarget.BOXES
         average = getattr(sv.metrics.core.AveragingMethod,self.config.metrics.average.upper())
@@ -70,7 +68,7 @@ class UltralyticsEvaluator:
             recall=MyRecall(boxes, averaging_method=average),
             f1=MyF1Score(boxes, averaging_method=average),
         )
-        
+
     def evaluate(
         self,
         debug:bool=False,
@@ -102,13 +100,13 @@ class UltralyticsEvaluator:
             logger.error(f"Error generating report: {traceback.format_exc()}")
 
         return self._report
-    
+
     def _save_gt_preds(self,save_path: str):
         p = Path(save_path).with_suffix(".pkl")
         with open(p, "wb") as f:
             pkl.dump(self._gt_and_preds, f)
         return None
-    
+
     def _load_gt_preds(self,path: str):
         with open(path, "rb") as f:
             self._gt_and_preds = pkl.load(f)
@@ -127,11 +125,11 @@ class UltralyticsEvaluator:
                     raise ValueError(f"Ground truth must be a sv.Detections object, got {type(gt)}")
                 #if pred.is_empty() and gt.is_empty():
                 #    continue
-                metric.update(pred, gt)               
-        
+                metric.update(pred, gt)
+
     def get_report(self) -> Dict[str, Any]:
         return self._report
-    
+
     def get_confusion_matrix(self) -> ConfusionMatrix:
         preds = []
         gts = []
@@ -142,7 +140,7 @@ class UltralyticsEvaluator:
         #for pred, gt in zip(preds, gts):
             #if not gt.is_empty() and gt.class_id.max()>1:
             #    print(gt)
-       
+
         return ConfusionMatrix.from_detections(
             predictions=preds,
             targets=gts,
@@ -175,11 +173,11 @@ class UltralyticsEvaluator:
 
     def _get_results(self) -> Dict[str, Any]:
         return {name: metric.compute() for name, metric in self.metrics.items()}
-    
+
     def _save_report(self, path: str) -> None:
         with open(path, 'w') as f:
             json.dump(self._report, f,indent=2)
-        
+
     def _set_data_cfg(self):
         assert (self.config.dataset.data_cfg is not None) ^ (self.config.dataset.root_data_directory is not None), "Either data_cfg or root_data_directory must be provided"
         Path(self.config.results_dir).mkdir(parents=True, exist_ok=True)
@@ -191,12 +189,12 @@ class UltralyticsEvaluator:
                             output_path=data_cfg,
                             force_merge=self.config.dataset.force_merge)
             print(f"Merged data cfg saved to: {data_cfg}")
-            self.config.dataset.data_cfg = data_cfg 
+            self.config.dataset.data_cfg = data_cfg
 
     def _load_model(self,disable_detection_filtering:bool=False) -> Detector:
         localizer_config = self.config.to_yolo_inference_config(disable_detection_filtering=disable_detection_filtering)
         return Detector.from_config(localizer_config=localizer_config,classifier_ckpt=self.config.weights.classifier)
-    
+
     def _set_gt_labels_to_keep(self,gt_classes:list[str]):
         def _is_class_to_keep(class_name:str) -> bool:
             if self.config.dataset.keep_classes is not None and class_name in self.config.dataset.keep_classes:
@@ -204,10 +202,10 @@ class UltralyticsEvaluator:
             if self.config.dataset.discard_classes is not None and class_name not in self.config.dataset.discard_classes:
                 return True
             return False
-        
+
         self._gt_labels_to_keep = [i for i,class_name in enumerate(gt_classes) if _is_class_to_keep(class_name)]
         self._pred_labels_to_keep = [i for i,class_name in enumerate(self.class_mapping.values()) if _is_class_to_keep(class_name)]
-        
+
         # update class mapping
         new_class_mapping = {}
         for label,class_name in self.class_mapping.items():
@@ -236,7 +234,7 @@ class UltralyticsEvaluator:
         dataset = load_all_detection_datasets(root_data_directory=self.config.dataset.root_data_directory,
                                               split=split)
         self._set_gt_labels_to_keep(dataset.classes)
-        
+
         dataloader = DataLoader(
             dataset,
             batch_size=eval_config.batch_size,
@@ -259,7 +257,7 @@ class UltralyticsEvaluator:
 
         im_files = [item[0] for item in batch]
         annotations = [b[2] for b in batch]
-        selected_im_files = im_files        
+        selected_im_files = im_files
         for i,ann in enumerate(annotations):
             ann.metadata["file_path"] = selected_im_files[i]
 
@@ -267,7 +265,7 @@ class UltralyticsEvaluator:
             "img": imgs,
             "annotations": annotations,
         }
-    
+
     def _filter_annotation(self, annotation: sv.Detections) -> sv.Detections:
         filtered_annotation = sv.Detections.empty()
         valid_indices = []
@@ -281,9 +279,9 @@ class UltralyticsEvaluator:
 
         if self.config.eval.single_cls:
             filtered_annotation.class_id = np.zeros_like(filtered_annotation.class_id,dtype=int)
-        
+
         return filtered_annotation
-    
+
     def _filter_prediction(self, prediction: sv.Detections) -> sv.Detections:
         filtered_prediction = sv.Detections.empty()
         valid_indices = []

@@ -1,15 +1,16 @@
+from pathlib import Path
+
 import fire
 
-from wildata.converters import LabelstudioConverter
-from pathlib import Path
 from wildata.config import ROOT
+from wildata.converters import LabelstudioConverter
 
 # Path to your Label Studio JSON annotation file
 ls_json_path = r"D:\workspace\repos\wildetect\Dry season - Kapiri Camp - 9-11, Rep 2.json"
 
 def example():
-    
-    dotenv_path = Path(__file__).parent.parent / ".env" 
+
+    dotenv_path = Path(__file__).parent.parent / ".env"
 
     # Instantiate the converter
     converter = LabelstudioConverter(dotenv_path=dotenv_path)
@@ -44,7 +45,7 @@ def example2():
     df_annotations = parser.to_dataframe()
     print(df_annotations['task_id'].nunique(), parser.task_count)
     assert df_annotations['task_id'].nunique() == parser.task_count, f"Task count mismatch: {df_annotations['task_id'].nunique()} != {parser.task_count}"
-    
+
     print(df_annotations.head(2))
 
 if __name__ == "__main__":

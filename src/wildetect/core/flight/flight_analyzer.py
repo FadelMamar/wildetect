@@ -3,20 +3,12 @@ Flight path analysis for drone image campaigns.
 """
 
 import logging
-import math
-from abc import ABC, abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Tuple
 
-import numpy as np
-import torch
 from geopy.distance import geodesic
-from torchmetrics.functional.detection import complete_intersection_over_union
-from tqdm import tqdm
 
-from ..data.detection import Detection
 from ..data.drone_image import DroneImage
 from .geographic_merger import GPSOverlapStrategy
 

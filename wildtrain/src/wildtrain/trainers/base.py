@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Optional
+
 from wildtrain.shared.models import BaseConfig
+
 
 class ModelTrainer(ABC):
     """

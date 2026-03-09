@@ -2,7 +2,6 @@
 CLI commands for the API server.
 """
 
-from pathlib import Path
 
 import typer
 

@@ -49,7 +49,7 @@ def visualize(
         # Ensure we have the correct config type for visualization
         if not isinstance(loaded_config, VisualizeConfigModel):
             console.print(
-                f"[red]Error: Configuration file is not a valid visualization config[/red]"
+                "[red]Error: Configuration file is not a valid visualization config[/red]"
             )
             raise typer.Exit(1)
 
@@ -86,7 +86,7 @@ def visualize(
             import webbrowser
 
             webbrowser.open(output_path)
-            console.print(f"[green]Opened visualization in browser[/green]")
+            console.print("[green]Opened visualization in browser[/green]")
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")

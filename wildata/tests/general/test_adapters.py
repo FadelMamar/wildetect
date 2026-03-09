@@ -1,8 +1,5 @@
-import json
 import os
-import tempfile
 
-import pytest
 from wildata.adapters.yolo_adapter import YOLOAdapter
 
 # Real data paths (can be overridden with environment variables)

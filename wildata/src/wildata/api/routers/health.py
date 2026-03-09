@@ -3,12 +3,10 @@ Health check endpoints.
 """
 
 from datetime import datetime
-from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
 
 from ..dependencies import get_api_config
-from ..models.responses import ErrorResponse
 
 router = APIRouter(prefix="/health", tags=["health"])
 

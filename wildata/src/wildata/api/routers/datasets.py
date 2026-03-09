@@ -2,13 +2,11 @@
 Dataset management endpoints.
 """
 
-import asyncio
-from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from ..dependencies import get_background_task_semaphore, verify_token
-from ..exceptions import DatasetError, NotFoundError, ValidationError
+from ..exceptions import NotFoundError
 from ..models.requests import (
     BulkImportRequest,
     ImportDatasetRequest,

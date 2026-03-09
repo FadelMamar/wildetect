@@ -1,5 +1,6 @@
-from wildtrain.models.classifier import GenericClassifier
 import torch
+
+from wildtrain.models.classifier import GenericClassifier
 
 model = GenericClassifier(
     label_to_class_map={0: "dog", 1: "cat"},

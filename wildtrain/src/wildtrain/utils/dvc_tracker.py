@@ -5,8 +5,10 @@ DVC integration utilities for dataset tracking in WildTrain.
 import json
 import subprocess
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 import mlflow
+
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)

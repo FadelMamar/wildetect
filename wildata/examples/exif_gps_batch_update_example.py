@@ -1,11 +1,11 @@
-import os
-import sys
 from pathlib import Path
-from wildata.adapters.utils import ExifGPSManager
-from wildata.partitioning.utils import GPSUtils
-from wildata.config import ROOT
+
 import numpy as np
 import pandas as pd
+
+from wildata.adapters.utils import ExifGPSManager
+from wildata.config import ROOT
+from wildata.partitioning.utils import GPSUtils
 
 
 def example_batch_update():
@@ -68,6 +68,6 @@ def example_single_image_update():
 
 
 if __name__ == "__main__":
-    # main() 
+    # main()
     example_batch_update()
     #example_single_image_update()

@@ -1,11 +1,9 @@
-import json
 import os
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import yaml
-from PIL import Image
 from tqdm import tqdm
 
 from ..adapters.utils import read_image
@@ -44,7 +42,7 @@ class YOLOToMasterConverter(BaseConverter):
             error_msg = f"YOLO validation failed for {self.yolo_data_yaml_path}:\n"
             error_msg += "\n".join(errors)
             if warnings:
-                error_msg += f"\nWarnings:\n" + "\n".join(warnings)
+                error_msg += "\nWarnings:\n" + "\n".join(warnings)
             raise ValueError(error_msg)
 
         # Load the data
@@ -149,7 +147,7 @@ class YOLOToMasterConverter(BaseConverter):
                 self._validate_coco_annotation(
                     split_data[split], filter_invalid_annotations
                 )
-            except Exception as e:
+            except Exception:
                 print(
                     f"Error validating COCO annotation for split {split}: {traceback.format_exc()}"
                 )

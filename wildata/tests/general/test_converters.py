@@ -1,7 +1,7 @@
-import json
 import os
 
 import pytest
+
 from wildata.converters.yolo_to_master import YOLOToMasterConverter
 
 COCO_DATA_DIR = os.getenv(

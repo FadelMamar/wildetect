@@ -27,17 +27,14 @@ Usage:
 """
 
 from ...shared.models import CurriculumConfig
+from .callback import CurriculumCallback
+from .dataset import CurriculumDetectionDataset, PatchDataset
 from .manager import CurriculumManager
 from .mixins import CurriculumDataModuleMixin
-from .callback import CurriculumCallback
-from .dataset import (
-    CurriculumDetectionDataset, 
-    PatchDataset
-)
 
 __all__ = [
     "CurriculumConfig",
-    "CurriculumManager", 
+    "CurriculumManager",
     "CurriculumDataModuleMixin",
     "CurriculumCallback",
     "CurriculumDetectionDataset",

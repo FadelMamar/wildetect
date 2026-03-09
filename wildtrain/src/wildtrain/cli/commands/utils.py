@@ -1,9 +1,10 @@
 """Shared utilities for CLI commands."""
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
+
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel

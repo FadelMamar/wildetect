@@ -1,11 +1,8 @@
-import yaml
-import sys
 from wildtrain.evaluators.ultralytics import UltralyticsEvaluator
 from wildtrain.shared.models import DetectionEvalConfig
 
-
 if __name__ == "__main__":
-    config = "wildtrain\configs\detection\yolo_configs\yolo_eval.yaml"
+    config = r"wildtrain\configs\detection\yolo_configs\yolo_eval.yaml"
     # Instantiate the evaluator
     evaluator = UltralyticsEvaluator(config=DetectionEvalConfig.from_yaml(config))
 

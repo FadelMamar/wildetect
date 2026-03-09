@@ -1,4 +1,8 @@
-from .geographic_merger import GeographicMerger,CentroidProximityRemovalStrategy,GPSOverlapStrategy
+from .geographic_merger import (
+    CentroidProximityRemovalStrategy,
+    GeographicMerger,
+    GPSOverlapStrategy,
+)
 
 __all__ = [
     "GeographicMerger",

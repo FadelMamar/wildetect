@@ -3,9 +3,7 @@ DVC (Data Version Control) integration for the WildTrain data pipeline.
 Provides data versioning, remote storage, and pipeline management capabilities.
 """
 
-import json
 import logging
-import os
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
@@ -230,7 +228,7 @@ class DVCManager:
                 returncode, stdout, stderr = self._run_dvc_command(["pull"])
 
             if returncode == 0:
-                self.logger.info(f"Successfully pulled data from remote")
+                self.logger.info("Successfully pulled data from remote")
                 return True
             else:
                 self.logger.error(f"Failed to pull data: {stderr}")

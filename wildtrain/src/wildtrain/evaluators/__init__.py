@@ -1,7 +1,7 @@
 """Evaluators package for model evaluation."""
 
-from .ultralytics import UltralyticsEvaluator
 from .calibrator import DetectionCalibrator
+from .ultralytics import UltralyticsEvaluator
 
 __all__ = [
     "UltralyticsEvaluator",

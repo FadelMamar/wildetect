@@ -1,15 +1,17 @@
 """Visualization service for integrating CLI functionality with the API."""
 
-import tempfile
-import subprocess
-import sys
-from pathlib import Path
-from typing import Dict, Any, Optional
 import logging
+import tempfile
+from pathlib import Path
+from typing import Any, Dict
 
 from omegaconf import OmegaConf
+
 from ...cli.config_loader import ConfigLoader
-from ...cli.models import ClassificationVisualizationConfig, DetectionVisualizationConfig
+from ...cli.models import (
+    ClassificationVisualizationConfig,
+    DetectionVisualizationConfig,
+)
 from ...shared.config_types import ConfigType
 
 logger = logging.getLogger(__name__)
@@ -39,7 +41,7 @@ class VisualizationService:
             Path(temp_config_path).unlink(missing_ok=True)
 
             logger.info("Classifier visualization completed successfully")
-            return 
+            return
 
         except Exception as e:
             raise Exception(f"Classifier visualization failed: {e}")
@@ -65,7 +67,7 @@ class VisualizationService:
             Path(temp_config_path).unlink(missing_ok=True)
 
             logger.info("Detector visualization completed successfully")
-            return 
+            return
 
         except Exception as e:
             raise Exception(f"Detector visualization failed: {e}")
@@ -108,7 +110,7 @@ class VisualizationService:
             import fiftyone as fo
             if dataset_name not in fo.list_datasets():
                 raise ValueError(f"Dataset {dataset_name} not found")
-            
+
             dataset = fo.load_dataset(dataset_name)
             return {
                 "name": dataset_name,

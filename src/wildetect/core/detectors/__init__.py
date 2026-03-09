@@ -9,7 +9,7 @@ from .multithreaded import (
     MultiThreadedDetectionPipeline,
     SimpleMultiThreadedDetectionPipeline,
 )
-from .raster import RasterDetectionPipeline, MultiThreadedRasterDetectionPipeline
+from .raster import MultiThreadedRasterDetectionPipeline, RasterDetectionPipeline
 
 __all__ = [
     "DetectionPipeline",

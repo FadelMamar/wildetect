@@ -1,10 +1,7 @@
 import torch
-import shap
-import matplotlib.pyplot as plt
-from wildtrain.models.classifier import GenericClassifier
+
 from wildtrain.data.classification_datamodule import ClassificationDataModule
 from wildtrain.explainers.shap import ClassifierSHAPExplainer
-import numpy as np
 
 # ---- User configuration ----
 CHECKPOINT_PATH = 'D:/workspace/repos/wildtrain/checkpoints/classification/best-v5.ckpt'  # <-- Update this path
@@ -43,4 +40,4 @@ print(f"Test images: {images.shape}")
 shap_values = explainer.explain(images)
 
 print(f"shap_values: {shap_values}")
-print("True labels:", labels) 
+print("True labels:", labels)

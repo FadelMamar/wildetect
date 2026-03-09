@@ -1,8 +1,10 @@
 # If you don't have matplotlib, install it with: pip install matplotlib
 from pathlib import Path
 
-from wildata.datasets.roi import ROIDataset, load_all_roi_datasets
 from tqdm import tqdm
+
+from wildata.datasets.roi import load_all_roi_datasets
+
 # Set the root data directory and dataset name
 root_data_directory = Path(r"D:/PhD/workspace/data")
 #dataset_name = "savmap"

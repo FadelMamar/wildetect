@@ -1,16 +1,17 @@
 """Configuration endpoints for the WildTrain API."""
 
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
 from pathlib import Path
+from typing import Any, Dict
 
+from fastapi import APIRouter, HTTPException
+
+from ...shared.config_types import ConfigType
+from ...shared.validation import validate_config_file
+from ..dependencies import get_logger
 from ..models.requests import ConfigValidationRequest
 from ..models.responses import (
     ConfigValidationResponse,
 )
-from ..dependencies import get_logger
-from ...shared.config_types import ConfigType
-from ...shared.validation import validate_config_file
 
 logger = get_logger("config")
 
@@ -19,15 +20,15 @@ router = APIRouter()
 @router.post("/validate", response_model=ConfigValidationResponse)
 async def validate_config(request: ConfigValidationRequest) -> ConfigValidationResponse:
     """Validate a configuration file."""
-    
+
     try:
         logger.info(f"Validating configuration file: {request.config_path}")
-        
+
         validate_config_file(Path(request.config_path), ConfigType(request.config_type))
         is_valid = True
         errors = []
         warnings = []
-               
+
         return ConfigValidationResponse(
             success=True,
             message="Configuration validation completed",
@@ -36,7 +37,7 @@ async def validate_config(request: ConfigValidationRequest) -> ConfigValidationR
             warnings=warnings,
             config_type=request.config_type
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to validate configuration: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -46,7 +47,7 @@ async def validate_config(request: ConfigValidationRequest) -> ConfigValidationR
 @router.get("/types")
 async def get_config_types() -> Dict[str, Any]:
     """Get available configuration types."""
-    
+
     config_types = [
         {
             "name": ConfigType.CLASSIFICATION.value,
@@ -89,7 +90,7 @@ async def get_config_types() -> Dict[str, Any]:
             "file_extension": ".yaml"
         }
     ]
-    
+
     return {
         "success": True,
         "message": "Configuration types retrieved",

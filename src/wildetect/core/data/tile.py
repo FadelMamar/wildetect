@@ -2,7 +2,6 @@ import logging
 import traceback
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import cv2
@@ -85,7 +84,7 @@ class Tile:
                 logger.warning(
                     f"Failed to set geographic footprint for {self.image_path}: {e}"
                 )
-        except Exception as e:
+        except Exception:
             logger.error(traceback.format_exc())
 
         return None

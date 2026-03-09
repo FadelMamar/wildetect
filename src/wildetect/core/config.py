@@ -7,12 +7,11 @@ import os
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 import torch
 import yaml
-from torch.utils.data._utils import pin_memory
 
 logger = logging.getLogger(__name__)
 

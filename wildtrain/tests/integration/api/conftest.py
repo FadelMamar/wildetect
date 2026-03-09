@@ -2,13 +2,14 @@
 Shared fixtures and utilities for API integration tests.
 """
 
-import pytest
 import traceback
 from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
+from wildtrain.cli.config_loader import ROOT, ConfigLoader
 
 from wildtrain.api.main import fastapi_app as app
-from wildtrain.cli.config_loader import ConfigLoader, ROOT
 
 
 def safe_load_config(config_path: Path, loader_method)->dict:
@@ -17,7 +18,7 @@ def safe_load_config(config_path: Path, loader_method)->dict:
         validated_config = loader_method(config_path)
         # Convert WindowsPath objects to strings for JSON serialization
         config_dict = validated_config.model_dump()
-        
+
         # Recursively convert any WindowsPath objects to strings
         def convert_paths(obj):
             if isinstance(obj, dict):
@@ -28,11 +29,11 @@ def safe_load_config(config_path: Path, loader_method)->dict:
                 return str(obj)
             else:
                 return obj
-        
+
         config_dict = convert_paths(config_dict)
 
         return config_dict
-    except Exception as e:
+    except Exception:
         raise Exception(f"Warning: Could not load config from {config_path}: {traceback.format_exc()}")
 
 
@@ -48,7 +49,7 @@ def classification_config():
     config_path = ROOT / "configs" / "classification" / "classification_train.yaml"
     return safe_load_config(
         config_path,
-        ConfigLoader.load_classification_config, 
+        ConfigLoader.load_classification_config,
     )
 
 
@@ -79,7 +80,7 @@ def detection_eval_config():
     return safe_load_config(
         config_path,
         ConfigLoader.load_detection_eval_config,
-        
+
     )
 
 
@@ -90,7 +91,7 @@ def classification_visualization_config():
     return safe_load_config(
         config_path,
         ConfigLoader.load_classification_visualization_config,
-        
+
     )
 
 
@@ -101,7 +102,7 @@ def detection_visualization_config():
     return safe_load_config(
         config_path,
         ConfigLoader.load_detection_visualization_config,
-        
+
     )
 
 
@@ -112,7 +113,7 @@ def classification_pipeline_config():
     return safe_load_config(
         config_path,
         lambda p: ConfigLoader.load_pipeline_config(p, "classification"),
-        
+
     )
 
 
@@ -123,5 +124,5 @@ def detection_pipeline_config():
     return safe_load_config(
         config_path,
         lambda p: ConfigLoader.load_pipeline_config(p, "detection"),
-        
+
     )

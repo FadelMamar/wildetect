@@ -1,11 +1,13 @@
 """Calibration configuration schemas for inference hyperparameter optimization."""
 
 from typing import List, Optional
+
 from pydantic import Field, field_validator
 
-from .base import BaseConfig, SweepObjectiveTypes, SweepDirectionTypes
+from .base import BaseConfig, SweepDirectionTypes, SweepObjectiveTypes
 from .sweep import SweepOutputConfig
-from .yolo import MergingMethodConfig,OverlapMetricConfig
+from .yolo import MergingMethodConfig, OverlapMetricConfig
+
 
 class CalibrationParametersConfig(BaseConfig):
     """Parameters to calibrate (inference hyperparameters)."""
@@ -26,7 +28,7 @@ class CalibrationParametersConfig(BaseConfig):
         default=[OverlapMetricConfig.IOU,OverlapMetricConfig.IOS],
         description="List of overlap metrics to search"
     )
-    
+
     @field_validator('conf_thres')
     @classmethod
     def validate_conf_thres(cls, v):
@@ -36,7 +38,7 @@ class CalibrationParametersConfig(BaseConfig):
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"conf_thres values must be between 0.0 and 1.0, got {value}")
         return v
-    
+
     @field_validator('iou_thres')
     @classmethod
     def validate_iou_thres(cls, v):
@@ -60,8 +62,8 @@ class CalibrationConfig(BaseConfig):
         description="Name of the calibration experiment"
     )
     n_trials: int = Field(
-        gt=0, 
-        le=1000, 
+        gt=0,
+        le=1000,
         description="Number of optimization trials"
     )
     objective: SweepObjectiveTypes = Field(
@@ -92,7 +94,7 @@ class CalibrationConfig(BaseConfig):
         default=True,
         description="Whether to save ground truth and predictions"
     )
-    
+
     @field_validator('calibration_name')
     @classmethod
     def validate_calibration_name(cls, v):

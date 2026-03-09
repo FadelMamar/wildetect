@@ -1,15 +1,17 @@
-from supervision.metrics import (
-    Precision,PrecisionResult,
-    Recall,RecallResult,
-    F1Score, F1ScoreResult
-)
-
 import numpy as np
 from supervision.detection.core import Detections
 from supervision.detection.utils.iou_and_nms import (
     box_iou_batch,
     mask_iou_batch,
     oriented_box_iou_batch,
+)
+from supervision.metrics import (
+    F1Score,
+    F1ScoreResult,
+    Precision,
+    PrecisionResult,
+    Recall,
+    RecallResult,
 )
 from supervision.metrics.core import MetricTarget
 
@@ -36,20 +38,20 @@ class MyRecallResult(RecallResult):
     @property
     def recall_at_75(self) -> float:
         idx = np.where(np.isclose(self.iou_thresholds, 0.75))[0][0]
-        return self.recall_scores[idx] 
+        return self.recall_scores[idx]
 
 class MyF1ScoreResult(F1ScoreResult):
-    
+
     @property
     def f1_at_50(self) -> float:
         idx = np.where(np.isclose(self.iou_thresholds, 0.5))[0][0]
         return self.f1_scores[idx]
-    
+
     @property
     def f1_at_75(self) -> float:
         idx = np.where(np.isclose(self.iou_thresholds, 0.75))[0][0]
         return self.f1_scores[idx]
-    
+
 IOU_THRESHOLDS = np.array([0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95])
 
 class MyPrecision(Precision):
@@ -130,7 +132,7 @@ class MyPrecision(Precision):
             medium_objects=None,
             large_objects=None,
         )
-    
+
 class MyRecall(Recall):
 
     def _compute(

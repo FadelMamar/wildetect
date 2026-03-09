@@ -1,24 +1,19 @@
 """Pipeline endpoints for the WildTrain API."""
 
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any, Optional
-import logging
+from typing import Any, Dict, Optional
 
+from fastapi import APIRouter, HTTPException
+
+from ..dependencies import get_logger
 from ..models.requests import (
     ClassificationPipelineRequest,
     DetectionPipelineRequest,
-    JobStatusRequest,
-    JobCancelRequest
+    JobCancelRequest,
 )
-from ..models.responses import (
-    PipelineResponse,
-    JobDetailResponse,
-    JobListResponse
-)
-from ..utils.background_tasks import job_manager, create_background_job, JobStatus
-from ..utils.error_handling import JobNotFoundError
-from ..dependencies import get_logger
+from ..models.responses import JobDetailResponse, JobListResponse, PipelineResponse
 from ..services.pipeline_service import PipelineService
+from ..utils.background_tasks import JobStatus, create_background_job, job_manager
+from ..utils.error_handling import JobNotFoundError
 
 logger = get_logger("pipeline")
 
@@ -62,7 +57,7 @@ async def run_detection_pipeline(request: DetectionPipelineRequest) -> PipelineR
     """Run detection pipeline."""
 
     try:
-        
+
         # Create background job for pipeline
         job_id = create_background_job(
             task_func=_run_detection_pipeline_task,
@@ -194,7 +189,7 @@ async def cancel_pipeline_job(request: JobCancelRequest) -> JobDetailResponse:
 def _run_classification_pipeline_task(config: Any, debug: bool, verbose: bool) -> Dict[str, Any]:
     """Background task for classification pipeline using actual CLI integration."""
     logger.info("Starting classification pipeline task with CLI integration")
-    
+
     try:
         # Use the pipeline service to run actual CLI pipeline
         results = PipelineService.run_classification_pipeline(config)
@@ -208,7 +203,7 @@ def _run_classification_pipeline_task(config: Any, debug: bool, verbose: bool) -
 def _run_detection_pipeline_task(config: Any, debug: bool, verbose: bool) -> Dict[str, Any]:
     """Background task for detection pipeline using actual CLI integration."""
     logger.info("Starting detection pipeline task with CLI integration")
-    
+
     try:
         # Use the pipeline service to run actual CLI pipeline
         results = PipelineService.run_detection_pipeline(config)

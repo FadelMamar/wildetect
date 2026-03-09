@@ -2,14 +2,13 @@
 Test configuration and fixtures for API tests.
 """
 
-import os
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+
 from wildata.api.main import app
 from wildata.api.models.jobs import JobResult, JobStatus
 from wildata.api.models.requests import (

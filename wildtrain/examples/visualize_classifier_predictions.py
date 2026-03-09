@@ -1,7 +1,8 @@
+
 import fiftyone as fo
-import sys
-import os
+
 from wildtrain.visualization import add_predictions_from_classifier
+
 # Example configuration
 DATASET_NAME = "wildtrain_classification_example"
 DATA_ROOT = "D:/workspace/data/demo-dataset"  # Update this to your data root
@@ -11,7 +12,7 @@ SPLIT = "val"  # or "train"/"test"
 
 
 if __name__ == "__main__":
-    
+
 
     # 3. Add predictions from classifier checkpoint
     add_predictions_from_classifier(
@@ -26,4 +27,4 @@ if __name__ == "__main__":
     # 4. Launch FiftyOne app for visualization
     session = fo.launch_app()
     print(f"FiftyOne app launched for dataset: {DATASET_NAME}")
-    session.wait() 
+    session.wait()

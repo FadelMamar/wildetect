@@ -1,20 +1,21 @@
 """Detection training and evaluation configuration models."""
 
 from pathlib import Path
-from typing import List, Optional, Literal
+from typing import List, Literal, Optional
+
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
 from .common import MLflowConfig
 from .yolo import (
-    YoloDatasetConfig,
+    OverlapMetricConfig,
     YoloCurriculumConfig,
-    YoloPretrainingConfig,
-    YoloModelConfig,
     YoloCustomConfig,
-    YoloTrainConfig,
+    YoloDatasetConfig,
     YoloInferenceConfig,
-    OverlapMetricConfig
+    YoloModelConfig,
+    YoloPretrainingConfig,
+    YoloTrainConfig,
 )
 
 
@@ -36,14 +37,14 @@ class DetectionWeightsConfig(BaseConfig):
     """Weights configuration for detection evaluation."""
     localizer: str = Field(description="str to the localizer weights file")
     classifier: Optional[str] = Field(default=None, description="str to the classifier weights file (optional)")
-    
+
     @field_validator('localizer')
     @classmethod
     def validate_localizer_exists(cls, v):
         if not Path(v).exists():
             raise ValueError(f"Localizer weights file does not exist: {v}")
         return v
-    
+
     @field_validator('classifier')
     @classmethod
     def validate_classifier_exists(cls, v):
@@ -77,50 +78,50 @@ class DetectionEvalParamsConfig(BaseConfig):
     verbose: bool = Field(default=False, description="Verbosity level")
     augment: bool = Field(default=False, description="Use Test Time Augmentation")
     overlap_metric: OverlapMetricConfig = Field(default=OverlapMetricConfig.IOU, description="Overlap metric for evaluation")
-    
-    
+
+
     @field_validator('imgsz')
     @classmethod
     def validate_imgsz(cls, v):
         if v <= 0:
             raise ValueError(f"Image size must be positive, got: {v}")
         return v
-    
+
     @field_validator('iou')
     @classmethod
     def validate_iou(cls, v):
         if not 0.0 <= v <= 1.0:
             raise ValueError(f"IoU must be between 0.0 and 1.0, got: {v}")
         return v
-    
+
     @field_validator('batch_size')
     @classmethod
     def validate_batch_size(cls, v):
         if v <= 0:
             raise ValueError(f"Batch size must be positive, got: {v}")
         return v
-    
+
     @field_validator('num_workers')
     @classmethod
     def validate_num_workers(cls, v):
         if v < 0:
             raise ValueError(f"Number of workers must be non-negative, got: {v}")
         return v
-    
+
     @field_validator('stride')
     @classmethod
     def validate_stride(cls, v):
         if v <= 0:
             raise ValueError(f"Stride must be positive, got: {v}")
         return v
-    
+
     @field_validator('conf')
     @classmethod
     def validate_conf(cls, v):
         if not 0.0 <= v <= 1.0:
             raise ValueError(f"Confidence must be between 0.0 and 1.0, got: {v}")
         return v
-    
+
     @field_validator('max_det')
     @classmethod
     def validate_max_det(cls, v):
@@ -140,15 +141,15 @@ class DetectionEvalConfig(BaseConfig):
     dataset: YoloDatasetConfig = Field(description="Dataset configuration")
     device: str = Field(default="cpu", description="Device to run evaluation on")
     metrics: DetectionMetricsConfig = Field(description="Evaluation metrics configuration")
-    eval: DetectionEvalParamsConfig = Field(description="Evaluation parameters")   
+    eval: DetectionEvalParamsConfig = Field(description="Evaluation parameters")
     results_dir: str = Field(description="Results directory for pipeline outputs")
-    
+
     @field_validator('device')
     @classmethod
     def validate_device(cls, v):
         assert (v == "cpu") or ("cuda" in v), f"Device must be one of ['cpu', 'cuda'], got: {v}"
         return v
-    
+
     def to_yolo_inference_config(self,disable_detection_filtering:bool=False):
         return YoloInferenceConfig(
             weights=self.weights.localizer,

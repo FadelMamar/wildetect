@@ -1,13 +1,16 @@
 """Dataset-related CLI commands."""
 
-import typer
 import json
 from pathlib import Path
 from typing import Optional
 
+import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from ...data.classification_datamodule import ClassificationDataModule, compute_dataset_stats
+from ...data.classification_datamodule import (
+    ClassificationDataModule,
+    compute_dataset_stats,
+)
 from .utils import console
 
 dataset_app = typer.Typer(name="dataset", help="Dataset commands")
@@ -67,7 +70,7 @@ def stats(
         if output_file:
             with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(stats, f, indent=2)
-            
+
             console.print(f"  💾 Statistics saved to: {output_file}")
-        
+
         return stats

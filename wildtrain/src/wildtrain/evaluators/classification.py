@@ -1,13 +1,22 @@
 import json
 import traceback
 from typing import Optional
+
 import torch
-from wildtrain.models.classifier import GenericClassifier
-from wildtrain.data import ClassificationDataModule
-from torchmetrics.classification import Accuracy, Precision, Recall, F1Score, AUROC, AveragePrecision
+from torchmetrics.classification import (
+    AUROC,
+    Accuracy,
+    AveragePrecision,
+    F1Score,
+    Precision,
+    Recall,
+)
 from tqdm import tqdm
+
+from wildtrain.data import ClassificationDataModule
+from wildtrain.models.classifier import GenericClassifier
 from wildtrain.utils.logging import get_logger
-import numpy as np
+
 from ..shared.models import ClassificationEvalConfig
 
 logger = get_logger(__name__)
@@ -15,7 +24,7 @@ logger = get_logger(__name__)
 
 class ClassificationEvaluator:
     def __init__(self, config:ClassificationEvalConfig):
-        self.config = config    
+        self.config = config
 
     def _load_model(self):
         logger.info(f"Loading model from {self.config.classifier}")
@@ -38,7 +47,7 @@ class ClassificationEvaluator:
             return datamodule.test_dataloader()
         else:
             return datamodule.val_dataloader()
-    
+
 
     def evaluate(self,debug:bool=False, save_path:Optional[str]=None):
         model = self._load_model().to(self.config.device)
@@ -55,7 +64,7 @@ class ClassificationEvaluator:
         }
         for metric in metrics.values():
             metric.to(self.config.device)
-        
+
         with torch.no_grad():
             count = 0
             for x, y in tqdm(dataloader, desc="Evaluating"):
@@ -65,7 +74,7 @@ class ClassificationEvaluator:
                     metric.update(probs, y)
                 count += 1
                 if count > 10 and debug:
-                    break            
+                    break
 
         results = {}
         for name, metric in metrics.items():
@@ -74,7 +83,7 @@ class ClassificationEvaluator:
             for i, score in enumerate(score):
                 cls_name = model.label_to_class_map.get(i, i)
                 results[f"{name}_class_{cls_name}"] = score.item()
-        
+
         if save_path:
             try:
                 with open(save_path, "w") as f:
@@ -84,4 +93,4 @@ class ClassificationEvaluator:
 
         return results
 
-    
+

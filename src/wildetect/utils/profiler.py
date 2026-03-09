@@ -438,7 +438,7 @@ class ProfilerManager:
 
                 # Save memory samples if available
                 if self.memory_samples:
-                    f.write(f"\nDetailed Memory Samples:\n")
+                    f.write("\nDetailed Memory Samples:\n")
                     for i, sample in enumerate(self.memory_samples):
                         f.write(
                             f"  Sample {i + 1}: RSS={sample['rss'] / 1024**2:.2f}MB, VMS={sample['vms'] / 1024**2:.2f}MB, Percent={sample['percent']:.1f}%\n"

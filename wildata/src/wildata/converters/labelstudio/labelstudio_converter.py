@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Tuple, Union
 
 from dotenv import load_dotenv
-from label_studio_sdk.converter import Converter
 from label_studio_sdk.client import LabelStudio
+from label_studio_sdk.converter import Converter
 
 from ..base_converter import BaseConverter
 
@@ -73,7 +73,7 @@ class LabelstudioConverter(BaseConverter):
         # Create dataset info
         dataset_info = {
             "name": dataset_name,
-            "description": f"Dataset converted from Label Studio format",
+            "description": "Dataset converted from Label Studio format",
             "version": "1.0",
             "contributor": "Label Studio Converter",
             "date_created": datetime.now().strftime("%Y-%m-%d"),
@@ -151,7 +151,7 @@ class LabelstudioConverter(BaseConverter):
         Returns:
             Parsed Label Studio configuration
         """
-    
+
         with open(ls_json_path, "r", encoding="utf-8") as f:
             ls_annotation = json.load(fp=f)
 

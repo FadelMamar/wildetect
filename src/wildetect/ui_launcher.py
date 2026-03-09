@@ -5,9 +5,7 @@ WildDetect UI Launcher with CLI Integration
 This script launches the Streamlit UI with integrated CLI functionality.
 """
 
-import os
 import sys
-from pathlib import Path
 
 
 def main():

@@ -1,24 +1,25 @@
-from ast import Tuple
-import torch
-import supervision as sv
-import torchvision.ops as ops
-import numpy as np
-from typing import Optional, Union, Any, Dict, List
-from copy import deepcopy
-from collections import defaultdict
-from omegaconf import DictConfig
-import requests
 import base64
-from pathlib import Path
 import tempfile
-import fiftyone as fo
+from ast import Tuple
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
+import fiftyone as fo
+import numpy as np
+import requests
+import supervision as sv
+import torch
+import torchvision.ops as ops
+from omegaconf import DictConfig
+
+from ..shared.models import RegistrationBase, YoloInferenceConfig
+from ..utils.logging import get_logger
+from ..utils.mlflow import load_registered_model
 from .classifier import GenericClassifier
 from .localizer import ObjectLocalizer, UltralyticsLocalizer
-from ..shared.models import YoloInferenceConfig, RegistrationBase
-from ..utils.mlflow import load_registered_model
-from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -37,13 +38,13 @@ class Detector(torch.nn.Module):
         self.metadata: Optional[Dict[str,Any]] = None
 
         self.set_device(localizer.device)
-    
+
     @property
     def input_shape(self,)->Tuple:
         if self.metadata is None:
             return None
         return (self.metadata["batch"],3,self.metadata['imgsz'],self.metadata['imgsz'])
-    
+
     def set_device(self,device:str):
         if hasattr(self.localizer,"device"):
             self.localizer.device = device
@@ -51,13 +52,13 @@ class Detector(torch.nn.Module):
             self.classifier.eval()
             self.classifier.to(device,non_blocking=True)
         logger.info(f"Detector set to device: {device}")
-    
+
     @property
     def class_mapping(self):
         if self.classifier:
             return self.classifier.class_mapping
         return self.localizer.class_mapping
-    
+
     @classmethod
     def from_config(cls,
     localizer_config:Union[YoloInferenceConfig, DictConfig],
@@ -78,7 +79,7 @@ class Detector(torch.nn.Module):
                                             )
 
         return cls(localizer=localizer,classifier=classifier)
-    
+
     @classmethod
     def from_mlflow(cls,name:str,alias:str,dwnd_location:Optional[str]=None,mlflow_tracking_uri:str="http://localhost:5000")->"Detector":
         model = load_registered_model(alias=alias,name=name,
@@ -95,7 +96,7 @@ class Detector(torch.nn.Module):
                                         output_path=temp_path
                                     )
         return model
-    
+
     def _pad_if_needed(self, batch: torch.Tensor) -> torch.Tensor:
         if self.input_shape is None:
             return batch
@@ -110,12 +111,12 @@ class Detector(torch.nn.Module):
             raise ValueError(f"Expected {self.input_shape[0]} >= {batch.shape[0]}")
 
         return batch
-    
+
     def resize_bbox(self,bbox: np.ndarray,roi_size:int,images_width:int,images_height:int) -> np.ndarray:
-            
+
             if bbox.size == 0:
                 return bbox
-            
+
             bbox = bbox.copy()
             h = roi_size
             w = roi_size
@@ -130,7 +131,7 @@ class Detector(torch.nn.Module):
             bbox[:, 2] = np.clip(bbox[:, 2], 0, images_width - 1)
             bbox[:, 3] = np.clip(bbox[:, 3], 0, images_height - 1)
             return bbox
-          
+
     def _to_dict(self,results:List[sv.Detections])->List[Dict]:
         results = [vars(result) for result in results]
         results_as_dict = []
@@ -145,7 +146,7 @@ class Detector(torch.nn.Module):
                     result_as_dict[k] = v
             results_as_dict.append(result_as_dict)
         return results_as_dict
-    
+
     @staticmethod
     def _to_sv_detections(results:List[Dict])->List[sv.Detections]:
         detections = []
@@ -157,7 +158,7 @@ class Detector(torch.nn.Module):
                 metadata={"class_mapping":result["metadata"].get("class_mapping",{})},
             ))
         return detections
-    
+
     @staticmethod
     def to_fiftyone(detections:List[sv.Detections],images_width:int,images_height:int)->List[fo.Detection]:
         fo_detections = []
@@ -236,7 +237,7 @@ class Detector(torch.nn.Module):
         """Detects objects in a batch of images and classifies each ROI."""
         b = images.shape[0]
         detections: list[sv.Detections] = self.localizer.predict(self._pad_if_needed(images))[:b]
-                
+
         if self.classifier is None:
             if return_as_dict:
                 detections = self._to_dict(detections)
@@ -255,13 +256,13 @@ class Detector(torch.nn.Module):
                 [torch.full((det.shape[0], 1), i, dtype=torch.long), det], dim=1
             )
             boxes.append(roi_boxes)
-        
+
         # If no boxes are found, return the detections as is
         if len(boxes)==0:
             if return_as_dict:
                 detections = self._to_dict(detections)
             return detections
-        
+
         boxes = torch.cat(boxes, dim=0).to(self.localizer.device,non_blocking=True)
         images = images.to(self.localizer.device,non_blocking=True)
         crops = ops.roi_align(
@@ -276,7 +277,7 @@ class Detector(torch.nn.Module):
         with torch.autocast(device_type=self.localizer.device):
             crops = crops.to(self.localizer.device,non_blocking=True)
             cls_results = self.classifier.predict(crops)  # (N, num_classes)
-        
+
         results = deepcopy(detections)
 
         # Map from image index to list of (detection index in boxes, classifier result)
@@ -298,7 +299,7 @@ class Detector(torch.nn.Module):
                 class_id=class_ids,
                 metadata={"class_mapping":self.class_mapping},
             )
-        
+
         if return_as_dict:
             results = self._to_dict(results)
             return results

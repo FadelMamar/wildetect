@@ -6,11 +6,10 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import torch
 from tqdm import tqdm
 
 from ..config import LoaderConfig, PredictionConfig
-from ..data import Detection, DroneImage
+from ..data import DroneImage
 from ..data.loader import DataLoader
 from .base import DetectionPipeline, SimpleDetectionPipeline
 
@@ -43,7 +42,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         self.detection_thread: Optional[threading.Thread] = None
         self.detection_results: List = []
 
-        logger.info(f"Initialized MultiThreadedDetectionPipeline")
+        logger.info("Initialized MultiThreadedDetectionPipeline")
 
     def _data_loading_worker(
         self,

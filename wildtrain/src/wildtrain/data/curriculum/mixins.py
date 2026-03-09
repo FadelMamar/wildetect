@@ -5,11 +5,10 @@ This module provides mixin classes that add curriculum learning capabilities
 to existing data modules.
 """
 
-from typing import Optional, Dict, Any
-import lightning as L
+from typing import Any, Dict, Optional
 
-from .manager import CurriculumManager
 from ...shared.models import CurriculumConfig
+from .manager import CurriculumManager
 
 
 class CurriculumDataModuleMixin:
@@ -23,7 +22,7 @@ class CurriculumDataModuleMixin:
                 L.LightningDataModule.__init__(self)
                 # ... rest of initialization
     """
-    
+
     def __init__(self, curriculum_config: Optional[CurriculumConfig] = None):
         """
         Initialize curriculum learning mixin.
@@ -33,10 +32,10 @@ class CurriculumDataModuleMixin:
         """
         self.curriculum_config = curriculum_config
         self.curriculum_manager: Optional[CurriculumManager] = None
-        
+
         if curriculum_config and curriculum_config.enabled:
             self.curriculum_manager = CurriculumManager(curriculum_config)
-    
+
     def setup_curriculum(self, max_epochs: int):
         """
         Setup curriculum after data module is initialized.
@@ -46,7 +45,7 @@ class CurriculumDataModuleMixin:
         """
         if self.curriculum_manager:
             self.curriculum_manager.set_max_epochs(max_epochs)
-    
+
     def update_curriculum_epoch(self, epoch: int) -> Optional[Dict[str, Any]]:
         """
         Update curriculum state for new epoch.
@@ -60,7 +59,7 @@ class CurriculumDataModuleMixin:
         if self.curriculum_manager:
             return self.curriculum_manager.update_epoch(epoch)
         return None
-    
+
     def should_include_sample(self, sample_difficulty: float) -> bool:
         """
         Check if a sample should be included based on current curriculum.
@@ -74,7 +73,7 @@ class CurriculumDataModuleMixin:
         if self.curriculum_manager:
             return self.curriculum_manager.should_include_sample(sample_difficulty)
         return True  # Include all samples if curriculum is disabled
-    
+
     def get_current_difficulty(self) -> float:
         """
         Get current difficulty level.
@@ -85,7 +84,7 @@ class CurriculumDataModuleMixin:
         if self.curriculum_manager:
             return self.curriculum_manager.get_current_difficulty()
         return 1.0  # Max difficulty if curriculum is disabled
-    
+
     def get_curriculum_state(self) -> Optional[Dict[str, Any]]:
         """
         Get current curriculum state.
@@ -96,7 +95,7 @@ class CurriculumDataModuleMixin:
         if self.curriculum_manager:
             return self.curriculum_manager.get_state()
         return None
-    
+
     def is_curriculum_enabled(self) -> bool:
         """
         Check if curriculum learning is enabled.
@@ -104,4 +103,4 @@ class CurriculumDataModuleMixin:
         Returns:
             True if curriculum learning is enabled, False otherwise
         """
-        return self.curriculum_manager is not None 
+        return self.curriculum_manager is not None

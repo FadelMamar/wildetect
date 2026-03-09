@@ -1,9 +1,7 @@
 import json
-import traceback
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional
 
-import supervision as sv
 from supervision.dataset.core import DetectionDataset
 
 from ..logging_config import get_logger

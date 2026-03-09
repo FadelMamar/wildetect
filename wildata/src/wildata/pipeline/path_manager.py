@@ -2,9 +2,8 @@
 Centralized path management for the data pipeline.
 """
 
-import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from ..config import ROOT
 from ..logging_config import get_logger

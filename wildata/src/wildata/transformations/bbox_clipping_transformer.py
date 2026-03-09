@@ -7,8 +7,6 @@ given a specified tolerance.
 
 from typing import Any, Dict, List
 
-import numpy as np
-
 from ..converters.utils import clip_bbox
 from .base_transformer import BaseTransformer
 

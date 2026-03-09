@@ -1,7 +1,9 @@
-import mlflow
 import traceback
 from pathlib import Path
 from typing import Optional, Union
+
+import mlflow
+
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -25,7 +27,7 @@ def load_registered_model(
         dwnd_location = Path(f"models-registry/{name}")
     else:
         dwnd_location = Path(dwnd_location)/name
-    
+
     dwnd_location.mkdir(parents=True, exist_ok=True)
     dwnd_location = dwnd_location / version
     dwnd_location = str(dwnd_location.resolve())

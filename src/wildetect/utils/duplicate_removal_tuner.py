@@ -17,15 +17,13 @@ Usage:
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import optuna
 import pandas as pd
 from scipy.spatial.distance import cdist
-from tqdm import tqdm
 
 from wildetect.core.config import FlightSpecs
 from wildetect.core.visualization.labelstudio_manager import LabelStudioManager
@@ -33,7 +31,6 @@ from wildetect.core.visualization.labelstudio_manager import LabelStudioManager
 if TYPE_CHECKING:
     from wildetect.core.data import DroneImage
     from wildetect.core.data.detection import Detection
-    from wildetect.core.flight import GeographicMerger
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +251,7 @@ class DuplicateRemovalTuner:
                     filtered_task, flight_specs=self.flight_specs
                 )
                 # Set predictions to annotations for duplicate removal tuning
-                drone_image.predictions = drone_image.annotations 
+                drone_image.predictions = drone_image.annotations
                 # Skip if no GPS location
                 if drone_image.tile_gps_loc is None:
                     continue
@@ -293,7 +290,7 @@ class DuplicateRemovalTuner:
 
         if len(images) < 2 or original_count == 0:
             return {"expected_removals": 0, "actual_removals": 0, "original_count": 0}
-        
+
         logger.debug(f"Evaluating group {group.group_id} with {len(images)} images")
 
         # Run the merger

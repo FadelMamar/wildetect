@@ -1,6 +1,7 @@
 """Common/shared configuration models used across classification and detection."""
 
-from typing import List, Dict, Any, Optional, Literal
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
@@ -18,7 +19,7 @@ class DatasetStatsConfig(BaseConfig):
     """Dataset statistics configuration."""
     mean: List[float] = Field(description="Mean values for normalization")
     std: List[float] = Field(description="Standard deviation values for normalization")
-    
+
     @field_validator ('mean', 'std')
     @classmethod
     def validate_stats_length(cls, v):
@@ -48,7 +49,7 @@ class CurriculumConfig(BaseConfig):
     end_difficulty: float = Field(default=1.0, ge=0.0, le=1.0, description="Ending difficulty")
     warmup_epochs: int = Field(default=0, ge=0, description="Warmup epochs")
     log_frequency: int = Field(default=1, ge=1, description="Log frequency")
-    
+
     @field_validator('end_difficulty')
     @classmethod
     def validate_end_difficulty(cls, v, info):
@@ -64,7 +65,7 @@ class SingleClassConfig(BaseConfig):
     single_class_name: str = Field(description="Name of the single class")
     keep_classes: Optional[List[str]] = Field(default=None, description="Classes to keep (if None, all classes kept)")
     discard_classes: Optional[List[str]] = Field(default=None, description="Classes to discard")
-    
+
     @field_validator('background_class_name', 'single_class_name')
     @classmethod
     def validate_class_names(cls, v):

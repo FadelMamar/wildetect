@@ -2,16 +2,13 @@ import csv
 import gc
 import json
 import logging
-import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 import optuna
-import pandas as pd
-import supervision as sv
 import torch
 from tqdm import tqdm
 

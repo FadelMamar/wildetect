@@ -1,6 +1,7 @@
 """Model registration and inference configuration models."""
 
 from typing import Optional
+
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
@@ -21,7 +22,7 @@ class RegistrationBase(BaseConfig):
         if v not in valid_formats:
             raise ValueError(f"Export format must be one of {valid_formats}, got: {v}")
         return v
-    
+
     @field_validator('batch_size')
     @classmethod
     def validate_batch_size(cls, v):
@@ -43,7 +44,7 @@ class ClassifierRegistrationConfig(BaseConfig):
     """Configuration for registering a classification model to MLflow Model Registry."""
     weights: Optional[str] = Field(default=None,description="Path to the model checkpoint file")
     processing: RegistrationBase = Field(description="processing information")
-    
+
 
 class DetectorRegistrationConfig(BaseConfig):
     """Base configuration for model registration.

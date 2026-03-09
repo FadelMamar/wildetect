@@ -12,99 +12,98 @@ Example:
 # Base configuration and enums
 from .base import (
     BaseConfig,
-    SweepObjectiveTypes,
     SweepDirectionTypes,
+    SweepObjectiveTypes,
 )
 
-# Common/shared configurations
-from .common import (
-    LoggingConfig,
-    DatasetStatsConfig,
-    TransformConfig,
-    TransformsConfig,
-    CurriculumConfig,
-    SingleClassConfig,
-    MLflowConfig,
+# Calibrator configurations
+from .calibrator import (
+    CalibrationConfig,
+    CalibrationParametersConfig,
 )
 
 # Classification configurations
 from .classification import (
+    ClassificationConfig,
     ClassificationDatasetConfig,
+    ClassificationEvalConfig,
+    ClassificationEvalDatasetConfig,
+    ClassifierCheckpointConfig,
     ClassifierModelConfig,
     ClassifierTrainingConfig,
-    ClassifierCheckpointConfig,
-    ClassificationConfig,
-    ClassificationEvalDatasetConfig,
-    ClassificationEvalConfig,
 )
 
-# YOLO configurations
-from .yolo import (
-    YoloInferenceConfig,
-    YoloDatasetConfig,
-    YoloCurriculumConfig,
-    YoloPretrainingConfig,
-    YoloModelConfig,
-    YoloCustomConfig,
-    YoloTrainConfig,
-    OverlapMetricConfig,
-    MergingMethodConfig
+# Common/shared configurations
+from .common import (
+    CurriculumConfig,
+    DatasetStatsConfig,
+    LoggingConfig,
+    MLflowConfig,
+    SingleClassConfig,
+    TransformConfig,
+    TransformsConfig,
 )
 
 # Detection configurations
 from .detection import (
     DetectionConfig,
-    DetectionWeightsConfig,
-    DetectionMetricsConfig,
-    DetectionEvalParamsConfig,
     DetectionEvalConfig,
-)
-
-# Sweep configurations  
-from .sweep import (
-    SweepOutputConfig,
-    ClassificationSweepModelParametersConfig,
-    ClassificationSweepTrainParametersConfig,
-    ClassificationSweepParametersConfig,
-    ClassificationSweepConfig,
-    DetectionSweepModelParametersConfig,
-    DetectionSweepTrainParametersConfig,
-    DetectionSweepParametersConfig,
-    DetectionSweepConfig,
-)
-
-# Calibrator configurations
-from .calibrator import (
-    CalibrationParametersConfig,
-    CalibrationConfig,
+    DetectionEvalParamsConfig,
+    DetectionMetricsConfig,
+    DetectionWeightsConfig,
 )
 
 # Pipeline configurations
 from .pipeline import (
-    TrainPipelineConfig,
-    EvalPipelineConfig,
-    PipelineConfig,
     ClassificationPipelineConfig,
     DetectionPipelineConfig,
-)
-
-# Visualization configurations
-from .visualization import (
-    LabelStudioConfig,
-    FiftyOneConfig,
-    DetectionVisualizationConfig,
-    ClassificationVisualizationConfig,
+    EvalPipelineConfig,
+    PipelineConfig,
+    TrainPipelineConfig,
 )
 
 # Registration configurations
 from .registration import (
-    RegistrationBase,
-    LocalizerRegistrationConfig,
     ClassifierRegistrationConfig,
     DetectorRegistrationConfig,
     InferenceConfig,
+    LocalizerRegistrationConfig,
+    RegistrationBase,
 )
 
+# Sweep configurations
+from .sweep import (
+    ClassificationSweepConfig,
+    ClassificationSweepModelParametersConfig,
+    ClassificationSweepParametersConfig,
+    ClassificationSweepTrainParametersConfig,
+    DetectionSweepConfig,
+    DetectionSweepModelParametersConfig,
+    DetectionSweepParametersConfig,
+    DetectionSweepTrainParametersConfig,
+    SweepOutputConfig,
+)
+
+# Visualization configurations
+from .visualization import (
+    ClassificationVisualizationConfig,
+    DetectionVisualizationConfig,
+    FiftyOneConfig,
+    LabelStudioConfig,
+)
+
+# YOLO configurations
+from .yolo import (
+    MergingMethodConfig,
+    OverlapMetricConfig,
+    YoloCurriculumConfig,
+    YoloCustomConfig,
+    YoloDatasetConfig,
+    YoloInferenceConfig,
+    YoloModelConfig,
+    YoloPretrainingConfig,
+    YoloTrainConfig,
+)
 
 __all__ = [
     # Base

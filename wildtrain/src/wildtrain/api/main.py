@@ -1,17 +1,17 @@
 """FastAPI application entry point for WildTrain API."""
 
+import logging
+import traceback
+from typing import Any, Dict
+
+import typer
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import logging
-from pathlib import Path
-from typing import Dict, Any
-import typer
-import traceback
 
-from .routers import training, evaluation, pipeline, visualization, dataset, config
-from .utils.error_handling import WildTrainAPIException, wildtrain_exception_handler
 from .dependencies import get_settings
+from .routers import config, dataset, evaluation, pipeline, training, visualization
+from .utils.error_handling import WildTrainAPIException, wildtrain_exception_handler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +20,7 @@ settings = get_settings()
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    
+
     app = FastAPI(
         title="WildTrain API",
         description="REST API for WildTrain - Modular Computer Vision Framework",
@@ -30,8 +30,8 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json"
     )
 
-    
-    
+
+
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
@@ -40,10 +40,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # Add custom exception handler
     app.add_exception_handler(WildTrainAPIException, wildtrain_exception_handler)
-    
+
     # Include routers
     app.include_router(training.router, prefix="/training", tags=["Training"])
     app.include_router(evaluation.router, prefix="/evaluation", tags=["Evaluation"])
@@ -51,7 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(visualization.router, prefix="/visualization", tags=["Visualization"])
     app.include_router(dataset.router, prefix="/dataset", tags=["Dataset"])
     app.include_router(config.router, prefix="/config", tags=["Configuration"])
-    
+
     @app.get("/")
     async def root() -> Dict[str, Any]:
         """Root endpoint with API information."""
@@ -61,7 +61,7 @@ def create_app() -> FastAPI:
             "docs": "/docs",
             "redoc": "/redoc"
         }
-    
+
     @app.get("/health")
     async def health_check() -> Dict[str, Any]:
         """Health check endpoint."""
@@ -69,7 +69,7 @@ def create_app() -> FastAPI:
             "status": "healthy",
             "timestamp": "2024-01-01T00:00:00Z"  # TODO: Use actual timestamp
         }
-    
+
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """Global exception handler for unexpected errors."""
@@ -82,7 +82,7 @@ def create_app() -> FastAPI:
                 "error": str(exc) if settings.debug else "An unexpected error occurred"
             }
         )
-    
+
     try:
         from fastapi_mcp import FastApiMCP
 

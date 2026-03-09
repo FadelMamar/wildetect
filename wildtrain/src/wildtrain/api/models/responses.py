@@ -1,10 +1,11 @@
 """Response models for the WildTrain API."""
 
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from .common import BaseResponse, JobResponse, JobStatus
+from pydantic import Field
+
+from .common import BaseResponse, JobResponse
 
 
 class TrainingResponse(JobResponse):

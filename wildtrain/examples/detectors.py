@@ -8,21 +8,15 @@ Created on Tue Jul 22 15:28:12 2025
 # import os
 
 import torch
-import wildtrain
-from wildtrain.models.localizer import UltralyticsLocalizer
-from wildtrain.models.classifier import GenericClassifier
-from wildtrain.models.detector import Detector
-from wildtrain.data import load_image
-from PIL import Image
 
-import supervision as sv
+from wildtrain.models.classifier import GenericClassifier
 
 # Example label map for classifier
 # label_to_class_map = {0: "cat", 1: "dog"}
 
 # Instantiate the localizer (YOLO weights path or model name required)
 device = "cpu"
-# localizer = UltralyticsLocalizer(weights="D:/workspace/repos/wildtrain/models/best.pt", 
+# localizer = UltralyticsLocalizer(weights="D:/workspace/repos/wildtrain/models/best.pt",
 #                                  conf_thres=0.2,
 #                                  iou_thres=0.5,
 #                                  imgsz=800,
@@ -36,7 +30,7 @@ classifier = GenericClassifier.load_from_checkpoint("checkpoints/classification/
 
 # classifier = GenericClassifier(label_to_class_map={0:"background",1:"wildlife"},
 #                                num_layers=2,
-#                                hidden_dim=128                               
+#                                hidden_dim=128
 #                                )
 
 # classifier = classifier.to_torchscript()
@@ -67,7 +61,7 @@ print(o)
 # for i, det in enumerate(detections):
 #     print(f"Image {i} detections:")
 #     print(det)
-    
+
 # box_annotator = sv.BoxAnnotator()
 
 # annotated_frame = box_annotator.annotate(

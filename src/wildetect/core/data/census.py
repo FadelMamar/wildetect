@@ -4,12 +4,10 @@ Dataset management for drone image analysis campaigns.
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
-
-import pandas as pd
 
 from ..config import LoaderConfig
 from ..data.detection import Detection
@@ -184,7 +182,7 @@ class CensusDataManager:
             self.flight_path, self.drone_images
         )
 
-        logger.info(f"Flight efficiency calculated:")
+        logger.info("Flight efficiency calculated:")
         logger.info(
             f"  Total distance: {self.flight_efficiency.total_distance_km:.2f} km"
         )

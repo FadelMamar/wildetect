@@ -4,10 +4,9 @@ Background job queue implementation.
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, List, Optional
 
-from ..exceptions import JobError
 from ..models.jobs import BackgroundJob, JobResult, JobStatus
 
 # Global job queue instance

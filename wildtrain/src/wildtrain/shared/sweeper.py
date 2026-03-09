@@ -6,6 +6,7 @@ and inference calibrators that use Optuna for optimization.
 
 from abc import ABC, abstractmethod
 from typing import Any
+
 import optuna
 
 
@@ -16,7 +17,7 @@ class Sweeper(ABC):
     - __call__: The objective function for a single trial
     - run: The main optimization loop
     """
-    
+
     @abstractmethod
     def __call__(self, trial: optuna.Trial) -> Any:
         """Objective function called by Optuna for each trial.

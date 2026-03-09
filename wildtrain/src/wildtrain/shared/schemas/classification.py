@@ -1,16 +1,17 @@
 """Classification training and evaluation configuration models."""
 
 from pathlib import Path
-from typing import List, Optional, Literal
+from typing import List, Literal, Optional
+
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
 from .common import (
-    DatasetStatsConfig,
-    TransformsConfig,
     CurriculumConfig,
-    SingleClassConfig,
+    DatasetStatsConfig,
     MLflowConfig,
+    SingleClassConfig,
+    TransformsConfig,
 )
 
 
@@ -26,27 +27,27 @@ class ClassificationDatasetConfig(BaseConfig):
     curriculum_config: Optional[CurriculumConfig] = Field(default=None, description="Curriculum configuration")
     single_class: Optional[SingleClassConfig] = Field(default=None, description="Single class configuration")
     rebalance: bool = Field(default=False, description="Enable dataset rebalancing")
-    
+
     # Crop dataset specific fields
     crop_size: Optional[int] = Field(default=None, gt=0, description="Crop size for crop datasets")
     max_tn_crops: Optional[int] = Field(default=None, gt=0, description="Maximum true negative crops")
     p_draw_annotations: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Probability of drawing annotations")
     compute_difficulties: Optional[bool] = Field(default=None, description="Compute crop difficulties")
     preserve_aspect_ratio: Optional[bool] = Field(default=None, description="Preserve aspect ratio")
-    
+
     @field_validator('root_data_directory')
     @classmethod
     def validate_data_directory(cls, v):
         if not Path(v).exists():
             raise ValueError(f"Data directory does not exist: {v}")
         return v
-    
+
     @field_validator('crop_size', 'max_tn_crops', 'p_draw_annotations', 'compute_difficulties', 'preserve_aspect_ratio')
     @classmethod
     def validate_crop_fields(cls, v, info):
         if hasattr(info.data, 'dataset_type') and info.data.dataset_type == 'crop':
             if v is None:
-                raise ValueError(f"Field is required for crop dataset type")
+                raise ValueError("Field is required for crop dataset type")
         return v
 
 
@@ -63,7 +64,7 @@ class ClassifierModelConfig(BaseConfig):
     weights: Optional[str] = Field(default=None, description="Model weights path")
     hidden_dim: int = Field(default=128, gt=0, description="Hidden dimension")
     num_layers: int = Field(default=2, gt=0, description="Number of layers")
-    
+
     @field_validator('mean', 'std')
     @classmethod
     def validate_normalization(cls, v):
@@ -106,7 +107,7 @@ class ClassificationConfig(BaseConfig):
     train: ClassifierTrainingConfig = Field(description="Training configuration")
     checkpoint: ClassifierCheckpointConfig = Field(description="Checkpoint configuration")
     mlflow: MLflowConfig = Field(description="MLflow configuration")
-    
+
     @field_validator('model')
     @classmethod
     def validate_model_dataset_compatibility(cls, v, info):
@@ -121,7 +122,7 @@ class ClassificationEvalDatasetConfig(BaseConfig):
     """Dataset configuration for classification evaluation."""
     root_data_directory: str = Field(description="Root directory containing the dataset")
     single_class: Optional[SingleClassConfig] = Field(default=None, description="Single class configuration")
-    
+
     @field_validator('root_data_directory')
     @classmethod
     def validate_data_directory_exists(cls, v):
@@ -150,7 +151,7 @@ class ClassificationEvalConfig(BaseConfig):
         if not Path(v).exists():
             raise ValueError(f"Classifier checkpoint does not exist: {v}")
         return v
-    
+
     @field_validator('device')
     @classmethod
     def validate_device(cls, v):
@@ -158,7 +159,7 @@ class ClassificationEvalConfig(BaseConfig):
         if v not in valid_devices:
             raise ValueError(f"Device must be one of {valid_devices}, got: {v}")
         return v
-    
+
     @field_validator('batch_size')
     @classmethod
     def validate_batch_size(cls, v):

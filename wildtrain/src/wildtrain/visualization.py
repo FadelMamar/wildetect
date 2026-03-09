@@ -5,29 +5,21 @@ This module handles dataset creation, visualization, and annotation collection
 using FiftyOne for wildlife detection datasets.
 """
 
-import json
 import logging
-import os
-import traceback
+import math
 from pathlib import Path
-from typing import Any, Dict, ItemsView, List, Optional, Union
+from typing import List, Optional
+from urllib.parse import unquote
 
 import fiftyone as fo
-from dotenv import load_dotenv
-from tqdm import tqdm
-from omegaconf import OmegaConf
-import supervision as sv
-import numpy as np
-from wildtrain.models.detector import Detector
-from wildtrain.models.classifier import GenericClassifier
 import torch
-from PIL import Image
 import torchvision.transforms.v2 as T
-import math
 from label_studio_sdk.client import LabelStudio
 from label_studio_tools.core.utils.io import get_local_path
+from tqdm import tqdm
 
-from urllib.parse import unquote
+from wildtrain.models.classifier import GenericClassifier
+from wildtrain.models.detector import Detector
 
 from .utils.io import read_image
 
@@ -50,7 +42,7 @@ class Visualizer:
         self.label_studio_url = None
 
         assert (fiftyone_dataset_name is None) ^ (label_studio_url is None), "Either fiftyone_dataset_name or label_studio_url must be provided"
-        
+
         if fiftyone_dataset_name is not None:
             if fiftyone_dataset_name not in fo.list_datasets():
                 raise ValueError(f"Dataset {fiftyone_dataset_name} not found")
@@ -63,7 +55,7 @@ class Visualizer:
             self.project = self.label_studio_client.projects.get(id=label_studio_project_id)
             self.label_studio_url = label_studio_url
 
-    
+
     def _load_as_batch(self,image_paths:List[str])->torch.Tensor:
         batch_images = []
         for image_path in image_paths:
@@ -71,7 +63,7 @@ class Visualizer:
             image_tensor = T.PILToTensor()(image)
             batch_images.append(image_tensor)
         return torch.stack(batch_images)
-        
+
     def get_fiftyone_samples(self,debug:bool=False,batch_size:int=32):
         samples = list(self.fiftyone_dataset)
         num_samples = len(samples)
@@ -84,7 +76,7 @@ class Visualizer:
                 yield self._load_as_batch(batch_images),batch_samples
             else:
                 continue
-    
+
     def get_label_studio_samples(self,debug:bool=False,batch_size:int=32):
         tasks = self.label_studio_client.tasks.list(
             project=self.project.id,
@@ -109,21 +101,21 @@ class Visualizer:
 
             if debug and i > 24:
                 break
-        
+
         for i in tqdm(range(0, len(image_paths), batch_size),desc="Adding predictions",total=math.ceil(len(image_paths)/batch_size)):
             batch_image_paths = image_paths[i:i+batch_size]
             batch_tensor = self._load_as_batch(batch_image_paths)
             yield batch_tensor,task_ids[i:i+batch_size]
-        
-    def add_predictions_from_classifier(self, 
-                                        model: GenericClassifier, 
-                                        prediction_field: str = "classification_predictions", 
+
+    def add_predictions_from_classifier(self,
+                                        model: GenericClassifier,
+                                        prediction_field: str = "classification_predictions",
                                         batch_size: int = 32,
                                         debug: bool = False
                                         ):
 
         """Add predictions from a GenericClassifier to all samples in the FiftyOne dataset using batching."""
-        
+
         if self.fiftyone_dataset is None:
             raise ValueError("No dataset found")
         for batch_tensor,batch_samples in self.get_fiftyone_samples(debug=debug,batch_size=batch_size):
@@ -133,12 +125,12 @@ class Visualizer:
                     sample[prediction_field] = fo.Classification(label=pred["class"], confidence=pred["score"])
                     sample.save()
         self.fiftyone_dataset.save()
-        
-    def add_predictions_from_detector(self, 
-                                    detector: Detector, 
+
+    def add_predictions_from_detector(self,
+                                    detector: Detector,
                                     imgsz: int,
                                     model_tag:Optional[str]=None,
-                                    prediction_field: str = "detection_predictions", 
+                                    prediction_field: str = "detection_predictions",
                                     batch_size: int = 32,
                                     debug: bool = False,
                                     from_name:str="label",

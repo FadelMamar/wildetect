@@ -214,7 +214,7 @@ def create_config(
             output_file = config_loader.create_default_config(command_type, output_path)
             console.print(f"[green]Created legacy config: {output_file}[/green]")
 
-        console.print(f"[green]Configuration file created successfully![/green]")
+        console.print("[green]Configuration file created successfully![/green]")
         console.print(
             f"[green]You can now use this config with: wildetect {command_type} --config {output_file}[/green]"
         )

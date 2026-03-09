@@ -1,31 +1,23 @@
+import json
 import logging
 import os
-import traceback
-from pathlib import Path
-from typing import Any, Dict, Tuple, List, Optional
-import pandas as pd
-import numpy as np
-import json
-from typing import Any
 from itertools import product
 from random import shuffle
-import traceback
+from typing import Any, Dict, List, Optional, Tuple
 
-from ultralytics.utils.loss import v8DetectionLoss
-from ultralytics.models.yolo.detect import DetectionTrainer
-from ultralytics.nn.tasks import DetectionModel
-from ultralytics.utils.tal import make_anchors
-from ultralytics import YOLO
-
+import numpy as np
 import timm
-import albumentations as A
-import torchvision.transforms.v2 as T
-import yaml
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.ops import roi_align
+import torchvision.transforms.v2 as T
 from torchmetrics.functional.detection import complete_intersection_over_union
+from torchvision.ops import roi_align
+from ultralytics import YOLO
+from ultralytics.models.yolo.detect import DetectionTrainer
+from ultralytics.nn.tasks import DetectionModel
+from ultralytics.utils.loss import v8DetectionLoss
+from ultralytics.utils.tal import make_anchors
 
 logger = logging.getLogger(__name__)
 
@@ -546,7 +538,7 @@ class RoiClassifierHead(torch.nn.Module):
         self.num_features = 128
 
         self.image_encoder = self._get_image_encoder()
-        
+
         self.mlp = nn.Sequential(
             nn.AdaptiveAvgPool1d(self.num_features),
             nn.Linear(self.num_features, 128),
@@ -556,7 +548,7 @@ class RoiClassifierHead(torch.nn.Module):
         )
 
         self.loss = nn.SmoothL1Loss(reduction="sum")
-        
+
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     def _get_image_encoder(
@@ -572,7 +564,7 @@ class RoiClassifierHead(torch.nn.Module):
 
         # Get number of features
         self.num_features = getattr(model, "num_features", self.num_features)
-        
+
         # Get preprocessing
         data_config = timm.data.resolve_model_data_config(model)
         c,h,w = data_config["input_size"]
@@ -581,7 +573,7 @@ class RoiClassifierHead(torch.nn.Module):
             T.ToDtype(torch.float32),
             T.Normalize(mean=data_config["mean"], std=data_config["std"]),
         )
-        
+
         return torch.nn.Sequential(
             preprocessing,
             model,
@@ -739,7 +731,7 @@ class RoiClassifierHead(torch.nn.Module):
 
         # Expand dimensions
         new_w = self.box_size
-        new_h = self.box_size 
+        new_h = self.box_size
 
         # Calculate new coordinates
         new_x1 = cx - new_w / 2
@@ -978,7 +970,7 @@ class CustomYOLO(YOLO):
     ):
         super().__init__(model=model, task=task, verbose=verbose)
 
-        
+
         args_det_system: dict[str,Any] = dict()
         args_det_system["count_regressor_layers"] = count_regressor_layers
         args_det_system["area_regressor_layers"] = area_regressor_layers

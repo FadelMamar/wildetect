@@ -2,7 +2,6 @@
 Main FastAPI application for WildData API.
 """
 
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -10,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import api_config
-from .dependencies import handle_api_exception
 from .exceptions import WildDataAPIException
 from .routers import (
     datasets_router,
@@ -122,4 +120,4 @@ try:
     mcp.setup_server()
 except ImportError:
     print("FastAPI MCP not installed. Skipping MCP server setup.")
-    
+

@@ -5,10 +5,7 @@ Transformation pipeline for orchestrating multiple data transformations.
 import json
 import logging
 import traceback
-from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple
-
-import numpy as np
+from typing import Any, Dict, Generator, List, Optional
 
 from .base_transformer import BaseTransformer
 
@@ -98,7 +95,7 @@ class TransformationPipeline:
                     f"Transformer {transformer.__class__.__name__} completed successfully"
                 )
 
-            except Exception as e:
+            except Exception:
                 self.logger.error(
                     f"Error in transformer {transformer.__class__.__name__}: {traceback.format_exc()}"
                 )

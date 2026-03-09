@@ -1,9 +1,9 @@
 import json
-import os
 import tempfile
 from pathlib import Path
 
 import pytest
+
 from wildata.adapters.roi_adapter import ROIAdapter
 
 

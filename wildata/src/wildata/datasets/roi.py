@@ -1,14 +1,11 @@
 import json
-import os
 import traceback
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional
 
 import torch
-from PIL import Image
 from torch.utils.data import ConcatDataset, Dataset
 from torchvision.transforms.v2 import Compose, PILToTensor, ToDtype
-from torchvision.transforms.v2 import functional as F
 
 from ..adapters.utils import read_image
 from ..logging_config import get_logger
@@ -242,7 +239,7 @@ def load_all_roi_datasets(
                 resample_function=resample_function,
             )
             roi_datasets[dataset_name] = ds
-        except Exception as e:
+        except Exception:
             # logger.error(f"Error loading dataset {dataset_name}: {e}")
             raise ValueError(
                 f"Error loading dataset {dataset_name}: {traceback.format_exc()}"

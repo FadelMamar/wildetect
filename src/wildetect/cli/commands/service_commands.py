@@ -159,7 +159,7 @@ def fiftyone(
 
             # Get annotation statistics
             annotation_stats = fo_manager.get_annotation_stats()
-            console.print(f"\n[bold green]Annotation Statistics:[/bold green]")
+            console.print("\n[bold green]Annotation Statistics:[/bold green]")
             console.print(
                 f"  Annotated Samples: {annotation_stats['annotated_samples']}"
             )

@@ -1,32 +1,29 @@
-import traceback
 import os
-from omegaconf import DictConfig
-from omegaconf import OmegaConf
-from typing import Any, Sequence
+import traceback
+from pathlib import Path
+from typing import Any, Tuple
+
+import lightning as L
 import mlflow
+import torch
+import torch.nn.functional as F
+from dotenv import load_dotenv
 from lightning import Trainer
 from lightning.pytorch.callbacks import (
-    ModelCheckpoint,
     EarlyStopping,
     LearningRateMonitor,
+    ModelCheckpoint,
 )
 from lightning.pytorch.loggers import MLFlowLogger
-from pathlib import Path
-import torch
+from omegaconf import DictConfig, OmegaConf
+from torchmetrics.classification import AUROC, Accuracy, F1Score, Precision, Recall
 from wildata.pipeline import PathManager
-from dotenv import load_dotenv
-import lightning as L
-import torch.nn.functional as F
-from torchmetrics.classification import Accuracy, Precision, Recall, F1Score, AUROC
-from typing import Any, Optional, Tuple
 
-from ..models.classifier import GenericClassifier
 from ..data import ClassificationDataModule
 from ..data.curriculum import CurriculumCallback
-from ..utils.logging import ROOT, ENV_FILE
-from ..utils.logging import get_logger
+from ..models.classifier import GenericClassifier
 from ..utils.dvc_tracker import DVCTracker
-from ..utils.transforms import create_transforms
+from ..utils.logging import ENV_FILE, ROOT, get_logger
 from .base import ModelTrainer
 
 logger = get_logger(__name__)
@@ -65,7 +62,7 @@ class ClassifierModule(L.LightningModule):
         self.model = model
         self.num_classes = int(model.num_classes.item())
         self.label_to_class_map = model.label_to_class_map
-        
+
         # Save model-specific hyperparameters for checkpoint restoration
         self.save_hyperparameters({
             'label_to_class_map': model.label_to_class_map,
@@ -79,14 +76,14 @@ class ClassifierModule(L.LightningModule):
             'num_layers': model.num_layers.item(),
             'hidden_dim': model.hidden_dim.item(),
         })
-        
+
         self.mlflow_run_id = None
         self.mlflow_experiment_id = None
 
         # metrics
         cfg = {
-            "task": "multiclass", 
-            "num_classes": self.num_classes, 
+            "task": "multiclass",
+            "num_classes": self.num_classes,
             "average": None
         }
         self.accuracy = Accuracy(**cfg)
@@ -102,7 +99,7 @@ class ClassifierModule(L.LightningModule):
             "f1score": self.f1score,
         }
 
-        self.label_smoothing = label_smoothing            
+        self.label_smoothing = label_smoothing
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
@@ -217,10 +214,10 @@ class ClassifierTrainer(ModelTrainer):
             #checkpoint_path_prefix="classification",
             tracking_uri=MLFLOW_TRACKING_URI,
         )
-        
+
         # Create base callbacks list
         callbacks = [checkpoint_callback, early_stopping, lr_callback]
-        
+
         return callbacks, mlflow_logger
 
     def log_model(self, model: ClassifierModule) -> None:
@@ -242,13 +239,13 @@ class ClassifierTrainer(ModelTrainer):
         Run image classification training or evaluation based on config.
         """
         # Set float32 matmul precision to medium
-        if torch.cuda.is_available():   
+        if torch.cuda.is_available():
             torch.set_float32_matmul_precision('medium')
 
         # DataModule - use the new classmethod for cleaner instantiation
         datamodule = ClassificationDataModule.from_dict_config(self.config)
-        
-        logger.info(f"Getting one batch of data to initialize lazy modules in classifier.")
+
+        logger.info("Getting one batch of data to initialize lazy modules in classifier.")
         datamodule.setup(stage="fit")
         example_input, _ = next(iter(datamodule.train_dataloader()))
 
@@ -281,7 +278,7 @@ class ClassifierTrainer(ModelTrainer):
         )
         model.example_input_array = example_input
         callbacks, mlflow_logger = self.get_callbacks()
-        
+
         # Add curriculum callback if curriculum is enabled
         if datamodule.is_curriculum_enabled():
             logger.info("Curriculum learning is enabled. Adding CurriculumCallback.")
@@ -289,7 +286,7 @@ class ClassifierTrainer(ModelTrainer):
             callbacks.insert(0, curriculum_callback)  # Add at the beginning to ensure it runs early
         else:
             logger.info("Curriculum learning is disabled.")
-        
+
         trainer = Trainer(
             max_epochs=self.config.train.epochs if not debug else 1,
             accelerator=self.config.train.accelerator,
@@ -306,6 +303,6 @@ class ClassifierTrainer(ModelTrainer):
 
         self.best_model_path = trainer.checkpoint_callback.best_model_path
         self.best_model_score = trainer.checkpoint_callback.best_model_score
-    
+
         if self.config.mlflow.log_model:
             self.log_model(model)

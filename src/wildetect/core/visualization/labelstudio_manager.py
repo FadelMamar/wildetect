@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import json
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Dict, List, Optional
 from urllib.parse import unquote
@@ -9,7 +8,6 @@ from urllib.parse import unquote
 from label_studio_sdk.client import LabelStudio
 from label_studio_tools.core.utils.io import get_local_path
 from tqdm import tqdm
-
 from wildata.converters.labelstudio.labelstudio_schemas import Task
 
 if TYPE_CHECKING:
@@ -145,7 +143,7 @@ class LabelStudioManager:
                     img_height=drone_image.height,
                     img_width=drone_image.width,
                 )
-            except Exception as e:
+            except Exception:
                 pass
 
         for drone_image in tqdm(

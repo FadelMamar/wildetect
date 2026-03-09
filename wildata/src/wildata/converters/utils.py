@@ -1,6 +1,5 @@
 import csv
 import json
-import logging
 import math
 import os
 from typing import Any, Dict, List, Optional, Tuple
@@ -262,7 +261,7 @@ class COCOToCSVConverter(BaseConverter):
             1 for img in images if img["id"] not in annotations_by_image
         )
 
-        self.logger.info(f"Conversion completed:")
+        self.logger.info("Conversion completed:")
         self.logger.info(f"  - Total images: {total_images}")
         self.logger.info(f"  - Total annotations: {total_annotations}")
         self.logger.info(f"  - Negative images: {negative_images}")

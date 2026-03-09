@@ -2,13 +2,13 @@
 Test helper utilities for WildTrain integration tests.
 """
 
+import json
 import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Any, Tuple
-import json
-import numpy as np
+from typing import Any, Dict, List, Tuple
+
 import torch
 from PIL import Image
 
@@ -17,20 +17,20 @@ def create_temp_dataset(num_images: int = 10, image_size: Tuple[int, int] = (224
     """Create a temporary dataset with mock images and annotations."""
     temp_dir = tempfile.mkdtemp(prefix="wildtrain_test_dataset_")
     dataset_path = Path(temp_dir)
-    
+
     # Create images directory
     images_dir = dataset_path / "images"
     images_dir.mkdir(exist_ok=True)
-    
+
     # Create mock images
     for i in range(num_images):
         img = Image.new('RGB', image_size, color=(i * 25, i * 25, i * 25))
         img.save(images_dir / f"image_{i:03d}.jpg")
-    
+
     # Create annotations directory
     annotations_dir = dataset_path / "annotations"
     annotations_dir.mkdir(exist_ok=True)
-    
+
     # Create COCO format annotations
     annotations = {
         "images": [
@@ -59,11 +59,11 @@ def create_temp_dataset(num_images: int = 10, image_size: Tuple[int, int] = (224
             {"id": 2, "name": "class_2"}
         ]
     }
-    
+
     # Save annotations
     with open(annotations_dir / "train.json", 'w') as f:
         json.dump(annotations, f)
-    
+
     return str(dataset_path)
 
 
@@ -120,7 +120,7 @@ def create_mock_model_checkpoint(num_classes: int = 3, model_path: str = None) -
     """Create a mock model checkpoint."""
     if model_path is None:
         model_path = tempfile.mktemp(suffix=".ckpt", prefix="wildtrain_test_model_")
-    
+
     # Create a simple mock checkpoint
     checkpoint = {
         "state_dict": {
@@ -134,7 +134,7 @@ def create_mock_model_checkpoint(num_classes: int = 3, model_path: str = None) -
             "backbone": "resnet18"
         }
     }
-    
+
     torch.save(checkpoint, model_path)
     return model_path
 
@@ -151,10 +151,10 @@ def validate_class_distribution(annotations: List[Dict], expected_classes: int =
     for ann in annotations:
         class_id = ann.get('class_id', ann.get('category_id'))
         class_counts[class_id] = class_counts.get(class_id, 0) + 1
-    
+
     if expected_classes is not None:
         assert len(class_counts) == expected_classes, f"Expected {expected_classes} classes, got {len(class_counts)}"
-    
+
     return class_counts
 
 
@@ -162,10 +162,10 @@ def validate_crop_dataset_structure(crop_dataset, expected_crops: int = None):
     """Validate PatchDataset structure and properties."""
     assert hasattr(crop_dataset, '__len__'), "PatchDataset must have __len__ method"
     assert hasattr(crop_dataset, '__getitem__'), "PatchDataset must have __getitem__ method"
-    
+
     if expected_crops is not None:
         assert len(crop_dataset) == expected_crops, f"Expected {expected_crops} crops, got {len(crop_dataset)}"
-    
+
     # Test getting a sample
     if len(crop_dataset) > 0:
         sample = crop_dataset[0]
@@ -176,14 +176,14 @@ def validate_crop_dataset_structure(crop_dataset, expected_crops: int = None):
 def validate_dataloader_compatibility(dataset, batch_size: int = 4):
     """Validate that dataset is compatible with PyTorch DataLoader."""
     from torch.utils.data import DataLoader
-    
+
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-    
+
     # Test loading a batch
     batch = next(iter(dataloader))
     assert isinstance(batch, (tuple, list)), "DataLoader should return tuple/list"
     assert len(batch) == 2, "DataLoader should return (data, labels)"
-    
+
     return dataloader
 
 
@@ -191,10 +191,10 @@ def calculate_class_distribution_change(before_annotations: List[Dict], after_an
     """Calculate the change in class distribution after filtering."""
     before_dist = validate_class_distribution(before_annotations)
     after_dist = validate_class_distribution(after_annotations)
-    
+
     changes = {}
     all_classes = set(before_dist.keys()) | set(after_dist.keys())
-    
+
     for class_id in all_classes:
         before_count = before_dist.get(class_id, 0)
         after_count = after_dist.get(class_id, 0)
@@ -206,7 +206,7 @@ def calculate_class_distribution_change(before_annotations: List[Dict], after_an
             "change": change,
             "change_percent": change_percent
         }
-    
+
     return changes
 
 
@@ -223,7 +223,7 @@ def create_test_config(config_type: str = "classification") -> Dict[str, Any]:
             "debug": True
         }
     }
-    
+
     if config_type == "classification":
         base_config.update({
             "model": {
@@ -239,7 +239,7 @@ def create_test_config(config_type: str = "classification") -> Dict[str, Any]:
                 "device": "cpu"
             }
         })
-    
+
     return base_config
 
 
@@ -273,6 +273,6 @@ def assert_dict_keys(actual_dict: Dict, expected_keys: List[str], dict_name: str
     """Assert that a dictionary has the expected keys."""
     missing_keys = set(expected_keys) - set(actual_dict.keys())
     extra_keys = set(actual_dict.keys()) - set(expected_keys)
-    
+
     assert not missing_keys, f"Missing keys in {dict_name}: {missing_keys}"
-    assert not extra_keys, f"Unexpected keys in {dict_name}: {extra_keys}" 
+    assert not extra_keys, f"Unexpected keys in {dict_name}: {extra_keys}"

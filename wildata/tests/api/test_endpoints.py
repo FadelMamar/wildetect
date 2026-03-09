@@ -3,9 +3,7 @@ Tests for API endpoints.
 """
 
 from datetime import datetime
-from unittest.mock import Mock, patch
 
-import pytest
 from wildata.api.models.jobs import JobResult, JobStatus
 from wildata.api.models.responses import (
     BulkCreateROIResponse,

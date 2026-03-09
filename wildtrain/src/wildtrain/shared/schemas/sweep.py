@@ -1,10 +1,11 @@
 """Hyperparameter sweep configuration models for classification and detection."""
 
 from pathlib import Path
-from typing import List, Optional, Literal
+from typing import List, Literal, Optional
+
 from pydantic import Field, field_validator
 
-from .base import BaseConfig, SweepObjectiveTypes, SweepDirectionTypes
+from .base import BaseConfig, SweepDirectionTypes, SweepObjectiveTypes
 
 
 class SweepOutputConfig(BaseConfig):
@@ -20,14 +21,14 @@ class ClassificationSweepModelParametersConfig(BaseConfig):
     """Model parameters for hyperparameter sweep."""
     backbone: List[str] = Field(description="List of backbone model names to search")
     dropout: List[float] = Field(description="List of dropout values to search")
-    
+
     @field_validator('backbone')
     @classmethod
     def validate_backbone_non_empty(cls, v):
         if not v or len(v) == 0:
             raise ValueError("backbone list cannot be empty")
         return v
-    
+
     @field_validator('dropout')
     @classmethod
     def validate_dropout(cls, v):
@@ -47,7 +48,7 @@ class ClassificationSweepTrainParametersConfig(BaseConfig):
     weight_decay: List[float] = Field(description="List of weight decay values to search")
     batch_size: List[int] = Field(description="List of batch sizes to search")
     epochs: List[int] = Field(gt=0, description="Number of training epochs")
-    
+
     @field_validator('lr')
     @classmethod
     def validate_lr(cls, v):
@@ -57,7 +58,7 @@ class ClassificationSweepTrainParametersConfig(BaseConfig):
             if value <= 0.0:
                 raise ValueError(f"lr values must be greater than 0.0, got {value}")
         return v
-    
+
     @field_validator('lrf')
     @classmethod
     def validate_lrf(cls, v):
@@ -67,7 +68,7 @@ class ClassificationSweepTrainParametersConfig(BaseConfig):
             if value <= 0.0:
                 raise ValueError(f"lrf values must be greater than 0.0, got {value}")
         return v
-    
+
     @field_validator('label_smoothing')
     @classmethod
     def validate_label_smoothing(cls, v):
@@ -77,7 +78,7 @@ class ClassificationSweepTrainParametersConfig(BaseConfig):
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"label_smoothing values must be between 0.0 and 1.0, got {value}")
         return v
-    
+
     @field_validator('weight_decay')
     @classmethod
     def validate_weight_decay(cls, v):
@@ -87,7 +88,7 @@ class ClassificationSweepTrainParametersConfig(BaseConfig):
             if value < 0.0:
                 raise ValueError(f"weight_decay values must be non-negative, got {value}")
         return v
-    
+
     @field_validator('batch_size')
     @classmethod
     def validate_batch_size(cls, v):
@@ -111,21 +112,21 @@ class ClassificationSweepConfig(BaseConfig):
     parameters: ClassificationSweepParametersConfig = Field(description="Hyperparameter search space")
     sweep_name: str = Field(description="Name of the sweep experiment")
     n_trials: int = Field(gt=0, le=1000, description="Number of optimization trials")
-    seed: int = Field(description="Random seed for reproducibility")    
+    seed: int = Field(description="Random seed for reproducibility")
     timeout: Optional[int] = Field(default=None, description="Maximum time for optimization in seconds")
     output: Optional[SweepOutputConfig] = Field(default=None, description="Output configuration (optional, uses defaults if not provided)")
 
     @classmethod
     def from_yaml(cls, yaml_path: str) -> "ClassificationSweepConfig":
         return super().from_yaml(yaml_path)
-    
+
     @field_validator('base_config')
     @classmethod
     def validate_base_config_exists(cls, v):
         if not Path(v).exists():
             raise ValueError(f"Base config file does not exist: {v}")
         return v
-    
+
     @field_validator('sweep_name')
     @classmethod
     def validate_sweep_name(cls, v):
@@ -138,7 +139,7 @@ class DetectionSweepModelParametersConfig(BaseConfig):
     """Model parameters for detection hyperparameter sweep."""
     architecture_file: Optional[List[str]] = Field(default=None, description="List of architecture files to search")
     weights: Optional[List[str]] = Field(default=None, description="List of weight files to search")
-    
+
     @field_validator('architecture_file', 'weights')
     @classmethod
     def validate_at_least_one(cls, v, info):
@@ -147,14 +148,14 @@ class DetectionSweepModelParametersConfig(BaseConfig):
             # This is called for architecture_file, check if weights is also None
             return v
         return v
-    
+
     @field_validator('architecture_file')
     @classmethod
     def validate_architecture_file(cls, v):
         if v is not None and len(v) == 0:
             raise ValueError("architecture_file list cannot be empty if provided")
         return v
-    
+
     @field_validator('weights')
     @classmethod
     def validate_weights(cls, v):
@@ -175,7 +176,7 @@ class DetectionSweepTrainParametersConfig(BaseConfig):
     box: Optional[List[float]] = Field(default=None, description="List of box loss weights to search")
     cls: Optional[List[float]] = Field(default=None, description="List of class loss weights to search")
     dfl: Optional[List[float]] = Field(default=None, description="List of DFL loss weights to search")
-    
+
     @field_validator('lr0')
     @classmethod
     def validate_lr0(cls, v):
@@ -185,7 +186,7 @@ class DetectionSweepTrainParametersConfig(BaseConfig):
             if value <= 0.0:
                 raise ValueError(f"lr0 values must be greater than 0.0, got {value}")
         return v
-    
+
     @field_validator('lrf')
     @classmethod
     def validate_lrf(cls, v):
@@ -195,7 +196,7 @@ class DetectionSweepTrainParametersConfig(BaseConfig):
             if value <= 0.0:
                 raise ValueError(f"lrf values must be greater than 0.0, got {value}")
         return v
-    
+
     @field_validator('batch')
     @classmethod
     def validate_batch(cls, v):
@@ -205,7 +206,7 @@ class DetectionSweepTrainParametersConfig(BaseConfig):
             if value <= 0:
                 raise ValueError(f"batch values must be greater than 0, got {value}")
         return v
-    
+
     @field_validator('epochs')
     @classmethod
     def validate_epochs(cls, v):
@@ -215,7 +216,7 @@ class DetectionSweepTrainParametersConfig(BaseConfig):
             if value <= 0:
                 raise ValueError(f"epochs values must be greater than 0, got {value}")
         return v
-    
+
     @field_validator('imgsz')
     @classmethod
     def validate_imgsz(cls, v):
@@ -225,7 +226,7 @@ class DetectionSweepTrainParametersConfig(BaseConfig):
             if value <= 0:
                 raise ValueError(f"imgsz values must be greater than 0, got {value}")
         return v
-    
+
     @field_validator('optimizer')
     @classmethod
     def validate_optimizer(cls, v):
@@ -236,7 +237,7 @@ class DetectionSweepTrainParametersConfig(BaseConfig):
             if value not in valid_optimizers:
                 raise ValueError(f"optimizer must be one of {valid_optimizers}, got {value}")
         return v
-    
+
     @field_validator('weight_decay')
     @classmethod
     def validate_weight_decay(cls, v):
@@ -246,7 +247,7 @@ class DetectionSweepTrainParametersConfig(BaseConfig):
             if value < 0.0:
                 raise ValueError(f"weight_decay values must be non-negative, got {value}")
         return v
-    
+
     @field_validator('box', 'cls', 'dfl')
     @classmethod
     def validate_loss_weights(cls, v):
@@ -273,21 +274,21 @@ class DetectionSweepConfig(BaseConfig):
     n_trials: int = Field(gt=0, le=1000, description="Number of optimization trials")
     objective: SweepObjectiveTypes = Field(default=SweepObjectiveTypes.MAP_50, description="Objective to optimize")
     direction: SweepDirectionTypes = Field(default=SweepDirectionTypes.MAXIMIZE, description="Direction to optimize")
-    seed: int = Field(description="Random seed for reproducibility")    
+    seed: int = Field(description="Random seed for reproducibility")
     timeout: Optional[int] = Field(default=None, description="Maximum time for optimization in seconds")
     output: Optional[SweepOutputConfig] = Field(default=None, description="Output configuration (optional, uses defaults if not provided)")
 
     @classmethod
     def from_yaml(cls, yaml_path: str) -> "DetectionSweepConfig":
         return super().from_yaml(yaml_path)
-    
+
     @field_validator('base_config')
     @classmethod
     def validate_base_config_exists(cls, v):
         if not Path(v).exists():
             raise ValueError(f"Base config file does not exist: {v}")
         return v
-    
+
     @field_validator('sweep_name')
     @classmethod
     def validate_sweep_name(cls, v):

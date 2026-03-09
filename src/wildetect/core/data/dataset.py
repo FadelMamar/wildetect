@@ -12,8 +12,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import rasterio as rio
 import slidingwindow
 import torch
-from rasterio.windows import Window
 from rasterio.warp import transform
+from rasterio.windows import Window
 from torch.utils.data import Dataset
 from torchvision.transforms import PILToTensor
 from tqdm import tqdm
@@ -272,7 +272,7 @@ class TileDataset(Dataset):
             self.image_cache.put(image_path, padded_image)
             return padded_image
 
-        except Exception as e:
+        except Exception:
             logger.warning(f"Failed to load {image_path}: {traceback.format_exc()}")
             self.image_cache.put(image_path, None)
             return None
@@ -436,7 +436,7 @@ class RasterDataset(Dataset):
         self.path = path
         self.patch_size = patch_size
         self.patch_overlap = patch_overlap
-        
+
         self._windows_list = None
         self.longitudes = None
         self.latitudes = None
@@ -446,13 +446,13 @@ class RasterDataset(Dataset):
 
         if path is None:
             raise ValueError("path is required for a memory raster dataset")
-    
+
     def prepare_items(self):
         # Get raster shape without keeping file open
         src = rio.open(self.path)
-        
+
         width = src.shape[0]
-        height = src.shape[1]            
+        height = src.shape[1]
 
         # Generate sliding windows
         self.windows = slidingwindow.generateForSize(
@@ -474,10 +474,10 @@ class RasterDataset(Dataset):
         src.close()
 
         return
-        
+
     def __len__(self):
         return len(self.windows)
-    
+
     def __getitem__(self, idx):
         """Get the item at the given index."""
         if self.src is None:
@@ -495,8 +495,8 @@ class RasterDataset(Dataset):
         if self._windows_list is None:
             self._windows_list = [x.getRect() for x in self.windows]
         return self._windows_list
-    
-    def get_crop(self, idx):        
+
+    def get_crop(self, idx):
         window = self.windows[idx]
         # Read only first 3 channels (RGB) if there are more channels
         num_channels = min(self.src.count, 3)
@@ -514,7 +514,7 @@ class RasterDataset(Dataset):
 
         # Convert to torch tensor and rearrange dimensions
         window_data = torch.from_numpy(window_data).float()  # Convert to torch tensor
-        window_data = window_data / 255.0  # Normalize        
+        window_data = window_data / 255.0  # Normalize
 
         return window_data, lon, lat
 
@@ -537,7 +537,7 @@ class TiledRasterDataset(TileDataset):
             width = src.shape[0]
             height = src.shape[1]
             return width, height
-    
+
     def _get_image_dimensions(self, image_path: str) -> Optional[Tuple[int, int]]:
         """Get image dimensions."""
         if image_path in self.dimension_cache:
@@ -565,7 +565,7 @@ class TiledRasterDataset(TileDataset):
             image = torch.from_numpy(image).float() / 255.0  # normalize to [0,1]
 
             if image.shape[2] > 3:
-                image = image[:,:,:3]            
+                image = image[:,:,:3]
 
             # Calculate stride for padding
             stride = int(self.config.tile_size * (1 - self.config.overlap))
@@ -578,7 +578,7 @@ class TiledRasterDataset(TileDataset):
             self.image_cache.put(image_path, padded_image)
             return padded_image
 
-        except Exception as e:
+        except Exception:
             logger.warning(f"Failed to load {image_path}: {traceback.format_exc()}")
             self.image_cache.put(image_path, None)
             return None

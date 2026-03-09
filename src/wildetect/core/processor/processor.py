@@ -1,9 +1,7 @@
 import logging
 import traceback
-import warnings
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Dict, List, Optional, Sequence
 
 import albumentations as A
 import numpy as np
@@ -178,7 +176,7 @@ class Classifier(Processor):
             )
         else:
             self.feature_extractor = None
-            self.logger.info(f"No feature extractor path provided")
+            self.logger.info("No feature extractor path provided")
 
         # Move model to device
         self.device = device
@@ -299,7 +297,7 @@ class RoIPostProcessor(Processor):
                 classifier, Classifier
             ), "classifier must be a Classifier instance"
             self.classifier = classifier
-            self.logger.info(f"ROI Classifier initialized with classifier")
+            self.logger.info("ROI Classifier initialized with classifier")
         else:
             self.classifier = Classifier(
                 model_path=model_path,
@@ -398,7 +396,7 @@ class RoIPostProcessor(Processor):
             )
             return filtered_detections
 
-        except Exception as e:
+        except Exception:
             self.logger.error(
                 f"Detection postprocessing failed: {traceback.format_exc()}"
             )

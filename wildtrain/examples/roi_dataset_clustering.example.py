@@ -8,24 +8,24 @@ This example shows how to:
 4. Analyze clustering results and dataset diversity
 """
 
-import torch
-from torchvision import transforms
 import traceback
-from torch.utils.data import DataLoader
 from pathlib import Path
 
-from wildata.datasets.roi import load_all_splits_concatenated, ROIDataset
+from torch.utils.data import DataLoader
+from torchvision import transforms
+from wildata.datasets.roi import load_all_splits_concatenated
+
 from wildtrain.data.filters.algorithms import ClusteringFilter
 from wildtrain.models.feature_extractor import FeatureExtractor
 
 
 def main():
     """Main example function."""
-    
+
     print("=" * 70)
     print("ROI Dataset Clustering Example")
     print("=" * 70)
-    
+
     # 1. Create transforms
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -45,9 +45,9 @@ def main():
             single_class_name="wildlife"
         )
 
-        print(f"✅ ROI datasets loaded successfully!")
+        print("✅ ROI datasets loaded successfully!")
         print(f"✅ Available splits: {list(datasets.keys())}")
-        
+
         # Focus on training split for clustering example
         train_dataset = datasets["train"]
         print(f"✅ Training dataset size: {len(train_dataset)}")
@@ -61,16 +61,16 @@ def main():
             class_id = label.item()
             class_name = train_dataset.class_mapping[class_id]
             class_counts_before[class_name] = class_counts_before.get(class_name, 0) + 1
-        
+
         for class_name, count in class_counts_before.items():
             print(f"   {class_name}: {count} samples")
 
         # 4. Create ClusteringFilter
         print("\n🔄 Creating ClusteringFilter...")
-        
+
         # Initialize feature extractor for computing embeddings
         feature_extractor = FeatureExtractor()
-        
+
         # Create the clustering filter
         clustering_filter = ClusteringFilter(
             feature_extractor=feature_extractor,
@@ -80,7 +80,7 @@ def main():
 
         # 5. Apply clustering filter
         print("\n🔍 Applying clustering filter...")
-        
+
         # Get all samples for filtering
         all_samples = []
         for i in range(len(train_dataset)):
@@ -92,27 +92,27 @@ def main():
                 "file_name": train_dataset.get_image_path(i) if hasattr(train_dataset, 'get_image_path') else f"sample_{i}"
             }
             all_samples.append(sample_info)
-        
+
         print(f"Processing {len(all_samples)} images...")
-        
+
         # Apply clustering filter
         filtered_samples = clustering_filter(all_samples)
-        
-        print(f"✅ Clustering filter applied successfully!")
+
+        print("✅ Clustering filter applied successfully!")
         print(f"✅ Samples after clustering: {len(filtered_samples)}")
         print(f"✅ Reduction: {len(all_samples) - len(filtered_samples)} samples removed")
 
         # 6. Create filtered dataset
         print("\n📦 Creating filtered dataset...")
-        
+
         # Create indices for filtered samples
         filtered_indices = [sample["index"] for sample in filtered_samples]
-        
+
         # Create a subset of the original dataset
         from torch.utils.data import Subset
         filtered_dataset = Subset(train_dataset, filtered_indices)
-        
-        print(f"✅ Filtered dataset created successfully!")
+
+        print("✅ Filtered dataset created successfully!")
         print(f"✅ Filtered dataset size: {len(filtered_dataset)}")
 
         # 7. Analyze class distribution after clustering
@@ -123,13 +123,13 @@ def main():
             class_id = label.item()
             class_name = train_dataset.class_mapping[class_id]
             class_counts_after[class_name] = class_counts_after.get(class_name, 0) + 1
-        
+
         for class_name, count in class_counts_after.items():
             print(f"   {class_name}: {count} samples")
 
         # 8. Test DataLoader compatibility
         print("\n🧪 Testing DataLoader compatibility...")
-        
+
         # Create DataLoader with filtered dataset
         dataloader = DataLoader(
             filtered_dataset,
@@ -147,13 +147,13 @@ def main():
 
         # 9. Demonstrate utility methods and analysis
         print("\n🔧 Dataset analysis and utility methods:")
-        
+
         # Analyze clustering quality
         print("   Clustering quality analysis:")
         print(f"     - Original dataset size: {len(train_dataset)}")
         print(f"     - Filtered dataset size: {len(filtered_dataset)}")
         print(f"     - Reduction factor: {len(filtered_dataset) / len(train_dataset):.2f}")
-        
+
         # Check class balance preservation
         print("   Class balance preservation:")
         for class_name in class_counts_before.keys():
@@ -161,7 +161,7 @@ def main():
             after_count = class_counts_after.get(class_name, 0)
             preservation_ratio = after_count / before_count if before_count > 0 else 0
             print(f"     - {class_name}: {before_count} → {after_count} ({preservation_ratio:.2f})")
-        
+
         # Sample some filtered samples
         print("\n📸 Sample filtered samples:")
         for i in range(min(3, len(filtered_dataset))):
@@ -171,11 +171,11 @@ def main():
 
         # 10. Save clustering results
         print("\n💾 Saving clustering results...")
-        
+
         # Create results directory
         results_dir = Path("results/roi_clustering")
         results_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Save clustering summary
         clustering_summary = {
             "original_size": len(train_dataset),
@@ -185,11 +185,11 @@ def main():
             "class_distribution_after": class_counts_after,
             "filtered_indices": filtered_indices
         }
-        
+
         import json
         with open(results_dir / "clustering_summary.json", "w") as f:
             json.dump(clustering_summary, f, indent=2)
-        
+
         print(f"✅ Clustering results saved to {results_dir}")
 
     except FileNotFoundError:

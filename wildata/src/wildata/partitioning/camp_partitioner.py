@@ -5,9 +5,6 @@ This module provides functionality to group images by camp areas to ensure
 that images from the same camp area stay together in train/val splits.
 """
 
-import json
-import logging
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np

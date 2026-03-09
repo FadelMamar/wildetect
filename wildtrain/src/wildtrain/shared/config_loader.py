@@ -1,32 +1,31 @@
 """Configuration loader for CLI with Pydantic validation."""
 
 import json
+import traceback
 from pathlib import Path
-from typing import Dict, Any, Type, TypeVar, Union, Optional
+from typing import Any, Dict, Optional, Type, TypeVar, Union
+
+import yaml
 from omegaconf import OmegaConf
 from pydantic import BaseModel, ValidationError
 from rich.console import Console
 from rich.panel import Panel
-from rich.text import Text
-import yaml
-import traceback
-from enum import Enum
 
+from .config_types import ConfigType
 from .models import (
     ClassificationConfig,
-    DetectionConfig,
-    DetectionVisualizationConfig,
-    ClassificationPipelineConfig,
-    DetectionPipelineConfig,
     ClassificationEvalConfig,
-    DetectionEvalConfig,
+    ClassificationPipelineConfig,
     ClassificationVisualizationConfig,
-    LocalizerRegistrationConfig,
     ClassifierRegistrationConfig,
+    DetectionConfig,
+    DetectionEvalConfig,
+    DetectionPipelineConfig,
+    DetectionVisualizationConfig,
     DetectorRegistrationConfig,
+    LocalizerRegistrationConfig,
 )
-from .config_types import ConfigType
-from .validation import ConfigValidationError, ConfigFileNotFoundError, ConfigParseError
+from .validation import ConfigFileNotFoundError, ConfigParseError, ConfigValidationError
 
 console = Console()
 
@@ -37,7 +36,7 @@ ROOT = Path(__file__).parents[3]
 
 class ConfigLoader:
     """Configuration loader with Pydantic validation."""
-    
+
     @staticmethod
     def load_and_validate(
         config_path: Path,
@@ -63,92 +62,92 @@ class ConfigLoader:
         # Check if file exists
         if not config_path.exists():
             raise ConfigFileNotFoundError(f"{config_name} file not found: {config_path}")
-        
+
         try:
             # Load YAML using OmegaConf
             cfg = OmegaConf.load(config_path)
-            
+
             # Convert to dict
             config_dict = OmegaConf.to_container(cfg, resolve=True)
-            
+
             # Validate against Pydantic model
             validated_config = config_class(**config_dict)
-            
+
             console.print(f"[bold green]✓[/bold green] {config_name} loaded and validated successfully")
-            
+
             return validated_config
-            
+
         except Exception as e:
             if isinstance(e, (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError)):
                 raise
-            
+
             if isinstance(e, ValidationError):
                 # Format Pydantic validation errors
                 error_messages = []
                 for error in e.errors():
                     field_path = " -> ".join(str(loc) for loc in error["loc"])
                     error_messages.append(f"  • {field_path}: {error['msg']}")  # type: ignore
-                
-                error_text = f"Configuration validation failed:\n" + "\n".join(error_messages)
+
+                error_text = "Configuration validation failed:\n" + "\n".join(error_messages)
                 console.print(Panel(error_text, title="❌ Validation Error", border_style="red"))
                 raise ConfigValidationError(f"{config_name} validation failed: {str(e)}")
-            
+
             raise ConfigParseError(f"Failed to parse {config_name} file: {traceback.format_exc()}")
-    
+
     @staticmethod
     def load_classification_config(config_path: Path) -> ClassificationConfig:
         """Load and validate classification configuration."""
         return ConfigLoader.load_and_validate(
-            config_path, 
-            ClassificationConfig, 
+            config_path,
+            ClassificationConfig,
             "Classification configuration"
         )
-    
+
     @staticmethod
     def load_classification_eval_config(config_path: Path) -> ClassificationEvalConfig:
         """Load and validate classification evaluation configuration."""
         return ConfigLoader.load_and_validate(
-            config_path, 
-            ClassificationEvalConfig, 
+            config_path,
+            ClassificationEvalConfig,
             "Classification evaluation configuration"
         )
-    
+
     @staticmethod
     def load_detection_eval_config(config_path: Path) -> DetectionEvalConfig:
         """Load and validate detection evaluation configuration."""
         return ConfigLoader.load_and_validate(
-            config_path, 
-            DetectionEvalConfig, 
+            config_path,
+            DetectionEvalConfig,
             "Detection evaluation configuration"
         )
-    
+
     @staticmethod
     def load_detection_config(config_path: Path) -> DetectionConfig:
         """Load and validate detection configuration."""
         return ConfigLoader.load_and_validate(
-            config_path, 
-            DetectionConfig, 
+            config_path,
+            DetectionConfig,
             "Detection configuration"
         )
-    
+
     @staticmethod
     def load_detection_visualization_config(config_path: Path) -> DetectionVisualizationConfig:
         """Load and validate detection visualization configuration."""
         return ConfigLoader.load_and_validate(
-            config_path, 
-            DetectionVisualizationConfig, 
+            config_path,
+            DetectionVisualizationConfig,
             "Detection visualization configuration"
         )
-    
+
     @staticmethod
     def load_classification_visualization_config(config_path: Path) -> ClassificationVisualizationConfig:
         """Load and validate classification visualization configuration."""
         return ConfigLoader.load_and_validate(
-            config_path, 
-            ClassificationVisualizationConfig, 
+            config_path,
+            ClassificationVisualizationConfig,
             "Classification visualization configuration"
         )
-    
+
     @staticmethod
     def load_localizer_registration_config(config_path: Path) -> LocalizerRegistrationConfig:
         """Load and validate detector registration configuration."""
@@ -157,7 +156,7 @@ class ConfigLoader:
             LocalizerRegistrationConfig,
             "Localizer registration configuration"
         )
-    
+
     @staticmethod
     def load_classifier_registration_config(config_path: Path) -> ClassifierRegistrationConfig:
         """Load and validate classifier registration configuration."""
@@ -166,7 +165,7 @@ class ConfigLoader:
             ClassifierRegistrationConfig,
             "Classifier registration configuration"
         )
-    
+
     @staticmethod
     def load_detector_registration_config(config_path: Path) -> DetectorRegistrationConfig:
         """Load and validate Detector registration configuration."""
@@ -175,28 +174,28 @@ class ConfigLoader:
             DetectorRegistrationConfig,
             "Model registration configuration"
         )
-    
+
     @staticmethod
     def load_pipeline_config(
-        config_path: Path, 
+        config_path: Path,
         pipeline_type: str = "classification"
     ) -> Union[ClassificationPipelineConfig, DetectionPipelineConfig]:
         """Load and validate pipeline configuration."""
         if pipeline_type == "classification":
             return ConfigLoader.load_and_validate(
-                config_path, 
-                ClassificationPipelineConfig, 
+                config_path,
+                ClassificationPipelineConfig,
                 "Classification pipeline configuration"
             )
         elif pipeline_type == "detection":
             return ConfigLoader.load_and_validate(
-                config_path, 
-                DetectionPipelineConfig, 
+                config_path,
+                DetectionPipelineConfig,
                 "Detection pipeline configuration"
             )
         else:
             raise ValueError(f"Unknown pipeline type: {pipeline_type}")
-    
+
     @staticmethod
     def validate_config_file(config_path: Path, config_type: ConfigType) -> bool:
         """Validate a configuration file using the appropriate Pydantic model."""
@@ -226,12 +225,12 @@ class ConfigLoader:
             return True
         except Exception as e:
             raise ConfigValidationError(f"{config_type} configuration validation failed: {str(e)}")
-    
+
     @staticmethod
     def generate_schema(config_class: Type[BaseModel]) -> Dict[str, Any]:
         """Generate JSON schema for a configuration class."""
         return config_class.model_json_schema()
-        
+
     @staticmethod
     def save_schema(config_class: Type[T], output_path: Path, save_format: str = "json") -> None:
         """Save schema to file."""
@@ -244,13 +243,13 @@ class ConfigLoader:
             else:
                 raise ValueError(f"Unknown format: {save_format}. Valid formats: json, yaml")
         console.print(f"[bold green]✓[/bold green] Schema saved to: {output_path}")
-    
+
     @staticmethod
     def generate_default_config(config_type: ConfigType) -> str:
         """Generate a default YAML configuration template for the given config type."""
 
         assert isinstance(config_type, ConfigType), f"config_type must be a ConfigType enum, got: {config_type}"
-        
+
         # Map config types to their corresponding Pydantic model classes
         config_class_map = {
             ConfigType.CLASSIFICATION: ClassificationConfig,
@@ -265,45 +264,45 @@ class ConfigLoader:
             ConfigType.CLASSIFIER_REGISTRATION: ClassifierRegistrationConfig,
             ConfigType.MODEL_REGISTRATION: DetectorRegistrationConfig,
         }
-        
+
         if config_type not in config_class_map:
             raise ValueError(f"Unknown config type: {config_type}. Valid types: {list(config_class_map.keys())}")
-        
+
         # Get the Pydantic model class
         config_class = config_class_map[config_type]
-        
+
         # Generate schema from the model
         schema = ConfigLoader.generate_schema(config_class)
-        
+
         # Convert schema to a template with example values
         template = ConfigLoader._schema_to_template(schema)
-        
+
         return str(yaml.dump(template, default_flow_style=False, indent=2, sort_keys=False))
-    
+
     @staticmethod
     def _schema_to_template(schema: Dict[str, Any]) -> Dict[str, Any]:
         """Convert a JSON schema to a YAML template with example values."""
         template = {}
-        
+
         if "properties" not in schema:
             return template
-        
+
         # Get the $defs section for resolving references
         defs = schema.get("$defs", {})
-        
+
         for prop_name, prop_schema in schema["properties"].items():
             if prop_name == "model_config":  # Skip internal Pydantic config
                 continue
-                
+
             template[prop_name] = ConfigLoader._get_example_value(prop_schema, defs)
-        
+
         return template
-    
+
     @staticmethod
     def _get_example_value(schema: Dict[str, Any], defs: Optional[Dict[str, Any]] = None) -> Any:
         """Get an example value for a schema property."""
         prop_type = schema.get("type", "string")
-        
+
         # Handle $ref references
         if "$ref" in schema:
             ref_path = schema["$ref"]
@@ -313,11 +312,11 @@ class ConfigLoader:
                     return ConfigLoader._get_example_value(defs[ref_name], defs)
             # If we can't resolve the ref, fall back to default
             return "example_string"
-        
+
         if "enum" in schema:
             # Use first enum value as example
             return schema["enum"][0]
-        
+
         if prop_type == "object" and "properties" in schema:
             # Recursively build nested object
             nested_obj = {}
@@ -326,12 +325,12 @@ class ConfigLoader:
                     continue
                 nested_obj[nested_prop_name] = ConfigLoader._get_example_value(nested_prop_schema, defs)
             return nested_obj
-        
+
         if prop_type == "array" and "items" in schema:
             # Create array with single example item
             example_item = ConfigLoader._get_example_value(schema["items"], defs)
             return [example_item]
-        
+
         # Handle different types with sensible defaults
         if prop_type == "string":
             if "description" in schema:
@@ -349,7 +348,7 @@ class ConfigLoader:
                     return "example_string"
             else:
                 return "example_string"
-        
+
         elif prop_type == "integer":
             if "minimum" in schema:
                 min_val = schema["minimum"]
@@ -363,7 +362,7 @@ class ConfigLoader:
                 return schema["default"]
             else:
                 return 1
-        
+
         elif prop_type == "number":
             if "minimum" in schema:
                 min_val = schema["minimum"]
@@ -375,16 +374,16 @@ class ConfigLoader:
                 return schema["default"]
             else:
                 return 0.1
-        
+
         elif prop_type == "boolean":
             if "default" in schema:
                 return schema["default"]
             else:
                 return False
-        
+
         elif prop_type == "null":
             return None
-        
+
         else:
             return "example_value"
-    
+

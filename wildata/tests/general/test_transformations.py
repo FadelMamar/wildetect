@@ -2,18 +2,17 @@
 Tests for the transformation system.
 """
 
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import numpy as np
 import pytest
+
 from wildata.config import AugmentationConfig, TilingConfig
 from wildata.transformations import (
     AugmentationTransformer,
     TilingTransformer,
     TransformationPipeline,
 )
-from wildata.transformations.base_transformer import BaseTransformer
 
 
 def generate_synthetic_data() -> Dict[str, List[Dict[str, Any]]]:

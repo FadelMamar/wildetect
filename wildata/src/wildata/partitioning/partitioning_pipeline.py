@@ -7,12 +7,9 @@ with the existing data pipeline.
 """
 
 import json
-import logging
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
-
-import numpy as np
+from typing import Any, Dict, List, Optional, Union
 
 from ..logging_config import get_logger
 from .camp_partitioner import CampPartitioner

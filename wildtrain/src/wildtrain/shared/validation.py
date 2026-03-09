@@ -2,8 +2,11 @@
 
 from pathlib import Path
 from typing import TypeVar
+
 from pydantic import BaseModel
+
 from .config_types import ConfigType
+
 
 class ConfigValidationError(Exception):
     """Raised when configuration validation fails."""

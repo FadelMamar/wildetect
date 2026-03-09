@@ -1,21 +1,21 @@
 import csv
 import json
-from typing import Any
-import optuna
 from pathlib import Path
 
-from .classification_trainer import ClassifierTrainer
-from .detection_trainer import UltralyticsDetectionTrainer
+import optuna
+
+from ..shared.config_loader import ConfigLoader
 from ..shared.models import (
-    ClassificationSweepConfig, 
     ClassificationConfig,
+    ClassificationSweepConfig,
+    DetectionConfig,
     DetectionSweepConfig,
     SweepObjectiveTypes,
-    DetectionConfig
 )
-from ..shared.config_loader import ConfigLoader
 from ..shared.sweeper import Sweeper
 from ..utils.logging import get_logger
+from .classification_trainer import ClassifierTrainer
+from .detection_trainer import UltralyticsDetectionTrainer
 
 logger = get_logger(__name__)
 
@@ -28,7 +28,7 @@ class ClassifierSweeper(Sweeper):
         self.counter = 0
         self.debug = debug
         self.study = None
-        
+
     def __call__(self, trial: optuna.Trial):
         self.counter += 1
 
@@ -37,7 +37,7 @@ class ClassifierSweeper(Sweeper):
             model_params = self.sweep_cfg.parameters.model
             self.base_cfg.model.backbone = trial.suggest_categorical("backbone", model_params.backbone)
             self.base_cfg.model.dropout = trial.suggest_categorical("dropout", model_params.dropout)
-            
+
             # Train params
             train_params = self.sweep_cfg.parameters.train
             lr = trial.suggest_categorical("lr", train_params.lr)
@@ -65,7 +65,7 @@ class ClassifierSweeper(Sweeper):
                 lr,
                 batch_size,
             )
-            
+
             # Train
             trainer = ClassifierTrainer(self.base_cfg)
             trainer.run(debug=self.debug)
@@ -94,10 +94,10 @@ class ClassifierSweeper(Sweeper):
             sampler=optuna.samplers.TPESampler(seed=self.sweep_cfg.seed),
             load_if_exists=True
         )
-        
+
         # Store study for later access (e.g., for saving results)
         self.study = study
-                
+
         # Start the optimization process
         logger.info("Starting Optuna optimization for hyperparameter sweep: %s", self.sweep_cfg.sweep_name)
         study.optimize(
@@ -105,7 +105,7 @@ class ClassifierSweeper(Sweeper):
             n_trials=self.sweep_cfg.n_trials,
             timeout=self.sweep_cfg.timeout,
         )
-        
+
         # Output the best result
         best_trial = study.best_trial
         logger.info("\n" + "=" * 50)
@@ -117,7 +117,7 @@ class ClassifierSweeper(Sweeper):
             logger.info("  %s: %s", key, value)
         logger.info("Total trials completed: %d", len(study.trials))
         logger.info("=" * 50)
-        
+
         # Save benchmark results
         if self.sweep_cfg.output.save_results:
             self._save_sweep_results()
@@ -283,7 +283,7 @@ class DetectionSweeper(Sweeper):
         self.counter = 0
         self.debug = debug
         self.study = None
-        
+
     def __call__(self, trial: optuna.Trial):
         self.counter += 1
 
@@ -295,7 +295,7 @@ class DetectionSweeper(Sweeper):
                     self.base_cfg.model.architecture_file = trial.suggest_categorical("architecture_file", model_params.architecture_file)
                 if model_params.weights is not None:
                     self.base_cfg.model.weights = trial.suggest_categorical("weights", model_params.weights)
-            
+
             # Train params
             train_params = self.sweep_cfg.parameters.train
             lr0 = trial.suggest_categorical("lr0", train_params.lr0)
@@ -338,7 +338,7 @@ class DetectionSweeper(Sweeper):
                 imgsz,
                 optimizer,
             )
-            
+
             # Train
             trainer = UltralyticsDetectionTrainer(self.base_cfg)
             trainer.run(debug=self.debug)
@@ -370,10 +370,10 @@ class DetectionSweeper(Sweeper):
             sampler=optuna.samplers.TPESampler(seed=self.sweep_cfg.seed),
             load_if_exists=True
         )
-        
+
         # Store study for later access (e.g., for saving results)
         self.study = study
-                
+
         # Start the optimization process
         logger.info("Starting Optuna optimization for hyperparameter sweep: %s", self.sweep_cfg.sweep_name)
         study.optimize(
@@ -381,7 +381,7 @@ class DetectionSweeper(Sweeper):
             n_trials=self.sweep_cfg.n_trials,
             timeout=self.sweep_cfg.timeout,
         )
-        
+
         # Output the best result
         best_trial = study.best_trial
         logger.info("\n" + "=" * 50)
@@ -393,7 +393,7 @@ class DetectionSweeper(Sweeper):
             logger.info("  %s: %s", key, value)
         logger.info("Total trials completed: %d", len(study.trials))
         logger.info("=" * 50)
-        
+
         # Save benchmark results
         if self.sweep_cfg.output and self.sweep_cfg.output.save_results:
             self._save_sweep_results()

@@ -4,11 +4,11 @@ Job management endpoints.
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..dependencies import verify_token
 from ..exceptions import JobError, NotFoundError
-from ..models.jobs import BackgroundJob, JobStatus
+from ..models.jobs import JobStatus
 from ..models.responses import JobStatusResponse
 from ..services.job_queue import get_job_queue
 

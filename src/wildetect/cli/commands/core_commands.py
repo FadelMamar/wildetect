@@ -9,7 +9,7 @@ import os
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import torch
 import typer
@@ -175,7 +175,7 @@ def detect(
         except Exception as e:
             console.print(f"[red]Error saving detections: {e}[/red]")
 
-        console.print(f"[bold green]Detection completed successfully![/bold green]")
+        console.print("[bold green]Detection completed successfully![/bold green]")
 
         # upload detections to label studio
         if loaded_config.labelstudio.project_id is not None:
@@ -204,7 +204,7 @@ def detect(
             else:
                 console.print("[green]Uploaded detections to Label Studio[/green]")
 
-    except Exception as e:
+    except Exception:
         console.print(traceback.format_exc())
 
 
@@ -238,7 +238,7 @@ def census(
 
         if check != 1:
             console.print(
-                f"[red]Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update must be provided[/red]"
+                "[red]Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update must be provided[/red]"
             )
             console.print(
                 f"[red]image_paths {loaded_config.detection.image_paths}, image_dir {loaded_config.detection.image_dir}, labelstudio.project_id {loaded_config.detection.labelstudio.project_id}, exif_gps_update {loaded_config.detection.exif_gps_update}[/red]"
@@ -303,10 +303,10 @@ def census(
 
         if not torch.cuda.is_available():
             console.print(
-                f"[bold red]CUDA is not available. It will be very slow...[/bold red]"
+                "[bold red]CUDA is not available. It will be very slow...[/bold red]"
             )
         else:
-            console.print(f"[bold green]CUDA is available...[/bold green]")
+            console.print("[bold green]CUDA is available...[/bold green]")
 
         # Create campaign configuration
         campaign_config = CampaignConfig(
@@ -324,7 +324,7 @@ def census(
             labelstudio_project_dir=image_dir,
         )
 
-        console.print(f"[bold green]Campaign configuration:[/bold green]")
+        console.print("[bold green]Campaign configuration:[/bold green]")
         console.print(campaign_config)
 
         # Initialize campaign manager
@@ -396,7 +396,7 @@ def census(
                 console.print("[green]Uploaded detections to Label Studio[/green]")
 
         console.print(
-            f"[bold green]Census campaign completed successfully![/bold green]"
+            "[bold green]Census campaign completed successfully![/bold green]"
         )
 
     except Exception:

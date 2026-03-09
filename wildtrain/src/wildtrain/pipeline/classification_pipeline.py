@@ -1,10 +1,15 @@
 import os
-from typing import Optional
-from wildtrain.trainers.classification_trainer import ClassifierTrainer
-from wildtrain.evaluators.classification import ClassificationEvaluator
-from wildtrain.utils.logging import get_logger
-from wildtrain.shared.models import ClassificationPipelineConfig, ClassificationConfig, ClassificationEvalConfig
 from pathlib import Path
+from typing import Optional
+
+from wildtrain.evaluators.classification import ClassificationEvaluator
+from wildtrain.shared.models import (
+    ClassificationConfig,
+    ClassificationEvalConfig,
+    ClassificationPipelineConfig,
+)
+from wildtrain.trainers.classification_trainer import ClassifierTrainer
+from wildtrain.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -29,12 +34,12 @@ class ClassificationPipeline:
     def evaluate(self):
         logger.info("[Pipeline] Starting classification evaluation...")
         eval_config = ClassificationEvalConfig.from_yaml(self.config.eval.config)
-        
+
         if self.best_model_path is not None:
             eval_config.classifier = self.best_model_path
 
         evaluator = ClassificationEvaluator(config=eval_config)
-        results = evaluator.evaluate(debug=self.config.eval.debug, 
+        results = evaluator.evaluate(debug=self.config.eval.debug,
         save_path=os.path.join(self.config.results_dir, "eval_report.json"))
         logger.info("[Pipeline] Evaluation completed.")
         return results

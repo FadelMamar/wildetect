@@ -5,7 +5,7 @@ Shared dependencies and utilities for the API.
 import asyncio
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
 
 from .config import api_config

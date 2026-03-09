@@ -8,7 +8,7 @@ from pathlib import Path
 import typer
 from pydantic import ValidationError
 
-from ..config import ROIConfig,ROIDatasetConfig
+from ..config import ROIDatasetConfig
 from ..logging_config import get_logger
 from ..pipeline import FrameworkDataManager, Loader, PathManager
 
@@ -19,7 +19,7 @@ def create_roi_dataset_core(config: ROIDatasetConfig, verbose: bool = False) -> 
     """Core logic for creating ROI datasets."""
     try:
         if verbose:
-            typer.echo(f"[INFO] Creating dataset...")
+            typer.echo("[INFO] Creating dataset...")
             typer.echo(f"   Source: {config.source_path}")
             typer.echo(f"   Format: {config.source_format}")
             typer.echo(f"   Name: {config.dataset_name}")
@@ -57,7 +57,7 @@ def create_roi_dataset_core(config: ROIDatasetConfig, verbose: bool = False) -> 
         )
         return True
     except ValidationError as e:
-        typer.echo(f"[ERROR] Configuration validation error:")
+        typer.echo("[ERROR] Configuration validation error:")
         for error in e.errors():
             typer.echo(f"   {error['loc'][0]}: {error['msg']}")
         return False
@@ -70,17 +70,18 @@ def create_roi_dataset_core(config: ROIDatasetConfig, verbose: bool = False) -> 
 
 def create_roi_one_worker(args) -> tuple:
     """Top-level worker for ProcessPoolExecutor in bulk_create_roi_datasets."""
-    
+
     try:
         i, src, name, config_dict, verbose = args
         import traceback
+        from pathlib import Path
+
         import typer
         from pydantic import ValidationError
-        from pathlib import Path
 
         from wildata.config import ROIDatasetConfig
         from wildata.pipeline import FrameworkDataManager, Loader, PathManager
-        
+
         typer.echo(f"\n=== Creating ROI [{i+1}]: {name} ===")
 
         single_config = ROIDatasetConfig(
@@ -96,7 +97,7 @@ def create_roi_one_worker(args) -> tuple:
             draw_original_bboxes=config_dict.get("draw_original_bboxes", False),
         )
         # Use the same core logic as create_roi_dataset
-       
+
 
         loader = Loader()
         dataset_info, split_coco_data = loader.load(

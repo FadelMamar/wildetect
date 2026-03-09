@@ -3,14 +3,10 @@ Rich logging utilities for enhanced terminal output and logging.
 """
 
 import logging
-import sys
 import time
 from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
-from rich import print as rprint
-from rich.align import Align
 from rich.console import Console
 from rich.layout import Layout
 from rich.live import Live
@@ -25,7 +21,6 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 from rich.table import Table
-from rich.text import Text
 from rich.traceback import install
 
 # Install Rich traceback handler for better error display

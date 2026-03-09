@@ -3,12 +3,11 @@ Core import logic for CLI commands.
 """
 
 import traceback
-from typing import Dict, Optional
 
 import typer
 from pydantic import ValidationError
 
-from ..config import AugmentationConfig, ROIConfig, TilingConfig,ImportDatasetConfig
+from ..config import AugmentationConfig, ImportDatasetConfig, ROIConfig, TilingConfig
 from ..pipeline import DataPipeline
 from ..transformations import (
     AugmentationTransformer,
@@ -16,6 +15,7 @@ from ..transformations import (
     TilingTransformer,
     TransformationPipeline,
 )
+
 
 def _import_dataset_core(config: ImportDatasetConfig, verbose: bool = False) -> bool:
     """Core logic for importing a dataset, shared by CLI and bulk import."""
@@ -36,7 +36,7 @@ def _import_dataset_core(config: ImportDatasetConfig, verbose: bool = False) -> 
     transformation_pipeline = None
     if config.transformations:
         if verbose:
-            typer.echo(f"[INFO] Creating transformation pipeline...")
+            typer.echo("[INFO] Creating transformation pipeline...")
 
         transformation_pipeline = TransformationPipeline()
 
@@ -103,7 +103,7 @@ def _import_dataset_core(config: ImportDatasetConfig, verbose: bool = False) -> 
     # Execute import
     try:
         if verbose:
-            typer.echo(f"[INFO] Creating data pipeline...")
+            typer.echo("[INFO] Creating data pipeline...")
             typer.echo(f"   Root: {config.root}")
             typer.echo(f"   Split: {config.split_name}")
             typer.echo(f"   DVC enabled: {config.enable_dvc}")
@@ -118,7 +118,7 @@ def _import_dataset_core(config: ImportDatasetConfig, verbose: bool = False) -> 
         )
 
         if verbose:
-            typer.echo(f"[INFO] Importing dataset...")
+            typer.echo("[INFO] Importing dataset...")
             typer.echo(f"   Source: {config.source_path}")
             typer.echo(f"   Format: {config.source_format}")
             typer.echo(f"   Name: {config.dataset_name}")
@@ -159,7 +159,7 @@ def _import_dataset_core(config: ImportDatasetConfig, verbose: bool = False) -> 
             return False
         return True
     except ValidationError as e:
-        typer.echo(f"[ERROR] Configuration validation error:")
+        typer.echo("[ERROR] Configuration validation error:")
         for error in e.errors():
             typer.echo(f"   {error['loc'][0]}: {error['msg']}")
         return False
@@ -203,7 +203,7 @@ def import_one_worker(args) -> tuple:
             f"   {error['loc'][0]}: {error['msg']}" for error in e.errors()
         )
         return (i, name, False, msg)
-    except Exception as e:
+    except Exception:
         msg = f"[ERROR] Unexpected error for '{name}': {str(traceback.format_exc())}"
         if verbose:
             msg += f"\n   Traceback: {traceback.format_exc()}"

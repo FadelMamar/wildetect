@@ -1,13 +1,15 @@
 """CLI module for WildTrain using Typer and Rich."""
 
-import typer
+import os
 from pathlib import Path
 from typing import Optional
-import os
+
+import typer
+
 from ..server import run_inference_server
 from ..shared.models import InferenceConfig
+from .commands import config, dataset, evaluate, pipeline, register, train, visualize
 from .commands.utils import display_welcome_message
-from .commands import config, train, evaluate, register, pipeline, visualize, dataset
 
 # Create Typer app
 app = typer.Typer(
@@ -28,7 +30,7 @@ def main(
     ),
 ) -> None:
     """WildTrain - Modular Computer Vision Framework."""
-    
+
     # Display welcome message
     display_welcome_message()
 

@@ -5,14 +5,14 @@ import os
 import sys
 import time
 import traceback
-
 from typing import List
 
 import litserve as ls
 import torch
 from fastapi import HTTPException
-from wildtrain.models.detector import Detector
 from pydantic import BaseModel
+
+from wildtrain.models.detector import Detector
 
 
 def setup_logging(verbose: bool = False):
@@ -93,7 +93,7 @@ class InferenceService(ls.LitAPI):
             # Set image tensor
             img_tensor = request.tensor
             shape = request.shape
-            
+
             tensor_bytes = base64.b64decode(img_tensor)
             tensor_bytes = bytearray(tensor_bytes)
             img_tensor = torch.frombuffer(tensor_bytes, dtype=torch.float32).reshape(
