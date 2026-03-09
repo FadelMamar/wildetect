@@ -8,7 +8,7 @@ This module provides a unified interface for curriculum learning strategies:
 
 Usage:
     from wildtrain.data.curriculum import CurriculumConfig, CurriculumDataModuleMixin
-    
+
     # Configure curriculum
     config = CurriculumConfig(
         enabled=True,
@@ -17,7 +17,7 @@ Usage:
         start_difficulty=0.0,
         end_difficulty=1.0
     )
-    
+
     # Add to data module
     class MyDataModule(CurriculumDataModuleMixin, L.LightningDataModule):
         def __init__(self, curriculum_config=None, **kwargs):
@@ -38,5 +38,5 @@ __all__ = [
     "CurriculumDataModuleMixin",
     "CurriculumCallback",
     "CurriculumDetectionDataset",
-    "PatchDataset"
+    "PatchDataset",
 ]

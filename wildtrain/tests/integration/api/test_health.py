@@ -78,16 +78,26 @@ class TestAPIHealthAndBasicFunctionality:
         """Test API startup and shutdown functionality."""
         # Test that the app can be created without errors
         from wildtrain.api.main import create_app
+
         app = create_app()
         assert app is not None
         assert hasattr(app, "routes")
 
         # Test that all expected routers are included
         routes = [route.path for route in app.routes]
-        expected_prefixes = ["/training", "/evaluation", "/pipeline", "/visualization", "/dataset", "/config"]
+        expected_prefixes = [
+            "/training",
+            "/evaluation",
+            "/pipeline",
+            "/visualization",
+            "/dataset",
+            "/config",
+        ]
 
         for prefix in expected_prefixes:
-            assert any(route.startswith(prefix) for route in routes), f"Missing router with prefix {prefix}"
+            assert any(route.startswith(prefix) for route in routes), (
+                f"Missing router with prefix {prefix}"
+            )
 
     def test_basic_request_response_flow(self, client):
         """Test basic request/response flow for all endpoints."""
@@ -98,7 +108,7 @@ class TestAPIHealthAndBasicFunctionality:
             "/pipeline/status",
             "/visualization/status",
             "/dataset/status",
-            "/config/status"
+            "/config/status",
         ]
 
         for endpoint in endpoints_to_test:
@@ -128,11 +138,14 @@ class TestAPIHealthAndBasicFunctionality:
         openapi_version = openapi_data.get("info", {}).get("version")
 
         # Versions should match
-        assert root_version == openapi_version, f"Version mismatch: root={root_version}, openapi={openapi_version}"
+        assert root_version == openapi_version, (
+            f"Version mismatch: root={root_version}, openapi={openapi_version}"
+        )
 
     def test_logging_configuration(self):
         """Test that logging is properly configured."""
         import logging
+
         logger = logging.getLogger("wildtrain.api")
         assert logger.level <= logging.INFO
 
@@ -157,15 +170,19 @@ class TestAPIHealthAndBasicFunctionality:
 
         # Check that all expected routers are included
         expected_routers = [
-            "training", "evaluation", "pipeline",
-            "visualization", "dataset", "config"
+            "training",
+            "evaluation",
+            "pipeline",
+            "visualization",
+            "dataset",
+            "config",
         ]
 
         for router_name in expected_routers:
             # Check if router endpoints exist
             router_found = False
             for route in app.routes:
-                if hasattr(route, 'prefix') and router_name in route.prefix:
+                if hasattr(route, "prefix") and router_name in route.prefix:
                     router_found = True
                     break
             assert router_found, f"Router {router_name} not found in app routes"

@@ -8,6 +8,7 @@ from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 def load_registered_model(
     alias,
     name,
@@ -26,7 +27,7 @@ def load_registered_model(
     if dwnd_location is None:
         dwnd_location = Path(f"models-registry/{name}")
     else:
-        dwnd_location = Path(dwnd_location)/name
+        dwnd_location = Path(dwnd_location) / name
 
     dwnd_location.mkdir(parents=True, exist_ok=True)
     dwnd_location = dwnd_location / version
@@ -41,8 +42,9 @@ def load_registered_model(
         logger.info(f"Loading model from {modelURI}")
         model = mlflow.pyfunc.load_model(modelURI, dst_path=str(dwnd_location))
 
-    metadata = dict(version=modelversion, modeluri=modelURI,
-                    model_path=str(dwnd_location))
+    metadata = dict(
+        version=modelversion, modeluri=modelURI, model_path=str(dwnd_location)
+    )
     try:
         metadata.update(model.metadata.metadata)
     except:

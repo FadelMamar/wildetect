@@ -38,7 +38,7 @@ def create_job_status_response(
 
 
 def create_import_dataset_response(
-    job_id: str = "test-job-123"
+    job_id: str = "test-job-123",
 ) -> ImportDatasetResponse:
     """Create a valid ImportDatasetResponse."""
     return ImportDatasetResponse(
@@ -70,7 +70,7 @@ def create_create_roi_response(job_id: str = "test-job-123") -> CreateROIRespons
 
 
 def create_bulk_create_roi_response(
-    job_id: str = "test-job-123"
+    job_id: str = "test-job-123",
 ) -> BulkCreateROIResponse:
     """Create a valid BulkCreateROIResponse."""
     return BulkCreateROIResponse(

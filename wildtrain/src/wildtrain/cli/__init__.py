@@ -32,5 +32,5 @@ __all__ = [
     "evaluate_classifier",
     "show_config_template",
     "validate_config",
-    "validate_config_file"
+    "validate_config_file",
 ]

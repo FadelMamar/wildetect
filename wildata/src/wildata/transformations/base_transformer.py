@@ -34,12 +34,12 @@ class BaseTransformer(ABC):
         for data in inputs:
             assert isinstance(data, dict), "inputs must be a dictionary"
             assert data.get("image") is not None, "inputs must contain an image"
-            assert (
-                data.get("annotations") is not None
-            ), "inputs must contain annotations"
-            assert (
-                data["image"].shape[2] == 3
-            ), "image must be a 3 channel image arranged like HWC"
+            assert data.get("annotations") is not None, (
+                "inputs must contain annotations"
+            )
+            assert data["image"].shape[2] == 3, (
+                "image must be a 3 channel image arranged like HWC"
+            )
 
             for annotation in data["annotations"]:
                 assert "bbox" in annotation, "annotations must contain a bbox"

@@ -12,7 +12,7 @@ from wildtrain.cli.config_loader import ROOT, ConfigLoader
 from wildtrain.api.main import fastapi_app as app
 
 
-def safe_load_config(config_path: Path, loader_method)->dict:
+def safe_load_config(config_path: Path, loader_method) -> dict:
     """Safely load config with fallback to template or empty config."""
     try:
         validated_config = loader_method(config_path)
@@ -34,7 +34,9 @@ def safe_load_config(config_path: Path, loader_method)->dict:
 
         return config_dict
     except Exception:
-        raise Exception(f"Warning: Could not load config from {config_path}: {traceback.format_exc()}")
+        raise Exception(
+            f"Warning: Could not load config from {config_path}: {traceback.format_exc()}"
+        )
 
 
 @pytest.fixture
@@ -80,18 +82,18 @@ def detection_eval_config():
     return safe_load_config(
         config_path,
         ConfigLoader.load_detection_eval_config,
-
     )
 
 
 @pytest.fixture
 def classification_visualization_config():
     """Load real classification visualization config for testing."""
-    config_path = ROOT / "configs" / "classification" / "classification_visualization.yaml"
+    config_path = (
+        ROOT / "configs" / "classification" / "classification_visualization.yaml"
+    )
     return safe_load_config(
         config_path,
         ConfigLoader.load_classification_visualization_config,
-
     )
 
 
@@ -102,27 +104,28 @@ def detection_visualization_config():
     return safe_load_config(
         config_path,
         ConfigLoader.load_detection_visualization_config,
-
     )
 
 
 @pytest.fixture
 def classification_pipeline_config():
     """Load real classification pipeline config for testing."""
-    config_path = ROOT / "configs" / "classification" / "classification_pipeline_config.yaml"
+    config_path = (
+        ROOT / "configs" / "classification" / "classification_pipeline_config.yaml"
+    )
     return safe_load_config(
         config_path,
         lambda p: ConfigLoader.load_pipeline_config(p, "classification"),
-
     )
 
 
 @pytest.fixture
 def detection_pipeline_config():
     """Load real detection pipeline config for testing."""
-    config_path = ROOT / "configs" / "detection" / "yolo_configs" / "yolo_pipeline_config.yaml"
+    config_path = (
+        ROOT / "configs" / "detection" / "yolo_configs" / "yolo_pipeline_config.yaml"
+    )
     return safe_load_config(
         config_path,
         lambda p: ConfigLoader.load_pipeline_config(p, "detection"),
-
     )

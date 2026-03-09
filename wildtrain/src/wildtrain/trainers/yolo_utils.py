@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 RANK = int(os.getenv("RANK", -1))
 
+
 class CustomLoss(v8DetectionLoss):
     """Custom YOLO loss that inherits from Ultralytics default loss"""
 
@@ -87,7 +88,6 @@ class CustomLoss(v8DetectionLoss):
             loss[1] = self.area_loss(pred_area, target_area) * self.area_loss_weight
 
         return loss.sum()
-
 
     def _generate_synthetic_boxes(
         self, img_height: int, img_width: int, area_thresh: float, num: int = 10
@@ -493,6 +493,7 @@ class CustomLoss(v8DetectionLoss):
 
         return loss * batch_size, loss.detach()  # loss(box, cls, dfl)
 
+
 class RegressorHead(torch.nn.Module):
     def __init__(self, out_channels: int = 64):
         super().__init__()
@@ -555,9 +556,7 @@ class RoiClassifierHead(torch.nn.Module):
         self,
     ) -> nn.Module:
 
-        model = timm.create_model(
-            self.backbone, pretrained=True, num_classes=0
-        )
+        model = timm.create_model(self.backbone, pretrained=True, num_classes=0)
         for param in model.parameters():
             param.requires_grad = False
         model.eval()
@@ -567,9 +566,9 @@ class RoiClassifierHead(torch.nn.Module):
 
         # Get preprocessing
         data_config = timm.data.resolve_model_data_config(model)
-        c,h,w = data_config["input_size"]
+        c, h, w = data_config["input_size"]
         preprocessing = torch.nn.Sequential(
-            T.Resize((h,w), interpolation=T.InterpolationMode.BICUBIC),
+            T.Resize((h, w), interpolation=T.InterpolationMode.BICUBIC),
             T.ToDtype(torch.float32),
             T.Normalize(mean=data_config["mean"], std=data_config["std"]),
         )
@@ -796,9 +795,11 @@ class DetectionSystem(DetectionModel):
 
         self.roi_classifier_layers = roi_classifier_layers
         if self.roi_classifier_layers:
-            self.roi_classifier = RoiClassifierHead(box_size=box_size,
-                                                    backbone=image_encoder_backbone,
-                                                    backbone_source=image_encoder_backbone_source)
+            self.roi_classifier = RoiClassifierHead(
+                box_size=box_size,
+                backbone=image_encoder_backbone,
+                backbone_source=image_encoder_backbone_source,
+            )
 
         self.count_regressor_layers = count_regressor_layers
         if count_regressor_layers and count_loss_weight > 0.0:
@@ -970,8 +971,7 @@ class CustomYOLO(YOLO):
     ):
         super().__init__(model=model, task=task, verbose=verbose)
 
-
-        args_det_system: dict[str,Any] = dict()
+        args_det_system: dict[str, Any] = dict()
         args_det_system["count_regressor_layers"] = count_regressor_layers
         args_det_system["area_regressor_layers"] = area_regressor_layers
         args_det_system["roi_classifier_layers"] = roi_classifier_layers or dict()
@@ -985,7 +985,6 @@ class CustomYOLO(YOLO):
 
         if roi_classifier_layers is not None:
             args_det_system["roi_classifier_layers"] = dict(roi_classifier_layers)
-
 
         # add to environment variables
         os.environ["args_det_system"] = json.dumps(args_det_system)

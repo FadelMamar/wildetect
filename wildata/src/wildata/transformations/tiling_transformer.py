@@ -58,9 +58,9 @@ def validate_results(
 
     # More tolerant comparison for SAHI results
     try:
-        assert torch.allclose(
-            tiles, extracted_regions, atol=1e-2, rtol=1e-2
-        ), "error in tiling. Extracted value and offsets don't match"
+        assert torch.allclose(tiles, extracted_regions, atol=1e-2, rtol=1e-2), (
+            "error in tiling. Extracted value and offsets don't match"
+        )
     except AssertionError as e:
         # Print some debugging info
         print(f"Validation failed: {e}")

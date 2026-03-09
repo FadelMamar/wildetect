@@ -1,6 +1,7 @@
 """
 Detector implementations for different model types.
 """
+
 from ..config import DetectionPipelineTypes
 from .asynced import AsyncDetectionPipeline
 from .base import BaseDetectionPipeline, DetectionPipeline, SimpleDetectionPipeline

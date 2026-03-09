@@ -20,7 +20,9 @@ def main(config: str):
     classifier_cfg = cfg.model.classifier
     processing_cfg = cfg.processing
 
-    print(f"[bold green]Uploading detector predictions to FiftyOne dataset:[/bold green] {dataset_name}")
+    print(
+        f"[bold green]Uploading detector predictions to FiftyOne dataset:[/bold green] {dataset_name}"
+    )
 
     # Create localizer with config
     localizer = UltralyticsLocalizer(
@@ -30,14 +32,18 @@ def main(config: str):
         conf_thres=localizer_cfg.conf_thres,
         iou_thres=localizer_cfg.iou_thres,
         max_det=localizer_cfg.max_det,
-        overlap_metric=localizer_cfg.overlap_metric
+        overlap_metric=localizer_cfg.overlap_metric,
     )
 
     # Create classifier if checkpoint provided
     classifier = None
     if classifier_cfg.checkpoint is not None:
-        print(f"[bold blue]Loading classifier from:[/bold blue] {classifier_cfg.checkpoint}")
-        classifier = GenericClassifier.load_from_checkpoint(str(classifier_cfg.checkpoint))
+        print(
+            f"[bold blue]Loading classifier from:[/bold blue] {classifier_cfg.checkpoint}"
+        )
+        classifier = GenericClassifier.load_from_checkpoint(
+            str(classifier_cfg.checkpoint)
+        )
 
     # Create detector
     detector = Detector(localizer=localizer, classifier=classifier)
@@ -50,6 +56,7 @@ def main(config: str):
         batch_size=processing_cfg.batch_size,
         debug=processing_cfg.debug,
     )
+
 
 if __name__ == "__main__":
     main(config=r"D:\workspace\repos\wildtrain\configs\detection\visualization.yaml")

@@ -2,7 +2,6 @@
 CLI commands for the API server.
 """
 
-
 import typer
 
 from .config import api_config

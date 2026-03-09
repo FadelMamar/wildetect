@@ -18,11 +18,15 @@ class EvaluationService:
     """Service for handling evaluation operations."""
 
     @staticmethod
-    def evaluate_classifier(config: ClassificationEvalConfig, debug: bool) -> Dict[str, Any]:
+    def evaluate_classifier(
+        config: ClassificationEvalConfig, debug: bool
+    ) -> Dict[str, Any]:
         """Evaluate a classification model using the CLI evaluator."""
         try:
             # Create a temporary config file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".yaml", delete=False
+            ) as f:
                 config_dict = config.model_dump()
                 yaml_content = OmegaConf.to_yaml(OmegaConf.create(config_dict))
                 f.write(yaml_content)
@@ -32,6 +36,7 @@ class EvaluationService:
 
             # Import and run the CLI command
             from ...cli.commands.evaluate import classifier
+
             results = classifier(config=temp_config_path, template=False, debug=debug)
 
             # Clean up temporary file
@@ -45,11 +50,15 @@ class EvaluationService:
             raise
 
     @staticmethod
-    def evaluate_detector(config: DetectionEvalConfig, model_type: str, debug: bool) -> Dict[str, Any]:
+    def evaluate_detector(
+        config: DetectionEvalConfig, model_type: str, debug: bool
+    ) -> Dict[str, Any]:
         """Evaluate a detection model using the CLI evaluator."""
         try:
             # Create a temporary config file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".yaml", delete=False
+            ) as f:
                 config_dict = config.model_dump()
                 yaml_content = OmegaConf.to_yaml(OmegaConf.create(config_dict))
                 f.write(yaml_content)
@@ -59,7 +68,13 @@ class EvaluationService:
 
             # Import and run the CLI command
             from ...cli.commands.evaluate import detector
-            results = detector(config=temp_config_path, template=False, debug=debug, model_type=model_type)
+
+            results = detector(
+                config=temp_config_path,
+                template=False,
+                debug=debug,
+                model_type=model_type,
+            )
 
             # Clean up temporary file
             Path(temp_config_path).unlink(missing_ok=True)
@@ -75,7 +90,9 @@ class EvaluationService:
     def generate_classification_eval_template() -> str:
         """Generate a classification evaluation template."""
         try:
-            template = ConfigLoader.generate_default_config(ConfigType.CLASSIFICATION_EVAL)
+            template = ConfigLoader.generate_default_config(
+                ConfigType.CLASSIFICATION_EVAL
+            )
             return template
         except Exception as e:
             logger.error(f"Failed to generate classification evaluation template: {e}")

@@ -236,6 +236,7 @@ class DuplicateRemovalTuner:
             Tuple of (list of DroneImages, original bbox count)
         """
         from wildetect.core.data import DroneImage
+
         images = []
         original_bbox_count = 0
 
@@ -344,9 +345,7 @@ class DuplicateRemovalTuner:
             result = self._evaluate_group(group, iou_threshold, min_overlap_threshold)
 
             if result["original_count"] == 0:
-                logger.debug(
-                    f"Group {group.group_id} has no original bboxes, skipping"
-                )
+                logger.debug(f"Group {group.group_id} has no original bboxes, skipping")
                 continue
 
             expected = result["expected_removals"]

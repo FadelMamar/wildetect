@@ -10,11 +10,16 @@ import pytest
 class TestVisualizationEndpoints:
     """Test visualization endpoints."""
 
-    def test_visualize_classifier_with_real_config(self, client, classification_visualization_config):
+    def test_visualize_classifier_with_real_config(
+        self, client, classification_visualization_config
+    ):
         """Test POST /visualization/classifier endpoint with real config."""
-        response = client.post("/visualization/classifier", json={
-            "config": classification_visualization_config,
-        })
+        response = client.post(
+            "/visualization/classifier",
+            json={
+                "config": classification_visualization_config,
+            },
+        )
 
         assert response.status_code in [200, 201, 202], f"Response: {response.json()}"
         data = response.json()
@@ -22,11 +27,16 @@ class TestVisualizationEndpoints:
         assert "job_id" in data
         assert "status" in data
 
-    def test_visualize_detector_with_real_config(self, client, detection_visualization_config):
+    def test_visualize_detector_with_real_config(
+        self, client, detection_visualization_config
+    ):
         """Test POST /visualization/detector endpoint with real config."""
-        response = client.post("/visualization/detector", json={
-            "config": detection_visualization_config,
-        })
+        response = client.post(
+            "/visualization/detector",
+            json={
+                "config": detection_visualization_config,
+            },
+        )
 
         assert response.status_code in [200, 201, 202], f"Response: {response.json()}"
         data = response.json()
@@ -38,7 +48,9 @@ class TestVisualizationEndpoints:
         """Test GET /visualization/datasets endpoint."""
         response = client.get("/visualization/datasets")
 
-        assert response.status_code in [200,], f"Response: {response.json()}"
+        assert response.status_code in [
+            200,
+        ], f"Response: {response.json()}"
         if response.status_code == 200:
             data = response.json()
             assert "datasets" in data or isinstance(data, list)
@@ -48,7 +60,9 @@ class TestVisualizationEndpoints:
         dataset_name = "savmap-train"
         response = client.get(f"/visualization/datasets/{dataset_name}")
 
-        assert response.status_code in [200,], f"Response: {response.json()}"
+        assert response.status_code in [
+            200,
+        ], f"Response: {response.json()}"
         if response.status_code == 200:
             data = response.json()
             assert "name" in data
@@ -69,12 +83,13 @@ class TestVisualizationEndpoints:
 
     def test_invalid_visualization_config(self, client):
         """Test visualization with invalid config."""
-        response = client.post("/visualization/classifier", json={
-            "config": {"invalid": "config"},
-            "debug": True,
-            "verbose": False,
-
-        })
+        response = client.post(
+            "/visualization/classifier",
+            json={
+                "config": {"invalid": "config"},
+                "debug": True,
+                "verbose": False,
+            },
+        )
 
         assert response.status_code in [422, 400], f"Response: {response.json()}"
-

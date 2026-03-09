@@ -14,7 +14,7 @@ from .manager import CurriculumManager
 class CurriculumDataModuleMixin:
     """
     Mixin to add difficulty-based curriculum learning to any Lightning DataModule.
-    
+
     Usage:
         class MyDataModule(CurriculumDataModuleMixin, L.LightningDataModule):
             def __init__(self, curriculum_config=None, **kwargs):
@@ -26,7 +26,7 @@ class CurriculumDataModuleMixin:
     def __init__(self, curriculum_config: Optional[CurriculumConfig] = None):
         """
         Initialize curriculum learning mixin.
-        
+
         Args:
             curriculum_config: Configuration for curriculum learning. If None, curriculum is disabled.
         """
@@ -39,7 +39,7 @@ class CurriculumDataModuleMixin:
     def setup_curriculum(self, max_epochs: int):
         """
         Setup curriculum after data module is initialized.
-        
+
         Args:
             max_epochs: Maximum number of training epochs
         """
@@ -49,10 +49,10 @@ class CurriculumDataModuleMixin:
     def update_curriculum_epoch(self, epoch: int) -> Optional[Dict[str, Any]]:
         """
         Update curriculum state for new epoch.
-        
+
         Args:
             epoch: Current training epoch
-            
+
         Returns:
             Curriculum state dictionary or None if curriculum is disabled
         """
@@ -63,10 +63,10 @@ class CurriculumDataModuleMixin:
     def should_include_sample(self, sample_difficulty: float) -> bool:
         """
         Check if a sample should be included based on current curriculum.
-        
+
         Args:
             sample_difficulty: Difficulty score of the sample (0.0 = easiest, 1.0 = hardest)
-            
+
         Returns:
             True if sample should be included, False otherwise
         """
@@ -77,7 +77,7 @@ class CurriculumDataModuleMixin:
     def get_current_difficulty(self) -> float:
         """
         Get current difficulty level.
-        
+
         Returns:
             Current difficulty level (0.0 = easiest, 1.0 = hardest)
         """
@@ -88,7 +88,7 @@ class CurriculumDataModuleMixin:
     def get_curriculum_state(self) -> Optional[Dict[str, Any]]:
         """
         Get current curriculum state.
-        
+
         Returns:
             Complete curriculum state dictionary or None if curriculum is disabled
         """
@@ -99,7 +99,7 @@ class CurriculumDataModuleMixin:
     def is_curriculum_enabled(self) -> bool:
         """
         Check if curriculum learning is enabled.
-        
+
         Returns:
             True if curriculum learning is enabled, False otherwise
         """

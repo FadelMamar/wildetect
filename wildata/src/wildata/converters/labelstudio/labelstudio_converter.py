@@ -17,7 +17,9 @@ class LabelstudioConverter(BaseConverter):
     Inherits from BaseConverter and implements the required interface.
     """
 
-    def __init__(self, dotenv_path: Optional[str] = None, client: Optional[LabelStudio] = None):
+    def __init__(
+        self, dotenv_path: Optional[str] = None, client: Optional[LabelStudio] = None
+    ):
         """
         Initialize the Label Studio converter.
 
@@ -104,9 +106,9 @@ class LabelstudioConverter(BaseConverter):
 
         # Load converter
         config_str = None
-        assert not all(
-            [parsed_config is not None, ls_xml_config is not None]
-        ), "Either parsed_config or ls_xml_config must be provided"
+        assert not all([parsed_config is not None, ls_xml_config is not None]), (
+            "Either parsed_config or ls_xml_config must be provided"
+        )
 
         if parsed_config is not None:
             config_str = parsed_config
@@ -138,7 +140,8 @@ class LabelstudioConverter(BaseConverter):
         return coco_annotations
 
     def get_ls_parsed_config(
-        self, ls_json_path: str,
+        self,
+        ls_json_path: str,
     ) -> Union[Dict[str, Any], None]:
         """
         Get parsed configuration from Label Studio project.
@@ -157,7 +160,9 @@ class LabelstudioConverter(BaseConverter):
 
         ids = set([annot["project"] for annot in ls_annotation])
         if len(ids) != 1:
-            raise ValueError(f"Annotations come from different projects. Project ids are: {ids}")
+            raise ValueError(
+                f"Annotations come from different projects. Project ids are: {ids}"
+            )
 
         project_id = ids.pop()
 

@@ -19,7 +19,9 @@ router = APIRouter()
 
 
 @router.post("/classifier", response_model=VisualizationResponse)
-async def visualize_classifier_predictions(request: ClassificationVisualizationRequest) -> VisualizationResponse:
+async def visualize_classifier_predictions(
+    request: ClassificationVisualizationRequest,
+) -> VisualizationResponse:
     """Visualize classifier predictions."""
 
     try:
@@ -30,8 +32,8 @@ async def visualize_classifier_predictions(request: ClassificationVisualizationR
             metadata={
                 "task_type": "classification_visualization",
                 "model_type": "classifier",
-                "config": request.config.model_dump()
-            }
+                "config": request.config.model_dump(),
+            },
         )
 
         return VisualizationResponse(
@@ -39,7 +41,7 @@ async def visualize_classifier_predictions(request: ClassificationVisualizationR
             message="Classification visualization job created",
             job_id=job_id,
             status="pending",
-            progress=0.0
+            progress=0.0,
         )
 
     except Exception as e:
@@ -48,7 +50,9 @@ async def visualize_classifier_predictions(request: ClassificationVisualizationR
 
 
 @router.post("/detector", response_model=VisualizationResponse)
-async def visualize_detector_predictions(request: DetectionVisualizationRequest) -> VisualizationResponse:
+async def visualize_detector_predictions(
+    request: DetectionVisualizationRequest,
+) -> VisualizationResponse:
     """Visualize detector predictions."""
 
     try:
@@ -59,8 +63,8 @@ async def visualize_detector_predictions(request: DetectionVisualizationRequest)
             metadata={
                 "task_type": "detection_visualization",
                 "model_type": "detector",
-                "config": request.config.model_dump()
-            }
+                "config": request.config.model_dump(),
+            },
         )
 
         return VisualizationResponse(
@@ -68,7 +72,7 @@ async def visualize_detector_predictions(request: DetectionVisualizationRequest)
             message="Detection visualization job created",
             job_id=job_id,
             status="pending",
-            progress=0.0
+            progress=0.0,
         )
 
     except Exception as e:
@@ -84,7 +88,7 @@ async def get_fiftyone_datasets() -> Dict[str, Any]:
         return {
             "success": True,
             "message": f"Retrieved {datasets_info['total_count']} FiftyOne datasets",
-            **datasets_info
+            **datasets_info,
         }
     except Exception as e:
         logger.error(f"Failed to get FiftyOne datasets: {e}")
@@ -99,7 +103,7 @@ async def get_dataset_info(dataset_name: str) -> Dict[str, Any]:
         return {
             "success": True,
             "message": f"Retrieved dataset info for {dataset_name}",
-            **dataset_info
+            **dataset_info,
         }
     except Exception as e:
         logger.error(f"Failed to get dataset info for {dataset_name}: {e}")
@@ -131,7 +135,7 @@ async def get_visualization_status(job_id: str) -> Dict[str, Any]:
         "created_at": job.created_at.isoformat(),
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
-        "duration": duration
+        "duration": duration,
     }
 
 

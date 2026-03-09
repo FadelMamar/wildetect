@@ -129,9 +129,9 @@ class DataLoader:
         self, image_path: Optional[str] = None, idx: Optional[int] = None
     ) -> Dict:
         """Get offset info for the dataset."""
-        assert (image_path is None) ^ (
-            idx is None
-        ), "One of image_path and idx must be provided"
+        assert (image_path is None) ^ (idx is None), (
+            "One of image_path and idx must be provided"
+        )
         return self.dataset.get_offset_info(image_path=image_path, idx=idx)
 
     def _get_image_paths(self, image_dir: str) -> List[str]:

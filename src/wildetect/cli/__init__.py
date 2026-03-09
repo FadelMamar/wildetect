@@ -50,10 +50,10 @@ def main(
         None,
         "--version",
         callback=lambda value: (
-            print(f"wildetect version: {__version__}") or raise_exit()
-        )
-        if value
-        else None,
+            (print(f"wildetect version: {__version__}") or raise_exit())
+            if value
+            else None
+        ),
         is_eager=True,
         help="Show the version and exit.",
     ),

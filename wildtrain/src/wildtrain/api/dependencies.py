@@ -20,7 +20,9 @@ class APISettings(BaseSettings):
 
     # File Storage
     upload_dir: Path = Field(default=Path("./uploads"), description="Upload directory")
-    results_dir: Path = Field(default=Path("./results"), description="Results directory")
+    results_dir: Path = Field(
+        default=Path("./results"), description="Results directory"
+    )
     logs_dir: Path = Field(default=Path("./logs"), description="Logs directory")
 
     # Background Tasks

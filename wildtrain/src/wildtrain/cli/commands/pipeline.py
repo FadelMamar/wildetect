@@ -20,11 +20,15 @@ pipeline_app = typer.Typer(name="pipeline", help="Pipeline commands")
 
 @pipeline_app.command()
 def detection(
-    config: Path = typer.Option(None,"--config", "-c", help="Path to unified detection pipeline YAML config"),
+    config: Path = typer.Option(
+        None, "--config", "-c", help="Path to unified detection pipeline YAML config"
+    ),
 ) -> None:
     """Run the full detection pipeline (train + eval) for object detection."""
 
-    console.print(f"[bold green]Running detection pipeline with config:[/bold green] {config}")
+    console.print(
+        f"[bold green]Running detection pipeline with config:[/bold green] {config}"
+    )
 
     log_file = log_file_path("run_detection_pipeline")
     setup_logging(log_file=log_file)
@@ -32,31 +36,46 @@ def detection(
     try:
         # Load and validate configuration using Pydantic
         cfg = ConfigLoader.load_pipeline_config(config, pipeline_type="detection")
-        console.print("[bold green]✓[/bold green] Detection pipeline configuration validated successfully")
+        console.print(
+            "[bold green]✓[/bold green] Detection pipeline configuration validated successfully"
+        )
 
         # Convert validated config back to DictConfig for backward compatibility
-        console.print("cfg:",cfg)
+        console.print("cfg:", cfg)
 
         pipeline = DetectionPipeline(str(config))
         results = pipeline.run()
-        console.print("\n[bold blue]Detection pipeline completed. Evaluation results:[/bold blue]")
+        console.print(
+            "\n[bold blue]Detection pipeline completed. Evaluation results:[/bold blue]"
+        )
         console.print(results)
 
     except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError):
-        console.print(f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}")
+        console.print(
+            f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}"
+        )
         raise typer.Exit(1)
     except Exception:
-        console.print(f"[bold red]✗[/bold red] Pipeline failed: {traceback.format_exc()}")
+        console.print(
+            f"[bold red]✗[/bold red] Pipeline failed: {traceback.format_exc()}"
+        )
         raise typer.Exit(1)
 
 
 @pipeline_app.command()
 def classification(
-    config: Path = typer.Option(None,"--config", "-c", help="Path to unified classification pipeline YAML config"),
+    config: Path = typer.Option(
+        None,
+        "--config",
+        "-c",
+        help="Path to unified classification pipeline YAML config",
+    ),
 ) -> None:
     """Run the full classification pipeline (train + eval) for image classification."""
 
-    console.print(f"[bold green]Running classification pipeline with config:[/bold green] {config}")
+    console.print(
+        f"[bold green]Running classification pipeline with config:[/bold green] {config}"
+    )
 
     log_file = log_file_path("run_classification_pipeline")
     setup_logging(log_file=log_file)
@@ -64,17 +83,25 @@ def classification(
     try:
         # Load and validate configuration using Pydantic
         cfg = ConfigLoader.load_pipeline_config(config, pipeline_type="classification")
-        console.print("[bold green]✓[/bold green] Classification pipeline configuration validated successfully")
-        console.print("cfg:",cfg)
+        console.print(
+            "[bold green]✓[/bold green] Classification pipeline configuration validated successfully"
+        )
+        console.print("cfg:", cfg)
 
         pipeline = ClassificationPipeline(str(config))
         results = pipeline.run()
-        console.print("\n[bold blue]Classification pipeline completed. Evaluation results:[/bold blue]")
+        console.print(
+            "\n[bold blue]Classification pipeline completed. Evaluation results:[/bold blue]"
+        )
         console.print(results)
 
     except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError):
-        console.print(f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}")
+        console.print(
+            f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}"
+        )
         raise typer.Exit(1)
     except Exception:
-        console.print(f"[bold red]✗[/bold red] Pipeline failed: {traceback.format_exc()}")
+        console.print(
+            f"[bold red]✗[/bold red] Pipeline failed: {traceback.format_exc()}"
+        )
         raise typer.Exit(1)

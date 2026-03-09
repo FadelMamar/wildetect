@@ -11,9 +11,7 @@ if __name__ == "__main__":
     results = evaluator.evaluate(debug=False)
 
     # Print results
-    #print("End.:")
+    # print("End.:")
 
-    print("Results:",results)
-    print("Confusion Matrix:",evaluator.get_confusion_matrix())
-
-
+    print("Results:", results)
+    print("Confusion Matrix:", evaluator.get_confusion_matrix())

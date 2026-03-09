@@ -24,7 +24,9 @@ class TrainingService:
             validated_config = ClassificationConfig(**config)
 
             # Create a temporary config file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".yaml", delete=False
+            ) as f:
                 config_dict = validated_config.model_dump()
                 yaml_content = OmegaConf.to_yaml(OmegaConf.create(config_dict))
                 f.write(yaml_content)
@@ -34,6 +36,7 @@ class TrainingService:
 
             # Import and run the CLI command
             from ...cli.commands.train import classifier
+
             classifier(config=Path(temp_config_path), template=False)
 
             # Clean up temporary file
@@ -50,11 +53,12 @@ class TrainingService:
     def train_detector(config: Dict[str, Any]) -> None:
         """Train a detection model using the CLI."""
         try:
-
             validated_config = DetectionConfig(**config)
 
             # Create a temporary config file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".yaml", delete=False
+            ) as f:
                 config_dict = validated_config.model_dump()
                 yaml_content = OmegaConf.to_yaml(OmegaConf.create(config_dict))
                 f.write(yaml_content)
@@ -64,6 +68,7 @@ class TrainingService:
 
             # Import and run the CLI command
             from ...cli.commands.train import detector
+
             detector(config=Path(temp_config_path), template=False)
 
             # Clean up temporary file

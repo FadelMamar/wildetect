@@ -36,7 +36,10 @@ def stats(
 
         # Create the data module and load data
         datamodule = ClassificationDataModule(
-            root_data_directory=str(data_dir), batch_size=32, transforms=None, load_as_single_class=True
+            root_data_directory=str(data_dir),
+            batch_size=32,
+            transforms=None,
+            load_as_single_class=True,
         )
         if split == "train":
             datamodule.setup(stage="fit")

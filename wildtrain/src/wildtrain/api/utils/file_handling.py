@@ -21,10 +21,7 @@ class FileManager:
         self.settings = get_settings()
 
     async def save_uploaded_file(
-        self,
-        file_content: bytes,
-        filename: str,
-        subdirectory: Optional[str] = None
+        self, file_content: bytes, filename: str, subdirectory: Optional[str] = None
     ) -> Path:
         """Save an uploaded file to the upload directory."""
 
@@ -43,7 +40,7 @@ class FileManager:
             file_path = upload_path / filename
 
         # Save the file
-        async with aiofiles.open(file_path, 'wb') as f:
+        async with aiofiles.open(file_path, "wb") as f:
             await f.write(file_content)
 
         logger.info(f"Saved uploaded file: {file_path}")
@@ -61,7 +58,7 @@ class FileManager:
             "size": stat.st_size,
             "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
             "is_file": file_path.is_file(),
-            "is_directory": file_path.is_dir()
+            "is_directory": file_path.is_dir(),
         }
 
     def list_directory(self, directory_path: Path) -> List[Dict[str, Any]]:
@@ -93,13 +90,13 @@ class FileManager:
         job_id: str,
         task_type: str,
         result_data: Dict[str, Any],
-        filename: str = "result.json"
+        filename: str = "result.json",
     ) -> Path:
         """Save job result to a file."""
         results_dir = self.create_results_directory(job_id, task_type)
         result_file = results_dir / filename
 
-        with open(result_file, 'w') as f:
+        with open(result_file, "w") as f:
             json.dump(result_data, f, indent=2, default=str)
 
         logger.info(f"Saved job result: {result_file}")
@@ -145,9 +142,7 @@ file_manager = FileManager()
 async def save_config_file(file_content: bytes, filename: str) -> Path:
     """Save a configuration file."""
     return await file_manager.save_uploaded_file(
-        file_content,
-        filename,
-        subdirectory="configs"
+        file_content, filename, subdirectory="configs"
     )
 
 

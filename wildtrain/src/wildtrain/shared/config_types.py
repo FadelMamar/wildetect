@@ -5,6 +5,7 @@ from enum import Enum
 
 class ConfigType(Enum):
     """Configuration types."""
+
     CLASSIFICATION = "classification"
     DETECTION = "detection"
     CLASSIFICATION_EVAL = "classification_eval"
@@ -16,4 +17,3 @@ class ConfigType(Enum):
     DETECTOR_REGISTRATION = "detector_registration"
     CLASSIFIER_REGISTRATION = "classifier_registration"
     MODEL_REGISTRATION = "model_registration"
-

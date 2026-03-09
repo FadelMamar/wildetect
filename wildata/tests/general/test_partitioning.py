@@ -24,7 +24,7 @@ def create_test_coco_data() -> Dict[str, Any]:
     for i in range(20):
         image = {
             "id": i + 1,
-            "file_name": f"test_image_{i+1}.jpg",
+            "file_name": f"test_image_{i + 1}.jpg",
             "width": 640,
             "height": 480,
             "gps_lat": 1.0 + (i % 4) * 0.01,  # Create spatial groups

@@ -56,7 +56,8 @@ class GPSOverlapStrategy(OverlapStrategy):
     """
 
     def __init__(
-        self,verbose: bool = False,
+        self,
+        verbose: bool = False,
     ):
         super().__init__()
         self.stats = {
@@ -65,6 +66,7 @@ class GPSOverlapStrategy(OverlapStrategy):
             "min_overlap_ratio": 0.0,
         }
         self.verbose = verbose
+
     def _compute_iou(self, images: List[DroneImage]) -> np.ndarray | None:
         """Compute Intersection over Union (IoU) between all pairs of image tiles.
         Args:
@@ -83,7 +85,9 @@ class GPSOverlapStrategy(OverlapStrategy):
         return box_ious
 
     def find_overlapping_images(
-        self, images: List[DroneImage], min_overlap_threshold: float = 0.0,
+        self,
+        images: List[DroneImage],
+        min_overlap_threshold: float = 0.0,
     ) -> Dict[str, List[str]]:
         """Find overlapping images using precomputed IoU matrix.
         Args:
@@ -97,7 +101,9 @@ class GPSOverlapStrategy(OverlapStrategy):
         ious = self._compute_iou(images=images)
         if ious is None:
             return {}
-        progress_bar = tqdm(images, desc="Finding overlapping images", disable=not self.verbose)
+        progress_bar = tqdm(
+            images, desc="Finding overlapping images", disable=not self.verbose
+        )
         for i, img1 in enumerate(progress_bar):
             for j, img2 in enumerate(images):
                 if i <= j:  # only consider above diagonal because it's symmetric
@@ -193,6 +199,7 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
     ):
         self.invalid_iou = -999.0
         self.verbose = verbose
+
     def _compute_iou(
         self, detections_1: List[Detection], detections_2: List[Detection]
     ) -> np.ndarray:
@@ -463,7 +470,9 @@ class CentroidProximityRemovalStrategy(DuplicateRemovalStrategy):
         )
 
         for image_path in tqdm(
-            overlap_map.keys(), desc="Removing duplicates in Overlapping regions", disable=not self.verbose
+            overlap_map.keys(),
+            desc="Removing duplicates in Overlapping regions",
+            disable=not self.verbose,
         ):
             tile = image_path_to_tile[image_path]
             for neighbor in overlap_map[image_path]:
@@ -598,11 +607,14 @@ class GeographicMerger:
     """Merges detections across overlapping geographic regions."""
 
     def __init__(
-        self,verbose: bool = False,
+        self,
+        verbose: bool = False,
     ):
         """Initialize the geographic merger."""
         self.overlap_strategy = GPSOverlapStrategy(verbose=verbose)
-        self.duplicate_removal_strategy = CentroidProximityRemovalStrategy(verbose=verbose)
+        self.duplicate_removal_strategy = CentroidProximityRemovalStrategy(
+            verbose=verbose
+        )
         self.verbose = verbose
 
     def get_image_overlap_stats(
@@ -644,8 +656,12 @@ class GeographicMerger:
             drone_images
         )
         self._log("Geographic footprint availability:")
-        self._log(f"  Tiles with GPS data: {geo_stats['tiles_with_gps']}/{geo_stats['total_tiles']}")
-        self._log(f"  Detections with geographic footprints: {geo_stats['detections_with_geographic_footprints']}/{geo_stats['total_detections']}")
+        self._log(
+            f"  Tiles with GPS data: {geo_stats['tiles_with_gps']}/{geo_stats['total_tiles']}"
+        )
+        self._log(
+            f"  Detections with geographic footprints: {geo_stats['detections_with_geographic_footprints']}/{geo_stats['total_detections']}"
+        )
 
         overlap_map = self.overlap_strategy.find_overlapping_images(
             drone_images, min_overlap_threshold=min_overlap_threshold

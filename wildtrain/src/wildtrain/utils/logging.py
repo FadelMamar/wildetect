@@ -6,6 +6,7 @@ from typing import Optional
 ROOT = Path(__file__).parents[3]
 ENV_FILE = ROOT / ".env"
 
+
 def setup_logging(level="INFO", log_file: Optional[str] = None):
     """Setup logging configuration."""
     level = getattr(logging, level.upper(), logging.INFO)
@@ -34,5 +35,6 @@ def get_logger(name: str) -> logging.Logger:
         Configured logger
     """
     return logging.getLogger(name)
+
 
 setup_logging(level="INFO", log_file="wildtrain.log")

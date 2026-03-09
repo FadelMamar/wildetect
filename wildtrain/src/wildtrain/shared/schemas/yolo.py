@@ -10,6 +10,7 @@ from .base import BaseConfig
 
 class OverlapMetricConfig(StrEnum):
     """Overlap metric configuration for detection evaluation."""
+
     IOU = "iou"
     IOS = "ios"
 
@@ -23,8 +24,10 @@ class OverlapMetricConfig(StrEnum):
                     return member
         return None
 
+
 class MergingMethodConfig(StrEnum):
     """Merging method configuration for detection evaluation."""
+
     NMS = "nms"
     NMM = "nmm"
 
@@ -38,64 +41,110 @@ class MergingMethodConfig(StrEnum):
                     return member
         return None
 
+
 class YoloInferenceConfig(BaseConfig):
     """YOLO model configuration."""
+
     weights: Optional[str] = Field(default=None, description="Model weights path")
     imgsz: int = Field(gt=0, description="Input image size")
     device: str = Field(default="cpu", description="Device to use")
-    conf_thres: float = Field(default=0.2, ge=0.0, le=1.0, description="Confidence threshold")
+    conf_thres: float = Field(
+        default=0.2, ge=0.0, le=1.0, description="Confidence threshold"
+    )
     iou_thres: float = Field(default=0.3, ge=0.0, le=1.0, description="IoU threshold")
     max_det: int = Field(default=300, gt=0, description="Maximum detections")
-    overlap_metric: OverlapMetricConfig = Field(default=OverlapMetricConfig.IOU, description="Overlap metric")
-    merging_method: MergingMethodConfig = Field(default=MergingMethodConfig.NMS, description="Merging method")
-    task: str = Field(default="detect", description="YOLO task type (detect, classify, segment)")
-    disable_detection_filtering: bool = Field(default=False, description="Disable detection filtering")
+    overlap_metric: OverlapMetricConfig = Field(
+        default=OverlapMetricConfig.IOU, description="Overlap metric"
+    )
+    merging_method: MergingMethodConfig = Field(
+        default=MergingMethodConfig.NMS, description="Merging method"
+    )
+    task: str = Field(
+        default="detect", description="YOLO task type (detect, classify, segment)"
+    )
+    disable_detection_filtering: bool = Field(
+        default=False, description="Disable detection filtering"
+    )
 
 
 class YoloDatasetConfig(BaseConfig):
     """YOLO dataset configuration."""
-    data_cfg: Optional[str] = Field(default=None, description="str to data configuration file")
-    root_data_directory: Optional[str] = Field(default=None, description="Root data directory")
+
+    data_cfg: Optional[str] = Field(
+        default=None, description="str to data configuration file"
+    )
+    root_data_directory: Optional[str] = Field(
+        default=None, description="Root data directory"
+    )
     force_merge: bool = Field(default=False, description="Force merge")
     keep_classes: Optional[List[str]] = Field(default=None, description="Keep classes")
-    discard_classes: Optional[List[str]] = Field(default=None, description="Discard classes")
+    discard_classes: Optional[List[str]] = Field(
+        default=None, description="Discard classes"
+    )
 
 
 class YoloCurriculumConfig(BaseConfig):
     """YOLO curriculum learning configuration."""
+
     enable: bool = Field(default=False, description="Enable curriculum learning")
-    data_cfg: Optional[str] = Field(default=None, description="Curriculum data configuration")
+    data_cfg: Optional[str] = Field(
+        default=None, description="Curriculum data configuration"
+    )
     ratios: List[float] = Field(default_factory=list, description="Curriculum ratios")
     epochs: List[int] = Field(default_factory=list, description="Curriculum epochs")
-    freeze: List[int] = Field(default_factory=list, description="Curriculum freeze layers")
-    lr0s: List[float] = Field(default_factory=list, description="Curriculum learning rates")
-    save_dir: Optional[str] = Field(default=None, description="Curriculum save directory")
+    freeze: List[int] = Field(
+        default_factory=list, description="Curriculum freeze layers"
+    )
+    lr0s: List[float] = Field(
+        default_factory=list, description="Curriculum learning rates"
+    )
+    save_dir: Optional[str] = Field(
+        default=None, description="Curriculum save directory"
+    )
 
 
 class YoloPretrainingConfig(BaseConfig):
     """YOLO pretraining configuration."""
-    data_cfg: Optional[str] = Field(default=None, description="Pretraining data configuration")
+
+    data_cfg: Optional[str] = Field(
+        default=None, description="Pretraining data configuration"
+    )
     epochs: int = Field(default=10, description="Pretraining epochs")
     lr0: float = Field(default=0.0001, description="Pretraining learning rate")
     lrf: float = Field(default=0.1, description="Pretraining learning rate factor")
     freeze: int = Field(default=0, description="Pretraining freeze layers")
-    save_dir: Optional[str] = Field(default=None, description="Pretraining save directory")
+    save_dir: Optional[str] = Field(
+        default=None, description="Pretraining save directory"
+    )
 
 
 class YoloModelConfig(BaseConfig):
     """YOLO model configuration."""
+
     pretrained: bool = Field(default=True, description="Use pretrained model")
     weights: Optional[str] = Field(default=None, description="Model weights path")
-    architecture_file: Optional[str] = Field(default=None, description="Model architecture file")
+    architecture_file: Optional[str] = Field(
+        default=None, description="Model architecture file"
+    )
 
 
 class YoloCustomConfig(BaseConfig):
     """YOLO custom configuration."""
-    image_encoder_backbone: str = Field(default="timm/vit_base_patch14_dinov2.lvd142m", description="Image encoder backbone")
-    image_encoder_backbone_source: str = Field(default="timm", description="Image encoder backbone source")
-    count_regressor_layers: int = Field(default=13, description="Count regressor layers")
+
+    image_encoder_backbone: str = Field(
+        default="timm/vit_base_patch14_dinov2.lvd142m",
+        description="Image encoder backbone",
+    )
+    image_encoder_backbone_source: str = Field(
+        default="timm", description="Image encoder backbone source"
+    )
+    count_regressor_layers: int = Field(
+        default=13, description="Count regressor layers"
+    )
     area_regressor_layers: int = Field(default=10, description="Area regressor layers")
-    roi_classifier_layers: Dict[str, int] = Field(default_factory=dict, description="ROI classifier layers")
+    roi_classifier_layers: Dict[str, int] = Field(
+        default_factory=dict, description="ROI classifier layers"
+    )
     fp_tp_loss_weight: float = Field(default=0.5, description="FP/TP loss weight")
     count_loss_weight: float = Field(default=0.5, description="Count loss weight")
     area_loss_weight: float = Field(default=0.25, description="Area loss weight")
@@ -104,6 +153,7 @@ class YoloCustomConfig(BaseConfig):
 
 class YoloTrainConfig(BaseConfig):
     """YOLO training configuration."""
+
     batch: int = Field(description="Training batch size")
     epochs: int = Field(description="Number of training epochs")
     optimizer: str = Field(default="AdamW", description="Optimizer")

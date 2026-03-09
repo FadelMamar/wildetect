@@ -193,9 +193,9 @@ class BaseDetectionPipeline(ABC):
         detections = batch.get("detections", [])
         for tile_data, tile_detections in zip(batch["tiles"], detections):
             tile = Tile.from_dict(tile_data)
-            assert (
-                tile.parent_image is not None
-            ), "Parent image is None. Error in dataloader."
+            assert tile.parent_image is not None, (
+                "Parent image is None. Error in dataloader."
+            )
 
             # Create or get drone image for this parent
             if tile.parent_image not in self.drone_images:
@@ -391,9 +391,9 @@ class DetectionPipeline(BaseDetectionPipeline):
         if self.image_csv_data is not None:
             image_paths = self._get_image_paths(from_csv=True)
         else:
-            assert (image_paths is not None) ^ (
-                image_dir is not None
-            ), "image_paths or image_dir must be provided"
+            assert (image_paths is not None) ^ (image_dir is not None), (
+                "image_paths or image_dir must be provided"
+            )
 
         data_loader = self.get_data_loader(
             image_paths=image_paths,
@@ -529,9 +529,9 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
         if self.image_csv_data is not None:
             image_paths = self._get_image_paths(from_csv=True)
         else:
-            assert (image_paths is not None) ^ (
-                image_dir is not None
-            ), "image_paths or image_dir must be provided"
+            assert (image_paths is not None) ^ (image_dir is not None), (
+                "image_paths or image_dir must be provided"
+            )
 
         self.save_path = save_path
         if self.save_path:

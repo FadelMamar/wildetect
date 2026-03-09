@@ -159,9 +159,9 @@ class Classifier(Processor):
         if not isinstance(label_map, dict):
             raise ValueError("label_map must be a dictionary")
         else:
-            assert all(
-                isinstance(key, int) for key in label_map.keys()
-            ), "label_map must be a dictionary of int keys"
+            assert all(isinstance(key, int) for key in label_map.keys()), (
+                "label_map must be a dictionary of int keys"
+            )
 
         if model is not None:
             self.model = model.to(device)
@@ -293,9 +293,9 @@ class RoIPostProcessor(Processor):
         self.box_size = roi_size
 
         if classifier:
-            assert isinstance(
-                classifier, Classifier
-            ), "classifier must be a Classifier instance"
+            assert isinstance(classifier, Classifier), (
+                "classifier must be a Classifier instance"
+            )
             self.classifier = classifier
             self.logger.info("ROI Classifier initialized with classifier")
         else:

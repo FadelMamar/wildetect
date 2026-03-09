@@ -31,9 +31,9 @@ class BenchmarkPipeline(object):
         config: BenchmarkConfigModel,
     ):
         self._config = config
-        assert isinstance(
-            config, BenchmarkConfigModel
-        ), f"config must be a BenchmarkConfigModel, but got {type(config)}"
+        assert isinstance(config, BenchmarkConfigModel), (
+            f"config must be a BenchmarkConfigModel, but got {type(config)}"
+        )
 
         self.image_paths = config.get_image_paths()
         self.prediction_config = config.to_prediction_config()
@@ -548,19 +548,19 @@ class DataLoaderBenchmark:
         if "batch_load_time_mean" in self.metrics:
             logger.info("\nCACHE PERFORMANCE DIAGNOSTICS:")
             logger.info(
-                f"  Mean batch time:     {self.metrics['batch_load_time_mean']*1000:.2f} ms"
+                f"  Mean batch time:     {self.metrics['batch_load_time_mean'] * 1000:.2f} ms"
             )
             logger.info(
-                f"  Std batch time:      {self.metrics['batch_load_time_std']*1000:.2f} ms"
+                f"  Std batch time:      {self.metrics['batch_load_time_std'] * 1000:.2f} ms"
             )
             logger.info(
-                f"  Min batch time:      {self.metrics['batch_load_time_min']*1000:.2f} ms (fastest)"
+                f"  Min batch time:      {self.metrics['batch_load_time_min'] * 1000:.2f} ms (fastest)"
             )
             logger.info(
-                f"  Max batch time:      {self.metrics['batch_load_time_max']*1000:.2f} ms (slowest)"
+                f"  Max batch time:      {self.metrics['batch_load_time_max'] * 1000:.2f} ms (slowest)"
             )
             logger.info(
-                f"  Median batch time:   {self.metrics['batch_load_time_median']*1000:.2f} ms"
+                f"  Median batch time:   {self.metrics['batch_load_time_median'] * 1000:.2f} ms"
             )
 
             if self.metrics["slow_batch_indices"]:
@@ -663,7 +663,7 @@ class DataLoaderBenchmark:
             Dictionary mapping config names to their metrics
         """
         if config_names is None:
-            config_names = [f"Config_{i+1}" for i in range(len(configs))]
+            config_names = [f"Config_{i + 1}" for i in range(len(configs))]
 
         results = {}
 

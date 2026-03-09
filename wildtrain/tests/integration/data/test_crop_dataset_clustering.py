@@ -26,6 +26,7 @@ from wildtrain.shared.models import CurriculumConfig
 
 DATASET_PATH = r"D:\workspace\data\demo-dataset"
 
+
 @pytest.mark.integration
 @pytest.mark.data
 class TestPatchDatasetClustering:
@@ -53,9 +54,11 @@ class TestPatchDatasetClustering:
         )
 
         # Create transforms
-        self.transform = transforms.Compose([
-            transforms.ToTensor(),
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+            ]
+        )
 
         # Create temporary directory for test outputs
         self.temp_dir = tempfile.mkdtemp(prefix="wildtrain_crop_clustering_test_")
@@ -72,24 +75,26 @@ class TestPatchDatasetClustering:
             root_data_directory=self.dataset_path,
             split="train",
             curriculum_config=self.curriculum_config,
-            transform=self.transform
+            transform=self.transform,
         )
 
         # Validate base dataset
         assert len(dataset) > 0, "Base dataset should not be empty"
-        assert hasattr(dataset, 'classes'), "Dataset should have classes attribute"
+        assert hasattr(dataset, "classes"), "Dataset should have classes attribute"
 
         # Create PatchDataset
         crop_dataset = PatchDataset(
             dataset=dataset,
             crop_size=224,
             max_tn_crops=1,
-            p_draw_annotations=0.0  # No annotations for cleaner crops
+            p_draw_annotations=0.0,  # No annotations for cleaner crops
         )
 
         # Validate PatchDataset
         assert len(crop_dataset) > 0, "PatchDataset should not be empty"
-        assert hasattr(crop_dataset, 'get_annotations_for_filter'), "PatchDataset should have get_annotations_for_filter method"
+        assert hasattr(crop_dataset, "get_annotations_for_filter"), (
+            "PatchDataset should have get_annotations_for_filter method"
+        )
 
         # Test getting annotations for filtering
         annotations = crop_dataset.get_annotations_for_filter()
@@ -98,8 +103,8 @@ class TestPatchDatasetClustering:
 
         # Validate annotation format
         for ann in annotations:
-            assert 'class_name' in ann, "Annotation should have class_name"
-            assert 'roi_id' in ann, "Annotation should have roi_id"
+            assert "class_name" in ann, "Annotation should have class_name"
+            assert "roi_id" in ann, "Annotation should have roi_id"
 
     def test_clustering_filter_application(self):
         """Test ClusteringFilter application with different reduction factors."""
@@ -108,14 +113,11 @@ class TestPatchDatasetClustering:
             root_data_directory=self.dataset_path,
             split="train",
             curriculum_config=self.curriculum_config,
-            transform=self.transform
+            transform=self.transform,
         )
 
         crop_dataset = PatchDataset(
-            dataset=dataset,
-            crop_size=224,
-            max_tn_crops=1,
-            p_draw_annotations=0.0
+            dataset=dataset, crop_size=224, max_tn_crops=1, p_draw_annotations=0.0
         )
 
         # Get annotations before clustering
@@ -128,18 +130,21 @@ class TestPatchDatasetClustering:
         for reduction_factor in reduction_factors:
             # Create clustering filter
             clustering_filter = ClusteringFilter(
-                batch_size=32,
-                reduction_factor=reduction_factor
+                batch_size=32, reduction_factor=reduction_factor
             )
 
             # Create adapter
             clustering_adapter = CropClusteringAdapter(clustering_filter)
 
             # Apply filter
-            clustered_crop_dataset = crop_dataset.apply_clustering_filter(clustering_adapter)
+            clustered_crop_dataset = crop_dataset.apply_clustering_filter(
+                clustering_adapter
+            )
 
             # Validate results
-            assert len(clustered_crop_dataset) > 0, f"Clustered dataset should not be empty for reduction_factor={reduction_factor}"
+            assert len(clustered_crop_dataset) > 0, (
+                f"Clustered dataset should not be empty for reduction_factor={reduction_factor}"
+            )
 
             # Check that reduction was applied (allowing for some tolerance)
             expected_count = int(original_count * reduction_factor)
@@ -147,8 +152,9 @@ class TestPatchDatasetClustering:
 
             # Allow 10% tolerance for clustering variations
             tolerance = int(original_count * 0.1)
-            assert abs(actual_count - expected_count) <= tolerance, \
+            assert abs(actual_count - expected_count) <= tolerance, (
                 f"Expected approximately {expected_count} crops, got {actual_count} for reduction_factor={reduction_factor}"
+            )
 
     def test_adapter_pattern_functionality(self):
         """Test CropClusteringAdapter functionality and adapter pattern."""
@@ -157,21 +163,15 @@ class TestPatchDatasetClustering:
             root_data_directory=self.dataset_path,
             split="train",
             curriculum_config=self.curriculum_config,
-            transform=self.transform
+            transform=self.transform,
         )
 
         crop_dataset = PatchDataset(
-            dataset=dataset,
-            crop_size=224,
-            max_tn_crops=1,
-            p_draw_annotations=0.0
+            dataset=dataset, crop_size=224, max_tn_crops=1, p_draw_annotations=0.0
         )
 
         # Create clustering filter
-        clustering_filter = ClusteringFilter(
-            batch_size=32,
-            reduction_factor=0.5
-        )
+        clustering_filter = ClusteringFilter(batch_size=32, reduction_factor=0.5)
 
         # Create adapter
         clustering_adapter = CropClusteringAdapter(clustering_filter)
@@ -179,12 +179,18 @@ class TestPatchDatasetClustering:
         # Test adapter information
         adapter_info = clustering_adapter.get_filter_info()
         assert isinstance(adapter_info, dict), "Adapter info should be a dictionary"
-        assert 'reduction_factor' in adapter_info, "Adapter info should contain reduction_factor"
-        assert adapter_info['reduction_factor'] == 0.5, "Reduction factor should match"
+        assert "reduction_factor" in adapter_info, (
+            "Adapter info should contain reduction_factor"
+        )
+        assert adapter_info["reduction_factor"] == 0.5, "Reduction factor should match"
 
         # Test that adapter wraps the original filter
-        assert hasattr(clustering_adapter, 'clustering_filter'), "Adapter should have clustering_filter attribute"
-        assert clustering_adapter.clustering_filter == clustering_filter, "Adapter should wrap the original filter"
+        assert hasattr(clustering_adapter, "clustering_filter"), (
+            "Adapter should have clustering_filter attribute"
+        )
+        assert clustering_adapter.clustering_filter == clustering_filter, (
+            "Adapter should wrap the original filter"
+        )
 
     def test_dataloader_compatibility(self):
         """Test DataLoader compatibility with clustered datasets."""
@@ -195,30 +201,23 @@ class TestPatchDatasetClustering:
             root_data_directory=self.dataset_path,
             split="train",
             curriculum_config=self.curriculum_config,
-            transform=self.transform
+            transform=self.transform,
         )
 
         crop_dataset = PatchDataset(
-            dataset=dataset,
-            crop_size=224,
-            max_tn_crops=1,
-            p_draw_annotations=0.0
+            dataset=dataset, crop_size=224, max_tn_crops=1, p_draw_annotations=0.0
         )
 
         # Apply clustering
-        clustering_filter = ClusteringFilter(
-            batch_size=32,
-            reduction_factor=0.5
-        )
+        clustering_filter = ClusteringFilter(batch_size=32, reduction_factor=0.5)
         clustering_adapter = CropClusteringAdapter(clustering_filter)
-        clustered_crop_dataset = crop_dataset.apply_clustering_filter(clustering_adapter)
+        clustered_crop_dataset = crop_dataset.apply_clustering_filter(
+            clustering_adapter
+        )
 
         # Create DataLoader
         dataloader = DataLoader(
-            clustered_crop_dataset,
-            batch_size=4,
-            shuffle=True,
-            num_workers=0
+            clustered_crop_dataset, batch_size=4, shuffle=True, num_workers=0
         )
 
         # Test batch loading
@@ -241,46 +240,56 @@ class TestPatchDatasetClustering:
             root_data_directory=self.dataset_path,
             split="train",
             curriculum_config=self.curriculum_config,
-            transform=self.transform
+            transform=self.transform,
         )
 
         crop_dataset = PatchDataset(
-            dataset=dataset,
-            crop_size=224,
-            max_tn_crops=1,
-            p_draw_annotations=0.0
+            dataset=dataset, crop_size=224, max_tn_crops=1, p_draw_annotations=0.0
         )
 
         # Apply clustering
-        clustering_filter = ClusteringFilter(
-            batch_size=32,
-            reduction_factor=0.5
-        )
+        clustering_filter = ClusteringFilter(batch_size=32, reduction_factor=0.5)
         clustering_adapter = CropClusteringAdapter(clustering_filter)
-        clustered_crop_dataset = crop_dataset.apply_clustering_filter(clustering_adapter)
+        clustered_crop_dataset = crop_dataset.apply_clustering_filter(
+            clustering_adapter
+        )
 
         # Test get_crops_by_class
         if len(dataset.classes) > 0:
             class_id = 0  # Test with first class
             crops_by_class = clustered_crop_dataset.get_crops_by_class(class_id)
-            assert isinstance(crops_by_class, list), "get_crops_by_class should return a list"
-            assert all(isinstance(idx, int) for idx in crops_by_class), "Indices should be integers"
+            assert isinstance(crops_by_class, list), (
+                "get_crops_by_class should return a list"
+            )
+            assert all(isinstance(idx, int) for idx in crops_by_class), (
+                "Indices should be integers"
+            )
 
         # Test get_crops_by_type
-        detection_crops = clustered_crop_dataset.get_crops_by_type('detection')
-        random_crops = clustered_crop_dataset.get_crops_by_type('random')
+        detection_crops = clustered_crop_dataset.get_crops_by_type("detection")
+        random_crops = clustered_crop_dataset.get_crops_by_type("random")
 
-        assert isinstance(detection_crops, list), "get_crops_by_type should return a list for detection"
-        assert isinstance(random_crops, list), "get_crops_by_type should return a list for random"
-        assert all(isinstance(idx, int) for idx in detection_crops), "Detection indices should be integers"
-        assert all(isinstance(idx, int) for idx in random_crops), "Random indices should be integers"
+        assert isinstance(detection_crops, list), (
+            "get_crops_by_type should return a list for detection"
+        )
+        assert isinstance(random_crops, list), (
+            "get_crops_by_type should return a list for random"
+        )
+        assert all(isinstance(idx, int) for idx in detection_crops), (
+            "Detection indices should be integers"
+        )
+        assert all(isinstance(idx, int) for idx in random_crops), (
+            "Random indices should be integers"
+        )
 
         # Test get_crop_info
         if len(clustered_crop_dataset) > 0:
             crop_info = clustered_crop_dataset.get_crop_info(0)
-            assert isinstance(crop_info, dict), "get_crop_info should return a dictionary"
-            assert 'crop_type' in crop_info, "Crop info should contain crop_type"
-            assert 'class_id' in crop_info, "Crop info should contain class_id"
+            assert isinstance(crop_info, dict), (
+                "get_crop_info should return a dictionary"
+            )
+            assert "crop_type" in crop_info, "Crop info should contain crop_type"
+            assert "class_id" in crop_info, "Crop info should contain class_id"
 
     def test_class_distribution_analysis(self):
         """Test class distribution analysis before/after clustering."""
@@ -289,52 +298,50 @@ class TestPatchDatasetClustering:
             root_data_directory=self.dataset_path,
             split="train",
             curriculum_config=self.curriculum_config,
-            transform=self.transform
+            transform=self.transform,
         )
 
         crop_dataset = PatchDataset(
-            dataset=dataset,
-            crop_size=224,
-            max_tn_crops=1,
-            p_draw_annotations=0.0
+            dataset=dataset, crop_size=224, max_tn_crops=1, p_draw_annotations=0.0
         )
 
         # Analyze class distribution before clustering
         annotations_before = crop_dataset.get_annotations_for_filter()
         class_counts_before = {}
         for ann in annotations_before:
-            class_name = ann['class_name']
+            class_name = ann["class_name"]
             class_counts_before[class_name] = class_counts_before.get(class_name, 0) + 1
 
         # Apply clustering
-        clustering_filter = ClusteringFilter(
-            batch_size=32,
-            reduction_factor=0.5
-        )
+        clustering_filter = ClusteringFilter(batch_size=32, reduction_factor=0.5)
         clustering_adapter = CropClusteringAdapter(clustering_filter)
-        clustered_crop_dataset = crop_dataset.apply_clustering_filter(clustering_adapter)
+        clustered_crop_dataset = crop_dataset.apply_clustering_filter(
+            clustering_adapter
+        )
 
         # Analyze class distribution after clustering
         annotations_after = clustered_crop_dataset.get_annotations_for_filter()
         class_counts_after = {}
         for ann in annotations_after:
-            class_name = ann['class_name']
+            class_name = ann["class_name"]
             class_counts_after[class_name] = class_counts_after.get(class_name, 0) + 1
 
         # Validate that clustering preserved some samples from each class
         for class_name in class_counts_before:
-            assert class_name in class_counts_after, f"Class {class_name} should still be present after clustering"
-            assert class_counts_after[class_name] > 0, f"Class {class_name} should have samples after clustering"
-            assert class_counts_after[class_name] <= class_counts_before[class_name], \
+            assert class_name in class_counts_after, (
+                f"Class {class_name} should still be present after clustering"
+            )
+            assert class_counts_after[class_name] > 0, (
+                f"Class {class_name} should have samples after clustering"
+            )
+            assert class_counts_after[class_name] <= class_counts_before[class_name], (
                 f"Class {class_name} should not have more samples after clustering"
+            )
 
     def test_adapter_information_retrieval(self):
         """Test adapter information retrieval (get_filter_info)."""
         # Create clustering filter
-        clustering_filter = ClusteringFilter(
-            batch_size=32,
-            reduction_factor=0.5
-        )
+        clustering_filter = ClusteringFilter(batch_size=32, reduction_factor=0.5)
 
         # Create adapter
         clustering_adapter = CropClusteringAdapter(clustering_filter)
@@ -344,14 +351,18 @@ class TestPatchDatasetClustering:
 
         # Validate adapter info structure
         assert isinstance(adapter_info, dict), "Adapter info should be a dictionary"
-        assert 'reduction_factor' in adapter_info, "Adapter info should contain reduction_factor"
-        assert 'batch_size' in adapter_info, "Adapter info should contain batch_size"
-        assert 'filter_type' in adapter_info, "Adapter info should contain filter_type"
+        assert "reduction_factor" in adapter_info, (
+            "Adapter info should contain reduction_factor"
+        )
+        assert "batch_size" in adapter_info, "Adapter info should contain batch_size"
+        assert "filter_type" in adapter_info, "Adapter info should contain filter_type"
 
         # Validate values
-        assert adapter_info['reduction_factor'] == 0.5, "Reduction factor should match"
-        assert adapter_info['batch_size'] == 32, "Batch size should match"
-        assert adapter_info['filter_type'] == 'ClusteringFilter', "Filter type should be correct"
+        assert adapter_info["reduction_factor"] == 0.5, "Reduction factor should match"
+        assert adapter_info["batch_size"] == 32, "Batch size should match"
+        assert adapter_info["filter_type"] == "ClusteringFilter", (
+            "Filter type should be correct"
+        )
 
     def test_error_handling(self):
         """Test error handling for invalid configurations."""
@@ -359,14 +370,14 @@ class TestPatchDatasetClustering:
         with pytest.raises(ValueError):
             ClusteringFilter(
                 batch_size=32,
-                reduction_factor=1.5  # Invalid: > 1.0
+                reduction_factor=1.5,  # Invalid: > 1.0
             )
 
         # Test with invalid batch size
         with pytest.raises(ValueError):
             ClusteringFilter(
                 batch_size=0,  # Invalid: <= 0
-                reduction_factor=0.5
+                reduction_factor=0.5,
             )
 
         # Test with empty dataset (should handle gracefully)
@@ -381,7 +392,7 @@ class TestPatchDatasetClustering:
             root_data_directory=self.dataset_path,
             split="train",
             curriculum_config=self.curriculum_config,
-            transform=self.transform
+            transform=self.transform,
         )
 
         # Create PatchDataset with more crops
@@ -389,17 +400,21 @@ class TestPatchDatasetClustering:
             dataset=dataset,
             crop_size=224,
             max_tn_crops=5,  # More crops per image
-            p_draw_annotations=0.0
+            p_draw_annotations=0.0,
         )
 
         # Apply clustering with aggressive reduction
         clustering_filter = ClusteringFilter(
             batch_size=64,  # Larger batch size
-            reduction_factor=0.3  # More aggressive reduction
+            reduction_factor=0.3,  # More aggressive reduction
         )
         clustering_adapter = CropClusteringAdapter(clustering_filter)
-        clustered_crop_dataset = crop_dataset.apply_clustering_filter(clustering_adapter)
+        clustered_crop_dataset = crop_dataset.apply_clustering_filter(
+            clustering_adapter
+        )
 
         # Validate that clustering worked
         assert len(clustered_crop_dataset) > 0, "Clustered dataset should not be empty"
-        assert len(clustered_crop_dataset) < len(crop_dataset), "Clustered dataset should be smaller"
+        assert len(clustered_crop_dataset) < len(crop_dataset), (
+            "Clustered dataset should be smaller"
+        )

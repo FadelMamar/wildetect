@@ -24,6 +24,7 @@ def read_image(image_path: str) -> Image.Image:
     ImageOps.exif_transpose(image, in_place=True)
     return image
 
+
 @lru_cache(maxsize=512)
 def get_image_dimensions(image_path: str) -> Tuple[int, int]:
     """Get the dimensions of an image."""
@@ -81,9 +82,9 @@ def validate_results(
 
     # More tolerant comparison for SAHI results
     try:
-        assert torch.allclose(
-            tiles, extracted_regions, atol=1e-2, rtol=1e-2
-        ), "error in tiling. Extracted value and offsets don't match"
+        assert torch.allclose(tiles, extracted_regions, atol=1e-2, rtol=1e-2), (
+            "error in tiling. Extracted value and offsets don't match"
+        )
     except AssertionError as e:
         # Print some debugging info
         print(f"Validation failed: {e}")
@@ -374,21 +375,21 @@ def save_image_tiles(
 ) -> List[str]:
     """
     Load an image and save all tiles to disk with numbered filenames.
-    
+
     Args:
         image_path (str): Path to the input image file.
         output_path (str): Directory path where tiles will be saved.
         patch_size (int): Size of each tile (square tiles).
         stride (int): Stride between tiles.
-    
+
     Returns:
         List[str]: List of paths to saved tile files.
-    
+
     Example:
         >>> saved_tiles = save_image_tiles(
-        ...     "input.jpg", 
-        ...     "output_tiles/", 
-        ...     patch_size=512, 
+        ...     "input.jpg",
+        ...     "output_tiles/",
+        ...     patch_size=512,
         ...     stride=256
         ... )
     """
@@ -397,6 +398,7 @@ def save_image_tiles(
 
     # Convert PIL image to torch tensor (C, H, W) format
     import torchvision.transforms.functional as F
+
     image_tensor = F.to_tensor(image)
 
     # Extract tiles using TileUtils
@@ -404,7 +406,7 @@ def save_image_tiles(
         image_tensor,
         patch_size=patch_size,
         stride=stride,
-        file_name=Path(image_path).name
+        file_name=Path(image_path).name,
     )
 
     # Create output directory if it doesn't exist
@@ -431,7 +433,12 @@ def save_image_tiles(
         saved_paths.append(str(tile_path))
 
     with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = [executor.submit(_save_tile, tile, output_dir, original_name, original_ext, i) for i, tile in enumerate(tiles)]
+        futures = [
+            executor.submit(
+                _save_tile, tile, output_dir, original_name, original_ext, i
+            )
+            for i, tile in enumerate(tiles)
+        ]
         for future in futures:
             future.result()
 
@@ -449,17 +456,17 @@ def save_tiles_for_directory(
 ) -> Dict[str, List[str]]:
     """
     Load all images from a directory and save tiles for each image.
-    
+
     Args:
         images_dir (str): Directory containing input images.
         output_path (str): Directory path where tiles will be saved.
         patch_size (int): Size of each tile (square tiles).
         stride (int): Stride between tiles.
         patterns (tuple): File patterns to match for images. Defaults to common image formats.
-    
+
     Returns:
         Dict[str, List[str]]: Dictionary mapping original image paths to lists of saved tile paths.
-    
+
     Example:
         >>> results = save_tiles_for_directory(
         ...     images_dir="input_images/",
@@ -484,7 +491,16 @@ def save_tiles_for_directory(
     error_count = 0
     tqdm_image_paths = tqdm(total=len(image_paths), desc="Processing images")
     with ProcessPoolExecutor(max_workers=4) as executor:
-        futures = [executor.submit(save_image_tiles, image_path=image_path, output_path=output_path, patch_size=patch_size, stride=stride) for image_path in image_paths]
+        futures = [
+            executor.submit(
+                save_image_tiles,
+                image_path=image_path,
+                output_path=output_path,
+                patch_size=patch_size,
+                stride=stride,
+            )
+            for image_path in image_paths
+        ]
         for image_path, future in zip(image_paths, futures):
             try:
                 saved_tiles = future.result()
@@ -499,11 +515,13 @@ def save_tiles_for_directory(
                 error_count += 1
                 results[image_path] = []
                 if error_count > 5:
-                    raise Exception(f"Too many errors. Stopping. {traceback.format_exc()}")
+                    raise Exception(
+                        f"Too many errors. Stopping. {traceback.format_exc()}"
+                    )
 
     total_tiles = sum(len(tiles) for tiles in results.values())
-    logger.info(f"Processed {len(results)} images, saved {total_tiles} total tiles to {output_path}")
+    logger.info(
+        f"Processed {len(results)} images, saved {total_tiles} total tiles to {output_path}"
+    )
 
     return results
-
-

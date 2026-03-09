@@ -13,10 +13,12 @@ from wildtrain.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class ClassificationPipeline:
     """
     Orchestrates the full classification pipeline: training, evaluation, and report saving.
     """
+
     def __init__(self, config_path: str):
         self.config = ClassificationPipelineConfig.from_yaml(config_path)
         Path(self.config.results_dir).mkdir(parents=True, exist_ok=True)
@@ -39,8 +41,10 @@ class ClassificationPipeline:
             eval_config.classifier = self.best_model_path
 
         evaluator = ClassificationEvaluator(config=eval_config)
-        results = evaluator.evaluate(debug=self.config.eval.debug,
-        save_path=os.path.join(self.config.results_dir, "eval_report.json"))
+        results = evaluator.evaluate(
+            debug=self.config.eval.debug,
+            save_path=os.path.join(self.config.results_dir, "eval_report.json"),
+        )
         logger.info("[Pipeline] Evaluation completed.")
         return results
 

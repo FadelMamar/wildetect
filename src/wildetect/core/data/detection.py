@@ -42,16 +42,16 @@ class Detection:
 
     def __post_init__(self):
         """Calculate derived fields if not provided."""
-        assert (
-            isinstance(self.bbox, list) and len(self.bbox) == 4
-        ), f"bbox must be a list of 4 elements, but got {self.bbox}"
-        assert all(
-            [isinstance(coord, int) for coord in self.bbox]
-        ), f"bbox must be a list of integers, but got {self.bbox}"
+        assert isinstance(self.bbox, list) and len(self.bbox) == 4, (
+            f"bbox must be a list of 4 elements, but got {self.bbox}"
+        )
+        assert all([isinstance(coord, int) for coord in self.bbox]), (
+            f"bbox must be a list of integers, but got {self.bbox}"
+        )
 
-        assert all(
-            map(lambda x: isinstance(x, int), self.bbox)
-        ), f"bbox must be a list of integers, but got {self.bbox}"
+        assert all(map(lambda x: isinstance(x, int), self.bbox)), (
+            f"bbox must be a list of integers, but got {self.bbox}"
+        )
 
         x1, y1, x2, y2 = self.bbox
         if x1 > x2 or y1 > y2:
@@ -115,9 +115,9 @@ class Detection:
 
     @classmethod
     def from_supervision(cls, detection: sv.Detections) -> List["Detection"]:
-        assert isinstance(
-            detection, sv.Detections
-        ), f"detection must be a supervision.Detections, but got {type(detection)}"
+        assert isinstance(detection, sv.Detections), (
+            f"detection must be a supervision.Detections, but got {type(detection)}"
+        )
 
         class_mapping = detection.metadata.get("class_mapping", {})
         detections = []
@@ -373,22 +373,22 @@ class Detection:
                 h = h_val * image_height / 100
 
                 # Ensure class_name is a list (Label Studio format)
-                assert (
-                    class_name and len(class_name) == 1
-                ), f"Error. Check out code or Labeling format. class_name: {class_name}"
-                assert (
-                    int(x_min + w) <= image_width
-                ), f"Error. Check out code or Labeling format. x_min: {x_min} + w: {w} = {x_min + w} > image_width: {image_width}"
-                assert (
-                    int(y_min + h) <= image_height
-                ), f"Error. Check out code or Labeling format. y_min: {y_min} + h: {h} = {y_min + h} > image_height: {image_height}"
+                assert class_name and len(class_name) == 1, (
+                    f"Error. Check out code or Labeling format. class_name: {class_name}"
+                )
+                assert int(x_min + w) <= image_width, (
+                    f"Error. Check out code or Labeling format. x_min: {x_min} + w: {w} = {x_min + w} > image_width: {image_width}"
+                )
+                assert int(y_min + h) <= image_height, (
+                    f"Error. Check out code or Labeling format. y_min: {y_min} + h: {h} = {y_min + h} > image_height: {image_height}"
+                )
                 width, height = get_image_dimensions(image_path)
-                assert (
-                    image_width == width
-                ), f"Error. Check out code or Labeling format. ls_width: {image_width} != image_width: {width} for image: {image_path}"
-                assert (
-                    image_height == height
-                ), f"Error. Check out code or Labeling format. ls_height: {image_height} != image_height: {height} for image: {image_path}"
+                assert image_width == width, (
+                    f"Error. Check out code or Labeling format. ls_width: {image_width} != image_width: {width} for image: {image_path}"
+                )
+                assert image_height == height, (
+                    f"Error. Check out code or Labeling format. ls_height: {image_height} != image_height: {height} for image: {image_path}"
+                )
 
                 class_name = class_name[0]
                 confidence = get_val(det, "score", 1.0)
@@ -442,9 +442,9 @@ class Detection:
             image_id = annotation["image_id"]
 
             # Convert COCO bbox format [x, y, width, height] to [x1, y1, x2, y2]
-            assert (
-                len(bbox) == 4
-            ), f"Error. Check out code or Labeling format. bbox: {bbox}"
+            assert len(bbox) == 4, (
+                f"Error. Check out code or Labeling format. bbox: {bbox}"
+            )
 
             x, y, width, height = bbox
             x1, y1, x2, y2 = int(x), int(y), int(x + width), int(y + height)
@@ -480,9 +480,9 @@ class Detection:
         Args:
             gps_loc (str): GPS location string
         """
-        assert isinstance(
-            gps_loc, str
-        ), f"gps_loc must be a string, but got {type(gps_loc)}"
+        assert isinstance(gps_loc, str), (
+            f"gps_loc must be a string, but got {type(gps_loc)}"
+        )
         self.gps_loc = gps_loc
 
     def set_image_gps_location(self, image_gps_loc: str) -> None:
@@ -507,9 +507,9 @@ class Detection:
         Args:
             geographic_footprint (GeographicBounds): Geographic footprint
         """
-        assert isinstance(
-            geographic_footprint, GeographicBounds
-        ), f"geographic_footprint must be a GeographicBounds, but got {type(geographic_footprint)}"
+        assert isinstance(geographic_footprint, GeographicBounds), (
+            f"geographic_footprint must be a GeographicBounds, but got {type(geographic_footprint)}"
+        )
         self.geographic_footprint = geographic_footprint
 
     def has_gps_data(self) -> bool:

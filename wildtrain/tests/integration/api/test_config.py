@@ -15,8 +15,9 @@ from wildtrain.api.main import fastapi_app as app
 # Valid classification config
 VALID_CLASSIFICATION_CONFIG = Path(r"configs\classification\classification_train.yaml")
 
-        # Valid detection config
+# Valid detection config
 VALID_DETECTION_CONFIG = Path(r"configs\detection\yolo_configs\yolo.yaml")
+
 
 @pytest.mark.config
 class TestConfigurationEndpoints:
@@ -29,10 +30,13 @@ class TestConfigurationEndpoints:
 
     def test_post_config_validate_validates_configs_correctly(self, client):
         """Test POST /config/validate validates configs correctly."""
-        response = client.post("/config/validate", json={
-            "config_path": str(VALID_CLASSIFICATION_CONFIG),
-            "config_type": "classification"
-        })
+        response = client.post(
+            "/config/validate",
+            json={
+                "config_path": str(VALID_CLASSIFICATION_CONFIG),
+                "config_type": "classification",
+            },
+        )
 
         assert response.status_code in [200, 201, 202, 500]
         if response.status_code in [200, 201, 202]:
@@ -65,20 +69,26 @@ class TestConfigurationEndpoints:
         config_types = ["classification", "detection", "classification_eval"]
 
         for config_type in config_types:
-            response = client.post("/config/validate", json={
-                "config_path": str(VALID_CLASSIFICATION_CONFIG),
-                "config_type": config_type
-            })
+            response = client.post(
+                "/config/validate",
+                json={
+                    "config_path": str(VALID_CLASSIFICATION_CONFIG),
+                    "config_type": config_type,
+                },
+            )
 
             # Should handle different config types gracefully
             assert response.status_code in [200, 201, 202]
 
     def test_config_validation_with_nonexistent_files(self, client):
         """Test config validation with non-existent files."""
-        response = client.post("/config/validate", json={
-            "config_path": "/nonexistent/config.yaml",
-            "config_type": "classification"
-        })
+        response = client.post(
+            "/config/validate",
+            json={
+                "config_path": "/nonexistent/config.yaml",
+                "config_type": "classification",
+            },
+        )
 
         # Should handle non-existent files gracefully
         assert response.status_code in [404, 500, 422]
@@ -96,10 +106,13 @@ class TestConfigurationEndpoints:
             # Missing closing brace or invalid YAML
             """)
 
-            response = client.post("/config/validate", json={
-                "config_path": str(malformed_config),
-                "config_type": "classification"
-            })
+            response = client.post(
+                "/config/validate",
+                json={
+                    "config_path": str(malformed_config),
+                    "config_type": "classification",
+                },
+            )
 
             # Should handle malformed YAML gracefully
             assert response.status_code in [400, 500]
@@ -108,10 +121,19 @@ class TestConfigurationEndpoints:
         """Test config validation request validation."""
         # Test with invalid data types
         invalid_requests = [
-            {"config_path": 123, "config_type": "classification"},  # config_path should be string
-            {"config_path": str(VALID_CLASSIFICATION_CONFIG), "config_type": 456},  # config_type should be string
+            {
+                "config_path": 123,
+                "config_type": "classification",
+            },  # config_path should be string
+            {
+                "config_path": str(VALID_CLASSIFICATION_CONFIG),
+                "config_type": 456,
+            },  # config_type should be string
             {"config_path": "", "config_type": "classification"},  # empty config_path
-            {"config_path": str(VALID_CLASSIFICATION_CONFIG), "config_type": ""},  # empty config_type
+            {
+                "config_path": str(VALID_CLASSIFICATION_CONFIG),
+                "config_type": "",
+            },  # empty config_type
         ]
 
         for request in invalid_requests:

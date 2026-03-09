@@ -44,23 +44,22 @@ class TestBackgroundJobManagement:
         """Provide a sample job configuration."""
         return {
             "task_type": "training",
-            "config": {
-                "model": "resnet18",
-                "dataset": "demo-dataset",
-                "epochs": 2
-            },
-            "parameters": {
-                "learning_rate": 0.001,
-                "batch_size": 4
-            }
+            "config": {"model": "resnet18", "dataset": "demo-dataset", "epochs": 2},
+            "parameters": {"learning_rate": 0.001, "batch_size": 4},
         }
 
-    def test_job_creation_and_status_tracking(self, client, mock_job_id, sample_job_config):
+    def test_job_creation_and_status_tracking(
+        self, client, mock_job_id, sample_job_config
+    ):
         """Test job creation and status tracking functionality."""
-        with patch('uuid.uuid4', return_value=mock_job_id):
+        with patch("uuid.uuid4", return_value=mock_job_id):
             # Test job creation
             response = client.post("/training/jobs", json=sample_job_config)
-            assert response.status_code in [200, 201, 202]  # Accept various success codes
+            assert response.status_code in [
+                200,
+                201,
+                202,
+            ]  # Accept various success codes
 
             # Test job status retrieval
             response = client.get(f"/training/jobs/{mock_job_id}")
@@ -95,10 +94,10 @@ class TestBackgroundJobManagement:
             "status": "completed",
             "result": {"accuracy": 0.95},
             "created_at": "2024-01-01T00:00:00Z",
-            "completed_at": "2024-01-01T01:00:00Z"
+            "completed_at": "2024-01-01T01:00:00Z",
         }
 
-        with open(job_file, 'w') as f:
+        with open(job_file, "w") as f:
             json.dump(job_data, f)
 
         # Test cleanup endpoint (if it exists)
@@ -161,12 +160,11 @@ class TestBackgroundJobManagement:
 
         for status in statuses:
             # Mock a job with specific status
-            with patch('pathlib.Path.exists', return_value=True):
-                with patch('builtins.open', create=True) as mock_open:
-                    mock_open.return_value.__enter__.return_value.read.return_value = json.dumps({
-                        "job_id": mock_job_id,
-                        "status": status
-                    })
+            with patch("pathlib.Path.exists", return_value=True):
+                with patch("builtins.open", create=True) as mock_open:
+                    mock_open.return_value.__enter__.return_value.read.return_value = (
+                        json.dumps({"job_id": mock_job_id, "status": status})
+                    )
 
                     response = client.get(f"/training/jobs/{mock_job_id}")
                     if response.status_code == 200:
@@ -180,12 +178,14 @@ class TestBackgroundJobManagement:
             "job_id": mock_job_id,
             "status": "failed",
             "error": "Training failed due to invalid configuration",
-            "error_code": "CONFIG_ERROR"
+            "error_code": "CONFIG_ERROR",
         }
 
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('builtins.open', create=True) as mock_open:
-                mock_open.return_value.__enter__.return_value.read.return_value = json.dumps(error_job_data)
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("builtins.open", create=True) as mock_open:
+                mock_open.return_value.__enter__.return_value.read.return_value = (
+                    json.dumps(error_job_data)
+                )
 
                 response = client.get(f"/training/jobs/{mock_job_id}")
                 if response.status_code == 200:
@@ -240,10 +240,10 @@ class TestBackgroundJobManagement:
         job_data = {
             "job_id": mock_job_id,
             "status": "completed",
-            "files": ["model.ckpt", "logs.txt"]
+            "files": ["model.ckpt", "logs.txt"],
         }
 
-        with open(job_file, 'w') as f:
+        with open(job_file, "w") as f:
             json.dump(job_data, f)
 
         # Test job files endpoint
@@ -259,10 +259,12 @@ class TestBackgroundJobManagement:
         # Test job timeout configuration
         timeout_config = {
             "timeout": 3600,  # 1 hour
-            "max_retries": 3
+            "max_retries": 3,
         }
 
-        response = client.post(f"/training/jobs/{mock_job_id}/timeout", json=timeout_config)
+        response = client.post(
+            f"/training/jobs/{mock_job_id}/timeout", json=timeout_config
+        )
         assert response.status_code in [200, 404, 405]
 
     def test_job_priority_management(self, client, mock_job_id):
@@ -270,7 +272,9 @@ class TestBackgroundJobManagement:
         # Test job priority setting
         priority_config = {"priority": "high"}
 
-        response = client.post(f"/training/jobs/{mock_job_id}/priority", json=priority_config)
+        response = client.post(
+            f"/training/jobs/{mock_job_id}/priority", json=priority_config
+        )
         assert response.status_code in [200, 404, 405]
 
     def test_job_dependencies(self, client, mock_job_id):
@@ -278,22 +282,22 @@ class TestBackgroundJobManagement:
         # Test job dependencies
         dependencies = {
             "dependencies": ["job-123", "job-456"],
-            "wait_for": "all"  # or "any"
+            "wait_for": "all",  # or "any"
         }
 
-        response = client.post(f"/training/jobs/{mock_job_id}/dependencies", json=dependencies)
+        response = client.post(
+            f"/training/jobs/{mock_job_id}/dependencies", json=dependencies
+        )
         assert response.status_code in [200, 404, 405]
 
     def test_job_resource_management(self, client, mock_job_id):
         """Test job resource allocation and management."""
         # Test resource requirements
-        resources = {
-            "gpu": 1,
-            "memory": "8GB",
-            "cpu": 4
-        }
+        resources = {"gpu": 1, "memory": "8GB", "cpu": 4}
 
-        response = client.post(f"/training/jobs/{mock_job_id}/resources", json=resources)
+        response = client.post(
+            f"/training/jobs/{mock_job_id}/resources", json=resources
+        )
         assert response.status_code in [200, 404, 405]
 
     def test_job_notification_system(self, client, mock_job_id):
@@ -302,10 +306,12 @@ class TestBackgroundJobManagement:
         notification_config = {
             "email": "user@example.com",
             "webhook": "https://example.com/webhook",
-            "events": ["completed", "failed"]
+            "events": ["completed", "failed"],
         }
 
-        response = client.post(f"/training/jobs/{mock_job_id}/notifications", json=notification_config)
+        response = client.post(
+            f"/training/jobs/{mock_job_id}/notifications", json=notification_config
+        )
         assert response.status_code in [200, 404, 405]
 
     def test_job_metrics_and_monitoring(self, client, mock_job_id):
@@ -325,10 +331,9 @@ class TestBackgroundJobManagement:
         assert response.status_code in [200, 404, 405]
 
         # Test retention policy
-        retention_config = {
-            "retention_days": 30,
-            "auto_delete": True
-        }
+        retention_config = {"retention_days": 30, "auto_delete": True}
 
-        response = client.post(f"/training/jobs/{mock_job_id}/retention", json=retention_config)
+        response = client.post(
+            f"/training/jobs/{mock_job_id}/retention", json=retention_config
+        )
         assert response.status_code in [200, 404, 405]

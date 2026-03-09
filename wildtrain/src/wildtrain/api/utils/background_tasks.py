@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class JobStatus(str, Enum):
     """Job status enumeration."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -25,6 +26,7 @@ class JobStatus(str, Enum):
 @dataclass
 class JobInfo:
     """Job information and metadata."""
+
     job_id: str
     status: JobStatus
     created_at: datetime
@@ -36,7 +38,8 @@ class JobInfo:
     logs: list = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-#TODO replace with dramatiq https://dramatiq.io/motivation.html#compared-to
+
+# TODO replace with dramatiq https://dramatiq.io/motivation.html#compared-to
 class JobManager:
     """Manages background jobs and their status."""
 
@@ -51,7 +54,7 @@ class JobManager:
             job_id=job_id,
             status=JobStatus.PENDING,
             created_at=datetime.now(),
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
         self._jobs[job_id] = job_info
         logger.info(f"Created job {job_id}")
@@ -88,11 +91,7 @@ class JobManager:
 
         job = self._jobs[job_id]
         timestamp = datetime.now().isoformat()
-        log_entry = {
-            "timestamp": timestamp,
-            "level": level,
-            "message": message
-        }
+        log_entry = {"timestamp": timestamp, "level": level, "message": message}
         job.logs.append(log_entry)
 
         # Also log to the job-specific logger
@@ -117,8 +116,11 @@ class JobManager:
         jobs_to_remove = []
 
         for job_id, job in self._jobs.items():
-            if (job.status in [JobStatus.COMPLETED, JobStatus.FAILED] and
-                job.completed_at and job.completed_at < cutoff):
+            if (
+                job.status in [JobStatus.COMPLETED, JobStatus.FAILED]
+                and job.completed_at
+                and job.completed_at < cutoff
+            ):
                 jobs_to_remove.append(job_id)
 
         for job_id in jobs_to_remove:
@@ -146,10 +148,7 @@ job_manager = JobManager()
 
 
 async def run_background_task(
-    task_func: Callable,
-    job_id: str,
-    *args,
-    **kwargs
+    task_func: Callable, job_id: str, *args, **kwargs
 ) -> None:
     """Run a task in the background with job tracking."""
 
@@ -163,38 +162,34 @@ async def run_background_task(
         else:
             # Run sync function in thread pool
             loop = asyncio.get_event_loop()
+
             # Create a wrapper function to handle keyword arguments
             def run_sync_task():
                 return task_func(*args, **kwargs)
+
             result = await loop.run_in_executor(None, run_sync_task)
 
         # Update job with success
         job_manager.update_job_status(
-            job_id,
-            JobStatus.COMPLETED,
-            result=result,
-            progress=1.0
+            job_id, JobStatus.COMPLETED, result=result, progress=1.0
         )
-        job_manager.add_job_log(job_id, "Background task completed successfully", "INFO")
+        job_manager.add_job_log(
+            job_id, "Background task completed successfully", "INFO"
+        )
 
     except Exception as e:
         # Update job with error
         error_msg = str(e)
-        job_manager.update_job_status(
-            job_id,
-            JobStatus.FAILED,
-            error=error_msg
-        )
+        job_manager.update_job_status(job_id, JobStatus.FAILED, error=error_msg)
         job_manager.add_job_log(job_id, f"Background task failed: {error_msg}", "ERROR")
-        logger.error(f"Background task failed for job {job_id}: {error_msg}", exc_info=True)
+        logger.error(
+            f"Background task failed for job {job_id}: {error_msg}", exc_info=True
+        )
         raise
 
 
 def create_background_job(
-    task_func: Callable,
-    *args,
-    metadata: Optional[Dict[str, Any]] = None,
-    **kwargs
+    task_func: Callable, *args, metadata: Optional[Dict[str, Any]] = None, **kwargs
 ) -> str:
     """Create a background job and return the job ID."""
     job_id = job_manager.create_job(metadata)

@@ -3,6 +3,7 @@ Utility functions for WildDetect.
 
 This package contains configuration, image processing, and other utility functions.
 """
+
 from .duplicate_removal_tuner import DuplicateRemovalTuner
 from .iou_tuner import IoUTuner
 from .profiler import profile_command

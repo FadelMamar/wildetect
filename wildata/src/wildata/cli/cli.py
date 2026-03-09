@@ -309,10 +309,10 @@ def bulk_import_datasets(
                 typer.echo(msg)
             elif success:
                 typer.echo(
-                    f"[SUCCESS] Import finished for '{name}' [{i+1}/{len(files)}]"
+                    f"[SUCCESS] Import finished for '{name}' [{i + 1}/{len(files)}]"
                 )
             else:
-                typer.echo(f"[ERROR] Import failed for '{name}' [{i+1}/{len(files)}]")
+                typer.echo(f"[ERROR] Import failed for '{name}' [{i + 1}/{len(files)}]")
     typer.echo(f"\nBulk import complete. {sum(results)}/{len(results)} succeeded.")
 
 
@@ -411,11 +411,11 @@ def bulk_create_roi_datasets(
                 typer.echo(msg)
             elif success:
                 typer.echo(
-                    f"[SUCCESS] ROI creation finished for '{name}' [{i+1}/{len(files)}]"
+                    f"[SUCCESS] ROI creation finished for '{name}' [{i + 1}/{len(files)}]"
                 )
             else:
                 typer.echo(
-                    f"[ERROR] ROI creation failed for '{name}' [{i+1}/{len(files)}]"
+                    f"[ERROR] ROI creation failed for '{name}' [{i + 1}/{len(files)}]"
                 )
     typer.echo(
         f"\nBulk ROI creation complete. {sum(results)}/{len(results)} succeeded."

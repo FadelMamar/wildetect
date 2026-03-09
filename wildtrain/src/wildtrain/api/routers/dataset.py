@@ -26,7 +26,7 @@ async def get_dataset_stats(request: DatasetStatsRequest) -> DatasetStatsRespons
         results = DatasetService.get_dataset_stats(
             data_dir=request.data_dir,
             split=request.split,
-            output_file=request.output_file
+            output_file=request.output_file,
         )
 
         return DatasetStatsResponse(
@@ -37,7 +37,7 @@ async def get_dataset_stats(request: DatasetStatsRequest) -> DatasetStatsRespons
             mean=results["stats"]["mean"],
             std=results["stats"]["std"],
             total_samples=results.get("total_samples", 0),
-            split_info=results["split_info"]
+            split_info=results["split_info"],
         )
 
     except Exception as e:
@@ -52,7 +52,9 @@ async def get_dataset_splits(dataset_path: str) -> Dict[str, Any]:
     try:
         data_dir = Path(dataset_path)
         if not data_dir.exists():
-            raise HTTPException(status_code=404, detail=f"Dataset directory not found: {dataset_path}")
+            raise HTTPException(
+                status_code=404, detail=f"Dataset directory not found: {dataset_path}"
+            )
 
         logger.info(f"Getting dataset splits for {dataset_path}")
 
@@ -64,10 +66,9 @@ async def get_dataset_splits(dataset_path: str) -> Dict[str, Any]:
             "message": f"Dataset splits retrieved for {dataset_path}",
             "dataset_path": dataset_path,
             "splits": splits_info["splits"],
-            "total_splits": splits_info["total_splits"]
+            "total_splits": splits_info["total_splits"],
         }
 
     except Exception as e:
         logger.error(f"Failed to get dataset splits: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-

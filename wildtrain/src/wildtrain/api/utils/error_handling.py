@@ -17,7 +17,7 @@ class WildTrainAPIException(Exception):
         message: str,
         status_code: int = 500,
         error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ):
         self.message = message
         self.status_code = status_code
@@ -34,7 +34,7 @@ class ValidationError(WildTrainAPIException):
             message=message,
             status_code=400,
             error_code="VALIDATION_ERROR",
-            details=details
+            details=details,
         )
 
 
@@ -45,7 +45,7 @@ class FileNotFoundAPIError(WildTrainAPIException):
         super().__init__(
             message=f"File not found: {file_path}",
             status_code=404,
-            error_code="FILE_NOT_FOUND"
+            error_code="FILE_NOT_FOUND",
         )
 
 
@@ -56,7 +56,7 @@ class JobNotFoundError(WildTrainAPIException):
         super().__init__(
             message=f"Job not found: {job_id}",
             status_code=404,
-            error_code="JOB_NOT_FOUND"
+            error_code="JOB_NOT_FOUND",
         )
 
 
@@ -68,7 +68,7 @@ class JobExecutionError(WildTrainAPIException):
             message=f"Job execution failed: {error}",
             status_code=500,
             error_code="JOB_EXECUTION_ERROR",
-            details={"job_id": job_id, "error": error}
+            details={"job_id": job_id, "error": error},
         )
 
 
@@ -80,11 +80,13 @@ class ConfigurationError(WildTrainAPIException):
             message=message,
             status_code=400,
             error_code="CONFIGURATION_ERROR",
-            details=details
+            details=details,
         )
 
 
-async def wildtrain_exception_handler(request: Request, exc: WildTrainAPIException) -> JSONResponse:
+async def wildtrain_exception_handler(
+    request: Request, exc: WildTrainAPIException
+) -> JSONResponse:
     """Exception handler for WildTrain API exceptions."""
 
     logger.error(
@@ -94,28 +96,25 @@ async def wildtrain_exception_handler(request: Request, exc: WildTrainAPIExcepti
             "error_code": exc.error_code,
             "details": exc.details,
             "path": request.url.path,
-            "method": request.method
-        }
+            "method": request.method,
+        },
     )
 
     response_content = {
         "success": False,
         "message": exc.message,
         "error_code": exc.error_code,
-        "details": exc.details
+        "details": exc.details,
     }
 
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=response_content
-    )
+    return JSONResponse(status_code=exc.status_code, content=response_content)
 
 
 def handle_validation_error(error: Exception) -> ValidationError:
     """Convert validation errors to WildTrain API exceptions."""
-    if hasattr(error, 'errors'):
+    if hasattr(error, "errors"):
         # Pydantic validation error
-        details = {"validation_errors": getattr(error, 'errors')()}
+        details = {"validation_errors": getattr(error, "errors")()}
         message = "Validation error"
     else:
         details = None

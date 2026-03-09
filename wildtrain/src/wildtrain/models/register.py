@@ -26,6 +26,7 @@ logger = get_logger(__name__)
 
 class ModelTask(Enum):
     """Supported model tasks."""
+
     DETECT = "detect"
     CLASSIFY = "classify"
     SEGMENT = "segment"
@@ -33,6 +34,7 @@ class ModelTask(Enum):
 
 class ModelType(Enum):
     """Supported model types."""
+
     DETECTOR = "detector"
     CLASSIFIER = "classifier"
     LOCALIZER = "localizer"
@@ -40,16 +42,21 @@ class ModelType(Enum):
 
 class ModelMetadata(BaseModel):
     """Metadata for model registration.
-    
+
     This class provides structured metadata for MLflow model registration,
     including validation and default values.
     """
+
     batch: int = Field(default=8, gt=0, description="Batch size for inference")
     imgsz: int = Field(default=800, gt=0, description="Input image size")
     task: ModelTask = Field(default=ModelTask.DETECT, description="Model task type")
-    num_classes: Optional[int] = Field(default=None, ge=2, description="Number of classes")
+    num_classes: Optional[int] = Field(
+        default=None, ge=2, description="Number of classes"
+    )
     model_type: ModelType = Field(description="Type of model (detector or classifier)")
-    cls_export_format: Optional[str] = Field(default=None, description="Export format for the model")
+    cls_export_format: Optional[str] = Field(
+        default=None, description="Export format for the model"
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for MLflow metadata."""
@@ -59,7 +66,7 @@ class ModelMetadata(BaseModel):
             "task": self.task.value,
             "num_classes": self.num_classes,
             "model_type": self.model_type.value,
-            "cls_export_format": self.cls_export_format
+            "cls_export_format": self.cls_export_format,
         }
 
 
@@ -69,6 +76,7 @@ def normalize_path(model_path: Path) -> Path:
     if platform.system().lower() != "windows":
         return Path(resolved_path.as_posix().replace("\\", "/"))
     return resolved_path
+
 
 def read_dependencies():
     with open(ROOT / "pyproject.toml", "rb") as f:
@@ -87,8 +95,8 @@ class ClassifierWrapper(mlflow.pyfunc.PythonModel):
         """Handle serialization - exclude model objects."""
         state = self.__dict__.copy()
         # Remove any model references that can't be serialized
-        #state.pop('model', None)
-        #state.pop('artifacts', None)
+        # state.pop('model', None)
+        # state.pop('artifacts', None)
         return state
 
     def __setstate__(self, state):
@@ -103,8 +111,9 @@ class ClassifierWrapper(mlflow.pyfunc.PythonModel):
         self.model = GenericClassifier.load_from_checkpoint(str(model_path))
         self.model.to_torchscript()
 
-    def predict(self,context: mlflow.pyfunc.PythonModelContext,model_input):
+    def predict(self, context: mlflow.pyfunc.PythonModelContext, model_input):
         return self.model.predict(torch.tensor(model_input))
+
 
 class DetectorWrapper(mlflow.pyfunc.PythonModel):
     """MLflow wrapper for Detector system."""
@@ -116,8 +125,8 @@ class DetectorWrapper(mlflow.pyfunc.PythonModel):
         """Handle serialization - exclude model objects."""
         state = self.__dict__.copy()
         # Remove any model references that can't be serialized
-        #state.pop('model', None)
-        #state.pop('artifacts', None)
+        # state.pop('model', None)
+        # state.pop('artifacts', None)
         return state
 
     def __setstate__(self, state):
@@ -132,7 +141,7 @@ class DetectorWrapper(mlflow.pyfunc.PythonModel):
         config = context.artifacts["config"]
         config = normalize_path(config)
 
-        classifier_ckpt = context.artifacts.get("classifier_ckpt",None)
+        classifier_ckpt = context.artifacts.get("classifier_ckpt", None)
         if classifier_ckpt is not None:
             classifier_ckpt = normalize_path(classifier_ckpt)
 
@@ -147,21 +156,24 @@ class DetectorWrapper(mlflow.pyfunc.PythonModel):
         localizer_cfg.weights = localizer_ckpt
 
         # Check if the model can be loaded
-        self.model =  Detector.from_config(localizer_config=localizer_cfg,
-                                       classifier_ckpt=classifier_ckpt,
-                                       classifier_export_kwargs=config.classifier.processing)
-        #self.model.set_device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = Detector.from_config(
+            localizer_config=localizer_cfg,
+            classifier_ckpt=classifier_ckpt,
+            classifier_export_kwargs=config.classifier.processing,
+        )
+        # self.model.set_device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def predict(self,context: mlflow.pyfunc.PythonModelContext,model_input):
+    def predict(self, context: mlflow.pyfunc.PythonModelContext, model_input):
         """Predict from the model."""
-        return self.model.predict(torch.tensor(model_input),return_as_dict=True)
+        return self.model.predict(torch.tensor(model_input), return_as_dict=True)
+
 
 def get_experiment_id(name: str) -> str:
     """Get or create an MLflow experiment ID.
-    
+
     Args:
         name: MLflow experiment name
-        
+
     Returns:
         Experiment ID
     """
@@ -172,23 +184,22 @@ def get_experiment_id(name: str) -> str:
         return exp_id
     return exp.experiment_id
 
+
 class ModelRegistrar:
     """Handles model registration to MLflow Model Registry."""
 
     def __init__(self, mlflow_tracking_uri: str = "http://localhost:5000"):
         """Initialize the ModelRegistrar.
-        
+
         Args:
             mlflow_tracking_uri: MLflow tracking server URI
         """
         self.mlflow_tracking_uri = mlflow_tracking_uri
 
-    def register_detector(
-        self,config_path:Path
-    ) -> None:
-        """Register a YOLO detection model to MLflow Model Registry.
-        """
+    def register_detector(self, config_path: Path) -> None:
+        """Register a YOLO detection model to MLflow Model Registry."""
         from wildtrain.shared.config_loader import ConfigLoader  # avoid curcular import
+
         # Validate and load config
         ConfigLoader.load_detector_registration_config(config_path)
         config = OmegaConf.load(config_path)
@@ -212,33 +223,35 @@ class ModelRegistrar:
         config_path = str(Path(localizer_cfg.weights).parent / "config.yaml")
 
         classifier_ckpt = config.classifier.weights
-        artifacts = {"config":config_path,
-                    "localizer_ckpt":str(localizer_ckpt)
-                }
+        artifacts = {"config": config_path, "localizer_ckpt": str(localizer_ckpt)}
         if classifier_ckpt is not None:
             artifacts["classifier_ckpt"] = str(classifier_ckpt)
 
-        OmegaConf.save(config,config_path)
+        OmegaConf.save(config, config_path)
 
         # Check if the model can be loaded
-        model =  Detector.from_config(localizer_config=localizer_cfg,
-                                       classifier_ckpt=classifier_ckpt,
-                                       classifier_export_kwargs=config.classifier.processing)
+        model = Detector.from_config(
+            localizer_config=localizer_cfg,
+            classifier_ckpt=classifier_ckpt,
+            classifier_export_kwargs=config.classifier.processing,
+        )
         if config.classifier.processing.export_format == "onnx":
             if model.classifier is not None:
                 model.classifier.set_onnx_program(onnx_program=None)
 
-        x = torch.rand(localizer_processing.batch_size,3,localizer_cfg.imgsz,localizer_cfg.imgsz)
+        x = torch.rand(
+            localizer_processing.batch_size, 3, localizer_cfg.imgsz, localizer_cfg.imgsz
+        )
         signature = infer_signature(x.cpu().numpy(), list(dict()))
 
         # Create metadata using the new ModelMetadata class
-        task = getattr(localizer_cfg,"task","detect")
+        task = getattr(localizer_cfg, "task", "detect")
         metadata = ModelMetadata(
             batch=localizer_processing.batch_size,
             imgsz=localizer_cfg.imgsz,
             task=ModelTask(task),
             model_type=ModelType.DETECTOR,
-            cls_export_format=config.classifier.processing.export_format
+            cls_export_format=config.classifier.processing.export_format,
         )
 
         self._register_model(
@@ -258,22 +271,24 @@ class ModelRegistrar:
         export_format: str = "torchscript",
         batch_size: int = 8,
     ) -> None:
-        """Register a classification model to MLflow Model Registry.
-        """
+        """Register a classification model to MLflow Model Registry."""
         model_path = Path(weights)
         if not model_path.exists():
             raise FileNotFoundError(f"Model weights not found: {model_path}")
 
-        artifacts = {"classifier_ckpt":str(model_path),}
+        artifacts = {
+            "classifier_ckpt": str(model_path),
+        }
 
         # Load the model
         model = GenericClassifier.load_from_checkpoint(str(model_path))
-        model = model.export(mode=export_format,
-                             batch_size=batch_size,
-                             output_path=Path(weights).with_suffix(f".{export_format}").as_posix()
-                            )
+        model = model.export(
+            mode=export_format,
+            batch_size=batch_size,
+            output_path=Path(weights).with_suffix(f".{export_format}").as_posix(),
+        )
 
-        x = torch.rand(batch_size,3,model.input_size.item(),model.input_size.item())
+        x = torch.rand(batch_size, 3, model.input_size.item(), model.input_size.item())
         signature = infer_signature(x.cpu(), model.predict(x))
 
         metadata = ModelMetadata(
@@ -282,7 +297,7 @@ class ModelRegistrar:
             task=ModelTask.CLASSIFY,
             num_classes=model.num_classes.item(),
             model_type=ModelType.CLASSIFIER,
-            cls_export_format=export_format
+            cls_export_format=export_format,
         )
 
         self._register_model(
@@ -336,7 +351,7 @@ class ModelRegistrar:
         self,
         metadata: Dict[str, Any],
         name: str,
-        model: Union[torch.nn.Module,mlflow.pyfunc.PythonModel],
+        model: Union[torch.nn.Module, mlflow.pyfunc.PythonModel],
         artifacts: Optional[Dict[str, str]] = None,
         signature: Optional[ModelSignature] = None,
     ) -> None:
@@ -346,7 +361,7 @@ class ModelRegistrar:
         exp_id = get_experiment_id(name)
 
         with mlflow.start_run(experiment_id=exp_id):
-            if isinstance(model,mlflow.pyfunc.PythonModel):
+            if isinstance(model, mlflow.pyfunc.PythonModel):
                 mlflow.pyfunc.log_model(
                     python_model=model,
                     artifact_path="model",
@@ -356,7 +371,7 @@ class ModelRegistrar:
                     metadata=metadata,
                     artifacts=artifacts,
                 )
-            elif isinstance(model,torch.nn.Module):
+            elif isinstance(model, torch.nn.Module):
                 mlflow.pytorch.log_model(
                     pytorch_model=model,
                     artifact_path="model",
@@ -368,4 +383,3 @@ class ModelRegistrar:
                 )
             else:
                 raise ValueError(f"Model type {type(model)} not supported")
-

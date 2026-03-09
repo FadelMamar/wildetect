@@ -59,12 +59,9 @@ def mock_model_checkpoint(test_data_dir):
         "state_dict": {
             "backbone.weight": torch.randn(64, 3, 7, 7),
             "classifier.weight": torch.randn(3, 64),
-            "classifier.bias": torch.randn(3)
+            "classifier.bias": torch.randn(3),
         },
-        "hyper_parameters": {
-            "num_classes": 3,
-            "learning_rate": 0.001
-        }
+        "hyper_parameters": {"num_classes": 3, "learning_rate": 0.001},
     }
 
     torch.save(checkpoint, checkpoint_path)
@@ -78,16 +75,10 @@ def test_config():
         "data": {
             "root_data_directory": r"D:\workspace\data\demo-dataset",
             "batch_size": 4,
-            "num_workers": 0
+            "num_workers": 0,
         },
-        "model": {
-            "backbone": "resnet18",
-            "num_classes": 3
-        },
-        "training": {
-            "max_epochs": 2,
-            "debug": True
-        }
+        "model": {"backbone": "resnet18", "num_classes": 3},
+        "training": {"max_epochs": 2, "debug": True},
     }
 
 
@@ -110,7 +101,12 @@ def temp_dir():
 def mock_classification_annotations():
     """Provide mock classification annotations."""
     return [
-        {"id": i, "file_name": f"image_{i:03d}.jpg", "class_id": i % 3, "class_name": f"class_{i % 3}"}
+        {
+            "id": i,
+            "file_name": f"image_{i:03d}.jpg",
+            "class_id": i % 3,
+            "class_name": f"class_{i % 3}",
+        }
         for i in range(20)
     ]
 
@@ -120,12 +116,7 @@ def mock_detection_annotations():
     """Provide mock detection annotations in COCO format."""
     return {
         "images": [
-            {
-                "id": i,
-                "file_name": f"image_{i:03d}.jpg",
-                "width": 224,
-                "height": 224
-            }
+            {"id": i, "file_name": f"image_{i:03d}.jpg", "width": 224, "height": 224}
             for i in range(10)
         ],
         "annotations": [
@@ -135,15 +126,15 @@ def mock_detection_annotations():
                 "category_id": i % 3,
                 "bbox": [50, 50, 100, 100],
                 "area": 10000,
-                "iscrowd": 0
+                "iscrowd": 0,
             }
             for i in range(10)
         ],
         "categories": [
             {"id": 0, "name": "class_0"},
             {"id": 1, "name": "class_1"},
-            {"id": 2, "name": "class_2"}
-        ]
+            {"id": 2, "name": "class_2"},
+        ],
     }
 
 
@@ -158,7 +149,7 @@ def mock_yolo_dataset(test_data_dir):
     images_dir.mkdir(exist_ok=True)
 
     for i in range(10):
-        img = Image.new('RGB', (224, 224), color=(i * 25, i * 25, i * 25))
+        img = Image.new("RGB", (224, 224), color=(i * 25, i * 25, i * 25))
         img.save(images_dir / f"image_{i:03d}.jpg")
 
     # Create labels
@@ -168,7 +159,7 @@ def mock_yolo_dataset(test_data_dir):
     for i in range(10):
         # YOLO format: class_id center_x center_y width height
         label_content = f"{i % 3} 0.5 0.5 0.4 0.4\n"
-        with open(labels_dir / f"image_{i:03d}.txt", 'w') as f:
+        with open(labels_dir / f"image_{i:03d}.txt", "w") as f:
             f.write(label_content)
 
     # Create data.yaml
@@ -176,11 +167,12 @@ def mock_yolo_dataset(test_data_dir):
         "train": str(images_dir),
         "val": str(images_dir),
         "nc": 3,
-        "names": ["class_0", "class_1", "class_2"]
+        "names": ["class_0", "class_1", "class_2"],
     }
 
-    with open(dataset_path / "data.yaml", 'w') as f:
+    with open(dataset_path / "data.yaml", "w") as f:
         import yaml
+
         yaml.dump(data_yaml, f)
 
     return str(dataset_path)

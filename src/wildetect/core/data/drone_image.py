@@ -450,7 +450,7 @@ class DroneImage(Tile):
             )
 
         def get_image_gps_coords(
-            img_path: str
+            img_path: str,
         ) -> Tuple[Optional[float], Optional[float], Optional[float]]:
             if csv_dict is None:
                 return None, None, None
@@ -472,10 +472,10 @@ class DroneImage(Tile):
         ), "Provide either `project_id` or `json_path`"
 
         ls_client = LabelStudioManager(
-                url=labelstudio_config.url,
-                api_key=labelstudio_config.api_key,
-                download_resources=labelstudio_config.download_resources,
-            )
+            url=labelstudio_config.url,
+            api_key=labelstudio_config.api_key,
+            download_resources=labelstudio_config.download_resources,
+        )
         if isinstance(labelstudio_config.project_id, int):
             all_tasks = ls_client.get_tasks(labelstudio_config.project_id)
             logger.info("Loading from project_id")
@@ -497,14 +497,14 @@ class DroneImage(Tile):
                     longitude=longitude,
                     altitude=altitude,
                     load_predictions=load_predictions,
-                    load_annotations=load_annotations
+                    load_annotations=load_annotations,
                 )
                 all_drone_images.append(image)
             except Exception as e:
                 logger.warning(f"Failed to load image {task.image_path}: {e}")
                 logger.info(f"task dump: {task.model_dump()}")
                 logger.error(traceback.format_exc())
-                #exit(1)
+                # exit(1)
                 errors += 1
                 if errors > 5:
                     raise Exception("Stopping due to too many errors.")
@@ -518,7 +518,7 @@ class DroneImage(Tile):
         flight_specs: FlightSpecs,
         load_annotations: bool = True,
         load_predictions: bool = True,
-        **kwargs
+        **kwargs,
     ) -> "DroneImage":
         """Create a DroneImage from a Label Studio task ID.
 

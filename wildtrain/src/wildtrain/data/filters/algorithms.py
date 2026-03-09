@@ -25,6 +25,7 @@ class SamplingStrategy:
     def sample(self, cluster_df: pd.DataFrame, n_samples: int) -> List[int]:
         raise NotImplementedError
 
+
 class BaseFilter(ABC):
     """
     Abstract base class for all filters.
@@ -42,6 +43,7 @@ class BaseFilter(ABC):
         Return information about the filter (for logging/debugging).
         """
         return {"filter_type": self.__class__.__name__}
+
 
 class UniformDistanceRandomSamplingStrategy(SamplingStrategy):
     def sample(self, cluster_df: pd.DataFrame, n_samples: int) -> List[int]:
@@ -68,7 +70,12 @@ class ClusteringFilter(BaseFilter):
     Sampling strategy is pluggable.
     """
 
-    CLUSTER_TRIALS = [3, 5, 7, 9,]
+    CLUSTER_TRIALS = [
+        3,
+        5,
+        7,
+        9,
+    ]
 
     last_silhouette_scores: Optional[Dict[int, float]] = None
     last_samples_per_cluster: Optional[List[int]] = None
@@ -78,14 +85,12 @@ class ClusteringFilter(BaseFilter):
         feature_extractor: FeatureExtractor = FeatureExtractor(),
         batch_size: int = 64,
         sampling_strategy: SamplingStrategy = UniformDistanceRandomSamplingStrategy(),
-        reduction_factor: float = 0.3
+        reduction_factor: float = 0.3,
     ):
         self.feature_extractor = FeatureExtractor()
         self.batch_size = batch_size
         self.x_percent = reduction_factor  # Default to 30% if not set
-        self.sampling_strategy = (
-            UniformDistanceRandomSamplingStrategy()
-        )
+        self.sampling_strategy = UniformDistanceRandomSamplingStrategy()
         self.last_silhouette_scores = None
         self.last_samples_per_cluster = None
 
@@ -130,7 +135,7 @@ class ClusteringFilter(BaseFilter):
         n_total = len(df)
         n_keep = int(np.ceil(self.x_percent * n_total))
         logger.info(
-            f"Target: keeping {n_keep} out of {n_total} images ({self.x_percent*100:.1f}%)"
+            f"Target: keeping {n_keep} out of {n_total} images ({self.x_percent * 100:.1f}%)"
         )
         # Proportional allocation
         samples_per_cluster = self._allocate_samples_per_cluster(df, n_keep)
@@ -146,9 +151,7 @@ class ClusteringFilter(BaseFilter):
             selected_indices.extend(chosen)
         # Filter images and annotations
         selected_image_ids = set(df.loc[selected_indices, "image_id"])  # type: ignore
-        filtered_images = [
-            img for img in images if img["id"] in selected_image_ids
-        ]
+        filtered_images = [img for img in images if img["id"] in selected_image_ids]
 
         # Clean up embeddings before export
         for img in filtered_images:
@@ -179,7 +182,9 @@ class ClusteringFilter(BaseFilter):
         return best_k, best_labels, silhouette_scores  # type: ignore
 
     def _allocate_samples_per_cluster(
-        self, df: pd.DataFrame, n_keep: int,
+        self,
+        df: pd.DataFrame,
+        n_keep: int,
     ) -> List[int]:
         # Proportional allocation, at least 1 per cluster if possible
         cluster_sizes = df["cluster"].value_counts().sort_index().values
@@ -192,9 +197,7 @@ class ClusteringFilter(BaseFilter):
             logger.warning("No images found in images")
             return images
 
-        image_paths = [
-            Path(img["file_name"]).resolve() for img in images
-        ]
+        image_paths = [Path(img["file_name"]).resolve() for img in images]
         embeddings = self._compute_embeddings_in_batches(image_paths)
         for img, emb in zip(images, embeddings):
             img["_embedding"] = emb
@@ -204,7 +207,11 @@ class ClusteringFilter(BaseFilter):
         self, image_paths: List[Union[str, Path]]
     ) -> np.ndarray:
         all_embeddings = []
-        for i in tqdm(range(0, len(image_paths), self.batch_size),unit="batch",desc="Computing embeddings"):
+        for i in tqdm(
+            range(0, len(image_paths), self.batch_size),
+            unit="batch",
+            desc="Computing embeddings",
+        ):
             batch_paths = image_paths[i : i + self.batch_size]
             batch_images = [read_image(path) for path in batch_paths]
             batch_embeddings = self.feature_extractor(batch_images)  # type: ignore
@@ -218,7 +225,7 @@ class ClusteringFilter(BaseFilter):
 class CropClusteringAdapter:
     """
     Adapter to make ClusteringFilter work with PatchDataset annotations.
-    
+
     This adapter converts between the PatchDataset annotation format and the
     ClusteringFilter's expected image format, allowing the ClusteringFilter
     to work with crop annotations without modification.
@@ -227,7 +234,7 @@ class CropClusteringAdapter:
     def __init__(self, clustering_filter: ClusteringFilter):
         """
         Initialize the adapter with a ClusteringFilter instance.
-        
+
         Args:
             clustering_filter: The ClusteringFilter to adapt
         """
@@ -236,10 +243,10 @@ class CropClusteringAdapter:
     def __call__(self, crop_annotations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Apply clustering filter to crop annotations using adapter pattern.
-        
+
         Args:
             crop_annotations: List of crop annotation dictionaries from PatchDataset
-            
+
         Returns:
             Filtered list of crop annotation dictionaries
         """
@@ -260,13 +267,15 @@ class CropClusteringAdapter:
 
         return filtered_annotations
 
-    def _adapt_crop_annotations_to_images(self, crop_annotations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _adapt_crop_annotations_to_images(
+        self, crop_annotations: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """
         Convert crop annotations to the format expected by ClusteringFilter.
-        
+
         Args:
             crop_annotations: List of crop annotation dictionaries
-            
+
         Returns:
             List of image dictionaries for ClusteringFilter
         """
@@ -282,7 +291,7 @@ class CropClusteringAdapter:
                 "dataset_idx": ann["dataset_idx"],
                 "crop_bbox": ann["crop_bbox"],
                 "crop_type": ann["crop_type"],
-                "_crop_info": ann  # Store the original crop info for later extraction
+                "_crop_info": ann,  # Store the original crop info for later extraction
             }
 
             # Add original annotation info if available
@@ -296,15 +305,17 @@ class CropClusteringAdapter:
         return images
 
     def _adapt_images_to_crop_annotations(
-        self, filtered_images: List[Dict[str, Any]], original_annotations: List[Dict[str, Any]]
+        self,
+        filtered_images: List[Dict[str, Any]],
+        original_annotations: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
         """
         Convert filtered images back to crop annotation format.
-        
+
         Args:
             filtered_images: List of filtered image dictionaries from ClusteringFilter
             original_annotations: Original crop annotations for reference
-            
+
         Returns:
             List of filtered crop annotation dictionaries
         """
@@ -339,7 +350,14 @@ class ClassificationRebalanceFilter(BaseFilter):
     Input: List[dict] representing annotations (each dict must have 'class_id' or 'class_name')
     Output: List[dict] filtered annotations with balanced class distribution
     """
-    def __init__(self, class_key: str = "class_id", random_seed: Optional[int] = 41, method: str = "mean",exclude_extremes: bool = True):
+
+    def __init__(
+        self,
+        class_key: str = "class_id",
+        random_seed: Optional[int] = 41,
+        method: str = "mean",
+        exclude_extremes: bool = True,
+    ):
         """
         Args:
             class_key: The key in annotation dicts to use for class label (e.g., 'class_id' or 'class_name')
@@ -398,26 +416,32 @@ class ClassificationRebalanceFilter(BaseFilter):
         return balanced_anns
 
     def get_filter_info(self) -> dict:
-        return {"filter_type": self.__class__.__name__, "class_key": self.class_key, "random_seed": self.random_seed}
+        return {
+            "filter_type": self.__class__.__name__,
+            "class_key": self.class_key,
+            "random_seed": self.random_seed,
+        }
 
 
 class CropClusteringFilter(ClusteringFilter):
     """
     Specialized ClusteringFilter for crop datasets that handles in-memory crops.
-    
+
     This filter extracts crop images from the dataset and computes embeddings
     directly from the image data instead of trying to load files from disk.
     """
 
-    def __init__(self,
-                 crop_dataset: 'PatchDataset',
-                 feature_extractor: Optional['FeatureExtractor'] = None,
-                 batch_size: int = 64,
-                 sampling_strategy: Optional[SamplingStrategy] = None,
-                 reduction_factor: float = 0.3):
+    def __init__(
+        self,
+        crop_dataset: "PatchDataset",
+        feature_extractor: Optional["FeatureExtractor"] = None,
+        batch_size: int = 64,
+        sampling_strategy: Optional[SamplingStrategy] = None,
+        reduction_factor: float = 0.3,
+    ):
         """
         Initialize the crop clustering filter.
-        
+
         Args:
             crop_dataset: The PatchDataset instance to filter
             feature_extractor: Feature extractor for computing embeddings
@@ -425,16 +449,18 @@ class CropClusteringFilter(ClusteringFilter):
             sampling_strategy: Sampling strategy for cluster selection
             reduction_factor: Fraction of crops to keep
         """
-        super().__init__(feature_extractor, batch_size, sampling_strategy, reduction_factor)
+        super().__init__(
+            feature_extractor, batch_size, sampling_strategy, reduction_factor
+        )
         self.crop_dataset = crop_dataset
 
     def add_embeddings(self, images: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Add embeddings to images by extracting crops and computing features.
-        
+
         Args:
             images: List of image dictionaries with crop info
-            
+
         Returns:
             List of images with embeddings added
         """
@@ -444,7 +470,7 @@ class CropClusteringFilter(ClusteringFilter):
 
         # Extract crop images and compute embeddings
         crop_images = []
-        for img in tqdm(images,desc="Extracting crops",unit="img"):
+        for img in tqdm(images, desc="Extracting crops", unit="img"):
             crop_info = img.get("_crop_info")
             if crop_info is not None:
                 # Extract the actual crop image
@@ -463,38 +489,56 @@ class CropClusteringFilter(ClusteringFilter):
 
         return images
 
-    def _compute_embeddings_from_images(self, crop_images: List[np.ndarray]) -> np.ndarray:
+    def _compute_embeddings_from_images(
+        self, crop_images: List[np.ndarray]
+    ) -> np.ndarray:
         """
         Compute embeddings from crop images.
-        
+
         Args:
             crop_images: List of crop images as numpy arrays
-            
+
         Returns:
             Array of embeddings
         """
         all_embeddings = []
-        for i in tqdm(range(0, len(crop_images), self.batch_size),desc="Computing embeddings",unit="batch"):
-            batch_images = crop_images[i:i + self.batch_size]
+        for i in tqdm(
+            range(0, len(crop_images), self.batch_size),
+            desc="Computing embeddings",
+            unit="batch",
+        ):
+            batch_images = crop_images[i : i + self.batch_size]
             # Convert to PIL Images for the feature extractor
-            batch = torch.stack([torch.from_numpy(img_array).permute(2,0,1) for img_array in batch_images])
+            batch = torch.stack(
+                [
+                    torch.from_numpy(img_array).permute(2, 0, 1)
+                    for img_array in batch_images
+                ]
+            )
             # Get embeddings from the model
             with torch.no_grad():
                 batch_embeddings = self.feature_extractor(batch).cpu().numpy()
-                #batch_embeddings = outputs.cpu().reshape(len(batch_pil_images), -1).numpy()
+                # batch_embeddings = outputs.cpu().reshape(len(batch_pil_images), -1).numpy()
             all_embeddings.append(batch_embeddings)
         return np.vstack(all_embeddings)
 
 
 class FilterDataCfg:
-    def __init__(self,data_config_yaml: str,keep_classes:Optional[list[str]]=None,discard_classes:Optional[list[str]]=None):
+    def __init__(
+        self,
+        data_config_yaml: str,
+        keep_classes: Optional[list[str]] = None,
+        discard_classes: Optional[list[str]] = None,
+    ):
         self.data_config_yaml = data_config_yaml
         self.yolo_config = load_yaml(data_config_yaml)
         self.keep_classes = keep_classes
         self.discard_classes = discard_classes
-        assert (keep_classes is not None) ^ (discard_classes is not None), "Either keep_classes or discard_classes must be provided"
+        assert (keep_classes is not None) ^ (discard_classes is not None), (
+            "Either keep_classes or discard_classes must be provided"
+        )
 
-    def sample_pos_neg(self,images_paths: list, ratio: float, seed: int = 41):
+    def sample_pos_neg(self, images_paths: list, ratio: float, seed: int = 41):
         """
         Sample positive and negative image paths based on the ratio of empty to non-empty samples.
 
@@ -509,7 +553,10 @@ class FilterDataCfg:
 
         # build dataframe
         is_empty = [
-            1 - os.path.exists(Path(p).with_suffix(".txt").as_posix().replace("/images/", "/labels/"))
+            1
+            - os.path.exists(
+                Path(p).with_suffix(".txt").as_posix().replace("/images/", "/labels/")
+            )
             for p in images_paths
         ]
         data = pd.DataFrame.from_dict(
@@ -531,7 +578,7 @@ class FilterDataCfg:
 
         return sampled_data["image_paths"].to_list()
 
-    def get_split_images_paths(self,split:str) -> list[str]:
+    def get_split_images_paths(self, split: str) -> list[str]:
         root = self.yolo_config["path"]
         if isinstance(self.yolo_config[split], list):
             dirs_images = [os.path.join(root, p) for p in self.yolo_config[split]]
@@ -545,16 +592,26 @@ class FilterDataCfg:
         return images_paths
 
     @staticmethod
-    def filter_image_paths(image_paths: list[str],label_map:dict,
-                            keep_classes:Optional[list[str]]=None,
-                            discard_classes:Optional[list[str]]=None) -> list[str]:
+    def filter_image_paths(
+        image_paths: list[str],
+        label_map: dict,
+        keep_classes: Optional[list[str]] = None,
+        discard_classes: Optional[list[str]] = None,
+    ) -> list[str]:
 
-        assert (keep_classes is not None) ^ (discard_classes is not None), "Either keep_classes or discard_classes must be provided"
+        assert (keep_classes is not None) ^ (discard_classes is not None), (
+            "Either keep_classes or discard_classes must be provided"
+        )
 
         filtered_images_paths = []
 
         for image_path in image_paths:
-            label_path = Path(image_path).with_suffix(".txt").as_posix().replace("/images/", "/labels/")
+            label_path = (
+                Path(image_path)
+                .with_suffix(".txt")
+                .as_posix()
+                .replace("/images/", "/labels/")
+            )
 
             if not os.path.exists(label_path):
                 filtered_images_paths.append(image_path)
@@ -573,11 +630,15 @@ class FilterDataCfg:
 
                 # Apply keep_classes filter if specified
                 if keep_classes is not None:
-                    should_include = any(class_name in keep_classes for class_name in classes)
+                    should_include = any(
+                        class_name in keep_classes for class_name in classes
+                    )
 
                 # Apply discard_classes filter if specified
                 if discard_classes is not None and should_include:
-                    should_include = not any(class_name in discard_classes for class_name in classes)
+                    should_include = not any(
+                        class_name in discard_classes for class_name in classes
+                    )
 
                 if should_include:
                     filtered_images_paths.append(image_path)
@@ -588,10 +649,12 @@ class FilterDataCfg:
         images_paths = self.get_split_images_paths(split=split)
         if self.keep_classes is None and self.discard_classes is None:
             return images_paths
-        filtered_images_paths = self.filter_image_paths(image_paths=images_paths,
-                                                        label_map=self.yolo_config["names"],
-                                                        keep_classes=self.keep_classes,
-                                                        discard_classes=self.discard_classes)
+        filtered_images_paths = self.filter_image_paths(
+            image_paths=images_paths,
+            label_map=self.yolo_config["names"],
+            keep_classes=self.keep_classes,
+            discard_classes=self.discard_classes,
+        )
         if self.keep_classes is not None:
             logger.info(f"Keeping classes for split {split}: {self.keep_classes}")
         if self.discard_classes is not None:
@@ -599,39 +662,41 @@ class FilterDataCfg:
 
         return filtered_images_paths
 
-    def save_images_paths(self,images_paths:list[str],save_path:str):
-        pd.Series(images_paths).to_csv(save_path,index=False,header=False)
+    def save_images_paths(self, images_paths: list[str], save_path: str):
+        pd.Series(images_paths).to_csv(save_path, index=False, header=False)
 
-    def get_filtered_data_cfg(self,save_dir:str) -> str:
+    def get_filtered_data_cfg(self, save_dir: str) -> str:
         root = self.yolo_config["path"]
 
         # updated cfg
         cfg = {
             "path": root,
             "names": self.yolo_config["names"],
-            "nc": self.yolo_config["nc"]
+            "nc": self.yolo_config["nc"],
         }
-        splits = [t for t in ["train","val","test"] if t in self.yolo_config.keys()]
+        splits = [t for t in ["train", "val", "test"] if t in self.yolo_config.keys()]
         for split in splits:
             images_paths = self.filter_data_cfg(split=split)
-            save_path_samples = os.path.join(
-                save_dir, f"{split}_flatten.txt"
+            save_path_samples = os.path.join(save_dir, f"{split}_flatten.txt")
+            self.save_images_paths(
+                images_paths=images_paths, save_path=save_path_samples
             )
-            self.save_images_paths(images_paths=images_paths,save_path=save_path_samples)
 
             # update cfg
             cfg[split] = os.path.relpath(save_path_samples, start=root)
 
         # save cfg
-        save_path_cfg = Path(self.data_config_yaml).with_stem("filtered_data").as_posix()
-        save_yaml(cfg,save_path_cfg,mode="w")
+        save_path_cfg = (
+            Path(self.data_config_yaml).with_stem("filtered_data").as_posix()
+        )
+        save_yaml(cfg, save_path_cfg, mode="w")
 
         return save_path_cfg
 
     def get_data_cfg_paths_for_cl(
         self,
         ratio: float,
-        split:str,
+        split: str,
         cl_save_dir: str,
         seed: int = 41,
     ):
@@ -662,13 +727,15 @@ class FilterDataCfg:
         save_path_samples = os.path.join(
             cl_save_dir, f"{split}_ratio_{ratio}-seed_{seed}.txt"
         )
-        self.save_images_paths(images_paths=sampled_imgs_paths,save_path=save_path_samples)
+        self.save_images_paths(
+            images_paths=sampled_imgs_paths, save_path=save_path_samples
+        )
 
         # updated cfg
         cfg = {
             "path": root,
             "names": self.yolo_config["names"],
-            "nc": self.yolo_config["nc"]
+            "nc": self.yolo_config["nc"],
         }
         if split == "train":
             cfg["val"] = self.yolo_config["val"]
@@ -680,7 +747,7 @@ class FilterDataCfg:
             raise NotImplementedError
 
         save_path_cfg = Path(save_path_samples).with_suffix(".yaml").as_posix()
-        save_yaml(cfg,save_path_cfg,mode="w")
+        save_yaml(cfg, save_path_cfg, mode="w")
 
         logger.info(
             f"Saving samples at: {save_path_samples} and data_cfg at {save_path_cfg}",

@@ -64,28 +64,26 @@ class ClassifierModule(L.LightningModule):
         self.label_to_class_map = model.label_to_class_map
 
         # Save model-specific hyperparameters for checkpoint restoration
-        self.save_hyperparameters({
-            'label_to_class_map': model.label_to_class_map,
-            'backbone': model.backbone,
-            'backbone_source': model.backbone_source,
-            'input_size': model.input_size.item(),
-            'dropout': model.dropout.item(),
-            'freeze_backbone': model.freeze_backbone,
-            'mean': model.mean.tolist(),
-            'std': model.std.tolist(),
-            'num_layers': model.num_layers.item(),
-            'hidden_dim': model.hidden_dim.item(),
-        })
+        self.save_hyperparameters(
+            {
+                "label_to_class_map": model.label_to_class_map,
+                "backbone": model.backbone,
+                "backbone_source": model.backbone_source,
+                "input_size": model.input_size.item(),
+                "dropout": model.dropout.item(),
+                "freeze_backbone": model.freeze_backbone,
+                "mean": model.mean.tolist(),
+                "std": model.std.tolist(),
+                "num_layers": model.num_layers.item(),
+                "hidden_dim": model.hidden_dim.item(),
+            }
+        )
 
         self.mlflow_run_id = None
         self.mlflow_experiment_id = None
 
         # metrics
-        cfg = {
-            "task": "multiclass",
-            "num_classes": self.num_classes,
-            "average": None
-        }
+        cfg = {"task": "multiclass", "num_classes": self.num_classes, "average": None}
         self.accuracy = Accuracy(**cfg)
         self.precision = Precision(**cfg)
         self.recall = Recall(**cfg)
@@ -104,12 +102,15 @@ class ClassifierModule(L.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
-    def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+    def training_step(
+        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+    ) -> torch.Tensor:
         x, y = batch
 
         classes = y.cpu().flatten().tolist()
         weight = [
-            len(classes) / torch.log2(torch.tensor(classes.count(i) + 2)).item() for i in range(self.num_classes)
+            len(classes) / torch.log2(torch.tensor(classes.count(i) + 2)).item()
+            for i in range(self.num_classes)
         ]
         weight = torch.Tensor(weight).float().to(y.device)
 
@@ -125,7 +126,9 @@ class ClassifierModule(L.LightningModule):
 
         return loss
 
-    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> None:
+    def validation_step(
+        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+    ) -> None:
         x, y = batch
         y = y.long().flatten()  # Use flatten instead of squeeze(1)
 
@@ -198,7 +201,7 @@ class ClassifierTrainer(ModelTrainer):
             dirpath=ROOT / self.config.checkpoint.dirpath / self.config.mlflow.run_name,
             filename=self.config.checkpoint.filename,
             save_weights_only=self.config.checkpoint.save_weights_only,
-            save_on_train_epoch_end=False
+            save_on_train_epoch_end=False,
         )
         lr_callback = LearningRateMonitor(logging_interval="epoch")
         early_stopping = EarlyStopping(
@@ -211,7 +214,7 @@ class ClassifierTrainer(ModelTrainer):
             experiment_name=self.config.mlflow.experiment_name,
             run_name=self.config.mlflow.run_name,
             log_model=False,
-            #checkpoint_path_prefix="classification",
+            # checkpoint_path_prefix="classification",
             tracking_uri=MLFLOW_TRACKING_URI,
         )
 
@@ -240,12 +243,14 @@ class ClassifierTrainer(ModelTrainer):
         """
         # Set float32 matmul precision to medium
         if torch.cuda.is_available():
-            torch.set_float32_matmul_precision('medium')
+            torch.set_float32_matmul_precision("medium")
 
         # DataModule - use the new classmethod for cleaner instantiation
         datamodule = ClassificationDataModule.from_dict_config(self.config)
 
-        logger.info("Getting one batch of data to initialize lazy modules in classifier.")
+        logger.info(
+            "Getting one batch of data to initialize lazy modules in classifier."
+        )
         datamodule.setup(stage="fit")
         example_input, _ = next(iter(datamodule.train_dataloader()))
 
@@ -283,7 +288,9 @@ class ClassifierTrainer(ModelTrainer):
         if datamodule.is_curriculum_enabled():
             logger.info("Curriculum learning is enabled. Adding CurriculumCallback.")
             curriculum_callback = CurriculumCallback(datamodule)
-            callbacks.insert(0, curriculum_callback)  # Add at the beginning to ensure it runs early
+            callbacks.insert(
+                0, curriculum_callback
+            )  # Add at the beginning to ensure it runs early
         else:
             logger.info("Curriculum learning is disabled.")
 
@@ -296,8 +303,8 @@ class ClassifierTrainer(ModelTrainer):
             check_val_every_n_epoch=self.config.train.val_check_interval,
             limit_val_batches=3 if debug else None,
             callbacks=callbacks,
-            default_root_dir=ROOT / self.config.checkpoint.dirpath
-            )
+            default_root_dir=ROOT / self.config.checkpoint.dirpath,
+        )
 
         trainer.fit(model, datamodule=datamodule)
 

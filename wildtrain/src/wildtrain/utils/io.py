@@ -11,15 +11,18 @@ from .logging import get_logger
 
 logger = get_logger(__name__)
 
+
 def read_image(image_path: str) -> Image.Image:
     """Load an image from a file path."""
     image = Image.open(image_path)
     image = ImageOps.exif_transpose(image)
     return image
 
+
 def load_yaml(path: str):
-    with open(path, "r",encoding="utf-8") as file:
+    with open(path, "r", encoding="utf-8") as file:
         return yaml.safe_load(file)
+
 
 def save_yaml(cfg: dict, save_path: str, mode="w"):
     try:
@@ -28,6 +31,7 @@ def save_yaml(cfg: dict, save_path: str, mode="w"):
         logger.info(f"Successfully saved yaml to {save_path}")
     except Exception:
         logger.error(f"Error saving yaml to {save_path}: {traceback.format_exc()}")
+
 
 def remove_label_cache(data_config_yaml: str):
     """
@@ -50,13 +54,25 @@ def remove_label_cache(data_config_yaml: str):
         else:
             logger.info(f"split={split} does not exist.")
 
-def merge_data_cfg(root_data_directory:Optional[str]=None,data_configs:Optional[list[str]]=None,output_path:Optional[str]=None,force_merge:bool=True):
 
-    assert (root_data_directory is not None) ^ (data_configs is not None), "Either root_data_directory or data_configs must be provided"
+def merge_data_cfg(
+    root_data_directory: Optional[str] = None,
+    data_configs: Optional[list[str]] = None,
+    output_path: Optional[str] = None,
+    force_merge: bool = True,
+):
+
+    assert (root_data_directory is not None) ^ (data_configs is not None), (
+        "Either root_data_directory or data_configs must be provided"
+    )
 
     if root_data_directory is not None:
         path_manager = PathManager(Path(root_data_directory))
-        data_configs = [path/"data.yaml" for path in path_manager.yolo_formats_dir.iterdir() if path.is_dir()]
+        data_configs = [
+            path / "data.yaml"
+            for path in path_manager.yolo_formats_dir.iterdir()
+            if path.is_dir()
+        ]
 
     assert len(data_configs) > 0, "No data.yaml files found"
 
@@ -87,7 +103,7 @@ def merge_data_cfg(root_data_directory:Optional[str]=None,data_configs:Optional[
         "val": [],
         "test": [],
         "names": names[0],
-        "nc": nc[0]
+        "nc": nc[0],
     }
 
     # get common prefix for all paths
@@ -112,8 +128,9 @@ def merge_data_cfg(root_data_directory:Optional[str]=None,data_configs:Optional[
     else:
         unified_cfg["names"] = {i: f"class_{i}" for i in range(max(nc))}
 
-    for root, train_path, val_path, test_path in zip(roots, train_paths, val_paths, test_paths):
-
+    for root, train_path, val_path, test_path in zip(
+        roots, train_paths, val_paths, test_paths
+    ):
         train_path = os.path.join(root, train_path)
         val_path = os.path.join(root, val_path)
         test_path = os.path.join(root, test_path)

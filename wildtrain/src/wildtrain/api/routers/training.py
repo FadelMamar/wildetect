@@ -32,8 +32,8 @@ async def train_classifier(request: ClassificationTrainingRequest) -> TrainingRe
             metadata={
                 "task_type": "classification_training",
                 "model_type": "classifier",
-                "config": request.config
-            }
+                "config": request.config,
+            },
         )
 
         return TrainingResponse(
@@ -41,7 +41,7 @@ async def train_classifier(request: ClassificationTrainingRequest) -> TrainingRe
             message="Classification training job created",
             job_id=job_id,
             status="pending",
-            progress=0.0
+            progress=0.0,
         )
 
     except Exception as e:
@@ -61,8 +61,8 @@ async def train_detector(request: DetectionTrainingRequest) -> TrainingResponse:
             metadata={
                 "task_type": "detection_training",
                 "model_type": "detector",
-                "config": request.config
-            }
+                "config": request.config,
+            },
         )
 
         return TrainingResponse(
@@ -70,7 +70,7 @@ async def train_detector(request: DetectionTrainingRequest) -> TrainingResponse:
             message="Detection training job created",
             job_id=job_id,
             status="pending",
-            progress=0.0
+            progress=0.0,
         )
 
     except Exception as e:
@@ -103,15 +103,13 @@ async def get_training_status(job_id: str) -> JobDetailResponse:
         created_at=job.created_at,
         started_at=job.started_at,
         completed_at=job.completed_at,
-        duration=duration
+        duration=duration,
     )
 
 
 @router.get("/jobs", response_model=JobListResponse)
 async def list_training_jobs(
-    status: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0
+    status: Optional[str] = None, limit: int = 50, offset: int = 0
 ) -> JobListResponse:
     """List training jobs."""
 
@@ -127,25 +125,27 @@ async def list_training_jobs(
 
     # Apply pagination
     total_count = len(jobs)
-    jobs = jobs[offset:offset + limit]
+    jobs = jobs[offset : offset + limit]
 
     # Convert to dict format
     job_dicts = []
     for job in jobs:
-        job_dicts.append({
-            "job_id": job.job_id,
-            "status": job.status,
-            "created_at": job.created_at.isoformat(),
-            "progress": job.progress,
-            "metadata": job.metadata
-        })
+        job_dicts.append(
+            {
+                "job_id": job.job_id,
+                "status": job.status,
+                "created_at": job.created_at.isoformat(),
+                "progress": job.progress,
+                "metadata": job.metadata,
+            }
+        )
 
     return JobListResponse(
         success=True,
         message=f"Retrieved {len(job_dicts)} training jobs",
         jobs=job_dicts,
         total_count=total_count,
-        filtered_count=len(job_dicts)
+        filtered_count=len(job_dicts),
     )
 
 
@@ -157,7 +157,7 @@ async def cancel_training_job(request: JobCancelRequest) -> JobDetailResponse:
     if not success:
         raise HTTPException(
             status_code=400,
-            detail=f"Could not cancel job {request.job_id}. Job may not exist or may not be cancellable."
+            detail=f"Could not cancel job {request.job_id}. Job may not exist or may not be cancellable.",
         )
 
     job = job_manager.get_job(request.job_id)
@@ -175,7 +175,7 @@ async def cancel_training_job(request: JobCancelRequest) -> JobDetailResponse:
         result_files=[],
         created_at=job.created_at,
         started_at=job.started_at,
-        completed_at=job.completed_at
+        completed_at=job.completed_at,
     )
 
 
@@ -206,4 +206,3 @@ def _train_detector_task(config: Any) -> None:
     except Exception as e:
         logger.error(f"Detector training failed: {e}")
         raise
-

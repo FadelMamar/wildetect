@@ -36,9 +36,11 @@ def main():
     )
 
     # 2. Create transforms
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+        ]
+    )
 
     try:
         # 3. Load base dataset
@@ -47,7 +49,7 @@ def main():
             root_data_directory=r"D:\workspace\data\demo-dataset",  # Your images directory
             split="train",
             curriculum_config=curriculum_config,
-            transform=transform
+            transform=transform,
         )
 
         print("✅ Base dataset loaded successfully!")
@@ -60,7 +62,7 @@ def main():
             dataset=dataset,
             crop_size=224,
             max_tn_crops=1,
-            p_draw_annotations=0.0  # No annotations for cleaner crops
+            p_draw_annotations=0.0,  # No annotations for cleaner crops
         )
 
         print("✅ PatchDataset created successfully!")
@@ -73,7 +75,7 @@ def main():
         # Count crops per class
         class_counts_before = {}
         for ann in annotations_before:
-            class_name = ann['class_name']
+            class_name = ann["class_name"]
             class_counts_before[class_name] = class_counts_before.get(class_name, 0) + 1
 
         for class_name, count in class_counts_before.items():
@@ -86,10 +88,10 @@ def main():
         clustering_filter = CropClusteringFilter(
             crop_dataset=crop_dataset,
             batch_size=8,
-            reduction_factor=0.5  # Keep 50% of crops
+            reduction_factor=0.5,  # Keep 50% of crops
         )
 
-        #rebalance_filter = ClassificationRebalanceFilter(
+        # rebalance_filter = ClassificationRebalanceFilter(
         #    class_key="class_id",
         #    method="mean",
         #     exclude_extremes=True,
@@ -97,10 +99,11 @@ def main():
         # )
 
         # Apply filter to create clustered dataset
-        clustered_crop_dataset = (crop_dataset
-                                    #.apply_rebalance_filter(rebalance_filter)
-                                    .apply_clustering_filter(clustering_filter)
-                                    )
+        clustered_crop_dataset = (
+            crop_dataset
+            # .apply_rebalance_filter(rebalance_filter)
+            .apply_clustering_filter(clustering_filter)
+        )
 
         print("✅ Clustered PatchDataset created successfully!")
         print(f"✅ Number of crops after clustering: {len(clustered_crop_dataset)}")
@@ -111,7 +114,7 @@ def main():
 
         class_counts_after = {}
         for ann in annotations_after:
-            class_name = ann['class_name']
+            class_name = ann["class_name"]
             class_counts_after[class_name] = class_counts_after.get(class_name, 0) + 1
 
         for class_name, count in class_counts_after.items():
@@ -125,13 +128,15 @@ def main():
             clustered_crop_dataset,
             batch_size=8,
             shuffle=True,
-            num_workers=0  # Set to 0 for this example
+            num_workers=0,  # Set to 0 for this example
         )
 
         # Test a few batches
         print("Testing batch loading:")
         for batch_idx, (crops, labels) in enumerate(dataloader):
-            print(f"   Batch {batch_idx + 1}: crops shape={crops.shape}, labels={labels.tolist()}")
+            print(
+                f"   Batch {batch_idx + 1}: crops shape={crops.shape}, labels={labels.tolist()}"
+            )
             if batch_idx >= 2:  # Only test first 3 batches
                 break
 
@@ -144,8 +149,8 @@ def main():
             print(f"   Wildlife crops: {len(wildlife_crops)} indices")
 
         # Get crops by type
-        detection_crops = clustered_crop_dataset.get_crops_by_type('detection')
-        random_crops = clustered_crop_dataset.get_crops_by_type('random')
+        detection_crops = clustered_crop_dataset.get_crops_by_type("detection")
+        random_crops = clustered_crop_dataset.get_crops_by_type("random")
         print(f"   Detection crops: {len(detection_crops)} indices")
         print(f"   Random crops: {len(random_crops)} indices")
 
@@ -153,7 +158,6 @@ def main():
         if len(clustered_crop_dataset) > 0:
             crop_info = clustered_crop_dataset.get_crop_info(0)
             print(f"   First crop info keys: {list(crop_info.keys())}")
-
 
     except FileNotFoundError:
         print(traceback.format_exc())

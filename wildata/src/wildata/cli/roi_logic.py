@@ -82,7 +82,7 @@ def create_roi_one_worker(args) -> tuple:
         from wildata.config import ROIDatasetConfig
         from wildata.pipeline import FrameworkDataManager, Loader, PathManager
 
-        typer.echo(f"\n=== Creating ROI [{i+1}]: {name} ===")
+        typer.echo(f"\n=== Creating ROI [{i + 1}]: {name} ===")
 
         single_config = ROIDatasetConfig(
             source_path=src,
@@ -97,7 +97,6 @@ def create_roi_one_worker(args) -> tuple:
             draw_original_bboxes=config_dict.get("draw_original_bboxes", False),
         )
         # Use the same core logic as create_roi_dataset
-
 
         loader = Loader()
         dataset_info, split_coco_data = loader.load(

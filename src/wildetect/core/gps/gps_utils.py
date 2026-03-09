@@ -195,7 +195,11 @@ class GPSUtils:
 
 
 def get_gsd(
-    image_path: str, flight_specs: FlightSpecs, image: Image.Image | None = None, image_height: int | None = None, exif: dict | None = None
+    image_path: str,
+    flight_specs: FlightSpecs,
+    image: Image.Image | None = None,
+    image_height: int | None = None,
+    exif: dict | None = None,
 ):
     ##-- Extract exif
     if exif is None:

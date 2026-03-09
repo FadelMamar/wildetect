@@ -15,6 +15,7 @@ from wildtrain.api.main import fastapi_app as app
 DATASET_NAME = "savmap"
 DATA_DIR = r"D:\workspace\data\demo-dataset"
 
+
 @pytest.mark.dataset
 class TestDatasetEndpoints:
     """Test dataset endpoints."""
@@ -26,10 +27,10 @@ class TestDatasetEndpoints:
 
     def test_error_handling_for_nonexistent_datasets(self, client):
         """Test error handling for non-existent datasets."""
-        response = client.post("/dataset/stats", json={
-            "data_dir": "/nonexistent/dataset/path",
-            "split": "train"
-        })
+        response = client.post(
+            "/dataset/stats",
+            json={"data_dir": "/nonexistent/dataset/path", "split": "train"},
+        )
 
         # Should handle non-existent datasets gracefully
         assert response.status_code in [404, 500, 422]
@@ -37,10 +38,9 @@ class TestDatasetEndpoints:
     def test_cli_integration_for_dataset_operations(self, client):
         """Test CLI integration for dataset operations."""
 
-        response = client.post("/dataset/stats", json={
-            "data_dir": DATA_DIR,
-            "split": "train"
-        })
+        response = client.post(
+            "/dataset/stats", json={"data_dir": DATA_DIR, "split": "train"}
+        )
 
         assert response.status_code in [200, 201, 202]
         if response.status_code in [200, 201, 202]:
@@ -54,11 +54,14 @@ class TestDatasetEndpoints:
         with tempfile.TemporaryDirectory() as temp_dir:
             output_file = Path(temp_dir) / "stats_output.json"
 
-            response = client.post("/dataset/stats", json=  {
-                "data_dir": DATA_DIR,
-                "split": "train",
-                "output_file": str(output_file)
-            })
+            response = client.post(
+                "/dataset/stats",
+                json={
+                    "data_dir": DATA_DIR,
+                    "split": "train",
+                    "output_file": str(output_file),
+                },
+            )
 
             assert response.status_code in [200, 201, 202, 500]
             if response.status_code in [200, 201, 202]:
@@ -67,10 +70,9 @@ class TestDatasetEndpoints:
 
     def test_dataset_stats_error_propagation(self, client):
         """Test that dataset stats errors are properly propagated."""
-        response = client.post("/dataset/stats", json={
-            "data_dir": "/path/to/dataset",
-            "split": "train"
-        })
+        response = client.post(
+            "/dataset/stats", json={"data_dir": "/path/to/dataset", "split": "train"}
+        )
 
         # Should propagate errors properly
         assert response.status_code in [500, 422]
@@ -90,5 +92,3 @@ class TestDatasetEndpoints:
 
             # Should validate input properly
             assert response.status_code in [422, 400, 500]
-
-

@@ -6,18 +6,18 @@ JSON exports, specifically targeting object detection schemas.
 
 Example usage:
     from wildata.converters.labelstudio import LabelStudioParser, LabelStudioExport
-    
+
     # Load and parse annotations
     parser = LabelStudioParser.from_file("annotations.json")
-    
+
     # Get statistics
     print(f"Tasks: {parser.task_count}")
     print(f"Labels: {parser.get_label_statistics()}")
-    
+
     # Iterate over results (annotations and/or predictions)
     for result in parser.iter_results(source="both"):
         print(f"{result.image_path}: {result.label} at {result.bbox_pixel}")
-    
+
     # Convert to COCO format
     coco_data = parser.to_coco_format()
 """

@@ -23,12 +23,14 @@ logger = get_logger(__name__)
 
 
 class ClassificationEvaluator:
-    def __init__(self, config:ClassificationEvalConfig):
+    def __init__(self, config: ClassificationEvalConfig):
         self.config = config
 
     def _load_model(self):
         logger.info(f"Loading model from {self.config.classifier}")
-        model = GenericClassifier.load_from_checkpoint(self.config.classifier, map_location=self.config.device)
+        model = GenericClassifier.load_from_checkpoint(
+            self.config.classifier, map_location=self.config.device
+        )
         return model
 
     def _load_data(self):
@@ -48,19 +50,27 @@ class ClassificationEvaluator:
         else:
             return datamodule.val_dataloader()
 
-
-    def evaluate(self,debug:bool=False, save_path:Optional[str]=None):
+    def evaluate(self, debug: bool = False, save_path: Optional[str] = None):
         model = self._load_model().to(self.config.device)
         dataloader = self._load_data()
         num_classes = len(model.label_to_class_map)
         logger.info(f"Number of classes: {num_classes}")
         metrics = {
-            "accuracy": Accuracy(task="multiclass", num_classes=num_classes,),
-            "precision": Precision(task="multiclass", num_classes=num_classes, average=None,),
+            "accuracy": Accuracy(
+                task="multiclass",
+                num_classes=num_classes,
+            ),
+            "precision": Precision(
+                task="multiclass",
+                num_classes=num_classes,
+                average=None,
+            ),
             "recall": Recall(task="multiclass", num_classes=num_classes, average=None),
             "f1": F1Score(task="multiclass", num_classes=num_classes, average=None),
-            "auroc": AUROC(task="multiclass", num_classes=num_classes,average=None),
-            "average_precision": AveragePrecision(task="multiclass", num_classes=num_classes,average=None),
+            "auroc": AUROC(task="multiclass", num_classes=num_classes, average=None),
+            "average_precision": AveragePrecision(
+                task="multiclass", num_classes=num_classes, average=None
+            ),
         }
         for metric in metrics.values():
             metric.to(self.config.device)
@@ -68,7 +78,10 @@ class ClassificationEvaluator:
         with torch.no_grad():
             count = 0
             for x, y in tqdm(dataloader, desc="Evaluating"):
-                x, y = x.to(self.config.device), y.to(self.config.device).long().squeeze(1)
+                x, y = (
+                    x.to(self.config.device),
+                    y.to(self.config.device).long().squeeze(1),
+                )
                 probs = model(x).softmax(dim=1)
                 for metric in metrics.values():
                     metric.update(probs, y)
@@ -89,8 +102,8 @@ class ClassificationEvaluator:
                 with open(save_path, "w") as f:
                     json.dump(results, f, indent=2)
             except Exception:
-                logger.error(f"Error saving report to {save_path}: {traceback.format_exc()}")
+                logger.error(
+                    f"Error saving report to {save_path}: {traceback.format_exc()}"
+                )
 
         return results
-
-

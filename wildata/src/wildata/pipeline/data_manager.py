@@ -265,9 +265,9 @@ class DataManager:
         cleaned_coco_json = coco_json.copy()
         images = coco_json["images"]
         annotations = coco_json["annotations"]
-        assert len(images) == len(
-            annotations
-        ), "Number of images and annotations must be the same"
+        assert len(images) == len(annotations), (
+            "Number of images and annotations must be the same"
+        )
         new_images = []
         new_annotations = []
 

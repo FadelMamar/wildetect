@@ -61,9 +61,9 @@ class COCOValidator:
             return True
 
         try:
-            assert str(self.coco_file_path).endswith(
-                ".json"
-            ), "Provide the path to the annotations"
+            assert str(self.coco_file_path).endswith(".json"), (
+                "Provide the path to the annotations"
+            )
             if not os.path.exists(self.coco_file_path):
                 self.errors.append(f"File does not exist: {self.coco_file_path}")
                 return False

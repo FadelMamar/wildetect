@@ -17,7 +17,9 @@ class DifficultyStrategy(ABC):
     """Abstract base class for difficulty progression strategies."""
 
     @abstractmethod
-    def get_difficulty(self, epoch: int, max_epochs: int, config: CurriculumConfig) -> float:
+    def get_difficulty(
+        self, epoch: int, max_epochs: int, config: CurriculumConfig
+    ) -> float:
         """Return difficulty level (0.0 = easiest, 1.0 = hardest) for given epoch."""
         pass
 
@@ -25,7 +27,9 @@ class DifficultyStrategy(ABC):
 class LinearDifficultyStrategy(DifficultyStrategy):
     """Linear progression from easy to hard."""
 
-    def get_difficulty(self, epoch: int, max_epochs: int, config: CurriculumConfig) -> float:
+    def get_difficulty(
+        self, epoch: int, max_epochs: int, config: CurriculumConfig
+    ) -> float:
         effective_epoch = max(0, epoch - config.warmup_epochs)
         effective_max_epochs = max_epochs - config.warmup_epochs
 
@@ -33,13 +37,17 @@ class LinearDifficultyStrategy(DifficultyStrategy):
             return config.end_difficulty
 
         progress = min(1.0, effective_epoch / effective_max_epochs)
-        return config.start_difficulty + progress * (config.end_difficulty - config.start_difficulty)
+        return config.start_difficulty + progress * (
+            config.end_difficulty - config.start_difficulty
+        )
 
 
 class ExponentialDifficultyStrategy(DifficultyStrategy):
     """Exponential progression from easy to hard."""
 
-    def get_difficulty(self, epoch: int, max_epochs: int, config: CurriculumConfig) -> float:
+    def get_difficulty(
+        self, epoch: int, max_epochs: int, config: CurriculumConfig
+    ) -> float:
         effective_epoch = max(0, epoch - config.warmup_epochs)
         effective_max_epochs = max_epochs - config.warmup_epochs
 
@@ -53,7 +61,9 @@ class ExponentialDifficultyStrategy(DifficultyStrategy):
 class RandomDifficultyStrategy(DifficultyStrategy):
     """No curriculum - random sampling."""
 
-    def get_difficulty(self, epoch: int, max_epochs: int, config: CurriculumConfig) -> float:
+    def get_difficulty(
+        self, epoch: int, max_epochs: int, config: CurriculumConfig
+    ) -> float:
         return config.end_difficulty  # Always max difficulty
 
 
@@ -90,8 +100,8 @@ class CurriculumManager:
                 )
 
         return {
-            'epoch': epoch,
-            'difficulty': self.current_difficulty,
+            "epoch": epoch,
+            "difficulty": self.current_difficulty,
         }
 
     def should_include_sample(self, sample_difficulty: float) -> bool:
@@ -109,7 +119,7 @@ class CurriculumManager:
     def get_state(self) -> Dict[str, Any]:
         """Get current curriculum state."""
         return {
-            'epoch': self.current_epoch,
-            'difficulty': self.current_difficulty,
-            'config': self.config
+            "epoch": self.current_epoch,
+            "difficulty": self.current_difficulty,
+            "config": self.config,
         }

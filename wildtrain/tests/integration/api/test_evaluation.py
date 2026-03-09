@@ -10,12 +10,17 @@ import pytest
 class TestEvaluationEndpoints:
     """Test evaluation endpoints."""
 
-    def test_evaluate_classifier_with_real_config(self, client, classification_eval_config):
+    def test_evaluate_classifier_with_real_config(
+        self, client, classification_eval_config
+    ):
         """Test POST /evaluation/classifier endpoint with real config."""
-        response = client.post("/evaluation/classifier", json={
-            "config": classification_eval_config,
-            "debug": True,
-        })
+        response = client.post(
+            "/evaluation/classifier",
+            json={
+                "config": classification_eval_config,
+                "debug": True,
+            },
+        )
 
         assert response.status_code in [200, 201, 202]  # 422 for validation errors
         data = response.json()
@@ -24,15 +29,20 @@ class TestEvaluationEndpoints:
 
     def test_evaluate_detector_with_real_config(self, client, detection_eval_config):
         """Test POST /evaluation/detector endpoint with real config."""
-        response = client.post("/evaluation/detector", json={
-            "config": detection_eval_config,
-            "debug": True,
-            "model_type": "yolo",
-        })
+        response = client.post(
+            "/evaluation/detector",
+            json={
+                "config": detection_eval_config,
+                "debug": True,
+                "model_type": "yolo",
+            },
+        )
 
         assert response.status_code in [200, 201, 202]  # 422 for validation errors
         data = response.json()
-        assert "success" in data or "job_id" in data  # Check for either success or job_id
+        assert (
+            "success" in data or "job_id" in data
+        )  # Check for either success or job_id
         if "job_id" in data:
             assert "message" in data  # Should have a message field
 
@@ -58,8 +68,10 @@ class TestEvaluationEndpoints:
 
     def test_invalid_evaluation_config(self, client):
         """Test evaluation with invalid config."""
-        response = client.post("/evaluation/classifier", json={
-            "config": {"invalid": "config"},
-        })
+        response = client.post(
+            "/evaluation/classifier",
+            json={
+                "config": {"invalid": "config"},
+            },
+        )
         assert response.status_code in [422, 400]  # Validation error
-

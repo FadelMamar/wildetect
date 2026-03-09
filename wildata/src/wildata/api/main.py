@@ -120,4 +120,3 @@ try:
     mcp.setup_server()
 except ImportError:
     print("FastAPI MCP not installed. Skipping MCP server setup.")
-

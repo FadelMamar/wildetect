@@ -30,8 +30,8 @@ async def evaluate_classifier(request: ClassificationEvalRequest) -> EvaluationR
             metadata={
                 "task_type": "classification_evaluation",
                 "model_type": "classifier",
-                "config": config.model_dump()
-            }
+                "config": config.model_dump(),
+            },
         )
 
         return EvaluationResponse(
@@ -41,7 +41,7 @@ async def evaluate_classifier(request: ClassificationEvalRequest) -> EvaluationR
             results_path=None,
             confusion_matrix=None,
             class_metrics=None,
-            job_id=job_id
+            job_id=job_id,
         )
 
     except Exception as e:
@@ -64,8 +64,8 @@ async def evaluate_detector(request: DetectionEvalRequest) -> EvaluationResponse
             metadata={
                 "task_type": "detection_evaluation",
                 "model_type": "detector",
-                "config": config.model_dump()
-            }
+                "config": config.model_dump(),
+            },
         )
 
         return EvaluationResponse(
@@ -75,7 +75,7 @@ async def evaluate_detector(request: DetectionEvalRequest) -> EvaluationResponse
             results_path=None,
             confusion_matrix=None,
             class_metrics=None,
-            job_id=job_id
+            job_id=job_id,
         )
 
     except Exception as e:
@@ -109,15 +109,13 @@ async def get_evaluation_status(job_id: str) -> Dict[str, Any]:
         "created_at": job.created_at.isoformat(),
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
-        "duration": duration
+        "duration": duration,
     }
 
 
 @router.get("/jobs")
 async def list_evaluation_jobs(
-    status: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0
+    status: Optional[str] = None, limit: int = 50, offset: int = 0
 ) -> Dict[str, Any]:
     """List evaluation jobs."""
 
@@ -133,36 +131,38 @@ async def list_evaluation_jobs(
 
     # Apply pagination
     total_count = len(jobs)
-    jobs = jobs[offset:offset + limit]
+    jobs = jobs[offset : offset + limit]
 
     # Convert to dict format
     job_dicts = []
     for job in jobs:
-        job_dicts.append({
-            "job_id": job.job_id,
-            "status": job.status,
-            "created_at": job.created_at.isoformat(),
-            "progress": job.progress,
-            "metadata": job.metadata
-        })
+        job_dicts.append(
+            {
+                "job_id": job.job_id,
+                "status": job.status,
+                "created_at": job.created_at.isoformat(),
+                "progress": job.progress,
+                "metadata": job.metadata,
+            }
+        )
 
     return {
         "success": True,
         "message": f"Retrieved {len(job_dicts)} evaluation jobs",
         "jobs": job_dicts,
         "total_count": total_count,
-        "filtered_count": len(job_dicts)
+        "filtered_count": len(job_dicts),
     }
 
 
 # Background task functions
-def _evaluate_classifier_task(config: Any,debug: bool) -> Dict[str, Any]:
+def _evaluate_classifier_task(config: Any, debug: bool) -> Dict[str, Any]:
     """Background task for classifier evaluation using actual CLI integration."""
     logger.info("Starting classifier evaluation task with CLI integration")
 
     try:
         # Use the evaluation service to run actual CLI evaluation
-        results = EvaluationService.evaluate_classifier(config,debug)
+        results = EvaluationService.evaluate_classifier(config, debug)
         logger.info("Classifier evaluation completed successfully")
         return results
     except Exception as e:
@@ -170,13 +170,15 @@ def _evaluate_classifier_task(config: Any,debug: bool) -> Dict[str, Any]:
         raise
 
 
-def _evaluate_detector_task(config: Any,model_type: str,debug: bool) -> Dict[str, Any]:
+def _evaluate_detector_task(
+    config: Any, model_type: str, debug: bool
+) -> Dict[str, Any]:
     """Background task for detector evaluation using actual CLI integration."""
     logger.info("Starting detector evaluation task with CLI integration")
 
     try:
         # Use the evaluation service to run actual CLI evaluation
-        results = EvaluationService.evaluate_detector(config,model_type,debug)
+        results = EvaluationService.evaluate_detector(config, model_type, debug)
         logger.info("Detector evaluation completed successfully")
         return results
     except Exception as e:

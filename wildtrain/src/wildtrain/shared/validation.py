@@ -10,33 +10,36 @@ from .config_types import ConfigType
 
 class ConfigValidationError(Exception):
     """Raised when configuration validation fails."""
+
     pass
 
 
 class ConfigFileNotFoundError(Exception):
     """Raised when configuration file is not found."""
+
     pass
 
 
 class ConfigParseError(Exception):
     """Raised when configuration file cannot be parsed."""
+
     pass
 
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 def validate_config_file(config_path: Path, config_type: ConfigType) -> bool:
     """
     Validate a configuration file using the shared ConfigLoader.
-    
+
     Args:
         config_path: Path to the configuration file
         config_type: Type of configuration to validate
-        
+
     Returns:
         True if valid, False otherwise
-        
+
     Raises:
         ConfigFileNotFoundError: If config file doesn't exist
         ConfigParseError: If config file cannot be parsed
@@ -44,4 +47,5 @@ def validate_config_file(config_path: Path, config_type: ConfigType) -> bool:
     """
     # Import here to avoid circular import
     from .config_loader import ConfigLoader
+
     return ConfigLoader.validate_config_file(config_path, config_type)

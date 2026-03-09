@@ -174,7 +174,9 @@ class YOLOValidator:
                 for split_path in split_paths:
                     resolved = self._resolve_path(split_path)
                     if split_path and not os.path.exists(resolved):
-                        self.warnings.append(f"Split directory does not exist: {resolved}")
+                        self.warnings.append(
+                            f"Split directory does not exist: {resolved}"
+                        )
 
     def _validate_directories(self):
         """Validate image and label directories."""

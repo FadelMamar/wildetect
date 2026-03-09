@@ -26,7 +26,7 @@ def test_curriculum_config():
         start_difficulty=0.0,
         end_difficulty=1.0,
         warmup_epochs=2,
-        log_frequency=1
+        log_frequency=1,
     )
 
     print(f"✓ Curriculum config created: {config}")
@@ -48,7 +48,7 @@ def test_datamodule_curriculum():
             dataset_type="crop",
             curriculum_config=curriculum_config,
             compute_difficulties=True,
-            preserve_aspect_ratio=True
+            preserve_aspect_ratio=True,
         )
 
         print("✓ ClassificationDataModule created with curriculum")
@@ -102,8 +102,8 @@ def test_trainer_integration():
                     "start_difficulty": 0.0,
                     "end_difficulty": 1.0,
                     "warmup_epochs": 2,
-                    "log_frequency": 1
-                }
+                    "log_frequency": 1,
+                },
             },
             "model": {
                 "backbone": "resnet18",
@@ -113,7 +113,7 @@ def test_trainer_integration():
                 "freeze_backbone": True,
                 "input_size": 224,
                 "mean": [0.554, 0.469, 0.348],
-                "std": [0.203, 0.173, 0.144]
+                "std": [0.203, 0.173, 0.144],
             },
             "train": {
                 "epochs": 5,
@@ -122,7 +122,7 @@ def test_trainer_integration():
                 "weight_decay": 5e-3,
                 "label_smoothing": 0.0,
                 "accelerator": "auto",
-                "precision": "16-mixed"
+                "precision": "16-mixed",
             },
             "checkpoint": {
                 "monitor": "val_loss",
@@ -133,16 +133,17 @@ def test_trainer_integration():
                 "filename": "best_classifier",
                 "save_weights_only": False,
                 "patience": 10,
-                "min_delta": 0.001
+                "min_delta": 0.001,
             },
             "mlflow": {
                 "experiment_name": "curriculum_test",
                 "run_name": "curriculum_classification_test",
-                "log_model": False
-            }
+                "log_model": False,
+            },
         }
 
         from omegaconf import OmegaConf
+
         config = OmegaConf.create(config_dict)
 
         # Test trainer creation
@@ -158,6 +159,7 @@ def test_trainer_integration():
     except Exception as e:
         print(f"✗ Error in trainer integration: {e}")
         import traceback
+
         traceback.print_exc()
         return None
 

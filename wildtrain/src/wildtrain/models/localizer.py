@@ -17,18 +17,18 @@ class ObjectLocalizer(ABC):
     Abstract base class for object localizers.
     Should implement a forward method that returns bounding boxes for detected objects in a batch of images.
     """
+
     def __init__(self):
-        self.metadata: Optional[Dict[str,Any]] = None
+        self.metadata: Optional[Dict[str, Any]] = None
 
     @abstractmethod
     def predict(self, images: torch.Tensor) -> list[sv.Detections]:
         """ """
         pass
 
-    def forward(self,images:torch.Tensor)->list[sv.Detections]:
+    def forward(self, images: torch.Tensor) -> list[sv.Detections]:
         """ """
         return self.predict(images)
-
 
     @property
     def class_mapping(self):
@@ -46,17 +46,17 @@ class UltralyticsLocalizer(ObjectLocalizer):
 
     def __init__(
         self,
-        weights: Optional[str]=None,
-        imgsz:int=800,
+        weights: Optional[str] = None,
+        imgsz: int = 800,
         device: str = "cpu",
         conf_thres: float = 0.25,
         iou_thres: float = 0.5,
-        overlap_metric:str='iou',
-        merging_method:str='nms',
-        disable_detection_filtering:bool=False,
+        overlap_metric: str = "iou",
+        merging_method: str = "nms",
+        disable_detection_filtering: bool = False,
         task="detect",
         max_det=300,
-        config:Optional[YoloInferenceConfig]=None,
+        config: Optional[YoloInferenceConfig] = None,
     ):
         super().__init__()
 
@@ -68,8 +68,16 @@ class UltralyticsLocalizer(ObjectLocalizer):
             self.max_det = config.max_det
             self.overlap_metric = OverlapMetricConfig(config.overlap_metric)
             self.imgsz = imgsz
-            self.merging_method = MergingMethodConfig(config.merging_method) if hasattr(config, 'merging_method') else MergingMethodConfig.NMS
-            self.disable_detection_filtering = config.disable_detection_filtering if hasattr(config, 'disable_detection_filtering') else False
+            self.merging_method = (
+                MergingMethodConfig(config.merging_method)
+                if hasattr(config, "merging_method")
+                else MergingMethodConfig.NMS
+            )
+            self.disable_detection_filtering = (
+                config.disable_detection_filtering
+                if hasattr(config, "disable_detection_filtering")
+                else False
+            )
         else:
             self.model = YOLO(weights, task=task)
             self.device = device
@@ -81,11 +89,12 @@ class UltralyticsLocalizer(ObjectLocalizer):
             self.merging_method = MergingMethodConfig(merging_method)
             self.disable_detection_filtering = disable_detection_filtering
 
-        self.class_agnostic = True # single class detection is localization
-        assert self.overlap_metric in [OverlapMetricConfig.IOU,OverlapMetricConfig.IOS]
-        self.overlap_metrics = {OverlapMetricConfig.IOU:sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
-                   OverlapMetricConfig.IOS:sv.detection.utils.iou_and_nms.OverlapMetric.IOS
-                   }
+        self.class_agnostic = True  # single class detection is localization
+        assert self.overlap_metric in [OverlapMetricConfig.IOU, OverlapMetricConfig.IOS]
+        self.overlap_metrics = {
+            OverlapMetricConfig.IOU: sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
+            OverlapMetricConfig.IOS: sv.detection.utils.iou_and_nms.OverlapMetric.IOS,
+        }
 
     @property
     def class_mapping(self):
@@ -115,7 +124,6 @@ class UltralyticsLocalizer(ObjectLocalizer):
         else:
             raise ValueError(f"Invalid merging method: {self.merging_method}")
 
-
     def predict(self, images: torch.Tensor) -> list[sv.Detections]:
         """
         Args:
@@ -127,16 +135,18 @@ class UltralyticsLocalizer(ObjectLocalizer):
         if images.dim() == 3:
             images = images.unsqueeze(0)
 
-        assert images.min()>=0. and images.max()<=1., "Images must be normalized to [0,1]"
+        assert images.min() >= 0.0 and images.max() <= 1.0, (
+            "Images must be normalized to [0,1]"
+        )
 
         predictions = self.model.predict(
             images,
             imgsz=self.imgsz,
             verbose=False,
-            conf=0.05, # disable confidence filtering
-            iou=1.0, # disable nms
+            conf=0.05,  # disable confidence filtering
+            iou=1.0,  # disable nms
             device=self.device,
-            max_det=self.max_det
+            max_det=self.max_det,
         )
         detections = [sv.Detections.from_ultralytics(pred) for pred in predictions]
         if not self.disable_detection_filtering:

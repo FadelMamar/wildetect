@@ -173,9 +173,9 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
         if self.image_csv_data is not None:
             image_paths = self._get_image_paths(from_csv=True)
         else:
-            assert (image_paths is not None) ^ (
-                image_dir is not None
-            ), "image_paths or image_dir must be provided"
+            assert (image_paths is not None) ^ (image_dir is not None), (
+                "image_paths or image_dir must be provided"
+            )
 
         logger.info("Creating dataloader")
         data_loader = DataLoader(

@@ -45,4 +45,9 @@ def display_welcome_message() -> None:
 
 def log_file_path(command_name: str) -> Path:
     """Generate log file path for a command."""
-    return ROOT / "logs" / command_name / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+    return (
+        ROOT
+        / "logs"
+        / command_name
+        / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+    )

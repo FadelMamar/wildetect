@@ -38,12 +38,15 @@ def setup_logging(verbose: bool = False):
         handlers=handlers,
     )
 
+
 # setup_logging()
 logger = logging.getLogger("Inference_service")
+
 
 class Request(BaseModel):
     tensor: str
     shape: List[int]
+
 
 class PredictionTimeLogger(ls.Callback):
     def on_before_predict(self, lit_api):
@@ -54,6 +57,7 @@ class PredictionTimeLogger(ls.Callback):
         t1 = time.perf_counter()
         elapsed = t1 - self._start_time
         logger.info(f"Prediction took {elapsed:.3f} seconds")
+
 
 class InferenceService(ls.LitAPI):
     def setup(
@@ -69,18 +73,21 @@ class InferenceService(ls.LitAPI):
         mlflow_registry_name = os.environ.get("MLFLOW_REGISTRY_NAME")
         mlflow_alias = os.environ.get("MLFLOW_ALIAS")
         mlflow_tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
-        for a in [mlflow_alias,mlflow_registry_name,mlflow_tracking_uri]:
+        for a in [mlflow_alias, mlflow_registry_name, mlflow_tracking_uri]:
             if a is None:
                 raise ValueError("Some mlflow environment variables are not set.")
 
-        logger.info(f"Loading model from mlflow: {mlflow_registry_name}@{mlflow_alias} from {mlflow_tracking_uri}")
+        logger.info(
+            f"Loading model from mlflow: {mlflow_registry_name}@{mlflow_alias} from {mlflow_tracking_uri}"
+        )
 
         dwnd_location = os.environ.get("MLFLOW_LOCAL_DIR")
-        self.detection_system = Detector.from_mlflow(name=mlflow_registry_name,
-                                                    alias=mlflow_alias,
-                                                    mlflow_tracking_uri=mlflow_tracking_uri,
-                                                    dwnd_location=dwnd_location
-                                                    )
+        self.detection_system = Detector.from_mlflow(
+            name=mlflow_registry_name,
+            alias=mlflow_alias,
+            mlflow_tracking_uri=mlflow_tracking_uri,
+            dwnd_location=dwnd_location,
+        )
         self.detection_system.set_device(device)
 
     def decode_request(self, request: Request) -> dict:
@@ -121,6 +128,7 @@ class InferenceService(ls.LitAPI):
             return dict(detections=results)
         except Exception:
             raise HTTPException(status_code=400, detail=traceback.format_exc())
+
 
 def run_inference_server(port=4141, workers_per_device=1):
     api = InferenceService(max_batch_size=1, enable_async=False)

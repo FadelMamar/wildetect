@@ -23,9 +23,9 @@ device = "cpu"
 #                                  device=device)
 
 # Instantiate the classifier
-classifier = GenericClassifier.load_from_checkpoint("checkpoints/classification/unified_classifier/best.ckpt",
-                                                    map_location=device
-                                                    )
+classifier = GenericClassifier.load_from_checkpoint(
+    "checkpoints/classification/unified_classifier/best.ckpt", map_location=device
+)
 
 
 # classifier = GenericClassifier(label_to_class_map={0:"background",1:"wildlife"},
@@ -35,14 +35,18 @@ classifier = GenericClassifier.load_from_checkpoint("checkpoints/classification/
 
 # classifier = classifier.to_torchscript()
 
-classifier = classifier.to_onnx(output_path="checkpoints/classification/unified_classifier/best.onnx",
-                                batch_size=8,
-                                report=False)
+classifier = classifier.to_onnx(
+    output_path="checkpoints/classification/unified_classifier/best.onnx",
+    batch_size=8,
+    report=False,
+)
 
-classifier = GenericClassifier._load_onnx(onnx_path="checkpoints/classification/unified_classifier/best.onnx",
-                                                      label_to_class_map={0:"background",1:"wildlife"})
+classifier = GenericClassifier._load_onnx(
+    onnx_path="checkpoints/classification/unified_classifier/best.onnx",
+    label_to_class_map={0: "background", 1: "wildlife"},
+)
 
-o = classifier.predict(torch.rand(1,3,384,384))
+o = classifier.predict(torch.rand(1, 3, 384, 384))
 
 print(o)
 

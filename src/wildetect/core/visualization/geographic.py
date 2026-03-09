@@ -64,6 +64,7 @@ class GeographicVisualizer:
         """
         self.config = config or VisualizationConfig()
         from ..flight.geographic_merger import GPSOverlapStrategy
+
         self.overlap_strategy = GPSOverlapStrategy()
 
     def _extract_geographic_data(

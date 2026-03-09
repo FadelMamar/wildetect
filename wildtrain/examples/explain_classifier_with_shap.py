@@ -4,17 +4,17 @@ from wildtrain.data.classification_datamodule import ClassificationDataModule
 from wildtrain.explainers.shap import ClassifierSHAPExplainer
 
 # ---- User configuration ----
-CHECKPOINT_PATH = 'D:/workspace/repos/wildtrain/checkpoints/classification/best-v5.ckpt'  # <-- Update this path
-DATA_ROOT = 'D:/workspace/data/demo-dataset'  # <-- Update this path
+CHECKPOINT_PATH = "D:/workspace/repos/wildtrain/checkpoints/classification/best-v5.ckpt"  # <-- Update this path
+DATA_ROOT = "D:/workspace/data/demo-dataset"  # <-- Update this path
 BACKGROUND_SAMPLES = 50
-BACKGROUND_LOADER = 'train'
+BACKGROUND_LOADER = "train"
 N_EXPLAIN = 5  # Number of images to explain
 
 # ---- Initialize data module ----
 data_module = ClassificationDataModule(
     root_data_directory=DATA_ROOT,
 )
-data_module.setup('fit')
+data_module.setup("fit")
 
 # ---- Initialize SHAP explainer ----
 explainer = ClassifierSHAPExplainer(

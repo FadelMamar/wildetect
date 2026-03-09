@@ -22,7 +22,9 @@ def main():
     # Create output directories
     print("-" * 40)
 
-    config = OmegaConf.load(r"D:/workspace/repos/wildtrain/configs/detection/yolo_configs/yolo.yaml")
+    config = OmegaConf.load(
+        r"D:/workspace/repos/wildtrain/configs/detection/yolo_configs/yolo.yaml"
+    )
 
     # print("Configuration:")
     # print(OmegaConf.to_yaml(config))

@@ -20,10 +20,11 @@ train_app = typer.Typer(name="train", help="Training commands")
 
 @train_app.command()
 def classifier(
-    config: Path = typer.Option("","--config", "-c", help="Path to training configuration file"),
+    config: Path = typer.Option(
+        "", "--config", "-c", help="Path to training configuration file"
+    ),
 ) -> None:
     """Train a classification model."""
-
 
     console.print(f"[bold green]Training classifier with config:[/bold green] {config}")
     log_file = log_file_path("train_classifier")
@@ -35,7 +36,7 @@ def classifier(
         console.print("[bold green]✓[/bold green] Configuration validated successfully")
 
         # Convert validated config back to DictConfig for backward compatibility
-        console.print("cfg:",cfg)
+        console.print("cfg:", cfg)
 
         ClassifierTrainer(cfg).run()
 
@@ -49,7 +50,9 @@ def classifier(
 
 @train_app.command()
 def detector(
-    config: Path = typer.Option("","--config", "-c", help="Path to training configuration file"),
+    config: Path = typer.Option(
+        "", "--config", "-c", help="Path to training configuration file"
+    ),
 ) -> None:
     """Train a detection model."""
 
@@ -63,7 +66,7 @@ def detector(
         console.print("[bold green]✓[/bold green] Configuration validated successfully")
 
         # Convert validated config back to DictConfig for backward compatibility
-        console.print("cfg:",cfg)
+        console.print("cfg:", cfg)
 
         UltralyticsDetectionTrainer(cfg).run()
 

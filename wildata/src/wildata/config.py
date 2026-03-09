@@ -215,6 +215,7 @@ class TransformationConfig(BaseModel):
     enable_tiling: bool = Field(default=False, description="Enable tiling")
     tiling: Optional[TilingConfig] = Field(default=None, description="Tiling config")
 
+
 class ImportDatasetConfig(BaseModel):
     """Configuration for importing datasets."""
 
@@ -236,9 +237,7 @@ class ImportDatasetConfig(BaseModel):
     bbox_tolerance: int = Field(default=5, description="Bbox validation tolerance")
 
     # Label Studio options
-    dotenv_path: Optional[str] = Field(
-        default=None, description="Path to .env file"
-    )
+    dotenv_path: Optional[str] = Field(default=None, description="Path to .env file")
     ls_xml_config: Optional[str] = Field(
         default=None, description="Label Studio XML config path"
     )

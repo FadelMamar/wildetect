@@ -64,9 +64,11 @@ class ROIDataset(Dataset):
         }
         self._multi_class_single_class_mapping: dict[int, int] = {}
 
-        assert (
-            (self.keep_classes is not None) + (self.discard_classes is not None) <= 1
-        ), f"Cannot specify both keep_classes and discard_classes. keep_classes: {self.keep_classes}, discard_classes: {self.discard_classes}"
+        assert (self.keep_classes is not None) + (
+            self.discard_classes is not None
+        ) <= 1, (
+            f"Cannot specify both keep_classes and discard_classes. keep_classes: {self.keep_classes}, discard_classes: {self.discard_classes}"
+        )
 
         # Resolve directories
         self.images_dir = self.path_manager.get_framework_split_image_dir(

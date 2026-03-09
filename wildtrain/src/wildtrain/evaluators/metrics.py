@@ -17,7 +17,6 @@ from supervision.metrics.core import MetricTarget
 
 
 class MyPrecisionResult(PrecisionResult):
-
     @property
     def precision_at_50(self) -> float:
         idx = np.where(np.isclose(self.iou_thresholds, 0.5))[0][0]
@@ -28,8 +27,8 @@ class MyPrecisionResult(PrecisionResult):
         idx = np.where(np.isclose(self.iou_thresholds, 0.75))[0][0]
         return self.precision_scores[idx]
 
-class MyRecallResult(RecallResult):
 
+class MyRecallResult(RecallResult):
     @property
     def recall_at_50(self) -> float:
         idx = np.where(np.isclose(self.iou_thresholds, 0.5))[0][0]
@@ -40,8 +39,8 @@ class MyRecallResult(RecallResult):
         idx = np.where(np.isclose(self.iou_thresholds, 0.75))[0][0]
         return self.recall_scores[idx]
 
-class MyF1ScoreResult(F1ScoreResult):
 
+class MyF1ScoreResult(F1ScoreResult):
     @property
     def f1_at_50(self) -> float:
         idx = np.where(np.isclose(self.iou_thresholds, 0.5))[0][0]
@@ -52,10 +51,30 @@ class MyF1ScoreResult(F1ScoreResult):
         idx = np.where(np.isclose(self.iou_thresholds, 0.75))[0][0]
         return self.f1_scores[idx]
 
-IOU_THRESHOLDS = np.array([0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95])
+
+IOU_THRESHOLDS = np.array(
+    [
+        0.2,
+        0.25,
+        0.3,
+        0.35,
+        0.4,
+        0.45,
+        0.5,
+        0.55,
+        0.6,
+        0.65,
+        0.7,
+        0.75,
+        0.8,
+        0.85,
+        0.9,
+        0.95,
+    ]
+)
+
 
 class MyPrecision(Precision):
-
     def _compute(
         self, predictions_list: list[Detections], targets_list: list[Detections]
     ) -> PrecisionResult:
@@ -133,8 +152,8 @@ class MyPrecision(Precision):
             large_objects=None,
         )
 
-class MyRecall(Recall):
 
+class MyRecall(Recall):
     def _compute(
         self, predictions_list: list[Detections], targets_list: list[Detections]
     ) -> RecallResult:
@@ -212,8 +231,8 @@ class MyRecall(Recall):
             large_objects=None,
         )
 
-class MyF1Score(F1Score):
 
+class MyF1Score(F1Score):
     def _compute(
         self, predictions_list: list[Detections], targets_list: list[Detections]
     ) -> F1ScoreResult:

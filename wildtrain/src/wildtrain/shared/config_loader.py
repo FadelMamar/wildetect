@@ -29,7 +29,7 @@ from .validation import ConfigFileNotFoundError, ConfigParseError, ConfigValidat
 
 console = Console()
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
 
 ROOT = Path(__file__).parents[3]
 
@@ -39,21 +39,19 @@ class ConfigLoader:
 
     @staticmethod
     def load_and_validate(
-        config_path: Path,
-        config_class: Type[T],
-        config_name: str = "configuration"
+        config_path: Path, config_class: Type[T], config_name: str = "configuration"
     ) -> T:
         """
         Load YAML configuration file and validate against Pydantic model.
-        
+
         Args:
             config_path: Path to the configuration file
             config_class: Pydantic model class to validate against
             config_name: Name of the configuration for error messages
-            
+
         Returns:
             Validated configuration object
-            
+
         Raises:
             ConfigFileNotFoundError: If config file doesn't exist
             ConfigParseError: If config file cannot be parsed
@@ -61,7 +59,9 @@ class ConfigLoader:
         """
         # Check if file exists
         if not config_path.exists():
-            raise ConfigFileNotFoundError(f"{config_name} file not found: {config_path}")
+            raise ConfigFileNotFoundError(
+                f"{config_name} file not found: {config_path}"
+            )
 
         try:
             # Load YAML using OmegaConf
@@ -73,12 +73,16 @@ class ConfigLoader:
             # Validate against Pydantic model
             validated_config = config_class(**config_dict)
 
-            console.print(f"[bold green]✓[/bold green] {config_name} loaded and validated successfully")
+            console.print(
+                f"[bold green]✓[/bold green] {config_name} loaded and validated successfully"
+            )
 
             return validated_config
 
         except Exception as e:
-            if isinstance(e, (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError)):
+            if isinstance(
+                e, (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError)
+            ):
                 raise
 
             if isinstance(e, ValidationError):
@@ -88,19 +92,25 @@ class ConfigLoader:
                     field_path = " -> ".join(str(loc) for loc in error["loc"])
                     error_messages.append(f"  • {field_path}: {error['msg']}")  # type: ignore
 
-                error_text = "Configuration validation failed:\n" + "\n".join(error_messages)
-                console.print(Panel(error_text, title="❌ Validation Error", border_style="red"))
-                raise ConfigValidationError(f"{config_name} validation failed: {str(e)}")
+                error_text = "Configuration validation failed:\n" + "\n".join(
+                    error_messages
+                )
+                console.print(
+                    Panel(error_text, title="❌ Validation Error", border_style="red")
+                )
+                raise ConfigValidationError(
+                    f"{config_name} validation failed: {str(e)}"
+                )
 
-            raise ConfigParseError(f"Failed to parse {config_name} file: {traceback.format_exc()}")
+            raise ConfigParseError(
+                f"Failed to parse {config_name} file: {traceback.format_exc()}"
+            )
 
     @staticmethod
     def load_classification_config(config_path: Path) -> ClassificationConfig:
         """Load and validate classification configuration."""
         return ConfigLoader.load_and_validate(
-            config_path,
-            ClassificationConfig,
-            "Classification configuration"
+            config_path, ClassificationConfig, "Classification configuration"
         )
 
     @staticmethod
@@ -109,89 +119,90 @@ class ConfigLoader:
         return ConfigLoader.load_and_validate(
             config_path,
             ClassificationEvalConfig,
-            "Classification evaluation configuration"
+            "Classification evaluation configuration",
         )
 
     @staticmethod
     def load_detection_eval_config(config_path: Path) -> DetectionEvalConfig:
         """Load and validate detection evaluation configuration."""
         return ConfigLoader.load_and_validate(
-            config_path,
-            DetectionEvalConfig,
-            "Detection evaluation configuration"
+            config_path, DetectionEvalConfig, "Detection evaluation configuration"
         )
 
     @staticmethod
     def load_detection_config(config_path: Path) -> DetectionConfig:
         """Load and validate detection configuration."""
         return ConfigLoader.load_and_validate(
-            config_path,
-            DetectionConfig,
-            "Detection configuration"
+            config_path, DetectionConfig, "Detection configuration"
         )
 
     @staticmethod
-    def load_detection_visualization_config(config_path: Path) -> DetectionVisualizationConfig:
+    def load_detection_visualization_config(
+        config_path: Path,
+    ) -> DetectionVisualizationConfig:
         """Load and validate detection visualization configuration."""
         return ConfigLoader.load_and_validate(
             config_path,
             DetectionVisualizationConfig,
-            "Detection visualization configuration"
+            "Detection visualization configuration",
         )
 
     @staticmethod
-    def load_classification_visualization_config(config_path: Path) -> ClassificationVisualizationConfig:
+    def load_classification_visualization_config(
+        config_path: Path,
+    ) -> ClassificationVisualizationConfig:
         """Load and validate classification visualization configuration."""
         return ConfigLoader.load_and_validate(
             config_path,
             ClassificationVisualizationConfig,
-            "Classification visualization configuration"
+            "Classification visualization configuration",
         )
 
     @staticmethod
-    def load_localizer_registration_config(config_path: Path) -> LocalizerRegistrationConfig:
+    def load_localizer_registration_config(
+        config_path: Path,
+    ) -> LocalizerRegistrationConfig:
         """Load and validate detector registration configuration."""
         return ConfigLoader.load_and_validate(
             config_path,
             LocalizerRegistrationConfig,
-            "Localizer registration configuration"
+            "Localizer registration configuration",
         )
 
     @staticmethod
-    def load_classifier_registration_config(config_path: Path) -> ClassifierRegistrationConfig:
+    def load_classifier_registration_config(
+        config_path: Path,
+    ) -> ClassifierRegistrationConfig:
         """Load and validate classifier registration configuration."""
         return ConfigLoader.load_and_validate(
             config_path,
             ClassifierRegistrationConfig,
-            "Classifier registration configuration"
+            "Classifier registration configuration",
         )
 
     @staticmethod
-    def load_detector_registration_config(config_path: Path) -> DetectorRegistrationConfig:
+    def load_detector_registration_config(
+        config_path: Path,
+    ) -> DetectorRegistrationConfig:
         """Load and validate Detector registration configuration."""
         return ConfigLoader.load_and_validate(
-            config_path,
-            DetectorRegistrationConfig,
-            "Model registration configuration"
+            config_path, DetectorRegistrationConfig, "Model registration configuration"
         )
 
     @staticmethod
     def load_pipeline_config(
-        config_path: Path,
-        pipeline_type: str = "classification"
+        config_path: Path, pipeline_type: str = "classification"
     ) -> Union[ClassificationPipelineConfig, DetectionPipelineConfig]:
         """Load and validate pipeline configuration."""
         if pipeline_type == "classification":
             return ConfigLoader.load_and_validate(
                 config_path,
                 ClassificationPipelineConfig,
-                "Classification pipeline configuration"
+                "Classification pipeline configuration",
             )
         elif pipeline_type == "detection":
             return ConfigLoader.load_and_validate(
-                config_path,
-                DetectionPipelineConfig,
-                "Detection pipeline configuration"
+                config_path, DetectionPipelineConfig, "Detection pipeline configuration"
             )
         else:
             raise ValueError(f"Unknown pipeline type: {pipeline_type}")
@@ -224,7 +235,9 @@ class ConfigLoader:
                 raise ValueError(f"Unknown config type: {config_type}")
             return True
         except Exception as e:
-            raise ConfigValidationError(f"{config_type} configuration validation failed: {str(e)}")
+            raise ConfigValidationError(
+                f"{config_type} configuration validation failed: {str(e)}"
+            )
 
     @staticmethod
     def generate_schema(config_class: Type[BaseModel]) -> Dict[str, Any]:
@@ -232,23 +245,29 @@ class ConfigLoader:
         return config_class.model_json_schema()
 
     @staticmethod
-    def save_schema(config_class: Type[T], output_path: Path, save_format: str = "json") -> None:
+    def save_schema(
+        config_class: Type[T], output_path: Path, save_format: str = "json"
+    ) -> None:
         """Save schema to file."""
         schema = ConfigLoader.generate_schema(config_class)
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             if save_format == "json":
                 json.dump(schema, f, indent=2)
             elif save_format == "yaml":
                 yaml.dump(schema, f, indent=2)
             else:
-                raise ValueError(f"Unknown format: {save_format}. Valid formats: json, yaml")
+                raise ValueError(
+                    f"Unknown format: {save_format}. Valid formats: json, yaml"
+                )
         console.print(f"[bold green]✓[/bold green] Schema saved to: {output_path}")
 
     @staticmethod
     def generate_default_config(config_type: ConfigType) -> str:
         """Generate a default YAML configuration template for the given config type."""
 
-        assert isinstance(config_type, ConfigType), f"config_type must be a ConfigType enum, got: {config_type}"
+        assert isinstance(config_type, ConfigType), (
+            f"config_type must be a ConfigType enum, got: {config_type}"
+        )
 
         # Map config types to their corresponding Pydantic model classes
         config_class_map = {
@@ -266,7 +285,9 @@ class ConfigLoader:
         }
 
         if config_type not in config_class_map:
-            raise ValueError(f"Unknown config type: {config_type}. Valid types: {list(config_class_map.keys())}")
+            raise ValueError(
+                f"Unknown config type: {config_type}. Valid types: {list(config_class_map.keys())}"
+            )
 
         # Get the Pydantic model class
         config_class = config_class_map[config_type]
@@ -277,7 +298,9 @@ class ConfigLoader:
         # Convert schema to a template with example values
         template = ConfigLoader._schema_to_template(schema)
 
-        return str(yaml.dump(template, default_flow_style=False, indent=2, sort_keys=False))
+        return str(
+            yaml.dump(template, default_flow_style=False, indent=2, sort_keys=False)
+        )
 
     @staticmethod
     def _schema_to_template(schema: Dict[str, Any]) -> Dict[str, Any]:
@@ -299,7 +322,9 @@ class ConfigLoader:
         return template
 
     @staticmethod
-    def _get_example_value(schema: Dict[str, Any], defs: Optional[Dict[str, Any]] = None) -> Any:
+    def _get_example_value(
+        schema: Dict[str, Any], defs: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """Get an example value for a schema property."""
         prop_type = schema.get("type", "string")
 
@@ -323,7 +348,9 @@ class ConfigLoader:
             for nested_prop_name, nested_prop_schema in schema["properties"].items():
                 if nested_prop_name == "model_config":
                     continue
-                nested_obj[nested_prop_name] = ConfigLoader._get_example_value(nested_prop_schema, defs)
+                nested_obj[nested_prop_name] = ConfigLoader._get_example_value(
+                    nested_prop_schema, defs
+                )
             return nested_obj
 
         if prop_type == "array" and "items" in schema:
@@ -386,4 +413,3 @@ class ConfigLoader:
 
         else:
             return "example_value"
-

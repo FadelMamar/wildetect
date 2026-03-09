@@ -35,9 +35,11 @@ def main():
     )
 
     # 2. Create transforms
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+        ]
+    )
 
     try:
         # 3. Load base dataset
@@ -46,7 +48,7 @@ def main():
             root_data_directory=r"D:\workspace\data\demo-dataset",  # Your images directory
             split="train",
             curriculum_config=curriculum_config,
-            transform=transform
+            transform=transform,
         )
 
         print("✅ Base dataset loaded successfully!")
@@ -64,7 +66,7 @@ def main():
             background_class_name="background",
             single_class_name="wildlife",
             keep_classes=None,
-            discard_classes=["rocks","vegetation","other","termite mound"]
+            discard_classes=["rocks", "vegetation", "other", "termite mound"],
         )
 
         print("✅ PatchDataset created successfully!")
@@ -77,7 +79,7 @@ def main():
         # Count crops per class
         class_counts_before = {}
         for ann in annotations_before:
-            class_name = ann['class_name']
+            class_name = ann["class_name"]
             class_counts_before[class_name] = class_counts_before.get(class_name, 0) + 1
 
         for class_name, count in class_counts_before.items():
@@ -88,10 +90,7 @@ def main():
 
         # Create filter with mean balancing
         rebalance_filter = ClassificationRebalanceFilter(
-            class_key="class_id",
-            method="mean",
-            exclude_extremes=True,
-            random_seed=42
+            class_key="class_id", method="mean", exclude_extremes=True, random_seed=42
         )
 
         # Apply filter to create balanced dataset
@@ -106,7 +105,7 @@ def main():
 
         class_counts_after = {}
         for ann in annotations_after:
-            class_name = ann['class_name']
+            class_name = ann["class_name"]
             class_counts_after[class_name] = class_counts_after.get(class_name, 0) + 1
 
         for class_name, count in class_counts_after.items():
@@ -122,13 +121,15 @@ def main():
             balanced_crop_dataset,
             batch_size=8,
             shuffle=True,
-            num_workers=0  # Set to 0 for this example
+            num_workers=0,  # Set to 0 for this example
         )
 
         # Test a few batches
         print("Testing batch loading:")
         for batch_idx, (crops, labels) in enumerate(dataloader):
-            print(f"   Batch {batch_idx + 1}: crops shape={crops.shape}, labels={labels.tolist()}")
+            print(
+                f"   Batch {batch_idx + 1}: crops shape={crops.shape}, labels={labels.tolist()}"
+            )
             if batch_idx >= 2:  # Only test first 3 batches
                 break
 
@@ -136,8 +137,8 @@ def main():
         print("\n🔧 Testing utility methods:")
 
         # Get crops by type
-        detection_crops = balanced_crop_dataset.get_crops_by_type('detection')
-        random_crops = balanced_crop_dataset.get_crops_by_type('random')
+        detection_crops = balanced_crop_dataset.get_crops_by_type("detection")
+        random_crops = balanced_crop_dataset.get_crops_by_type("random")
         print(f"   Detection crops: {len(detection_crops)} indices")
         print(f"   Random crops: {len(random_crops)} indices")
 
@@ -151,10 +152,7 @@ def main():
 
         # Min-based filter
         min_filter = ClassificationRebalanceFilter(
-            class_key="class_id",
-            method="min",
-            exclude_extremes=False,
-            random_seed=42
+            class_key="class_id", method="min", exclude_extremes=False, random_seed=42
         )
 
         min_balanced = crop_dataset.apply_rebalance_filter(min_filter)
@@ -162,10 +160,7 @@ def main():
 
         # Mean-based filter (exclude extremes)
         mean_filter = ClassificationRebalanceFilter(
-            class_key="class_id",
-            method="mean",
-            exclude_extremes=True,
-            random_seed=42
+            class_key="class_id", method="mean", exclude_extremes=True, random_seed=42
         )
 
         mean_balanced = crop_dataset.apply_rebalance_filter(mean_filter)
@@ -182,11 +177,15 @@ def main():
         print("\n✅ All tests completed successfully!")
 
     except FileNotFoundError:
-        print("⚠️  Dataset files not found. This is expected if you don't have the data files.")
+        print(
+            "⚠️  Dataset files not found. This is expected if you don't have the data files."
+        )
         print("   Replace the paths with your actual dataset paths.")
         print("\n   Expected paths:")
         print("   - Images: D:\\workspace\\data\\demo-dataset\\datasets")
-        print("   - Annotations: D:\\workspace\\data\\demo-dataset\\datasets\\savmap\\annotations\\train.json")
+        print(
+            "   - Annotations: D:\\workspace\\data\\demo-dataset\\datasets\\savmap\\annotations\\train.json"
+        )
     except Exception as e:
         print(f"❌ Error: {e}")
         print(traceback.format_exc())

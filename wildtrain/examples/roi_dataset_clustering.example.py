@@ -27,11 +27,13 @@ def main():
     print("=" * 70)
 
     # 1. Create transforms
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
     try:
         # 2. Load ROI datasets for all splits
@@ -42,7 +44,7 @@ def main():
             transform={"train": transform, "val": transform},
             load_as_single_class=True,  # Convert to binary classification
             background_class_name="background",
-            single_class_name="wildlife"
+            single_class_name="wildlife",
         )
 
         print("✅ ROI datasets loaded successfully!")
@@ -75,7 +77,7 @@ def main():
         clustering_filter = ClusteringFilter(
             feature_extractor=feature_extractor,
             batch_size=8,
-            reduction_factor=0.5  # Keep 50% of samples
+            reduction_factor=0.5,  # Keep 50% of samples
         )
 
         # 5. Apply clustering filter
@@ -89,7 +91,9 @@ def main():
                 "index": i,
                 "class_id": label.item(),
                 "class_name": train_dataset.class_mapping[label.item()],
-                "file_name": train_dataset.get_image_path(i) if hasattr(train_dataset, 'get_image_path') else f"sample_{i}"
+                "file_name": train_dataset.get_image_path(i)
+                if hasattr(train_dataset, "get_image_path")
+                else f"sample_{i}",
             }
             all_samples.append(sample_info)
 
@@ -100,7 +104,9 @@ def main():
 
         print("✅ Clustering filter applied successfully!")
         print(f"✅ Samples after clustering: {len(filtered_samples)}")
-        print(f"✅ Reduction: {len(all_samples) - len(filtered_samples)} samples removed")
+        print(
+            f"✅ Reduction: {len(all_samples) - len(filtered_samples)} samples removed"
+        )
 
         # 6. Create filtered dataset
         print("\n📦 Creating filtered dataset...")
@@ -110,6 +116,7 @@ def main():
 
         # Create a subset of the original dataset
         from torch.utils.data import Subset
+
         filtered_dataset = Subset(train_dataset, filtered_indices)
 
         print("✅ Filtered dataset created successfully!")
@@ -135,13 +142,15 @@ def main():
             filtered_dataset,
             batch_size=8,
             shuffle=True,
-            num_workers=0  # Set to 0 for this example
+            num_workers=0,  # Set to 0 for this example
         )
 
         # Test a few batches
         print("Testing batch loading:")
         for batch_idx, (images, labels) in enumerate(dataloader):
-            print(f"   Batch {batch_idx + 1}: images shape={images.shape}, labels={labels.tolist()}")
+            print(
+                f"   Batch {batch_idx + 1}: images shape={images.shape}, labels={labels.tolist()}"
+            )
             if batch_idx >= 2:  # Only test first 3 batches
                 break
 
@@ -152,7 +161,9 @@ def main():
         print("   Clustering quality analysis:")
         print(f"     - Original dataset size: {len(train_dataset)}")
         print(f"     - Filtered dataset size: {len(filtered_dataset)}")
-        print(f"     - Reduction factor: {len(filtered_dataset) / len(train_dataset):.2f}")
+        print(
+            f"     - Reduction factor: {len(filtered_dataset) / len(train_dataset):.2f}"
+        )
 
         # Check class balance preservation
         print("   Class balance preservation:")
@@ -160,7 +171,9 @@ def main():
             before_count = class_counts_before[class_name]
             after_count = class_counts_after.get(class_name, 0)
             preservation_ratio = after_count / before_count if before_count > 0 else 0
-            print(f"     - {class_name}: {before_count} → {after_count} ({preservation_ratio:.2f})")
+            print(
+                f"     - {class_name}: {before_count} → {after_count} ({preservation_ratio:.2f})"
+            )
 
         # Sample some filtered samples
         print("\n📸 Sample filtered samples:")
@@ -183,10 +196,11 @@ def main():
             "reduction_factor": len(filtered_dataset) / len(train_dataset),
             "class_distribution_before": class_counts_before,
             "class_distribution_after": class_counts_after,
-            "filtered_indices": filtered_indices
+            "filtered_indices": filtered_indices,
         }
 
         import json
+
         with open(results_dir / "clustering_summary.json", "w") as f:
             json.dump(clustering_summary, f, indent=2)
 
@@ -194,7 +208,9 @@ def main():
 
     except FileNotFoundError:
         print(traceback.format_exc())
-        print("❌ Error: Data directory not found. Please update the root_data_directory path.")
+        print(
+            "❌ Error: Data directory not found. Please update the root_data_directory path."
+        )
         raise
 
     except Exception as e:

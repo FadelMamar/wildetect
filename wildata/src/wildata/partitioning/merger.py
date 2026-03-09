@@ -142,7 +142,7 @@ class COCODatasetMerger:
         return merged_annotations
 
     def _merge_metadata(
-        self
+        self,
     ) -> Tuple[Optional[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
         """
         Merge info and licenses fields (optional, can be taken from first dataset or merged as a list).

@@ -140,10 +140,11 @@ class FiftyOneManager:
 
         assert isinstance(drone_images, list), "drone_images must be a list"
         from ..data.drone_image import DroneImage
+
         for drone_image in drone_images:
-            assert isinstance(
-                drone_image, DroneImage
-            ), "drone_images must be a list of DroneImage objects"
+            assert isinstance(drone_image, DroneImage), (
+                "drone_images must be a list of DroneImage objects"
+            )
 
         if self.dataset is None:
             logger.error("Dataset is not initialized")
@@ -200,6 +201,7 @@ class FiftyOneManager:
         """Launch the FiftyOne annotation app."""
         if dotenv_path is not None:
             from dotenv import load_dotenv
+
             load_dotenv(dotenv_path, override=True)
 
         with open(ROOT / "config/class_mapping.json", "r", encoding="utf-8") as f:

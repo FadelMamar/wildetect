@@ -142,9 +142,9 @@ class AugmentationTransformer(BaseTransformer):
             ) = self._process_augmented_annotations(augmented_data, annotations)
             # Update image info
             updated_image_info = image_info.copy()
-            updated_image_info[
-                "file_name"
-            ] = f"{Path(updated_image_info['file_name']).stem}_augmented_{index}.jpg"
+            updated_image_info["file_name"] = (
+                f"{Path(updated_image_info['file_name']).stem}_augmented_{index}.jpg"
+            )
             updated_image_info["augmentation_applied"] = True
 
             output = {

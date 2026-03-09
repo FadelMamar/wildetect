@@ -395,9 +395,9 @@ class ImageDataset(Dataset):
         self, image_path: Union[str, None], idx: Optional[int] = None
     ) -> Dict:
         """Get offset info for an image path."""
-        assert (image_path is None) ^ (
-            idx is None
-        ), "image_path and idx  cannot be provided together"
+        assert (image_path is None) ^ (idx is None), (
+            "image_path and idx  cannot be provided together"
+        )
         if isinstance(idx, int):
             image_path = self.image_paths[idx]
         try:
@@ -466,10 +466,12 @@ class RasterDataset(Dataset):
         xs = []
         ys = []
         for win in self.windows:
-            xs.append(int(win.x + win.w/2))
-            ys.append(int(win.y + win.h/2))
+            xs.append(int(win.x + win.w / 2))
+            ys.append(int(win.y + win.h / 2))
         xs, ys = src.xy(ys, xs)
-        self.longitudes, self.latitudes = transform(src_crs=src.crs, dst_crs='EPSG:4326', xs=xs, ys=ys)
+        self.longitudes, self.latitudes = transform(
+            src_crs=src.crs, dst_crs="EPSG:4326", xs=xs, ys=ys
+        )
 
         src.close()
 
@@ -489,7 +491,11 @@ class RasterDataset(Dataset):
             self.src.close()
             self.src = None
 
-        return window_data, torch.tensor(self.get_crop_bounds(idx)), torch.tensor([lon, lat])
+        return (
+            window_data,
+            torch.tensor(self.get_crop_bounds(idx)),
+            torch.tensor([lon, lat]),
+        )
 
     def window_list(self):
         if self._windows_list is None:
@@ -501,15 +507,13 @@ class RasterDataset(Dataset):
         # Read only first 3 channels (RGB) if there are more channels
         num_channels = min(self.src.count, 3)
         window_data = self.src.read(
-            indexes=list(
-                range(1, num_channels + 1)
-            ),  # rasterio uses 1-based indexing
+            indexes=list(range(1, num_channels + 1)),  # rasterio uses 1-based indexing
             window=Window(window.x, window.y, window.w, window.h),
         )
         # get gps coordinates in WGS84
-        #lon, lat = self.src.xy(int(window.y + window.h/2), int(window.x + window.w/2))
-        #lon, lat = transform(src_crs=self.src.crs, dst_crs='EPSG:4326', xs=[lon], ys=[lat])
-        #lon, lat = lon[0], lat[0]
+        # lon, lat = self.src.xy(int(window.y + window.h/2), int(window.x + window.w/2))
+        # lon, lat = transform(src_crs=self.src.crs, dst_crs='EPSG:4326', xs=[lon], ys=[lat])
+        # lon, lat = lon[0], lat[0]
         lon, lat = self.longitudes[idx], self.latitudes[idx]
 
         # Convert to torch tensor and rearrange dimensions
@@ -527,8 +531,9 @@ class RasterDataset(Dataset):
 
 
 class TiledRasterDataset(TileDataset):
-
-    def __init__(self, raster_paths: List[str], config: LoaderConfig, cache_size: int = 1):
+    def __init__(
+        self, raster_paths: List[str], config: LoaderConfig, cache_size: int = 1
+    ):
         super().__init__(image_paths=raster_paths, config=config, cache_size=cache_size)
 
     def _get_raster_dimensions(self, image_path: str) -> Optional[Tuple[int, int]]:
@@ -561,11 +566,11 @@ class TiledRasterDataset(TileDataset):
         try:
             with rio.open(image_path) as src:
                 image = src.read()
-            image = image.transpose(1,2,0)                # convert to CHW
+            image = image.transpose(1, 2, 0)  # convert to CHW
             image = torch.from_numpy(image).float() / 255.0  # normalize to [0,1]
 
             if image.shape[2] > 3:
-                image = image[:,:,:3]
+                image = image[:, :, :3]
 
             # Calculate stride for padding
             stride = int(self.config.tile_size * (1 - self.config.overlap))

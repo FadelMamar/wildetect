@@ -23,8 +23,12 @@ logger = get_logger(__name__)
 class ClassifierSweeper(Sweeper):
     def __init__(self, sweep_config_path: str, debug: bool = False):
         self.sweep_config_path = sweep_config_path
-        self.sweep_cfg: ClassificationSweepConfig = ClassificationSweepConfig.from_yaml(self.sweep_config_path)
-        self.base_cfg: ClassificationConfig = ConfigLoader.load_classification_config(self.sweep_cfg.base_config)
+        self.sweep_cfg: ClassificationSweepConfig = ClassificationSweepConfig.from_yaml(
+            self.sweep_config_path
+        )
+        self.base_cfg: ClassificationConfig = ConfigLoader.load_classification_config(
+            self.sweep_cfg.base_config
+        )
         self.counter = 0
         self.debug = debug
         self.study = None
@@ -35,16 +39,26 @@ class ClassifierSweeper(Sweeper):
         try:
             # Model params
             model_params = self.sweep_cfg.parameters.model
-            self.base_cfg.model.backbone = trial.suggest_categorical("backbone", model_params.backbone)
-            self.base_cfg.model.dropout = trial.suggest_categorical("dropout", model_params.dropout)
+            self.base_cfg.model.backbone = trial.suggest_categorical(
+                "backbone", model_params.backbone
+            )
+            self.base_cfg.model.dropout = trial.suggest_categorical(
+                "dropout", model_params.dropout
+            )
 
             # Train params
             train_params = self.sweep_cfg.parameters.train
             lr = trial.suggest_categorical("lr", train_params.lr)
             lrf = trial.suggest_categorical("lrf", train_params.lrf)
-            label_smoothing = trial.suggest_categorical("label_smoothing", train_params.label_smoothing)
-            weight_decay = trial.suggest_categorical("weight_decay", train_params.weight_decay)
-            batch_size = trial.suggest_categorical("batch_size", train_params.batch_size)
+            label_smoothing = trial.suggest_categorical(
+                "label_smoothing", train_params.label_smoothing
+            )
+            weight_decay = trial.suggest_categorical(
+                "weight_decay", train_params.weight_decay
+            )
+            batch_size = trial.suggest_categorical(
+                "batch_size", train_params.batch_size
+            )
             epochs = trial.suggest_categorical("epochs", train_params.epochs)
 
             self.base_cfg.train.lr = lr
@@ -54,9 +68,13 @@ class ClassifierSweeper(Sweeper):
             self.base_cfg.train.batch_size = batch_size
             self.base_cfg.train.epochs = epochs
 
-            self.base_cfg.mlflow.run_name = f"trial_{self.counter}_{self.base_cfg.model.backbone}"
+            self.base_cfg.mlflow.run_name = (
+                f"trial_{self.counter}_{self.base_cfg.model.backbone}"
+            )
             self.base_cfg.mlflow.experiment_name = self.sweep_cfg.sweep_name
-            self.base_cfg.checkpoint.dirpath = f"checkpoints/classification_sweeps/{self.sweep_cfg.sweep_name}"
+            self.base_cfg.checkpoint.dirpath = (
+                f"checkpoints/classification_sweeps/{self.sweep_cfg.sweep_name}"
+            )
 
             logger.info(
                 "Running trial %d with params: backbone=%s, lr=%s, batch_size=%s",
@@ -72,8 +90,13 @@ class ClassifierSweeper(Sweeper):
 
             # Handle cases where best_model_score might be None
             if trainer.best_model_score is None:
-                logger.warning("Trial %d completed but best_model_score is None. Pruning trial.", self.counter)
-                raise optuna.TrialPruned("Training completed but best_model_score is None")
+                logger.warning(
+                    "Trial %d completed but best_model_score is None. Pruning trial.",
+                    self.counter,
+                )
+                raise optuna.TrialPruned(
+                    "Training completed but best_model_score is None"
+                )
 
             return trainer.best_model_score
 
@@ -92,14 +115,17 @@ class ClassifierSweeper(Sweeper):
             study_name=self.sweep_cfg.sweep_name,
             storage="sqlite:///{}.db".format(self.sweep_cfg.sweep_name),
             sampler=optuna.samplers.TPESampler(seed=self.sweep_cfg.seed),
-            load_if_exists=True
+            load_if_exists=True,
         )
 
         # Store study for later access (e.g., for saving results)
         self.study = study
 
         # Start the optimization process
-        logger.info("Starting Optuna optimization for hyperparameter sweep: %s", self.sweep_cfg.sweep_name)
+        logger.info(
+            "Starting Optuna optimization for hyperparameter sweep: %s",
+            self.sweep_cfg.sweep_name,
+        )
         study.optimize(
             self,
             n_trials=self.sweep_cfg.n_trials,
@@ -246,7 +272,9 @@ class ClassifierSweeper(Sweeper):
                         fig.write_html(str(plot_file))
                         logger.info("Saved optimization history plot to: %s", plot_file)
                     except Exception as e:
-                        logger.warning("Failed to generate optimization history plot: %s", e)
+                        logger.warning(
+                            "Failed to generate optimization history plot: %s", e
+                        )
 
                     # Parallel coordinate plot
                     try:
@@ -255,7 +283,9 @@ class ClassifierSweeper(Sweeper):
                         fig.write_html(str(plot_file))
                         logger.info("Saved parallel coordinate plot to: %s", plot_file)
                     except Exception as e:
-                        logger.warning("Failed to generate parallel coordinate plot: %s", e)
+                        logger.warning(
+                            "Failed to generate parallel coordinate plot: %s", e
+                        )
 
                     # Parameter importance plot (may fail if not enough trials)
                     try:
@@ -263,9 +293,14 @@ class ClassifierSweeper(Sweeper):
                             fig = optuna.visualization.plot_param_importances(study)
                             plot_file = output_path / "param_importances.html"
                             fig.write_html(str(plot_file))
-                            logger.info("Saved parameter importance plot to: %s", plot_file)
+                            logger.info(
+                                "Saved parameter importance plot to: %s", plot_file
+                            )
                     except Exception as e:
-                        logger.warning("Failed to generate parameter importance plot (may need more trials): %s", e)
+                        logger.warning(
+                            "Failed to generate parameter importance plot (may need more trials): %s",
+                            e,
+                        )
                 except Exception as e:
                     logger.warning("Failed to generate plots: %s", e)
 
@@ -278,8 +313,12 @@ class ClassifierSweeper(Sweeper):
 class DetectionSweeper(Sweeper):
     def __init__(self, sweep_config_path: str, debug: bool = False):
         self.sweep_config_path = sweep_config_path
-        self.sweep_cfg: DetectionSweepConfig = DetectionSweepConfig.from_yaml(self.sweep_config_path)
-        self.base_cfg: DetectionConfig = ConfigLoader.load_detection_config(self.sweep_cfg.base_config)
+        self.sweep_cfg: DetectionSweepConfig = DetectionSweepConfig.from_yaml(
+            self.sweep_config_path
+        )
+        self.base_cfg: DetectionConfig = ConfigLoader.load_detection_config(
+            self.sweep_cfg.base_config
+        )
         self.counter = 0
         self.debug = debug
         self.study = None
@@ -292,9 +331,13 @@ class DetectionSweeper(Sweeper):
             if self.sweep_cfg.parameters.model is not None:
                 model_params = self.sweep_cfg.parameters.model
                 if model_params.architecture_file is not None:
-                    self.base_cfg.model.architecture_file = trial.suggest_categorical("architecture_file", model_params.architecture_file)
+                    self.base_cfg.model.architecture_file = trial.suggest_categorical(
+                        "architecture_file", model_params.architecture_file
+                    )
                 if model_params.weights is not None:
-                    self.base_cfg.model.weights = trial.suggest_categorical("weights", model_params.weights)
+                    self.base_cfg.model.weights = trial.suggest_categorical(
+                        "weights", model_params.weights
+                    )
 
             # Train params
             train_params = self.sweep_cfg.parameters.train
@@ -304,7 +347,9 @@ class DetectionSweeper(Sweeper):
             epochs = trial.suggest_categorical("epochs", train_params.epochs)
             imgsz = trial.suggest_categorical("imgsz", train_params.imgsz)
             optimizer = trial.suggest_categorical("optimizer", train_params.optimizer)
-            weight_decay = trial.suggest_categorical("weight_decay", train_params.weight_decay)
+            weight_decay = trial.suggest_categorical(
+                "weight_decay", train_params.weight_decay
+            )
 
             self.base_cfg.train.lr0 = lr0
             self.base_cfg.train.lrf = lrf
@@ -327,7 +372,9 @@ class DetectionSweeper(Sweeper):
 
             # Set MLflow experiment name and run name
             self.base_cfg.mlflow.experiment_name = self.sweep_cfg.sweep_name
-            self.base_cfg.mlflow.run_name = f"trial_{self.counter}_lr0_{lr0}_batch_{batch}"
+            self.base_cfg.mlflow.run_name = (
+                f"trial_{self.counter}_lr0_{lr0}_batch_{batch}"
+            )
 
             logger.info(
                 "Running trial %d with params: lr0=%s, batch=%s, epochs=%s, imgsz=%s, optimizer=%s",
@@ -345,15 +392,26 @@ class DetectionSweeper(Sweeper):
 
             if self.sweep_cfg.objective == SweepObjectiveTypes.FITNESS:
                 if trainer.best_fitness is None:
-                    logger.warning("Trial %d completed but best_fitness is None. Pruning trial.", self.counter)
-                    raise optuna.TrialPruned("Training completed but best_fitness is None")
+                    logger.warning(
+                        "Trial %d completed but best_fitness is None. Pruning trial.",
+                        self.counter,
+                    )
+                    raise optuna.TrialPruned(
+                        "Training completed but best_fitness is None"
+                    )
                 return trainer.best_fitness
             else:
                 if self.sweep_cfg.objective.value in trainer.metrics:
                     return trainer.metrics[self.sweep_cfg.objective.value]
                 else:
-                    logger.warning("Trial %d completed but %s is not in metrics. Pruning trial.", self.counter, self.sweep_cfg.objective)
-                    raise optuna.TrialPruned(f"Training completed but {self.sweep_cfg.objective.value} is not in metrics keys (available keys: {trainer.metrics.keys()})")
+                    logger.warning(
+                        "Trial %d completed but %s is not in metrics. Pruning trial.",
+                        self.counter,
+                        self.sweep_cfg.objective,
+                    )
+                    raise optuna.TrialPruned(
+                        f"Training completed but {self.sweep_cfg.objective.value} is not in metrics keys (available keys: {trainer.metrics.keys()})"
+                    )
 
         except optuna.TrialPruned as e:
             raise e
@@ -368,14 +426,17 @@ class DetectionSweeper(Sweeper):
             study_name=self.sweep_cfg.sweep_name,
             storage="sqlite:///{}.db".format(self.sweep_cfg.sweep_name),
             sampler=optuna.samplers.TPESampler(seed=self.sweep_cfg.seed),
-            load_if_exists=True
+            load_if_exists=True,
         )
 
         # Store study for later access (e.g., for saving results)
         self.study = study
 
         # Start the optimization process
-        logger.info("Starting Optuna optimization for hyperparameter sweep: %s", self.sweep_cfg.sweep_name)
+        logger.info(
+            "Starting Optuna optimization for hyperparameter sweep: %s",
+            self.sweep_cfg.sweep_name,
+        )
         study.optimize(
             self,
             n_trials=self.sweep_cfg.n_trials,
@@ -402,7 +463,11 @@ class DetectionSweeper(Sweeper):
         """Save sweep results to the specified output directory."""
         try:
             # Ensure output directory exists
-            output_path = Path(self.sweep_cfg.output.directory) if self.sweep_cfg.output.directory else Path(f"results/sweeps/{self.sweep_cfg.sweep_name}")
+            output_path = (
+                Path(self.sweep_cfg.output.directory)
+                if self.sweep_cfg.output.directory
+                else Path(f"results/sweeps/{self.sweep_cfg.sweep_name}")
+            )
             output_path.mkdir(parents=True, exist_ok=True)
 
             # Check if study is available
@@ -413,7 +478,9 @@ class DetectionSweeper(Sweeper):
                 return
 
             study = self.study
-            output_format = self.sweep_cfg.output.format if self.sweep_cfg.output else "json"
+            output_format = (
+                self.sweep_cfg.output.format if self.sweep_cfg.output else "json"
+            )
 
             # Extract best trial data
             best_trial = study.best_trial
@@ -425,7 +492,11 @@ class DetectionSweeper(Sweeper):
 
             # Extract all trials data if requested
             all_trials_data = []
-            include_history = self.sweep_cfg.output.include_optimization_history if self.sweep_cfg.output else True
+            include_history = (
+                self.sweep_cfg.output.include_optimization_history
+                if self.sweep_cfg.output
+                else True
+            )
             if include_history:
                 for trial in study.trials:
                     trial_data = {
@@ -514,7 +585,9 @@ class DetectionSweeper(Sweeper):
                     logger.warning("Failed to save CSV results: %s", e)
 
             # Generate performance plots if requested
-            save_plots = self.sweep_cfg.output.save_plots if self.sweep_cfg.output else True
+            save_plots = (
+                self.sweep_cfg.output.save_plots if self.sweep_cfg.output else True
+            )
             if save_plots:
                 try:
                     # Optimization history plot
@@ -524,7 +597,9 @@ class DetectionSweeper(Sweeper):
                         fig.write_html(str(plot_file))
                         logger.info("Saved optimization history plot to: %s", plot_file)
                     except Exception as e:
-                        logger.warning("Failed to generate optimization history plot: %s", e)
+                        logger.warning(
+                            "Failed to generate optimization history plot: %s", e
+                        )
 
                     # Parallel coordinate plot
                     try:
@@ -533,7 +608,9 @@ class DetectionSweeper(Sweeper):
                         fig.write_html(str(plot_file))
                         logger.info("Saved parallel coordinate plot to: %s", plot_file)
                     except Exception as e:
-                        logger.warning("Failed to generate parallel coordinate plot: %s", e)
+                        logger.warning(
+                            "Failed to generate parallel coordinate plot: %s", e
+                        )
 
                     # Parameter importance plot (may fail if not enough trials)
                     try:
@@ -541,9 +618,14 @@ class DetectionSweeper(Sweeper):
                             fig = optuna.visualization.plot_param_importances(study)
                             plot_file = output_path / "param_importances.html"
                             fig.write_html(str(plot_file))
-                            logger.info("Saved parameter importance plot to: %s", plot_file)
+                            logger.info(
+                                "Saved parameter importance plot to: %s", plot_file
+                            )
                     except Exception as e:
-                        logger.warning("Failed to generate parameter importance plot (may need more trials): %s", e)
+                        logger.warning(
+                            "Failed to generate parameter importance plot (may need more trials): %s",
+                            e,
+                        )
                 except Exception as e:
                     logger.warning("Failed to generate plots: %s", e)
 

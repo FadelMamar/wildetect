@@ -1,4 +1,3 @@
-
 import fiftyone as fo
 
 from wildtrain.visualization import add_predictions_from_classifier
@@ -12,8 +11,6 @@ SPLIT = "val"  # or "train"/"test"
 
 
 if __name__ == "__main__":
-
-
     # 3. Add predictions from classifier checkpoint
     add_predictions_from_classifier(
         dataset_name=DATASET_NAME,
@@ -21,7 +18,7 @@ if __name__ == "__main__":
         prediction_field="predictions",
         batch_size=32,
         device="cpu",
-        debug=True
+        debug=True,
     )
 
     # 4. Launch FiftyOne app for visualization

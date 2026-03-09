@@ -49,6 +49,8 @@ build-backend = "uv_build"
 
 [tool.ruff]
 line-length = 88
+
+[tool.ruff.lint]
 select = ["I", "E", "F", "W", "C90"]
 ignore = []
 

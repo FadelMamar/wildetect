@@ -9,4 +9,3 @@ __all__ = [
     "CentroidProximityRemovalStrategy",
     "GPSOverlapStrategy",
 ]
-

@@ -24,20 +24,21 @@ logger = logging.getLogger(__name__)
 
 
 def group_coco_annotations_by_image_id(
-        coco_annotations: list[dict],
-    ) -> dict[int, list[dict]]:
-        annotations = {}
-        for annotation in coco_annotations:
-            image_id = annotation["image_id"]
-            if image_id not in annotations:
-                annotations[image_id] = []
-            annotations[image_id].append(annotation)
-        return annotations
+    coco_annotations: list[dict],
+) -> dict[int, list[dict]]:
+    annotations = {}
+    for annotation in coco_annotations:
+        image_id = annotation["image_id"]
+        if image_id not in annotations:
+            annotations[image_id] = []
+        annotations[image_id].append(annotation)
+    return annotations
+
 
 class CurriculumDetectionDataset(sv.DetectionDataset):
     """
     Curriculum-aware dataset that inherits from supervision.DetectionDataset.
-    
+
     This dataset can:
     1. Filter samples based on difficulty (for difficulty-based curriculum)
     2. Resize images based on current scale (for multi-scale curriculum)
@@ -46,17 +47,19 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
     5. Use supervision's convenience loading methods (from_coco, from_yolo, etc.)
     """
 
-    def __init__(self,
-                 classes: List[str],
-                 images: Union[List[str], Dict[str, np.ndarray]],
-                 annotations: Dict[str, sv.Detections],
-                 curriculum_config: Optional[CurriculumConfig] = None,
-                 transform=None,
-                 compute_difficulties: bool = True,
-                 preserve_aspect_ratio: bool = True,):
+    def __init__(
+        self,
+        classes: List[str],
+        images: Union[List[str], Dict[str, np.ndarray]],
+        annotations: Dict[str, sv.Detections],
+        curriculum_config: Optional[CurriculumConfig] = None,
+        transform=None,
+        compute_difficulties: bool = True,
+        preserve_aspect_ratio: bool = True,
+    ):
         """
         Initialize curriculum detection dataset.
-        
+
         Args:
             classes: List of class names
             images: List of image paths or dict of loaded images
@@ -75,7 +78,9 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
         if compute_difficulties:
             self.sample_difficulties = self._compute_sample_difficulties()
         else:
-            self.sample_difficulties = [0.5] * len(self.image_paths)  # Default medium difficulty
+            self.sample_difficulties = [0.5] * len(
+                self.image_paths
+            )  # Default medium difficulty
 
         # Initialize available indices (all samples initially)
         self.available_indices = list(range(len(self.image_paths)))
@@ -84,16 +89,18 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
         self.current_difficulty = 1.0
 
     @classmethod
-    def from_data_directory(cls,
-                                 root_data_directory: str,
-                                 split: str,
-                                 curriculum_config: Optional[CurriculumConfig] = None,
-                                 transform=None,
-                                 compute_difficulties: bool = True,
-                                 preserve_aspect_ratio: bool = True,):
+    def from_data_directory(
+        cls,
+        root_data_directory: str,
+        split: str,
+        curriculum_config: Optional[CurriculumConfig] = None,
+        transform=None,
+        compute_difficulties: bool = True,
+        preserve_aspect_ratio: bool = True,
+    ):
         """
         Create curriculum detection dataset from COCO format.
-        
+
         Args:
             root_data_directory: Path to the root data directory
             split: Dataset split to load ('train', 'val', 'test')
@@ -101,18 +108,17 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
             transform: Image transformations
             compute_difficulties: Whether to compute sample difficulties
             preserve_aspect_ratio: Whether to preserve aspect ratio when resizing
-            
+
         Returns:
             CurriculumDetectionDataset instance
         """
 
         detection_dataset = load_all_detection_datasets(
-            root_data_directory=root_data_directory,
-            split=split
+            root_data_directory=root_data_directory, split=split
         )
         return cls(
             classes=detection_dataset.classes,
-            images=detection_dataset.image_paths, # + background_images,
+            images=detection_dataset.image_paths,  # + background_images,
             annotations=detection_dataset.annotations,
             curriculum_config=curriculum_config,
             transform=transform,
@@ -135,9 +141,9 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
 
                 # Combine difficulties (weighted average)
                 combined_difficulty = (
-                    0.4 * area_difficulty +
-                    0.3 * count_difficulty +
-                    0.3 * ratio_difficulty
+                    0.4 * area_difficulty
+                    + 0.3 * count_difficulty
+                    + 0.3 * ratio_difficulty
                 )
                 difficulties.append(combined_difficulty)
             else:
@@ -148,10 +154,10 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
     def _difficulty_by_area(self, detections: sv.Detections) -> float:
         """
         Compute difficulty based on detection area (smaller = harder).
-        
+
         Args:
             detections: Detection annotations
-            
+
         Returns:
             Difficulty score (0.0 = easiest, 1.0 = hardest)
         """
@@ -176,10 +182,10 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
     def _difficulty_by_count(self, detections: sv.Detections) -> float:
         """
         Compute difficulty based on number of detections (more = easier).
-        
+
         Args:
             detections: Detection annotations
-            
+
         Returns:
             Difficulty score (0.0 = easiest, 1.0 = hardest)
         """
@@ -193,14 +199,17 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
 
         return count_difficulty
 
-    def _difficulty_by_ratio(self, detections: sv.Detections,) -> float:
+    def _difficulty_by_ratio(
+        self,
+        detections: sv.Detections,
+    ) -> float:
         """
         Compute difficulty based on ratio between bbox and image dimensions.
-        
+
         Args:
             detections: Detection annotations
             image_path: Path to the image
-            
+
         Returns:
             Difficulty score (0.0 = easiest, 1.0 = hardest)
         """
@@ -208,7 +217,7 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
             return 0.5
 
         # Reference dimensions
-        img_height, img_width = 800,800
+        img_height, img_width = 800, 800
         img_area = img_height * img_width
 
         # Calculate total bbox area
@@ -239,7 +248,7 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
     def update_curriculum_state(self, difficulty: float):
         """
         Update dataset based on current curriculum state.
-        
+
         Args:
             difficulty: Current difficulty level (0.0 = easiest, 1.0 = hardest)
         """
@@ -293,29 +302,31 @@ class CurriculumDetectionDataset(sv.DetectionDataset):
         # Return the expected tuple format for supervision compatibility
         return image_path, image, detections
 
+
 class PatchDataset(torch.utils.data.Dataset):
     """
     Custom dataloader for loading cropped regions of interest (ROIs) from images.
-    
+
     This dataloader extracts crops around detection bounding boxes and returns
     the cropped image along with the corresponding label. Crops are generated
     lazily for memory efficiency.
     """
 
-    def __init__(self,
-                 dataset: CurriculumDetectionDataset,
-                 crop_size: int = 224,
-                 max_tn_crops: int = 1,
-                 p_draw_annotations: float = 0.,
-                 load_as_single_class: bool = True,
-                 background_class_name: str = "background",
-                 single_class_name: str = "wildlife",
-                 keep_classes: Optional[List[str]] = None,
-                 discard_classes: Optional[List[str]] = None
-                 ):
+    def __init__(
+        self,
+        dataset: CurriculumDetectionDataset,
+        crop_size: int = 224,
+        max_tn_crops: int = 1,
+        p_draw_annotations: float = 0.0,
+        load_as_single_class: bool = True,
+        background_class_name: str = "background",
+        single_class_name: str = "wildlife",
+        keep_classes: Optional[List[str]] = None,
+        discard_classes: Optional[List[str]] = None,
+    ):
         """
         Initialize crop dataloader.
-        
+
         Args:
             dataset: CurriculumDetectionDataset to load crops from
             crop_size: Size of the square crop (width = height)
@@ -339,7 +350,9 @@ class PatchDataset(torch.utils.data.Dataset):
         self.discard_classes = discard_classes
 
         # Multi-class: original classes + background
-        self.class_mapping = {i+1: class_name for i, class_name in enumerate(self.dataset.classes)}
+        self.class_mapping = {
+            i + 1: class_name for i, class_name in enumerate(self.dataset.classes)
+        }
         self.class_mapping[0] = self.background_class_name
 
         # Pre-compute crop indices for lazy generation
@@ -367,20 +380,36 @@ class PatchDataset(torch.utils.data.Dataset):
             # Binary classification: {0: background, 1: wildlife}
             self.class_mapping = {
                 0: self.background_class_name,
-                1: self.single_class_name
+                1: self.single_class_name,
             }
 
-    def _update_crop_indices(self,):
+    def _update_crop_indices(
+        self,
+    ):
         if self.keep_classes:
-            updated_crop_indices = [crop_info for crop_info in self.crop_indices if crop_info['class_name'] in self.keep_classes]
-            self.class_mapping = {k: v for k, v in self.class_mapping.items() if v in self.keep_classes}
+            updated_crop_indices = [
+                crop_info
+                for crop_info in self.crop_indices
+                if crop_info["class_name"] in self.keep_classes
+            ]
+            self.class_mapping = {
+                k: v for k, v in self.class_mapping.items() if v in self.keep_classes
+            }
             logger.info(
                 f"Keeping classes: {self.keep_classes}. Updated class mapping: {self.class_mapping}"
             )
             self.crop_indices = updated_crop_indices
         elif self.discard_classes:
-            updated_crop_indices = [crop_info for crop_info in self.crop_indices if crop_info['class_name'] not in self.discard_classes]
-            self.class_mapping = {k: v for k, v in self.class_mapping.items() if v not in self.discard_classes}
+            updated_crop_indices = [
+                crop_info
+                for crop_info in self.crop_indices
+                if crop_info["class_name"] not in self.discard_classes
+            ]
+            self.class_mapping = {
+                k: v
+                for k, v in self.class_mapping.items()
+                if v not in self.discard_classes
+            }
             logger.info(
                 f"Discarding classes: {self.discard_classes}. Updated class mapping: {self.class_mapping}"
             )
@@ -389,10 +418,10 @@ class PatchDataset(torch.utils.data.Dataset):
     def _is_wildlife_class(self, class_id: int) -> bool:
         """
         Determine if a class should be treated as wildlife (class 1) or background (class 0).
-        
+
         Args:
             class_id: Original class ID
-            
+
         Returns:
             True if class should be wildlife, False if background
         """
@@ -406,19 +435,21 @@ class PatchDataset(torch.utils.data.Dataset):
         crop_indices = []
 
         def iterator():
-            for dataset_idx,image_path in enumerate(self.dataset.image_paths):
+            for dataset_idx, image_path in enumerate(self.dataset.image_paths):
                 img = read_image(image_path)
                 w, h = img.size
                 detections = self.dataset.annotations[image_path]
-                yield w,h,detections,image_path,dataset_idx
+                yield w, h, detections, image_path, dataset_idx
 
         def func(args):
-            w,h,detections,image_path,dataset_idx = args
+            w, h, detections, image_path, dataset_idx = args
             # Add random crop indices if enabled
-            if detections.is_empty() or len(detections.xyxy) == 0 or detections.xyxy is None:
-                indices = self._compute_random_indices(
-                    image_path, dataset_idx, h, w
-                )
+            if (
+                detections.is_empty()
+                or len(detections.xyxy) == 0
+                or detections.xyxy is None
+            ):
+                indices = self._compute_random_indices(image_path, dataset_idx, h, w)
             else:
                 # Add detection crop indices
                 indices = self._compute_detection_indices(
@@ -426,25 +457,31 @@ class PatchDataset(torch.utils.data.Dataset):
                 )
             return indices
 
-        with tqdm(total=len(self.dataset.image_paths),desc="Computing crop indices",unit="images") as pbar:
-            #with ThreadPoolExecutor(max_workers=3) as executor:
+        with tqdm(
+            total=len(self.dataset.image_paths),
+            desc="Computing crop indices",
+            unit="images",
+        ) as pbar:
+            # with ThreadPoolExecutor(max_workers=3) as executor:
             for result in map(func, iterator()):
                 crop_indices.extend(result)
                 pbar.update(1)
         return crop_indices
 
-    def _compute_detection_indices(self,
-                                  detections: sv.Detections,
-                                  image_path: str,
-                                  dataset_idx: int,
-                                  img_height: int,
-                                  img_width: int) -> List[Dict[str, Any]]:
+    def _compute_detection_indices(
+        self,
+        detections: sv.Detections,
+        image_path: str,
+        dataset_idx: int,
+        img_height: int,
+        img_width: int,
+    ) -> List[Dict[str, Any]]:
         """Compute indices for detection-based crops."""
         indices = []
 
         # Sort detections by area (largest first for better crops)
         areas = []
-        for i,bbox in enumerate(detections.xyxy):
+        for i, bbox in enumerate(detections.xyxy):
             area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
             areas.append(area)
             class_id = detections.class_id[i]
@@ -500,28 +537,27 @@ class PatchDataset(torch.utils.data.Dataset):
             x2_crop = max(x1_crop + 1, min(x2_crop, img_width))
             y2_crop = max(y1_crop + 1, min(y2_crop, img_height))
 
-            indices.append({
-                'dataset_idx': dataset_idx,
-                'image_path': image_path,
-                'crop_bbox': [x1_crop, y1_crop, x2_crop, y2_crop],
-                'original_bbox': bbox,
-                'label': class_id,
-                'crop_type': 'detection',
-                "class_name": self.dataset.classes[class_id]
-            })
+            indices.append(
+                {
+                    "dataset_idx": dataset_idx,
+                    "image_path": image_path,
+                    "crop_bbox": [x1_crop, y1_crop, x2_crop, y2_crop],
+                    "original_bbox": bbox,
+                    "label": class_id,
+                    "crop_type": "detection",
+                    "class_name": self.dataset.classes[class_id],
+                }
+            )
 
         return indices
 
-    def _compute_random_indices(self,
-                               image_path: str,
-                               dataset_idx: int,
-                               img_height: int,
-                               img_width: int) -> List[Dict[str, Any]]:
+    def _compute_random_indices(
+        self, image_path: str, dataset_idx: int, img_height: int, img_width: int
+    ) -> List[Dict[str, Any]]:
         """Compute indices for random crops."""
         indices = []
 
         for _ in range(self.max_tn_crops):
-
             # Check if image is too small for the crop size
             if img_width < self.crop_size or img_height < self.crop_size:
                 # If image is too small, use the entire image
@@ -539,22 +575,24 @@ class PatchDataset(torch.utils.data.Dataset):
                 # Skip this crop if coordinates are invalid
                 continue
 
-            indices.append({
-                'dataset_idx': dataset_idx,
-                'image_path': image_path,
-                'crop_bbox': [x1, y1, x2, y2],
-                'original_bbox': None,
-                'label': -1,  # -1 indicates random crop (no specific label)
-                'crop_type': 'random',
-                "class_name": self.background_class_name
-            })
+            indices.append(
+                {
+                    "dataset_idx": dataset_idx,
+                    "image_path": image_path,
+                    "crop_bbox": [x1, y1, x2, y2],
+                    "original_bbox": None,
+                    "label": -1,  # -1 indicates random crop (no specific label)
+                    "crop_type": "random",
+                    "class_name": self.background_class_name,
+                }
+            )
 
         return indices
 
     def _extract_crop(self, crop_info: Dict[str, Any]) -> np.ndarray:
         """Extract crop from image using pre-computed indices."""
-        dataset_idx = crop_info['dataset_idx']
-        x1, y1, x2, y2 = crop_info['crop_bbox']
+        dataset_idx = crop_info["dataset_idx"]
+        x1, y1, x2, y2 = crop_info["crop_bbox"]
 
         # Get original image
         _, image, _ = self.dataset[dataset_idx]
@@ -565,15 +603,17 @@ class PatchDataset(torch.utils.data.Dataset):
         else:
             img_np = np.array(image)
 
-        #if img_np.max() <= 1.0:
-            #img_np = (img_np * 255).astype(np.uint8)
+        # if img_np.max() <= 1.0:
+        # img_np = (img_np * 255).astype(np.uint8)
 
         # Validate crop coordinates
         h, w = img_np.shape[:2]
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
         # Debug: log the coordinates and image dimensions
-        logger.debug(f"Image dimensions: {w}x{h}, Crop coordinates: {x1}, {y1}, {x2}, {y2}")
+        logger.debug(
+            f"Image dimensions: {w}x{h}, Crop coordinates: {x1}, {y1}, {x2}, {y2}"
+        )
 
         # Ensure coordinates are within bounds
         x1 = max(0, min(x1, w))
@@ -605,7 +645,7 @@ class PatchDataset(torch.utils.data.Dataset):
     def get_annotations_for_filter(self) -> List[Dict[str, Any]]:
         """
         Generate annotations in the format expected by ClassificationRebalanceFilter.
-        
+
         Returns:
             List of annotation dictionaries with roi_id, class_name, class_id, file_name
         """
@@ -614,16 +654,20 @@ class PatchDataset(torch.utils.data.Dataset):
 
         for idx, crop_info in enumerate(self.crop_indices):
             # Generate filename
-            dataset_idx = crop_info['dataset_idx']
-            image_path = crop_info['image_path']
-            original_class_id = crop_info['label']
-            class_name = crop_info['class_name']
+            dataset_idx = crop_info["dataset_idx"]
+            image_path = crop_info["image_path"]
+            original_class_id = crop_info["label"]
+            class_name = crop_info["class_name"]
 
             # Apply single class binarization if enabled
             if self.load_as_single_class:
                 # background is 0, wildlife is 1
                 class_id = 0 if original_class_id < 0 else 1
-                class_name = self.background_class_name if class_id == 0 else self.single_class_name
+                class_name = (
+                    self.background_class_name
+                    if class_id == 0
+                    else self.single_class_name
+                )
             else:
                 # Multi-class: use original class
                 class_id = original_class_id + 1  # offset for background
@@ -638,13 +682,13 @@ class PatchDataset(torch.utils.data.Dataset):
                 "class_id": class_id,
                 "file_name": file_name,
                 "dataset_idx": dataset_idx,
-                "crop_bbox": crop_info['crop_bbox'],
-                "crop_type": crop_info['crop_type']
+                "crop_bbox": crop_info["crop_bbox"],
+                "crop_type": crop_info["crop_type"],
             }
 
             # Add original annotation info if available
-            if crop_info.get('original_bbox') is not None:
-                annotation["original_bbox"] = crop_info['original_bbox']
+            if crop_info.get("original_bbox") is not None:
+                annotation["original_bbox"] = crop_info["original_bbox"]
                 annotation["original_annotation_id"] = idx
 
             annotations.append(annotation)
@@ -652,13 +696,13 @@ class PatchDataset(torch.utils.data.Dataset):
 
         return annotations
 
-    def apply_rebalance_filter(self, filter_instance:Callable) -> 'PatchDataset':
+    def apply_rebalance_filter(self, filter_instance: Callable) -> "PatchDataset":
         """
         Apply ClassificationRebalanceFilter to create a balanced dataset.
-        
+
         Args:
             filter_instance: Instance of ClassificationRebalanceFilter
-            
+
         Returns:
             New PatchDataset with balanced crop indices
         """
@@ -671,7 +715,7 @@ class PatchDataset(torch.utils.data.Dataset):
         # Create new dataset with filtered indices
         filtered_indices = []
         for filtered_ann in filtered_annotations:
-            roi_id = filtered_ann['roi_id']
+            roi_id = filtered_ann["roi_id"]
             # Find the corresponding crop index
             for idx, crop_info in enumerate(self.crop_indices):
                 if idx == roi_id:
@@ -688,7 +732,7 @@ class PatchDataset(torch.utils.data.Dataset):
             background_class_name=self.background_class_name,
             single_class_name=self.single_class_name,
             keep_classes=self.keep_classes,
-            discard_classes=self.discard_classes
+            discard_classes=self.discard_classes,
         )
 
         # Replace crop indices with filtered ones
@@ -696,13 +740,13 @@ class PatchDataset(torch.utils.data.Dataset):
 
         return new_dataset
 
-    def apply_clustering_filter(self, filter_instance:Callable) -> 'PatchDataset':
+    def apply_clustering_filter(self, filter_instance: Callable) -> "PatchDataset":
         """
         Apply ClusteringFilter (via adapter) to create a clustered dataset.
-        
+
         Args:
             filter_instance: Instance of ClusteringFilter or CropClusteringAdapter
-            
+
         Returns:
             New PatchDataset with clustered crop indices
         """
@@ -715,7 +759,7 @@ class PatchDataset(torch.utils.data.Dataset):
         # Create new dataset with filtered indices
         filtered_indices = []
         for filtered_ann in filtered_annotations:
-            roi_id = filtered_ann['roi_id']
+            roi_id = filtered_ann["roi_id"]
             # Find the corresponding crop index
             for idx, crop_info in enumerate(self.crop_indices):
                 if idx == roi_id:
@@ -732,7 +776,7 @@ class PatchDataset(torch.utils.data.Dataset):
             background_class_name=self.background_class_name,
             single_class_name=self.single_class_name,
             keep_classes=self.keep_classes,
-            discard_classes=self.discard_classes
+            discard_classes=self.discard_classes,
         )
 
         # Replace crop indices with filtered ones
@@ -747,10 +791,10 @@ class PatchDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
         """
         Get a crop and its label (lazy generation).
-        
+
         Args:
             idx: Index of the crop
-            
+
         Returns:
             Tuple of (crop_image, label)
         """
@@ -763,7 +807,7 @@ class PatchDataset(torch.utils.data.Dataset):
         crop_tensor = torch.from_numpy(crop).permute(2, 0, 1).float() / 255.0
 
         # Get original label
-        original_label = crop_info['label']
+        original_label = crop_info["label"]
 
         # Apply single class binarization if enabled
         if self.load_as_single_class:
@@ -778,10 +822,10 @@ class PatchDataset(torch.utils.data.Dataset):
     def get_crop_info(self, idx: int) -> Dict[str, Any]:
         """
         Get detailed information about a crop.
-        
+
         Args:
             idx: Index of the crop
-            
+
         Returns:
             Dictionary with crop information
         """
@@ -790,23 +834,31 @@ class PatchDataset(torch.utils.data.Dataset):
     def get_crops_by_class(self, class_id: int) -> List[int]:
         """
         Get indices of crops belonging to a specific class.
-        
+
         Args:
             class_id: Class ID to filter by
-            
+
         Returns:
             List of crop indices
         """
-        return [i for i, crop_info in enumerate(self.crop_indices) if crop_info['label'] == class_id]
+        return [
+            i
+            for i, crop_info in enumerate(self.crop_indices)
+            if crop_info["label"] == class_id
+        ]
 
     def get_crops_by_type(self, crop_type: str) -> List[int]:
         """
         Get indices of crops by type (detection or random).
-        
+
         Args:
             crop_type: Type of crop ('detection' or 'random')
-            
+
         Returns:
             List of crop indices
         """
-        return [i for i, crop_info in enumerate(self.crop_indices) if crop_info['crop_type'] == crop_type]
+        return [
+            i
+            for i, crop_info in enumerate(self.crop_indices)
+            if crop_info["crop_type"] == crop_type
+        ]

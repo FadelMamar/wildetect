@@ -336,9 +336,9 @@ def export_detection_report(
 ):
     all_detections = []
     for drone_image in drone_images:
-        assert isinstance(
-            drone_image, DroneImage
-        ), f"Drone image must be a DroneImage object, got {type(drone_image)}"
+        assert isinstance(drone_image, DroneImage), (
+            f"Drone image must be a DroneImage object, got {type(drone_image)}"
+        )
         if detection_type == "annotations":
             all_detections.extend(drone_image.get_non_empty_annotations())
         elif detection_type == "predictions":

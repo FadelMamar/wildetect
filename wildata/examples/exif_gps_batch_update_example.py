@@ -14,7 +14,11 @@ def example_batch_update():
 
     max_images = 20
 
-    image_paths = [p for p in Path(image_folder).glob("*") if p.suffix.lower() in [".jpg", ".jpeg", ".png"]][:]
+    image_paths = [
+        p
+        for p in Path(image_folder).glob("*")
+        if p.suffix.lower() in [".jpg", ".jpeg", ".png"]
+    ][:]
     random_lat = np.random.uniform(40.68, 40.69, size=len(image_paths)).round(6)
     random_lon = np.random.uniform(-74.04, -74.05, size=len(image_paths)).round(6)
     random_alt = np.random.uniform(300.0, 301.0, size=len(image_paths)).round(6)
@@ -25,7 +29,7 @@ def example_batch_update():
     mock_csv["longitude"] = random_lon
     mock_csv["altitude"] = random_alt
 
-    df_mock_csv = pd.DataFrame.from_dict(mock_csv,orient="columns")
+    df_mock_csv = pd.DataFrame.from_dict(mock_csv, orient="columns")
 
     df_mock_csv.to_csv(ROOT / "examples" / "mock_csv.csv", index=False)
 
@@ -48,9 +52,10 @@ def example_batch_update():
         filename_col="filename",
         lat_col="latitude",
         lon_col="longitude",
-        alt_col="altitude"  # Optional, only if your CSV has altitude
+        alt_col="altitude",  # Optional, only if your CSV has altitude
     )
     print(f"EXIF GPS update complete for images in {image_folder} using {csv_path}")
+
 
 def example_single_image_update():
     image_path = r"D:\workspace\data\savmap_dataset_v2\images_splits\00a033fefe644429a1e0fcffe88f8b39_1.JPG"
@@ -61,7 +66,7 @@ def example_single_image_update():
         output_path=output_path,
         latitude=40.689247,
         longitude=-74.044502,
-        altitude=300.0
+        altitude=300.0,
     )
     print("GPS image without gps: ", GPSUtils.get_gps_coord(image_path))
     print("GPS coordinates from image with gps: ", GPSUtils.get_gps_coord(output_path))
@@ -70,4 +75,4 @@ def example_single_image_update():
 if __name__ == "__main__":
     # main()
     example_batch_update()
-    #example_single_image_update()
+    # example_single_image_update()

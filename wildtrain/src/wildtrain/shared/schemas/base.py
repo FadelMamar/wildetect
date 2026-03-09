@@ -20,7 +20,7 @@ class BaseConfig(BaseModel):
         if not Path(yaml_path).exists():
             raise ValueError(f"YAML file does not exist: {yaml_path}")
 
-        with open(yaml_path, 'r', encoding='utf-8') as f:
+        with open(yaml_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         if data is None:
@@ -32,12 +32,13 @@ class BaseConfig(BaseModel):
         """Save config to YAML file."""
         yaml_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(yaml_path, 'w', encoding='utf-8') as f:
+        with open(yaml_path, "w", encoding="utf-8") as f:
             yaml.dump(self.model_dump(), f, default_flow_style=False, indent=2)
 
 
 class SweepObjectiveTypes(StrEnum):
     """Types of benchmark objective."""
+
     PRECISION = "precision"
     RECALL = "recall"
     F1_SCORE = "f1_score"
@@ -49,5 +50,6 @@ class SweepObjectiveTypes(StrEnum):
 
 class SweepDirectionTypes(StrEnum):
     """Types of benchmark direction."""
+
     MINIMIZE = "minimize"
     MAXIMIZE = "maximize"

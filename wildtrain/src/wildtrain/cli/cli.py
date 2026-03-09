@@ -39,16 +39,23 @@ def main(
 app.add_typer(config.config_app, name="config", help="Configuration management")
 app.add_typer(train.train_app, name="train", help="Training commands")
 app.add_typer(evaluate.evaluate_app, name="evaluate", help="Evaluation commands")
-app.add_typer(register.register_app, name="register", help="Model registration commands")
+app.add_typer(
+    register.register_app, name="register", help="Model registration commands"
+)
 app.add_typer(pipeline.pipeline_app, name="pipeline", help="Pipeline commands")
 app.add_typer(visualize.visualize_app, name="visualize", help="Visualization commands")
 app.add_typer(dataset.dataset_app, name="dataset", help="Dataset commands")
 
+
 @app.command()
 def run_server(
     port: int = typer.Option(4141, "--port", help="Port to run the server on"),
-    workers_per_device: int = typer.Option(1, "-w", help="Number of workers per device"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c", help="Path to config file"),
+    workers_per_device: int = typer.Option(
+        1, "-w", help="Number of workers per device"
+    ),
+    config_path: Optional[Path] = typer.Option(
+        None, "--config", "-c", help="Path to config file"
+    ),
 ):
     if config_path is not None:
         config = InferenceConfig.from_yaml(config_path)

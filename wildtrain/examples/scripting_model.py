@@ -16,4 +16,4 @@ model(torch.randn(1, 3, 224, 224))
 
 # model = torch.jit.script(model)
 
-#torch.save(model, "models/classifier_demo.pt")
+# torch.save(model, "models/classifier_demo.pt")

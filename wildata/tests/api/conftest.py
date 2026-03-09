@@ -87,7 +87,7 @@ def mock_jobs():
     jobs = []
     for i in range(2):
         job = Mock()
-        job.job_id = f"job{i+1}"
+        job.job_id = f"job{i + 1}"
         job.status = JobStatus.COMPLETED if i == 0 else JobStatus.RUNNING
         job.progress = 100.0 if i == 0 else 50.0
         job.created_at = datetime.now()
@@ -97,7 +97,7 @@ def mock_jobs():
         job.result = JobResult(
             success=True,
             message="Job completed successfully",
-            data={"dataset_name": f"test_dataset_{i+1}"},
+            data={"dataset_name": f"test_dataset_{i + 1}"},
         )
         jobs.append(job)
     return jobs
@@ -232,15 +232,15 @@ def valid_visualize_request_data():
 @pytest.fixture(autouse=True)
 def mock_common_dependencies():
     """Mock common dependencies used across tests."""
-    with patch("wildata.api.routers.datasets.verify_token") as mock_verify_token, patch(
-        "wildata.api.routers.jobs.verify_token"
-    ) as mock_verify_token_jobs, patch(
-        "wildata.api.routers.roi.verify_token"
-    ) as mock_verify_token_roi, patch(
-        "wildata.api.routers.gps.verify_token"
-    ) as mock_verify_token_gps, patch(
-        "wildata.api.routers.visualization.verify_token"
-    ) as mock_verify_token_viz:
+    with (
+        patch("wildata.api.routers.datasets.verify_token") as mock_verify_token,
+        patch("wildata.api.routers.jobs.verify_token") as mock_verify_token_jobs,
+        patch("wildata.api.routers.roi.verify_token") as mock_verify_token_roi,
+        patch("wildata.api.routers.gps.verify_token") as mock_verify_token_gps,
+        patch(
+            "wildata.api.routers.visualization.verify_token"
+        ) as mock_verify_token_viz,
+    ):
         # Mock token verification
         mock_verify_token.return_value = {
             "user_id": "anonymous",
@@ -292,7 +292,7 @@ def create_job_status_response(
 
 
 def create_import_dataset_response(
-    job_id: str = "test-job-123"
+    job_id: str = "test-job-123",
 ) -> ImportDatasetResponse:
     """Create a valid ImportDatasetResponse."""
     return ImportDatasetResponse(
@@ -324,7 +324,7 @@ def create_create_roi_response(job_id: str = "test-job-123") -> CreateROIRespons
 
 
 def create_bulk_create_roi_response(
-    job_id: str = "test-job-123"
+    job_id: str = "test-job-123",
 ) -> BulkCreateROIResponse:
     """Create a valid BulkCreateROIResponse."""
     return BulkCreateROIResponse(
@@ -336,7 +336,7 @@ def create_bulk_create_roi_response(
 
 
 def create_export_dataset_response(
-    job_id: str = "test-job-123"
+    job_id: str = "test-job-123",
 ) -> ExportDatasetResponse:
     """Create a valid ExportDatasetResponse."""
     return ExportDatasetResponse(

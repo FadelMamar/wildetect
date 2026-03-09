@@ -20,7 +20,10 @@ def main():
 
     # Create the data module
     datamodule = ClassificationDataModule(
-        root_data_directory=data_dir, batch_size=batch_size, transforms=None,load_as_single_class=True
+        root_data_directory=data_dir,
+        batch_size=batch_size,
+        transforms=None,
+        load_as_single_class=True,
     )
 
     # Setup the data module to load datasets

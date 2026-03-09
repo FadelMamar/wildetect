@@ -13,10 +13,12 @@ from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class DetectionPipeline:
     """
     Orchestrates the full object detection pipeline: training, evaluation, and report saving.
     """
+
     def __init__(self, config_path: str):
         self.config = DetectionPipelineConfig.from_yaml(config_path)
         Path(self.config.results_dir).mkdir(parents=True, exist_ok=True)
@@ -39,9 +41,12 @@ class DetectionPipeline:
         eval_config.weights.localizer = self.best_model_path
 
         evaluator = UltralyticsEvaluator(config=eval_config)
-        results = evaluator.evaluate(debug=self.config.eval.debug,
-                                     save_path=os.path.join(self.config.results_dir, f"{self.run_name}_eval_report.json")
-                                    )
+        results = evaluator.evaluate(
+            debug=self.config.eval.debug,
+            save_path=os.path.join(
+                self.config.results_dir, f"{self.run_name}_eval_report.json"
+            ),
+        )
         logger.info("[Pipeline] Evaluation completed.")
         return results
 

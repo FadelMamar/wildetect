@@ -24,11 +24,13 @@ def validate(
         "classification",
         "--type",
         "-t",
-        help="Configuration type (classification, detection, classification_eval, detection_eval, classification_visualization, detection_visualization, pipeline, detector_registration, classifier_registration, model_registration)"
+        help="Configuration type (classification, detection, classification_eval, detection_eval, classification_visualization, detection_visualization, pipeline, detector_registration, classifier_registration, model_registration)",
     ),
 ) -> None:
     """Validate a configuration file using Pydantic models."""
-    console.print(f"[bold green]Validating {config_type} configuration:[/bold green] {config}")
+    console.print(
+        f"[bold green]Validating {config_type} configuration:[/bold green] {config}"
+    )
 
     try:
         is_valid = ConfigLoader.validate_config_file(config, ConfigType(config_type))
@@ -47,22 +49,30 @@ def validate(
 
 @config_app.command()
 def template(
-    config_type: str = typer.Argument(..., help="Configuration type to show template for"),
-    save_to: Optional[Path] = typer.Option(None, "--save", "-s", help="Save template to file")
+    config_type: str = typer.Argument(
+        ..., help="Configuration type to show template for"
+    ),
+    save_to: Optional[Path] = typer.Option(
+        None, "--save", "-s", help="Save template to file"
+    ),
 ) -> None:
     """Show a default YAML configuration template for the specified config type."""
-    console.print(f"[bold green]Generating {config_type} configuration template...[/bold green]")
+    console.print(
+        f"[bold green]Generating {config_type} configuration template...[/bold green]"
+    )
 
     try:
         template = ConfigLoader.generate_default_config(ConfigType(config_type))
 
         if save_to:
             save_to.parent.mkdir(parents=True, exist_ok=True)
-            with open(save_to, 'w', encoding='utf-8') as f:
+            with open(save_to, "w", encoding="utf-8") as f:
                 f.write(template)
             console.print(f"[bold green]✓[/bold green] Template saved to: {save_to}")
         else:
-            console.print(f"\n[bold blue]Default {config_type} configuration template:[/bold blue]")
+            console.print(
+                f"\n[bold blue]Default {config_type} configuration template:[/bold blue]"
+            )
             console.print(f"\n```yaml\n{template}```")
 
     except ValueError as e:

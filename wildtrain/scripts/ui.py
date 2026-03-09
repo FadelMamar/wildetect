@@ -33,11 +33,16 @@ def setup_page_config():
         initial_sidebar_state="expanded",
     )
 
+
 def launch_fiftyone_ui():
     """Launch the FiftyOne UI."""
     button = st.button("Launch FiftyOne UI")
     if button:
-        subprocess.Popen(["uv", "run", "fiftyone", "app", "launch"],creationflags=subprocess.CREATE_NEW_CONSOLE)
+        subprocess.Popen(
+            ["uv", "run", "fiftyone", "app", "launch"],
+            creationflags=subprocess.CREATE_NEW_CONSOLE,
+        )
+
 
 def get_config_files() -> Dict[str, list]:
     """Get available configuration files from the configs directory."""
@@ -60,15 +65,13 @@ def get_config_files() -> Dict[str, list]:
         # Detection configs
         detection_dir = configs_dir / "detection"
         if detection_dir.exists():
-            config_files["detection"] = [
-                str(f) for f in detection_dir.glob("*.yaml")
-            ]
+            config_files["detection"] = [str(f) for f in detection_dir.glob("*.yaml")]
             # Also check subdirectories
             for subdir in detection_dir.iterdir():
                 if subdir.is_dir():
-                    config_files["detection"].extend([
-                        str(f) for f in subdir.glob("*.yaml")
-                    ])
+                    config_files["detection"].extend(
+                        [str(f) for f in subdir.glob("*.yaml")]
+                    )
 
     return config_files
 
@@ -146,15 +149,15 @@ def home_page():
     st.markdown("---")
 
     # Show available config files
-    #config_files = get_config_files()
+    # config_files = get_config_files()
 
-    #st.subheader("📁 Available Configuration Files")
+    # st.subheader("📁 Available Configuration Files")
 
-    #for category, files in config_files.items():
-        #if files:
-            #with st.expander(f"{category.title()} Configurations ({len(files)} files)"):
-                #for file_path in files:
-                    #st.code(file_path, language="text")
+    # for category, files in config_files.items():
+    # if files:
+    # with st.expander(f"{category.title()} Configurations ({len(files)} files)"):
+    # for file_path in files:
+    # st.code(file_path, language="text")
 
 
 def training_page():
@@ -167,19 +170,25 @@ def training_page():
         st.subheader("Detection Pipeline")
 
         # Get available detection configs
-        detection_configs = [f.as_posix() for f in (ROOT / "pipelines").iterdir() if f.is_file() and f.suffix == ".yaml"]
+        detection_configs = [
+            f.as_posix()
+            for f in (ROOT / "pipelines").iterdir()
+            if f.is_file() and f.suffix == ".yaml"
+        ]
 
         if detection_configs:
             selected_config = st.selectbox(
                 "Select Detection Pipeline Config",
                 detection_configs,
                 key="detection_config",
-                help="Choose a YAML configuration file for detection pipeline"
+                help="Choose a YAML configuration file for detection pipeline",
             )
 
             if st.button("🚀 Start Detection Pipeline", type="primary"):
                 if selected_config:
-                    st.info(f"Starting detection pipeline with config: {selected_config}")
+                    st.info(
+                        f"Starting detection pipeline with config: {selected_config}"
+                    )
 
                     success, message, result = run_command_with_progress(
                         run_detection_pipeline, Path(selected_config)
@@ -197,19 +206,25 @@ def training_page():
         st.subheader("Classification Pipeline")
 
         # Get available classification configs
-        classification_configs = [f.as_posix() for f in (ROOT / "pipelines").iterdir() if f.is_file() and f.suffix == ".yaml"]
+        classification_configs = [
+            f.as_posix()
+            for f in (ROOT / "pipelines").iterdir()
+            if f.is_file() and f.suffix == ".yaml"
+        ]
 
         if classification_configs:
             selected_config = st.selectbox(
                 "Select Classification Pipeline Config",
                 classification_configs,
                 key="classification_pipeline_config",
-                help="Choose a YAML configuration file for classification pipeline"
+                help="Choose a YAML configuration file for classification pipeline",
             )
 
             if st.button("🚀 Start Classification Pipeline", type="primary"):
                 if selected_config:
-                    st.info(f"Starting classification pipeline with config: {selected_config}")
+                    st.info(
+                        f"Starting classification pipeline with config: {selected_config}"
+                    )
 
                     success, message, result = run_command_with_progress(
                         run_classification_pipeline, Path(selected_config)
@@ -221,7 +236,9 @@ def training_page():
                     else:
                         st.error(f"Classification pipeline failed: {message}")
         else:
-            st.warning("No classification configuration files found in configs/classification/")
+            st.warning(
+                "No classification configuration files found in configs/classification/"
+            )
 
 
 def evaluation_page():
@@ -245,12 +262,14 @@ def evaluation_page():
             selected_config = st.selectbox(
                 "Select Evaluation Configuration",
                 all_configs,
-                help="Choose a YAML configuration file for classifier evaluation"
+                help="Choose a YAML configuration file for classifier evaluation",
             )
 
             if st.button("📊 Evaluate Classifier", type="primary"):
                 if selected_config:
-                    st.info(f"Starting classifier evaluation with config: {selected_config}")
+                    st.info(
+                        f"Starting classifier evaluation with config: {selected_config}"
+                    )
 
                     success, message, result = run_command_with_progress(
                         evaluate_classifier, Path(selected_config)
@@ -274,18 +293,18 @@ def evaluation_page():
             selected_config = st.selectbox(
                 "Select Detector Evaluation Config",
                 detection_configs,
-                help="Choose a YAML configuration file for detector evaluation"
+                help="Choose a YAML configuration file for detector evaluation",
             )
 
             model_type = st.selectbox(
-                "Model Type",
-                ["yolo"],
-                help="Type of detector to evaluate"
+                "Model Type", ["yolo"], help="Type of detector to evaluate"
             )
 
             if st.button("📊 Evaluate Detector", type="primary"):
                 if selected_config:
-                    st.info(f"Starting detector evaluation with config: {selected_config}")
+                    st.info(
+                        f"Starting detector evaluation with config: {selected_config}"
+                    )
 
                     success, message, result = run_command_with_progress(
                         evaluate_detector, Path(selected_config), model_type
@@ -308,23 +327,19 @@ def dataset_analysis_page():
 
     # Input for data directory
     data_dir = st.text_input(
-        "Dataset Directory Path",
-        help="Path to the dataset directory"
+        "Dataset Directory Path", help="Path to the dataset directory"
     )
 
     col1, col2 = st.columns(2)
 
     with col1:
         split = st.selectbox(
-            "Dataset Split",
-            ["train", "val", "test"],
-            help="Which split to analyze"
+            "Dataset Split", ["train", "val", "test"], help="Which split to analyze"
         )
 
     with col2:
         output_file = st.text_input(
-            "Output File (Optional)",
-            help="Path to save statistics JSON file"
+            "Output File (Optional)", help="Path to save statistics JSON file"
         )
 
     if st.button("📊 Analyze Dataset", type="primary"):
@@ -335,7 +350,7 @@ def dataset_analysis_page():
                 get_dataset_stats,
                 Path(data_dir),
                 split,
-                Path(output_file) if output_file else None
+                Path(output_file) if output_file else None,
             )
 
             if success:
@@ -358,12 +373,11 @@ def visualization_page():
 
         dataset_name = st.text_input(
             "FiftyOne Dataset Name",
-            help="Name of the FiftyOne dataset to use or create"
+            help="Name of the FiftyOne dataset to use or create",
         )
 
         checkpoint_path = st.text_input(
-            "Checkpoint Path",
-            help="Path to the classifier checkpoint (.ckpt) file"
+            "Checkpoint Path", help="Path to the classifier checkpoint (.ckpt) file"
         )
 
         col1, col2 = st.columns(2)
@@ -372,7 +386,7 @@ def visualization_page():
             prediction_field = st.text_input(
                 "Prediction Field",
                 value="classification_predictions",
-                help="Field name to store predictions"
+                help="Field name to store predictions",
             )
 
             batch_size = st.number_input(
@@ -380,19 +394,17 @@ def visualization_page():
                 min_value=1,
                 max_value=128,
                 value=32,
-                help="Batch size for prediction inference"
+                help="Batch size for prediction inference",
             )
 
         with col2:
             device = st.selectbox(
-                "Device",
-                ["cpu", "cuda"],
-                help="Device to run inference on"
+                "Device", ["cpu", "cuda"], help="Device to run inference on"
             )
 
             debug = st.checkbox(
                 "Debug Mode",
-                help="Process only a small number of samples for debugging"
+                help="Process only a small number of samples for debugging",
             )
 
         if st.button("🎨 Visualize Classifier Predictions", type="primary"):
@@ -406,7 +418,7 @@ def visualization_page():
                     prediction_field,
                     batch_size,
                     device,
-                    debug
+                    debug,
                 )
 
                 if success:
@@ -432,7 +444,7 @@ def visualization_page():
             selected_config = st.selectbox(
                 "Select Visualization Configuration",
                 all_configs,
-                help="Choose a YAML configuration file for detector visualization"
+                help="Choose a YAML configuration file for detector visualization",
             )
 
             if st.button("🎨 Visualize Detector Predictions", type="primary"):
@@ -440,8 +452,7 @@ def visualization_page():
                     st.info(f"Loading visualization config from: {selected_config}")
 
                     success, message, result = run_command_with_progress(
-                        visualize_detector_predictions,
-                        Path(selected_config)
+                        visualize_detector_predictions, Path(selected_config)
                     )
 
                     if success:
@@ -461,7 +472,11 @@ def configuration_page():
 
     config_files = get_config_files()
 
-    pipeline_files = [f.as_posix() for i,f in enumerate((ROOT / "pipelines").iterdir()) if f.is_file() and f.suffix == ".yaml"]
+    pipeline_files = [
+        f.as_posix()
+        for i, f in enumerate((ROOT / "pipelines").iterdir())
+        if f.is_file() and f.suffix == ".yaml"
+    ]
     config_files["pipelines"] = pipeline_files
 
     for category, files in config_files.items():
@@ -473,13 +488,17 @@ def configuration_page():
                     with col1:
                         st.code(file_path, language="text")
 
-                    #with col2:
+                    # with col2:
                     if st.button("View", key=f"view_{file_path}"):
                         try:
-                            with open(file_path, 'r') as f:
+                            with open(file_path, "r") as f:
                                 content = f.read()
                             conf = yaml.safe_load(content)
-                            st.text_area("Configuration Content", json.dumps(conf, indent=4), height=300)
+                            st.text_area(
+                                "Configuration Content",
+                                json.dumps(conf, indent=4),
+                                height=300,
+                            )
                         except Exception as e:
                             st.error(f"Error reading file: {e}")
 
@@ -493,10 +512,16 @@ def main():
 
     page = st.sidebar.selectbox(
         "Navigation",
-        ["Home", "Training", "Evaluation", "Dataset Analysis", "Visualization", "Configuration"],
-        help="Select a page to navigate"
+        [
+            "Home",
+            "Training",
+            "Evaluation",
+            "Dataset Analysis",
+            "Visualization",
+            "Configuration",
+        ],
+        help="Select a page to navigate",
     )
-
 
     with st.sidebar:
         st.divider()

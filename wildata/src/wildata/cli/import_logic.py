@@ -179,7 +179,7 @@ def import_one_worker(args) -> tuple:
     from pydantic import ValidationError
 
     try:
-        typer.echo(f"\n=== Importing [{i+1}]: {name} ===")
+        typer.echo(f"\n=== Importing [{i + 1}]: {name} ===")
         single_config = ImportDatasetConfig(
             source_path=src,
             source_format=fmt,

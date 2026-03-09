@@ -18,11 +18,15 @@ class PipelineService:
     """Service for handling pipeline operations."""
 
     @staticmethod
-    def run_classification_pipeline(config: ClassificationPipelineConfig) -> Dict[str, Any]:
+    def run_classification_pipeline(
+        config: ClassificationPipelineConfig,
+    ) -> Dict[str, Any]:
         """Run classification pipeline using the CLI."""
         try:
             # Create a temporary config file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".yaml", delete=False
+            ) as f:
                 config_dict = config.model_dump()
                 yaml_content = OmegaConf.to_yaml(OmegaConf.create(config_dict))
                 f.write(yaml_content)
@@ -32,6 +36,7 @@ class PipelineService:
 
             # Import and run the CLI command
             from ...cli.commands.pipeline import classification
+
             classification(config=Path(temp_config_path))
 
             # Clean up temporary file
@@ -49,7 +54,9 @@ class PipelineService:
         """Run detection pipeline using the CLI."""
         try:
             # Create a temporary config file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".yaml", delete=False
+            ) as f:
                 config_dict = config.model_dump()
                 yaml_content = OmegaConf.to_yaml(OmegaConf.create(config_dict))
                 f.write(yaml_content)
@@ -59,6 +66,7 @@ class PipelineService:
 
             # Import and run the CLI command
             from ...cli.commands.pipeline import detection
+
             detection(config=Path(temp_config_path))
 
             # Clean up temporary file
@@ -75,7 +83,9 @@ class PipelineService:
     def generate_classification_pipeline_template() -> str:
         """Generate a classification pipeline template."""
         try:
-            template = ConfigLoader.generate_default_config(ConfigType.CLASSIFICATION_PIPELINE)
+            template = ConfigLoader.generate_default_config(
+                ConfigType.CLASSIFICATION_PIPELINE
+            )
             return template
         except Exception as e:
             logger.error(f"Failed to generate classification pipeline template: {e}")
@@ -85,7 +95,9 @@ class PipelineService:
     def generate_detection_pipeline_template() -> str:
         """Generate a detection pipeline template."""
         try:
-            template = ConfigLoader.generate_default_config(ConfigType.DETECTION_PIPELINE)
+            template = ConfigLoader.generate_default_config(
+                ConfigType.DETECTION_PIPELINE
+            )
             return template
         except Exception as e:
             logger.error(f"Failed to generate detection pipeline template: {e}")
