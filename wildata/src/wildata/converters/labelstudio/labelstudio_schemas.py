@@ -12,6 +12,7 @@ Label Studio coordinate system:
 
 from datetime import datetime
 from pathlib import Path
+import json
 from typing import Any, Dict, List, Optional, Tuple, Union, Set
 from urllib.parse import unquote
 from label_studio_tools.core.utils.io import get_local_path
