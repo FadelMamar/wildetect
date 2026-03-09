@@ -5,10 +5,7 @@ This module provides a modular CLI structure with commands organized by function
 """
 
 import importlib.metadata
-import logging
-import sys
-from typing import Optional
-
+import os
 import typer
 from rich.console import Console
 
@@ -20,7 +17,9 @@ from .commands import (
     utility_commands,
     visualization_commands,
 )
-from .utils import setup_logging
+
+# Disable Typer Rich (tracebacks only)
+os.environ['TYPER_USE_RICH']='0'
 
 # Create Typer app
 app = typer.Typer(
