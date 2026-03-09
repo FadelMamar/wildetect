@@ -12,10 +12,9 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-from wildata.converters import LabelstudioConverter
 from wildata.converters.labelstudio.labelstudio_schemas import Task
 
-from ..config import ROOT, FlightSpecs
+from ..config import FlightSpecs
 from ..config_models import LabelStudioConfigModel, ExifGPSUpdateConfig
 from .detection import Detection
 from .tile import Tile
@@ -436,6 +435,7 @@ class DroneImage(Tile):
             raise NotImplementedError
 
         csv_dict = None
+        errors_gps = 0
         if exif_gps_update is not None:
             df = exif_gps_update.to_df()
             cfg_rename = {
@@ -449,7 +449,7 @@ class DroneImage(Tile):
                 .set_index("image_path")
                 .to_dict(orient="index")
             )
-
+        
         def get_image_gps_coords(
             img_path: str
         ) -> Tuple[Optional[float], Optional[float], Optional[float]]:
@@ -457,7 +457,10 @@ class DroneImage(Tile):
                 return None, None, None
             else:
                 if img_path not in csv_dict:
-                    logger.warning(f"Image path {img_path} not found in csv_dict")
+                    logger.error(f"Image path {img_path} not found in csv_dict")
+                    errors_gps += 1
+                    if errors_gps > 5:
+                        raise Exception("Image paths not found in csv_dict.")
                     return None, None, None
                 return (
                     csv_dict[img_path]["latitude"],
