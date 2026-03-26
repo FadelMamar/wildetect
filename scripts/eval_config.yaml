@@ -1,0 +1,17 @@
+model: "C:/Users/Machine Learning/Desktop/workspace-wildAI/datalabeling/runs/mlflow/140168774036374062/a59eda79d9444ff4befc561ac21da6b4/artifacts/weights/best.pt"
+
+data: D:\PhD\Data per camp\IdentificationDataset\continuous_learning\train_ratio_7.5-seed_41.yaml
+
+batch: 32
+imgsz: 800
+iou: 0.7
+conf: 0.25
+
+max_det: 100
+half: true
+device: cuda:0
+split: "val"
+
+name: "debugging-val"
+workers: 8
+single_cls: true
