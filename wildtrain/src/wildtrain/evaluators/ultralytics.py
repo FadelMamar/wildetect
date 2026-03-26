@@ -37,7 +37,7 @@ class UltralyticsEvaluator:
         self.config = config
         self.metrics = self._get_metrics()
         self._report: Dict[str, float] = dict()
-        self._gt_and_preds: Optional[List[dict[str, List[sv.Detections]]]] = None
+        self._gt_and_preds: List[dict[str, List[sv.Detections]]] = []
         self._gt_labels_to_keep: list[int] = None
         self._pred_labels_to_keep: list[int] = None
 
@@ -52,11 +52,6 @@ class UltralyticsEvaluator:
         if self.class_mapping is None:
             return None
         return [self.class_mapping[i] for i in sorted(self.class_mapping.keys())]
-
-    def get_gt_and_preds(self) -> List[dict[str, List[sv.Detections]]]:
-        if self._gt_and_preds is None:
-            self._gt_and_preds = list(self._run_inference())
-        return self._gt_and_preds
 
     def _get_metrics(
         self,
@@ -219,18 +214,16 @@ class UltralyticsEvaluator:
         )
 
     def _set_gt_labels_to_keep(self, gt_classes: list[str]):
+        has_keep = self.config.dataset.keep_classes is not None
+        has_discard = self.config.dataset.discard_classes is not None
+        assert not (has_keep and has_discard), "keep_classes and discard_classes cannot be provided at the same time in config.dataset"
+
         def _is_class_to_keep(class_name: str) -> bool:
-            if (
-                self.config.dataset.keep_classes is not None
-                and class_name in self.config.dataset.keep_classes
-            ):
-                return True
-            if (
-                self.config.dataset.discard_classes is not None
-                and class_name not in self.config.dataset.discard_classes
-            ):
-                return True
-            return False
+            if has_keep:
+                return class_name in self.config.dataset.keep_classes
+            if has_discard:
+                return class_name not in self.config.dataset.discard_classes
+            return True
 
         self._gt_labels_to_keep = [
             i
@@ -238,10 +231,13 @@ class UltralyticsEvaluator:
             if _is_class_to_keep(class_name)
         ]
         self._pred_labels_to_keep = [
-            i
-            for i, class_name in enumerate(self.class_mapping.values())
+            label
+            for label, class_name in self.class_mapping.items()
             if _is_class_to_keep(class_name)
         ]
+
+        assert len(self._gt_labels_to_keep) > 0, "No GT labels to keep after filtering"
+        assert len(self._pred_labels_to_keep) > 0, f"No prediction labels to keep after filtering. Available classes are {self.class_mapping}"
 
         # update class mapping
         new_class_mapping = {}
@@ -342,6 +338,8 @@ class UltralyticsEvaluator:
         return filtered_prediction
 
     def _run_inference(self) -> Generator[Dict[str, List[sv.Detections]], None, None]:
+        logger.info("Running inference on evaluation dataset...")
+        logger.info(f'Labels for interest: {self._pred_labels_to_keep}')
         for batch in tqdm(self.dataloader, desc="Running inference"):
             predictions = self.model.predict(batch["img"], return_as_dict=False)
             gts = batch["annotations"]

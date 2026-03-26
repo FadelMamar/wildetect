@@ -82,15 +82,15 @@ class ClusteringFilter(BaseFilter):
 
     def __init__(
         self,
-        feature_extractor: FeatureExtractor = FeatureExtractor(),
+        feature_extractor: Optional[FeatureExtractor] = None,
         batch_size: int = 64,
-        sampling_strategy: SamplingStrategy = UniformDistanceRandomSamplingStrategy(),
+        sampling_strategy: Optional[SamplingStrategy] = None,
         reduction_factor: float = 0.3,
     ):
-        self.feature_extractor = FeatureExtractor()
+        self.feature_extractor = feature_extractor or FeatureExtractor()
         self.batch_size = batch_size
         self.x_percent = reduction_factor  # Default to 30% if not set
-        self.sampling_strategy = UniformDistanceRandomSamplingStrategy()
+        self.sampling_strategy = sampling_strategy or UniformDistanceRandomSamplingStrategy()
         self.last_silhouette_scores = None
         self.last_samples_per_cluster = None
 

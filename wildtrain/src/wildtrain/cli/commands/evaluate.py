@@ -3,6 +3,7 @@
 import traceback
 from pathlib import Path
 from typing import Any, Dict
+import yaml
 
 import typer
 
@@ -18,6 +19,20 @@ from .utils import console, log_file_path, setup_logging
 
 evaluate_app = typer.Typer(name="evaluate", help="Evaluation commands")
 
+
+def yolo_model(config: Path = typer.Option(
+        "", "--config", "-c", help="Path to YOLO evaluation YAML config file"
+    ),):
+    from ultralytics import YOLO
+    console.print(
+        f"[bold green]Running YOLO model evaluation with Ultralytics. config:[/bold green] {config}"
+    )
+
+    with open(config) as f:
+        config = yaml.safe_load(f)    
+    model = YOLO(config.pop('model'))   
+    model.val(**config)
+    
 
 @evaluate_app.command()
 def classifier(
