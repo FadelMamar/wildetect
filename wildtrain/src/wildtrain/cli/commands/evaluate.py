@@ -19,7 +19,7 @@ from .utils import console, log_file_path, setup_logging
 
 evaluate_app = typer.Typer(name="evaluate", help="Evaluation commands")
 
-
+@evaluate_app.command()
 def yolo_model(config: Path = typer.Option(
         "", "--config", "-c", help="Path to YOLO evaluation YAML config file"
     ),):

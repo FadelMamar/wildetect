@@ -10,7 +10,7 @@ dataset:
   root_data_directory: D:\PhD\workspace\data
   force_merge: true
   keep_classes: null # either keep_classes or discard_classes must be provided, not both
-  discard_classes: ["rocks","vegetation","item","other","termite mound","label","detection","background"]
+  discard_classes: ["rocks","vegetation","other","termite mound","label","detection","background"]
 
 device: "cuda"  # Device to run the evaluation on (cuda/cpu)
 
