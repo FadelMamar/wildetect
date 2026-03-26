@@ -267,6 +267,10 @@ class UltralyticsEvaluator:
         split = eval_config.split
         if split is None:
             raise ValueError(f"No 'split' found in eval_config: {eval_config}")
+        if self.config.dataset.root_data_directory is None:
+            raise ValueError(
+                "root_data_directory must be provided in config.dataset to create dataloader"
+            )
 
         dataset = load_all_detection_datasets(
             root_data_directory=self.config.dataset.root_data_directory, split=split
