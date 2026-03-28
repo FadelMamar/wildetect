@@ -2,33 +2,42 @@
 
 Documentation for all WildTrain configuration files used in model training.
 
+## Detailed Config Guides
+
+| Config Category | Detailed Reference |
+|----------------|--------------------|
+| Classification Training | [Classification Training Config →](classification-train.md) |
+| Detection Training & Sweeps | [Detection Training Config →](detection-train.md) |
+| YOLO Configuration (Plain English) | [YOLO Config Guide →](yolo-config-guide.md) |
+| Model Registration & Inference | [Registration Config →](registration.md) |
+
 ## Configuration Structure
 
-WildTrain uses Hydra for hierarchical configuration management.
+WildTrain uses YAML config files with OmegaConf variable interpolation (e.g., `${dataset.input_size}`).
 
 ```
 configs/
-├── classification/          # Classification configs
-│   ├── classification_train.yaml
-│   ├── classification_eval.yaml
-│   ├── classification_sweep.yaml
-│   └── classification_pipeline_config.yaml
-├── detection/              # Detection configs
-│   ├── yolo_configs/
-│   │   ├── yolo.yaml
-│   │   ├── yolo_eval.yaml
-│   │   └── data/demo.yaml
-│   └── mmdet_configs/
-│       ├── mmdet.yaml
-│       └── [various model configs]
-├── datapreparation/        # Data prep configs
-│   ├── import-config-example.yaml
-│   └── savmap.yaml
-├── registration/           # Model registration
+├── classification/                           # Classification configs
+│   ├── classification_train.yaml             # Training config
+│   ├── classification_eval.yaml              # Evaluation config
+│   ├── classification_sweep.yaml             # Hyperparameter sweep
+│   ├── classification_pipeline_config.yaml   # Full pipeline (train + eval)
+│   └── classification_visualization.yaml     # FiftyOne visualization
+├── detection/                                # Detection configs
+│   ├── detection_sweep.yaml                  # Hyperparameter sweep
+│   ├── visualization.yaml                    # FiftyOne visualization
+│   └── yolo_configs/                         # YOLO-specific configs
+│       ├── yolo.yaml                         # Training config
+│       ├── yolo_eval.yaml                    # Evaluation config
+│       ├── yolo_pipeline_config.yaml         # Full pipeline
+│       ├── calibration_example.yaml          # Calibration config
+│       ├── data/                             # Data YAML files
+│       └── models/                           # Architecture YAML files
+├── registration/                             # Model registration
 │   ├── classifier_registration_example.yaml
 │   └── detector_registration_example.yaml
-├── main.yaml              # Main config
-└── inference.yaml         # Inference config
+├── inference.yaml                            # Inference server config
+└── label_studio_config.xml                   # Label Studio interface
 ```
 
 ---

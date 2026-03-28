@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.618322db.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1936,6 +1936,90 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildata/import-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildata/roi-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ROI Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildata/gps-update-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPS Update Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2013,6 +2097,90 @@
     
   
     Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildtrain/classification-train/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Classification Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildtrain/detection-train/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildtrain/registration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Registration
   
 
     
@@ -2394,22 +2562,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#main-commands" class="md-nav__link">
+  <a href="#global-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Main Commands
+        Global Options
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Main Commands">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#train-training-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        train — Training Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="train — Training Commands">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#train" class="md-nav__link">
+  <a href="#train-classifier" class="md-nav__link">
     <span class="md-ellipsis">
       
-        train
+        train classifier
       
     </span>
   </a>
@@ -2417,43 +2596,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#eval" class="md-nav__link">
+  <a href="#train-detector" class="md-nav__link">
     <span class="md-ellipsis">
       
-        eval
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#register" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        register
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tune" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        tune
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#serve" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        serve
+        train detector
       
     </span>
   </a>
@@ -2462,6 +2608,262 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evaluate-evaluation-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate — Evaluation Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="evaluate — Evaluation Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#evaluate-classifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate classifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluate-detector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate detector
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluate-yolo-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate yolo-model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#register-model-registration-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        register — Model Registration Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="register — Model Registration Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#register-classifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        register classifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#register-detector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        register detector
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-pipeline-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pipeline — Pipeline Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="pipeline — Pipeline Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pipeline detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pipeline classification
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#config-configuration-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config — Configuration Management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="config — Configuration Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#config-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config validate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config template
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataset-dataset-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dataset — Dataset Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="dataset — Dataset Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataset-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dataset stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visualize-visualization-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        visualize — Visualization Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="visualize — Visualization Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#visualize-classifier-predictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        visualize classifier-predictions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#visualize-detector-predictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        visualize detector-predictions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-server-inference-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        run-server — Inference Server
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Reference
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2591,22 +2993,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#main-commands" class="md-nav__link">
+  <a href="#global-options" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Main Commands
+        Global Options
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Main Commands">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#train-training-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        train — Training Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="train — Training Commands">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#train" class="md-nav__link">
+  <a href="#train-classifier" class="md-nav__link">
     <span class="md-ellipsis">
       
-        train
+        train classifier
       
     </span>
   </a>
@@ -2614,43 +3027,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#eval" class="md-nav__link">
+  <a href="#train-detector" class="md-nav__link">
     <span class="md-ellipsis">
       
-        eval
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#register" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        register
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tune" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        tune
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#serve" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        serve
+        train detector
       
     </span>
   </a>
@@ -2659,6 +3039,262 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evaluate-evaluation-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate — Evaluation Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="evaluate — Evaluation Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#evaluate-classifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate classifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluate-detector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate detector
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluate-yolo-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        evaluate yolo-model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#register-model-registration-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        register — Model Registration Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="register — Model Registration Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#register-classifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        register classifier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#register-detector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        register detector
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-pipeline-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pipeline — Pipeline Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="pipeline — Pipeline Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pipeline detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pipeline classification
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#config-configuration-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config — Configuration Management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="config — Configuration Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#config-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config validate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config template
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataset-dataset-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dataset — Dataset Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="dataset — Dataset Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataset-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dataset stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visualize-visualization-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        visualize — Visualization Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="visualize — Visualization Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#visualize-classifier-predictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        visualize classifier-predictions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#visualize-detector-predictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        visualize detector-predictions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-server-inference-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        run-server — Inference Server
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Reference
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2683,69 +3319,594 @@
 
 
 <h1 id="wildtrain-cli-reference">WildTrain CLI Reference</h1>
-<p>Complete command-line interface reference for WildTrain.</p>
-<h2 id="main-commands">Main Commands</h2>
-<h3 id="train">train</h3>
-<p>Train a model.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>wildtrain<span class="w"> </span>train<span class="w"> </span>&lt;task&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+<p>Complete command-line interface reference for the <code>wildtrain</code> CLI.</p>
+<p>WildTrain uses <a href="https://typer.tiangolo.com/">Typer</a> with nested subcommand groups for training, evaluation, model registration, pipelines, and visualization.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>wildtrain<span class="w"> </span><span class="o">[</span>COMMAND_GROUP<span class="o">]</span><span class="w"> </span><span class="o">[</span>COMMAND<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
-<p><strong>Arguments:</strong>
-- <code>task</code>: Task type (classifier/detector)</p>
-<p><strong>Options:</strong>
-- <code>-c, --config PATH</code>: Config file (required)
-- <code>--resume PATH</code>: Resume from checkpoint
-- <code>--dry-run</code>: Dry run without training</p>
-<p><strong>Examples:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Train classifier</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>wildtrain<span class="w"> </span>train<span class="w"> </span>classifier<span class="w"> </span>-c<span class="w"> </span>configs/classification/train.yaml
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Train detector</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>wildtrain<span class="w"> </span>train<span class="w"> </span>detector<span class="w"> </span>-c<span class="w"> </span>configs/detection/yolo.yaml
-</span></code></pre></div></p>
-<h3 id="eval">eval</h3>
-<p>Evaluate a trained model.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>wildtrain<span class="w"> </span><span class="nb">eval</span><span class="w"> </span>&lt;task&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div>
-<p><strong>Arguments:</strong>
-- <code>task</code>: Task type (classifier/detector)</p>
-<p><strong>Options:</strong>
-- <code>-c, --config PATH</code>: Config file (required)
-- <code>--checkpoint PATH</code>: Model checkpoint
-- <code>--split TEXT</code>: Dataset split (test/val)</p>
-<p><strong>Examples:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>wildtrain<span class="w"> </span><span class="nb">eval</span><span class="w"> </span>classifier<span class="w"> </span>-c<span class="w"> </span>configs/classification/eval.yaml
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>wildtrain<span class="w"> </span><span class="nb">eval</span><span class="w"> </span>detector<span class="w"> </span>-c<span class="w"> </span>configs/detection/yolo_eval.yaml
-</span></code></pre></div></p>
-<h3 id="register">register</h3>
-<p>Register model to MLflow registry.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>wildtrain<span class="w"> </span>register<span class="w"> </span>&lt;model_type&gt;<span class="w"> </span>&lt;config&gt;
-</span></code></pre></div>
-<p><strong>Arguments:</strong>
-- <code>model_type</code>: Model type (classifier/detector)
-- <code>config</code>: Registration config file</p>
-<p><strong>Example:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>wildtrain<span class="w"> </span>register<span class="w"> </span>detector<span class="w"> </span>configs/registration/detector_registration.yaml
-</span></code></pre></div></p>
-<h3 id="tune">tune</h3>
-<p>Run hyperparameter tuning.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>wildtrain<span class="w"> </span>tune<span class="w"> </span>&lt;task&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div>
-<p><strong>Options:</strong>
-- <code>-c, --config PATH</code>: Config file
-- <code>--n-trials INTEGER</code>: Number of trials</p>
-<p><strong>Example:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>wildtrain<span class="w"> </span>tune<span class="w"> </span>classifier<span class="w"> </span>-c<span class="w"> </span>configs/classification/sweep.yaml<span class="w"> </span>--n-trials<span class="w"> </span><span class="m">50</span>
-</span></code></pre></div></p>
-<h3 id="serve">serve</h3>
-<p>Start inference server.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>wildtrain<span class="w"> </span>serve<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div>
-<p><strong>Options:</strong>
-- <code>-c, --config PATH</code>: Inference config
-- <code>--port INTEGER</code>: Server port
-- <code>--workers INTEGER</code>: Number of workers</p>
+<h2 id="global-options">Global Options</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td>Enable verbose logging</td>
+</tr>
+<tr>
+<td><code>-c</code>, <code>--config-dir</code></td>
+<td>Configuration directory</td>
+</tr>
+<tr>
+<td><code>--help</code></td>
+<td>Show help message and exit</td>
+</tr>
+</tbody>
+</table>
 <hr />
-<p>For detailed script documentation, see <a href="../../scripts/wildtrain/">WildTrain Scripts</a>.</p>
+<h2 id="train-training-commands"><code>train</code> — Training Commands</h2>
+<p>Train detection and classification models.</p>
+<h3 id="train-classifier"><code>train classifier</code></h3>
+<p>Train a classification model using PyTorch Lightning.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>wildtrain<span class="w"> </span>train<span class="w"> </span>classifier<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>""</code></td>
+<td>Path to training configuration YAML file</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>wildtrain<span class="w"> </span>train<span class="w"> </span>classifier<span class="w"> </span>-c<span class="w"> </span>configs/classification/classification_train.yaml
+</span></code></pre></div>
+<p>See <a href="../../configs/wildtrain/classification-train/">Classification Training Config</a> for config details.</p>
+<hr />
+<h3 id="train-detector"><code>train detector</code></h3>
+<p>Train an object detection model (YOLO via Ultralytics).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>wildtrain<span class="w"> </span>train<span class="w"> </span>detector<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>""</code></td>
+<td>Path to training configuration YAML file</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>wildtrain<span class="w"> </span>train<span class="w"> </span>detector<span class="w"> </span>-c<span class="w"> </span>configs/detection/yolo_configs/yolo_train.yaml
+</span></code></pre></div>
+<p>See <a href="../../configs/wildtrain/detection-train/">Detection Training Config</a> for config details.</p>
+<hr />
+<h2 id="evaluate-evaluation-commands"><code>evaluate</code> — Evaluation Commands</h2>
+<p>Evaluate trained models on test/validation datasets.</p>
+<h3 id="evaluate-classifier"><code>evaluate classifier</code></h3>
+<p>Evaluate a classification model using a YAML config file.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>wildtrain<span class="w"> </span>evaluate<span class="w"> </span>classifier<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>""</code></td>
+<td>Path to classification evaluation YAML config</td>
+</tr>
+<tr>
+<td><code>--debug</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable debug mode</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>wildtrain<span class="w"> </span>evaluate<span class="w"> </span>classifier<span class="w"> </span>-c<span class="w"> </span>configs/classification/classification_eval.yaml
+</span></code></pre></div>
+<hr />
+<h3 id="evaluate-detector"><code>evaluate detector</code></h3>
+<p>Evaluate a YOLO detection model using a YAML config file.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>wildtrain<span class="w"> </span>evaluate<span class="w"> </span>detector<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>""</code></td>
+<td>Path to YOLO evaluation YAML config</td>
+</tr>
+<tr>
+<td><code>--debug</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable debug mode</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>wildtrain<span class="w"> </span>evaluate<span class="w"> </span>detector<span class="w"> </span>-c<span class="w"> </span>configs/detection/detection_sweep.yaml
+</span></code></pre></div>
+<hr />
+<h3 id="evaluate-yolo-model"><code>evaluate yolo-model</code></h3>
+<p>Run direct Ultralytics YOLO model validation (bypass WildTrain wrapper).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>wildtrain<span class="w"> </span>evaluate<span class="w"> </span>yolo-model<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>""</code></td>
+<td>Path to YOLO evaluation YAML config</td>
+</tr>
+</tbody>
+</table>
+<p>The config YAML should contain a <code>model</code> key (path to weights) plus any Ultralytics <code>val()</code> parameters.</p>
+<hr />
+<h2 id="register-model-registration-commands"><code>register</code> — Model Registration Commands</h2>
+<p>Register trained models to the MLflow Model Registry.</p>
+<h3 id="register-classifier"><code>register classifier</code></h3>
+<p>Register a classification model to MLflow.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>wildtrain<span class="w"> </span>register<span class="w"> </span>classifier<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to registration configuration file</td>
+</tr>
+<tr>
+<td><code>--weights-path</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to model checkpoint file</td>
+</tr>
+<tr>
+<td><code>-n</code>, <code>--name</code></td>
+<td><code>str</code></td>
+<td><code>classifier</code></td>
+<td>Model name for registration</td>
+</tr>
+<tr>
+<td><code>-b</code>, <code>--batch-size</code></td>
+<td><code>int</code></td>
+<td><code>8</code></td>
+<td>Batch size for inference</td>
+</tr>
+<tr>
+<td><code>--mlflow-uri</code></td>
+<td><code>str</code></td>
+<td><code>http://localhost:5000</code></td>
+<td>MLflow tracking server URI</td>
+</tr>
+</tbody>
+</table>
+<p>You can use either <code>--config</code> or provide options directly. When using <code>--config</code>, don't provide other options.</p>
+<p><strong>Examples:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Using config file</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>wildtrain<span class="w"> </span>register<span class="w"> </span>classifier<span class="w"> </span>-c<span class="w"> </span>configs/registration/classifier_registration_example.yaml
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Using direct options</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>wildtrain<span class="w"> </span>register<span class="w"> </span>classifier<span class="w"> </span>--weights-path<span class="w"> </span>model.ckpt<span class="w"> </span>--name<span class="w"> </span>my_classifier<span class="w"> </span>--mlflow-uri<span class="w"> </span>http://localhost:5000
+</span></code></pre></div>
+<p>See <a href="../../configs/wildtrain/registration/">Registration Config</a> for config details.</p>
+<hr />
+<h3 id="register-detector"><code>register detector</code></h3>
+<p>Register a detection model to MLflow.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>wildtrain<span class="w"> </span>register<span class="w"> </span>detector<span class="w"> </span>CONFIG_PATH
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CONFIG_PATH</code></td>
+<td><code>PATH</code></td>
+<td>Path to detector registration configuration file</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>wildtrain<span class="w"> </span>register<span class="w"> </span>detector<span class="w"> </span>configs/registration/detector_registration_example.yaml
+</span></code></pre></div>
+<hr />
+<h2 id="pipeline-pipeline-commands"><code>pipeline</code> — Pipeline Commands</h2>
+<p>Run full train + eval pipelines in a single command.</p>
+<h3 id="pipeline-detection"><code>pipeline detection</code></h3>
+<p>Run the full detection pipeline (train + evaluate).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>wildtrain<span class="w"> </span>pipeline<span class="w"> </span>detection<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to unified detection pipeline YAML config</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>wildtrain<span class="w"> </span>pipeline<span class="w"> </span>detection<span class="w"> </span>-c<span class="w"> </span>configs/detection/detection_sweep.yaml
+</span></code></pre></div>
+<hr />
+<h3 id="pipeline-classification"><code>pipeline classification</code></h3>
+<p>Run the full classification pipeline (train + evaluate).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>wildtrain<span class="w"> </span>pipeline<span class="w"> </span>classification<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to unified classification pipeline YAML config</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>wildtrain<span class="w"> </span>pipeline<span class="w"> </span>classification<span class="w"> </span>-c<span class="w"> </span>configs/classification/classification_pipeline_config.yaml
+</span></code></pre></div>
+<hr />
+<h2 id="config-configuration-management"><code>config</code> — Configuration Management</h2>
+<p>Validate and generate configuration templates.</p>
+<h3 id="config-validate"><code>config validate</code></h3>
+<p>Validate a configuration file against Pydantic models.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>wildtrain<span class="w"> </span>config<span class="w"> </span>validate<span class="w"> </span>CONFIG_PATH<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Argument / Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CONFIG_PATH</code></td>
+<td><code>PATH</code></td>
+<td><em>(required)</em></td>
+<td>Path to configuration file</td>
+</tr>
+<tr>
+<td><code>-t</code>, <code>--type</code></td>
+<td><code>str</code></td>
+<td><code>classification</code></td>
+<td>Config type (see below)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Supported config types:</strong> <code>classification</code>, <code>detection</code>, <code>classification_eval</code>, <code>detection_eval</code>, <code>classification_visualization</code>, <code>detection_visualization</code>, <code>pipeline</code>, <code>detector_registration</code>, <code>classifier_registration</code>, <code>model_registration</code></p>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>wildtrain<span class="w"> </span>config<span class="w"> </span>validate<span class="w"> </span>configs/classification/classification_train.yaml<span class="w"> </span>--type<span class="w"> </span>classification
+</span></code></pre></div>
+<hr />
+<h3 id="config-template"><code>config template</code></h3>
+<p>Generate a default YAML configuration template.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>wildtrain<span class="w"> </span>config<span class="w"> </span>template<span class="w"> </span>CONFIG_TYPE<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Argument / Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CONFIG_TYPE</code></td>
+<td><code>str</code></td>
+<td><em>(required)</em></td>
+<td>Configuration type to generate template for</td>
+</tr>
+<tr>
+<td><code>-s</code>, <code>--save</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Save template to file (prints to stdout if omitted)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Print template to console</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>wildtrain<span class="w"> </span>config<span class="w"> </span>template<span class="w"> </span>classification
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="c1"># Save to file</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>wildtrain<span class="w"> </span>config<span class="w"> </span>template<span class="w"> </span>detection<span class="w"> </span>-s<span class="w"> </span>my_detection_config.yaml
+</span></code></pre></div>
+<hr />
+<h2 id="dataset-dataset-commands"><code>dataset</code> — Dataset Commands</h2>
+<p>Dataset analysis and statistics.</p>
+<h3 id="dataset-stats"><code>dataset stats</code></h3>
+<p>Compute dataset statistics (mean, standard deviation) for normalization.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>wildtrain<span class="w"> </span>dataset<span class="w"> </span>stats<span class="w"> </span>DATA_DIR<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Argument / Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATA_DIR</code></td>
+<td><code>PATH</code></td>
+<td><em>(required)</em></td>
+<td>Path to dataset directory</td>
+</tr>
+<tr>
+<td><code>--split</code></td>
+<td><code>str</code></td>
+<td><code>train</code></td>
+<td>Split to compute statistics for</td>
+</tr>
+<tr>
+<td><code>-o</code>, <code>--output</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Output file for statistics JSON</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>wildtrain<span class="w"> </span>dataset<span class="w"> </span>stats<span class="w"> </span>D:/data/roi_dataset<span class="w"> </span>--split<span class="w"> </span>train<span class="w"> </span>-o<span class="w"> </span>stats.json
+</span></code></pre></div>
+<hr />
+<h2 id="visualize-visualization-commands"><code>visualize</code> — Visualization Commands</h2>
+<p>Upload model predictions to FiftyOne for interactive visualization.</p>
+<h3 id="visualize-classifier-predictions"><code>visualize classifier-predictions</code></h3>
+<p>Upload classifier predictions to a FiftyOne dataset.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>wildtrain<span class="w"> </span>visualize<span class="w"> </span>classifier-predictions<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>""</code></td>
+<td>Path to classification visualization YAML config</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>wildtrain<span class="w"> </span>visualize<span class="w"> </span>classifier-predictions<span class="w"> </span>-c<span class="w"> </span>configs/classification/classification_visualization.yaml
+</span></code></pre></div>
+<hr />
+<h3 id="visualize-detector-predictions"><code>visualize detector-predictions</code></h3>
+<p>Upload detector predictions to a FiftyOne dataset.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>wildtrain<span class="w"> </span>visualize<span class="w"> </span>detector-predictions<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>""</code></td>
+<td>Path to detection visualization YAML config</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>wildtrain<span class="w"> </span>visualize<span class="w"> </span>detector-predictions<span class="w"> </span>-c<span class="w"> </span>configs/detection/visualization.yaml
+</span></code></pre></div>
+<hr />
+<h2 id="run-server-inference-server"><code>run-server</code> — Inference Server</h2>
+<p>Start a LitServe-based inference server for model serving.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>wildtrain<span class="w"> </span>run-server<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--port</code></td>
+<td><code>int</code></td>
+<td><code>4141</code></td>
+<td>Port to run the server on</td>
+</tr>
+<tr>
+<td><code>-w</code></td>
+<td><code>int</code></td>
+<td><code>1</code></td>
+<td>Number of workers per device</td>
+</tr>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to inference config file</td>
+</tr>
+</tbody>
+</table>
+<p>When a config file is provided, it sets MLflow environment variables and overrides port/workers.</p>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># Using config file</span>
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>wildtrain<span class="w"> </span>run-server<span class="w"> </span>-c<span class="w"> </span>configs/inference.yaml
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="c1"># Using direct options</span>
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>wildtrain<span class="w"> </span>run-server<span class="w"> </span>--port<span class="w"> </span><span class="m">4141</span><span class="w"> </span>-w<span class="w"> </span><span class="m">2</span>
+</span></code></pre></div>
+<hr />
+<h2 id="quick-reference">Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>wildtrain train classifier -c CONFIG</code></td>
+<td>Train a classifier</td>
+</tr>
+<tr>
+<td><code>wildtrain train detector -c CONFIG</code></td>
+<td>Train a YOLO detector</td>
+</tr>
+<tr>
+<td><code>wildtrain evaluate classifier -c CONFIG</code></td>
+<td>Evaluate a classifier</td>
+</tr>
+<tr>
+<td><code>wildtrain evaluate detector -c CONFIG</code></td>
+<td>Evaluate a detector</td>
+</tr>
+<tr>
+<td><code>wildtrain register classifier -c CONFIG</code></td>
+<td>Register classifier to MLflow</td>
+</tr>
+<tr>
+<td><code>wildtrain register detector CONFIG</code></td>
+<td>Register detector to MLflow</td>
+</tr>
+<tr>
+<td><code>wildtrain pipeline detection -c CONFIG</code></td>
+<td>Full detection pipeline</td>
+</tr>
+<tr>
+<td><code>wildtrain pipeline classification -c CONFIG</code></td>
+<td>Full classification pipeline</td>
+</tr>
+<tr>
+<td><code>wildtrain config validate CONFIG --type TYPE</code></td>
+<td>Validate a config file</td>
+</tr>
+<tr>
+<td><code>wildtrain config template TYPE</code></td>
+<td>Generate config template</td>
+</tr>
+<tr>
+<td><code>wildtrain dataset stats DATA_DIR</code></td>
+<td>Compute dataset stats</td>
+</tr>
+<tr>
+<td><code>wildtrain visualize classifier-predictions -c CONFIG</code></td>
+<td>Visualize classifier predictions</td>
+</tr>
+<tr>
+<td><code>wildtrain visualize detector-predictions -c CONFIG</code></td>
+<td>Visualize detector predictions</td>
+</tr>
+<tr>
+<td><code>wildtrain run-server -c CONFIG</code></td>
+<td>Start inference server</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p>For configuration file details, see <a href="../../configs/wildtrain/">Configuration Reference</a>.<br />
+For shell scripts, see <a href="../../scripts/wildtrain/">WildTrain Scripts</a>.</p>
 
 
 
@@ -2866,10 +4027,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.annotate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.annotate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.e71a0d61.min.js"></script>
       
     
   </body>

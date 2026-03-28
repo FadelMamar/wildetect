@@ -54,7 +54,7 @@ git clone https://github.com/fadelmamar/wildetect.git
 cd wildetect
 
 # Create virtual environment
-uv venv --python 3.10
+uv venv --python 3.11
 .venv\Scripts\activate  # Windows
 
 # Install all packages
@@ -69,10 +69,10 @@ uv pip install -e .
 
 ```bash
 # Run detection
-wildetect detect /path/to/images --model model.pt --output results/
+wildetect detection detect -c config/detection.yaml
 
 # Run census campaign
-wildetect census campaign_2024 /path/to/images --model model.pt --output campaign_results/
+wildetect detection census -c config/census.yaml
 ```
 
 **[📖 Quick Start Guide](docs/getting-started/quick-start.md)**
@@ -153,29 +153,32 @@ wildetect census campaign_2024 /path/to/images --model model.pt --output campaig
 
 ### WildDetect
 ```bash
-wildetect detect      # Run wildlife detection
-wildetect census      # Census campaign
-wildetect analyze     # Analyze results
-wildetect visualize   # Create visualizations
-wildetect fiftyone    # Launch FiftyOne viewer
-wildetect ui          # Launch web interface
+wildetect detection detect -c CONFIG    # Run wildlife detection
+wildetect detection census -c CONFIG    # Census campaign
+wildetect detection analyze RESULTS     # Analyze results
+wildetect visualization visualize       # Create visualizations
+wildetect services fiftyone -a launch   # Launch FiftyOne viewer
+wildetect services ui                   # Launch web interface
+wildetect utils info                    # System info
 ```
 
 ### WilData
 ```bash
-wildata import-dataset    # Import dataset
-wildata dataset list      # List datasets
-wildata dataset export    # Export dataset
-wildata create-roi        # Create ROI dataset
-wildata visualize-dataset # Visualize data
+wildata import-dataset -c CONFIG        # Import dataset
+wildata list-datasets                   # List datasets
+wildata create-roi-dataset -c CONFIG    # Create ROI dataset
+wildata visualize-detection NAME        # Visualize data
+wildata update-gps-from-csv -c CONFIG   # Update GPS metadata
+wildata api serve                       # Start REST API
 ```
 
 ### WildTrain
 ```bash
-wildtrain train classifier  # Train classification model
-wildtrain train detector    # Train detection model
-wildtrain eval classifier   # Evaluate model
-wildtrain register         # Register to MLflow
+wildtrain train classifier -c CONFIG    # Train classification model
+wildtrain train detector -c CONFIG      # Train detection model
+wildtrain evaluate classifier -c CONFIG # Evaluate model
+wildtrain register detector CONFIG      # Register to MLflow
+wildtrain run-server -c CONFIG          # Start inference server
 ```
 
 For all options:
@@ -295,39 +298,37 @@ wildetect/                    # Monorepo root
 ### Detection Workflow
 ```bash
 # 1. Run detection
-wildetect detect images/ --model model.pt --output results/
+wildetect detection detect -c config/detection.yaml
 
 # 2. View in FiftyOne
-wildetect fiftyone --action launch
+wildetect services fiftyone -a launch
 
 # 3. Analyze results
-wildetect analyze results/detections.json
+wildetect detection analyze results/results.json
 ```
 
 ### Data Preparation Workflow
 ```bash
-# 1. Import dataset
-cd wildata
-wildata import-dataset annotations.json --format coco --name dataset
+# 1. Import dataset with tiling (configured in YAML)
+wildata import-dataset -c configs/import-config-example.yaml
 
-# 2. Apply transformations (tiling)
-# (configured in import config)
+# 2. Create ROI dataset for classification
+wildata create-roi-dataset -c configs/roi-create-config.yaml
 
-# 3. Export for training
-wildata dataset export dataset --format yolo
+# 3. List imported datasets
+wildata list-datasets -v
 ```
 
 ### Training Workflow
 ```bash
 # 1. Train model
-cd wildtrain
-wildtrain train detector -c configs/detection/yolo.yaml
+wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
 
 # 2. Evaluate
-wildtrain eval detector -c configs/detection/yolo_eval.yaml
+wildtrain evaluate detector -c configs/detection/yolo_configs/yolo_eval.yaml
 
 # 3. Register to MLflow
-wildtrain register detector config/registration.yaml
+wildtrain register detector configs/registration/detector_registration_example.yaml
 ```
 
 ### Census Workflow
@@ -335,10 +336,10 @@ wildtrain register detector config/registration.yaml
 # 1. Configure census (edit config/census.yaml)
 
 # 2. Run census
-wildetect census campaign_2024 images/ -c config/census.yaml
+wildetect detection census -c config/census.yaml
 
-# 3. View report
-# Open census_results/report.pdf
+# 3. View results in FiftyOne
+wildetect services fiftyone -a launch
 ```
 
 ---

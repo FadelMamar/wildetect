@@ -35,7 +35,7 @@ This guide will help you install all three packages in the WildDetect monorepo: 
     
     Using `uv` (recommended):
     ```bash
-    uv venv --python 3.10
+    uv venv --python 3.11
     
     # Activate on Windows
     .venv\Scripts\activate

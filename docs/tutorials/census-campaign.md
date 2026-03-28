@@ -4,153 +4,190 @@ Learn how to conduct a complete wildlife census campaign using WildDetect.
 
 ## Overview
 
-A census campaign includes detection, population statistics, geographic analysis, and comprehensive reporting.
+A census campaign includes detection, population statistics, geographic analysis, and reporting — all orchestrated through a single config-driven command.
 
 ## Prerequisites
 
 - WildDetect installed
-- Aerial survey images with GPS data
-- Trained detection model
-- MLflow server (optional)
+- Aerial survey images with GPS EXIF data
+- Trained detection model registered in MLflow (see [Model Training](model-training.md))
+- Optional: MLflow server running
 
 ## Step 1: Organize Survey Data
 
+Organize your aerial survey images by flight/campaign:
+
 ```
-census_2024/
+survey_2024/
 ├── images/              # Survey images with GPS EXIF
 │   ├── flight1/
 │   ├── flight2/
 │   └── ...
 └── config/
-    └── census.yaml
+    └── census.yaml      # Census configuration
 ```
 
 ## Step 2: Configure Census
 
-Create `config/census.yaml`:
+Create or edit `config/census.yaml`:
 
 ```yaml
+# Campaign Configuration
 campaign:
-  name: "Summer_2024_Survey"
+  id: "Summer_2024_Survey"
+  pilot_name: "John Doe"
   target_species: ["elephant", "giraffe", "zebra"]
-  area_name: "Serengeti_North"
-  start_date: "2024-06-01"
-  end_date: "2024-06-15"
 
-model:
-  mlflow_model_name: "detector"
-  mlflow_model_alias: "production"
-  device: "cuda"
+# Detection Configuration
+detection:
+  # Image source (use ONE of these)
+  image_dir: D:/survey_2024/images/
+  image_paths: null        # Alternative: list of specific image paths
 
-image_dir: "D:/census_2024/images/"
+  # Merging thresholds for overlapping detections
+  merging_iou_threshold: -0.7
+  merging_min_overlap_threshold: 0.078
 
-flight_specs:
-  flight_height: 120.0
-  gsd: 2.38
+  # Model Configuration
+  model:
+    mlflow_model_name: "detector"
+    mlflow_model_alias: "production"
+    device: "cuda"
 
-analysis:
-  calculate_density: true
-  detect_hotspots: true
-  create_maps: true
+  # Processing Configuration
+  processing:
+    batch_size: 8
+    tile_size: 800
+    overlap_ratio: 0.2
+    pipeline_type: "mt"     # mt, mp, async, simple, raster
+    queue_size: 64
+    num_data_workers: 1
+    num_inference_workers: 1
+    pin_memory: true
+    nms_threshold: 0.5
+    max_errors: 5
 
-output:
-  directory: "census_results"
-  generate_pdf_report: true
+  # Label Studio (optional — for loading images from LS)
+  labelstudio:
+    url: null
+    api_key: null
+    project_id: null
+    download_resources: false
+
+  # Flight Specifications
+  flight_specs:
+    sensor_height: 24       # mm
+    focal_length: 35        # mm
+    flight_height: 180.0    # meters
+    gsd: null               # cm/px (mandatory for raster detection)
+
+  # Inference Service (optional — for remote inference)
+  inference_service:
+    url: null
+    timeout: 60
+
+  # Profiling (optional)
+  profiling:
+    enable: false
+    memory_profile: false
+    line_profile: false
+    gpu_profile: false
+
+# Export Configuration
+export:
+  to_fiftyone: true
+  create_map: true
+  output_directory: D:/survey_2024/census_results/
+  export_to_labelstudio: true
+
+# Logging
+logging:
+  verbose: false
+  log_file: null
 ```
+
+See [Census Config Reference](../configs/wildetect/census.md) for all configuration fields.
 
 ## Step 3: Run Census
 
 ```bash
-cd wildetect
+wildetect detection census -c config/census.yaml
+```
 
-# Edit config
-notepad config\census.yaml
+Or use the provided script:
 
-# Run
+```bash
 scripts\run_census.bat
 ```
+
+The command will:
+
+1. ✅ Load and validate configuration
+2. ✅ Initialize detection pipeline (with profiling if enabled)
+3. ✅ Run detection on all images
+4. ✅ Merge overlapping detections
+5. ✅ Compute species counts and statistics
+6. ✅ Export to FiftyOne dataset
+7. ✅ Export to Label Studio (for review)
+8. ✅ Display results summary
 
 ## Step 4: Review Results
 
 ```
 census_results/
-├── detections.json              # All detections
-├── statistics.json              # Population stats
-├── census_report.pdf            # PDF report
-├── maps/                        # Geographic maps
-│   ├── distribution_map.html
-│   ├── density_heatmap.html
-│   └── flight_path.html
-└── visualizations/              # Annotated images
+├── results.json                 # All detections with coordinates
+├── statistics.json              # Population statistics
+└── maps/                        # Geographic visualizations
+    └── detection_map.html       # Interactive Folium map
 ```
 
-## Step 5: Analyze Statistics
+## Step 5: View Results in FiftyOne
 
-The census generates:
-
-- **Total counts** per species
-- **Population density** (animals/km²)
-- **Species distribution** analysis
-- **Hotspot locations**
-- **Coverage area** statistics
-
-## Geographic Analysis
-
-View interactive maps:
+After the census, results are exported to a FiftyOne dataset:
 
 ```bash
-# Open in browser
-explorer census_results\maps\distribution_map.html
+# Launch FiftyOne app
+wildetect services fiftyone -a launch
 ```
 
-Features:
-- Animal locations plotted on map
-- Density heatmaps
-- Flight path overlay
-- Filterable by species
+The dataset is named `campaign_{campaign_id}` — you can filter by species, confidence, and location in the FiftyOne UI.
 
-## Generate Custom Reports
+## Step 6: Geographic Visualization
 
-```python
-from wildetect.analysis import ReportGenerator
+Extract GPS coordinates and generate CSV reports:
 
-generator = ReportGenerator("census_results/detections.json")
-
-# Custom report
-report = generator.generate_report(
-    output_path="custom_report.pdf",
-    include_maps=True,
-    include_statistics=True,
-    target_species=["elephant"]
-)
+```bash
+wildetect visualization extract-gps-coordinates -c config/census.yaml
 ```
 
-## Example Census Output
+## Pipeline Types
 
-```json
-{
-  "campaign": "Summer_2024_Survey",
-  "survey_area": 25.5,  # km²
-  "total_images": 450,
-  "total_detections": 1234,
-  
-  "species_counts": {
-    "elephant": 423,
-    "giraffe": 612,
-    "zebra": 199
-  },
-  
-  "density": {
-    "elephant": 16.6,  # per km²
-    "giraffe": 24.0,
-    "zebra": 7.8
-  }
-}
-```
+Choose the best pipeline type based on your hardware and dataset:
+
+| Pipeline | Flag | Best For |
+|----------|------|----------|
+| Multi-threaded | `mt` | Standard images, GPU available |
+| Multi-threaded (simple) | `mt_simple` | Simpler threading model |
+| Multi-process | `mp` | CPU-bound processing |
+| Async | `async` | I/O-bound workloads |
+| Simple | `simple` | Debugging, small datasets |
+| Raster | `raster` | GeoTIFF / large raster images |
+| Default | `default` | Basic single-threaded |
+
+## Image Sources
+
+The census can load images from three sources:
+
+1. **Image directory** (`image_dir`): All images in a folder
+2. **Image paths** (`image_paths`): Explicit list of image files
+3. **Label Studio** (`labelstudio.project_id`): Load from a Label Studio project
+
+Only one source should be configured at a time.
 
 ---
 
 **Next Steps:**
-- [End-to-End Detection](end-to-end-detection.md)
-- [Census Configuration](../configs/wildetect/index.md#censusyaml)
 
+- [End-to-End Detection](end-to-end-detection.md) — Simpler detection workflow
+- [Census Config Reference](../configs/wildetect/census.md) — All Census config fields
+- [WildDetect CLI Reference](../api-reference/wildetect-cli.md) — Full CLI documentation

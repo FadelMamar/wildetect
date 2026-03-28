@@ -114,8 +114,14 @@ nav:
           - Class Mapping: configs/wildetect/class_mapping.md
       - WilData Configs:
           - Overview: configs/wildata/index.md
+          - Import Config: configs/wildata/import-config.md
+          - ROI Config: configs/wildata/roi-config.md
+          - GPS Update Config: configs/wildata/gps-update-config.md
       - WildTrain Configs:
           - Overview: configs/wildtrain/index.md
+          - Classification Training: configs/wildtrain/classification-train.md
+          - Detection Training: configs/wildtrain/detection-train.md
+          - Model Registration: configs/wildtrain/registration.md
   - Tutorials:
       - End-to-End Detection: tutorials/end-to-end-detection.md
       - Dataset Preparation: tutorials/dataset-preparation.md

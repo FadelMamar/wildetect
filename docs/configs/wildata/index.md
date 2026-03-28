@@ -4,14 +4,17 @@ Documentation for all WilData configuration files used in data management operat
 
 ## Configuration Files
 
-| File | Purpose |
-|------|---------|
-| [import-config-example.yaml](#import-config-exampleyaml) | Dataset import configuration |
-| [bulk-import-*.yaml](#bulk-import-configs) | Bulk import configurations |
-| [roi-create-config.yaml](#roi-create-configyaml) | ROI dataset creation |
-| [bulk-roi-create-config.yaml](#bulk-roi-create-configyaml) | Bulk ROI creation |
-| [gps-update-config-example.yaml](#gps-update-config-exampleyaml) | GPS metadata update |
-| [label_studio_config.xml](#label_studio_configxml) | Label Studio interface |
+| File | Detailed Reference | Purpose |
+|------|-------------------|---------|
+| [import-config-example.yaml](#import-config-exampleyaml) | [Import Config →](import-config.md) | Dataset import configuration |
+| [bulk-import-*.yaml](#bulk-import-configs) | [Import Config →](import-config.md) | Bulk import configurations |
+| [roi-create-config.yaml](#roi-create-configyaml) | [ROI Config →](roi-config.md) | ROI dataset creation |
+| [bulk-roi-create-config.yaml](#bulk-roi-create-configyaml) | [ROI Config →](roi-config.md) | Bulk ROI creation |
+| [gps-update-config-example.yaml](#gps-update-config-exampleyaml) | [GPS Config →](gps-update-config.md) | GPS metadata update |
+| [label_studio_config.xml](#label_studio_configxml) | — | Label Studio interface |
+
+!!! tip
+    For detailed field-by-field documentation, see the individual config reference pages linked above.
 
 ---
 
