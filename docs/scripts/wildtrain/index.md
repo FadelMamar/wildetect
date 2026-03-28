@@ -416,18 +416,7 @@ scripts\run_server.bat
 - Endpoint: `http://localhost:8000`
 - Docs: `http://localhost:8000/docs`
 
-**Example Request**:
-```python
-import requests
-
-with open("image.jpg", "rb") as f:
-    response = requests.post(
-        "http://localhost:8000/predict",
-        files={"file": f}
-    )
-
-predictions = response.json()
-```
+Test the API using `curl` or any HTTP client.
 
 ---
 
@@ -496,8 +485,8 @@ scripts\register_model.bat
 
 ### Hyperparameter Tuning
 
-```python
-# Use Optuna for HPO
+```bash
+# Use CLI for HPO
 cd wildtrain
 uv run wildtrain tune classifier -c configs/classification/classification_sweep.yaml
 ```
@@ -637,5 +626,5 @@ mlflow:
 - [WildTrain Configuration Reference](../../configs/wildtrain/index.md)
 - [Model Training Tutorial](../../tutorials/model-training.md)
 - [WildTrain CLI Reference](../../api-reference/wildtrain-cli.md)
-- [MLflow Integration Guide](../../architecture/wildtrain.md#6-model-registration)
+- [MLflow Integration Guide](../../architecture/wildtrain.md)
 

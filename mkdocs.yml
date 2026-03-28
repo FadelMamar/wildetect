@@ -39,16 +39,6 @@ plugins:
   - search
   - git-revision-date-localized:
       enable_creation_date: true
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [src, wildtrain/src, wildata/src]
-          selection:
-            docstring_style: google
-          rendering:
-            show_source: true
-            show_root_heading: true
-            show_root_toc_entry: true
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -131,7 +121,6 @@ nav:
       - WildDetect CLI: api-reference/wildetect-cli.md
       - WilData CLI: api-reference/wildata-cli.md
       - WildTrain CLI: api-reference/wildtrain-cli.md
-      - Python API: api-reference/python-api.md
   - Troubleshooting: troubleshooting.md
 
 extra:

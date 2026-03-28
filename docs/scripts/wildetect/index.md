@@ -369,20 +369,7 @@ Content-Type: multipart/form-data
 POST /predict/batch
 ```
 
-**Example Request**:
-```python
-import requests
-
-# Single image
-with open("image.jpg", "rb") as f:
-    response = requests.post(
-        "http://localhost:4141/predict",
-        files={"file": f},
-        data={"confidence": 0.5}
-    )
-
-detections = response.json()
-```
+Use `curl` or any HTTP client to test the API.
 
 ---
 
@@ -563,7 +550,7 @@ scripts\launch_mlflow.bat
 **Issue**: Detection runs on CPU despite having GPU
 
 **Solutions**:
-1. Check CUDA installation: `python -c "import torch; print(torch.cuda.is_available())"`
+1. Check CUDA installation: `wildetect info`
 2. Set `device: "cuda"` in config file
 3. Check `CUDA_VISIBLE_DEVICES` environment variable
 4. Reinstall PyTorch with CUDA support

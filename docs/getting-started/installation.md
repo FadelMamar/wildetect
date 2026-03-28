@@ -140,18 +140,6 @@ wildtrain --version
 wildetect --version
 ```
 
-You should also be able to import the packages in Python:
-
-```python
-import wildata
-import wildtrain
-import wildetect
-
-print(f"WilData: {wildata.__version__}")
-print(f"WildTrain: {wildtrain.__version__}")
-print(f"WildDetect: {wildetect.__version__}")
-```
-
 ## Optional Dependencies
 
 ### DVC (Data Version Control)

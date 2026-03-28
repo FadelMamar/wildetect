@@ -59,18 +59,7 @@ Each package has a single, well-defined responsibility:
 
 ### 2. Modularity
 
-Packages can be used independently:
-
-```python
-# Use WilData alone for data management
-from wildata import DataPipeline
-
-# Use WildTrain alone for training
-from wildtrain import Trainer
-
-# Use WildDetect for detection
-from wildetect import DetectionPipeline
-```
+The toolkit is designed with modularity in mind, allowing each package to be used independently via its CLI or service interface.
 
 ### 3. Configuration-Driven
 
@@ -192,31 +181,7 @@ graph TB
 
 ### Example: Complete Pipeline
 
-```python
-# 1. WilData: Prepare dataset
-from wildata import DataPipeline
-
-pipeline = DataPipeline("data")
-pipeline.import_dataset(
-    source_path="annotations.json",
-    source_format="coco",
-    dataset_name="training_data"
-)
-
-# 2. WildTrain: Train model
-from wildtrain import Trainer
-
-trainer = Trainer(config="configs/yolo.yaml")
-model = trainer.train()
-model_uri = trainer.register_model("detector_v1")
-
-# 3. WildDetect: Run detection
-from wildetect import DetectionPipeline
-
-detector = DetectionPipeline(model_uri=model_uri)
-results = detector.detect_batch("aerial_images/")
-detector.generate_report(results, "census_report.json")
-```
+A typical workflow involves preparing data with WilData, training a model with WildTrain, and then performing detection and analysis with WildDetect.
 
 [See detailed data flow →](data-flow.md)
 
@@ -405,31 +370,7 @@ with mlflow.start_run():
 
 ## Testing Strategy
 
-### Test Structure
-
-```
-tests/
-├── unit/              # Unit tests
-│   ├── test_core/
-│   └── test_adapters/
-├── integration/       # Integration tests
-│   └── test_pipelines/
-└── e2e/              # End-to-end tests
-    └── test_workflows/
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-uv run pytest tests/ -v
-
-# Run specific package tests
-uv run pytest tests/test_detection_pipeline.py -v
-
-# With coverage
-uv run pytest --cov=wildetect tests/
-```
+WildDetect uses a robust testing strategy including unit, integration, and end-to-end tests to ensure reliability across all packages.
 
 ## Performance Considerations
 
@@ -467,5 +408,5 @@ Or dive into specific topics:
 
 - [Scripts Reference](../scripts/wildetect/index.md)
 - [Configuration Reference](../configs/wildetect/index.md)
-- [CLI Reference](../api-reference/python-api.md)
+- [CLI Reference](../api-reference/wildetect-cli.md)
 

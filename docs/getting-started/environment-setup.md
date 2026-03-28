@@ -120,10 +120,6 @@ The packages automatically load `.env` files when using scripts:
 ```bash
 # Scripts automatically load .env
 scripts\run_detection.bat
-
-# Or manually in Python
-from dotenv import load_dotenv
-load_dotenv()
 ```
 
 ## External Services Setup
@@ -146,14 +142,7 @@ mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db
 
 Open browser to: `http://localhost:5000`
 
-#### 3. Configure in Code
-
-```python
-import mlflow
-
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("my_experiment")
-```
+Environment variables in `.env` or configuration files are used to configure MLflow tracking.
 
 ### Label Studio (Optional)
 
@@ -367,11 +356,10 @@ See [WildTrain Configs Reference](../configs/wildtrain/index.md) for configurati
 
 ### CUDA Setup
 
-#### Check CUDA Availability
+Use the `wildetect info` command to check CUDA availability:
 
 ```bash
-python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
-python -c "import torch; print(f'Device: {torch.cuda.get_device_name(0)}')"
+wildetect info
 ```
 
 #### Set GPU Device
@@ -389,17 +377,11 @@ device: "cuda:0"  # Specific GPU
 device: "cpu"  # Force CPU
 ```
 
-#### Memory Management
-
-For large models or images:
+Configure memory management in your `.env` file:
 
 ```bash
 # In .env
 PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
-
-# Or in Python
-import os
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:512'
 ```
 
 ### CPU-Only Setup

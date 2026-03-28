@@ -45,20 +45,13 @@ uv pip install -e .
      tile_size: 640  # Reduce from 800
    ```
 
-3. Clear GPU cache:
-   ```python
-   import torch
-   torch.cuda.empty_cache()
-   ```
+3. Restart your terminal session or use a smaller tile size to free up memory.
 
 ### GPU not detected
 
-**Check CUDA**:
-```python
-import torch
-print(f"CUDA available: {torch.cuda.is_available()}")
-print(f"CUDA version: {torch.version.cuda}")
-print(f"GPU: {torch.cuda.get_device_name(0)}")
+**Check CUDA with CLI**:
+```bash
+wildetect info
 ```
 
 **Solutions**:
@@ -83,14 +76,11 @@ print(f"GPU: {torch.cuda.get_device_name(0)}")
 
 ### Path issues
 
-**Use forward slashes or raw strings**:
-```python
+**Use forward slashes or escaped backslashes in config files**:
+```yaml
 # Good
-path = "D:/data/images"
-path = r"D:\data\images"
-
-# Bad
-path = "D:\data\images"  # Backslashes can cause issues
+path: "D:/data/images"
+path: "D:\\data\\images"
 ```
 
 ## MLflow Issues
@@ -141,11 +131,7 @@ path = "D:\data\images"  # Backslashes can cause issues
 ### Annotation format errors
 
 **Solutions**:
-1. Validate COCO format:
-   ```python
-   from wildata.validation import validate_coco
-   errors = validate_coco("annotations.json")
-   ```
+1. Use the `wildata` import command with `--verbose` to see validation errors.
 
 2. Check bbox coordinates
 3. Verify image IDs match
@@ -277,12 +263,7 @@ logging:
   verbose: true
 ```
 
-Or in Python:
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
+Enable debug logging in your `.env` or configuration file:
 
 ---
 

@@ -30,23 +30,7 @@ cd wildetect
 scripts\run_detection.bat
 ```
 
-### 3. Using Python
-
-```python
-from wildetect.core.detection import DetectionPipeline
-
-# Initialize pipeline
-pipeline = DetectionPipeline(
-    model_path="model.pt",
-    device="cuda"  # or "cpu"
-)
-
-# Run detection
-results = pipeline.detect_batch("/path/to/images")
-
-# Save results
-pipeline.save_results(results, "results/detections.json")
-```
+# Section removed: WildDetect is CLI-first. Use the CLI or scripts above.
 
 ## Quick Start: Census Campaign
 
@@ -376,8 +360,8 @@ wildtrain train --help
 # System info
 wildetect info
 
-# Check installation
-python -c "import wildetect; print(wildetect.__version__)"
+# Use CLI for version check
+wildetect --version
 ```
 
 ## Next Steps
