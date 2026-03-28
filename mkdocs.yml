@@ -131,7 +131,6 @@ nav:
       - WildDetect CLI: api-reference/wildetect-cli.md
       - WilData CLI: api-reference/wildata-cli.md
       - WildTrain CLI: api-reference/wildtrain-cli.md
-      - WilData REST API: api-reference/wildata-api.md
       - Python API: api-reference/python-api.md
   - Troubleshooting: troubleshooting.md
 

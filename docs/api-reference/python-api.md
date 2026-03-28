@@ -1,148 +1,53 @@
 # Python API Reference
 
-Using WildDetect packages programmatically.
+!!! info "CLI-First Approach"
+    WildDetect is designed to be used through its **command-line interface**. All functionality is exposed via the `wildetect`, `wildtrain`, and `wildata` CLI tools with YAML configuration files.
 
-## WildDetect
+    **There is no public Python API** intended for direct programmatic use. The internal modules are implementation details and may change without notice.
 
-### Detection Pipeline
+## How to Use WildDetect
 
-```python
-from wildetect.core.pipeline import DetectionPipeline
+All operations are performed via the CLI and YAML config files:
 
-# Initialize
-pipeline = DetectionPipeline(
-    model_path="detector.pt",
-    device="cuda"
-)
+### Detection
 
-# Detect single image
-result = pipeline.detect("image.jpg")
-
-# Detect batch
-results = pipeline.detect_batch("images/")
-
-# Save results
-pipeline.save_results(results, "results.json")
+```bash
+wildetect detection detect -c config/detection.yaml
 ```
 
-### Census Engine
+See [WildDetect CLI Reference](wildetect-cli.md) for all commands.
 
-```python
-from wildetect.core.census import CensusEngine, CensusConfig
+### Data Management
 
-# Configure
-config = CensusConfig.from_yaml("config/census.yaml")
-
-# Run census
-engine = CensusEngine(config)
-census_result = engine.run_census("survey_images/")
-
-# Generate report
-census_result.save_report("report.pdf")
+```bash
+wildata import-dataset -c configs/import-config-example.yaml
 ```
 
-## WilData
+See [WilData CLI Reference](wildata-cli.md) for all commands.
 
-### Data Pipeline
+### Model Training
 
-```python
-from wildata.pipeline import DataPipeline
-
-# Initialize
-pipeline = DataPipeline("data")
-
-# Import dataset
-result = pipeline.import_dataset(
-    source_path="annotations.json",
-    source_format="coco",
-    dataset_name="my_dataset"
-)
-
-# List datasets
-datasets = pipeline.list_datasets()
-
-# Export
-pipeline.export_dataset("my_dataset", "yolo")
+```bash
+wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
 ```
 
-### ROI Adapter
-
-```python
-from wildata.adapters import ROIAdapter
-import json
-
-# Load COCO data
-with open("annotations.json") as f:
-    coco_data = json.load(f)
-
-# Create ROI adapter
-adapter = ROIAdapter(
-    coco_data,
-    roi_box_size=128,
-    random_roi_count=10
-)
-
-# Convert
-roi_data = adapter.convert()
-
-# Save
-adapter.save(roi_data, "roi_dataset/")
-```
-
-## WildTrain
-
-### Training (Classification)
-
-```python
-from wildtrain.models import ImageClassifier
-from wildtrain.data import ClassificationDataModule
-import pytorch_lightning as pl
-
-# Create model
-model = ImageClassifier(
-    architecture="resnet50",
-    num_classes=10,
-    learning_rate=0.001
-)
-
-# Create data module
-datamodule = ClassificationDataModule(
-    data_root="data/roi_dataset",
-    batch_size=32
-)
-
-# Train
-trainer = pl.Trainer(max_epochs=100, accelerator="gpu")
-trainer.fit(model, datamodule)
-```
-
-### Model Registry
-
-```python
-from wildtrain.registry import ModelRegistry
-
-# Initialize
-registry = ModelRegistry("http://localhost:5000")
-
-# Register model
-version = registry.register_model(
-    model_path="checkpoints/best.ckpt",
-    model_name="wildlife_classifier",
-    description="ResNet50 classifier",
-    tags={"accuracy": "0.95"}
-)
-
-# Load model
-model = registry.load_model("wildlife_classifier", version="latest")
-
-# Promote to production
-registry.promote_model("wildlife_classifier", version, "Production")
-```
+See [WildTrain CLI Reference](wildtrain-cli.md) for all commands.
 
 ---
 
-For complete architecture details, see:
-- [WildDetect Architecture](../architecture/wildetect.md)
-- [WilData Architecture](../architecture/wildata.md)
-- [WildTrain Architecture](../architecture/wildtrain.md)
+## CLI Reference
 
+| Package | CLI Reference | Config Reference |
+|---------|--------------|------------------|
+| WildDetect | [wildetect CLI](wildetect-cli.md) | [WildDetect Configs](../configs/wildetect/index.md) |
+| WilData | [wildata CLI](wildata-cli.md) | [WilData Configs](../configs/wildata/index.md) |
+| WildTrain | [wildtrain CLI](wildtrain-cli.md) | [WildTrain Configs](../configs/wildtrain/index.md) |
+
+---
+
+For step-by-step guides, see:
+
+- [End-to-End Detection Tutorial](../tutorials/end-to-end-detection.md)
+- [Dataset Preparation Tutorial](../tutorials/dataset-preparation.md)
+- [Model Training Tutorial](../tutorials/model-training.md)
+- [Census Campaign Tutorial](../tutorials/census-campaign.md)

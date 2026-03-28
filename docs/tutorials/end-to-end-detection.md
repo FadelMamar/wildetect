@@ -1,6 +1,6 @@
 # End-to-End Detection Tutorial
 
-This tutorial walks you through a complete wildlife detection workflow, from images to analysis results.
+This tutorial walks you through a complete wildlife detection workflow, from images to analysis results — all using the CLI.
 
 ## Prerequisites
 
@@ -13,10 +13,10 @@ This tutorial walks you through a complete wildlife detection workflow, from ima
 
 ```mermaid
 graph LR
-    A[Aerial Images] --> B[Run Detection]
-    B --> C[View Results]
-    C --> D[Analyze]
-    D --> E[Export]
+    A[Aerial Images] --> B[Configure]
+    B --> C[Run Detection]
+    C --> D[View Results]
+    D --> E[Analyze]
     
     style A fill:#e3f2fd
     style C fill:#fff3e0
@@ -34,7 +34,7 @@ cd D:\wildlife_detection
 # Create directories
 mkdir images
 mkdir results
-mkdir models
+mkdir config
 ```
 
 ### 1.2 Organize Your Images
@@ -46,7 +46,8 @@ D:\wildlife_detection\
 │   ├── drone_002.jpg
 │   └── ...
 ├── results\
-└── models\
+└── config\
+    └── detection.yaml
 ```
 
 ### 1.3 Start MLflow (Optional)
@@ -62,7 +63,7 @@ Access at: `http://localhost:5000`
 
 ### 2.1 Create Configuration File
 
-Create `config/my_detection.yaml`:
+Create `config/detection.yaml`:
 
 ```yaml
 model:
@@ -99,48 +100,32 @@ model:
   device: "cuda"
 ```
 
+### 2.3 Generate a Default Config
+
+You can generate a starter detection config file using:
+
+```bash
+wildetect utils create-config detect -o config/detection.yaml
+```
+
 ## Step 3: Run Detection
 
-### Option A: Using Script
+### Option A: Using the CLI
+
+```bash
+wildetect detection detect -c config/detection.yaml
+```
+
+### Option B: Using the Provided Script
 
 ```bash
 cd wildetect
 
-# Edit config/detection.yaml
+# Edit config/detection.yaml first
 notepad config\detection.yaml
 
 # Run
 scripts\run_detection.bat
-```
-
-### Option B: Using CLI
-
-```bash
-wildetect detect D:/wildlife_detection/images/ \
-    --model detector.pt \
-    --output D:/wildlife_detection/results/ \
-    --device cuda \
-    --batch-size 32
-```
-
-### Option C: Using Python
-
-```python
-from wildetect.core.pipeline import DetectionPipeline
-from pathlib import Path
-
-# Initialize pipeline
-pipeline = DetectionPipeline(
-    model_path="detector.pt",
-    device="cuda"
-)
-
-# Run detection
-image_dir = Path("D:/wildlife_detection/images")
-results = pipeline.detect_batch(image_dir)
-
-# Save results
-pipeline.save_results(results, "D:/wildlife_detection/results/detections.json")
 ```
 
 ### Expected Output
@@ -148,7 +133,7 @@ pipeline.save_results(results, "D:/wildlife_detection/results/detections.json")
 ```
 Processing images: 100%|██████████| 50/50 [00:45<00:00,  1.11it/s]
 Detection complete!
-Results saved to: D:/wildlife_detection/results/detections.json
+Results saved to: D:/wildlife_detection/results/results.json
 Total detections: 1,234
 ```
 
@@ -158,13 +143,10 @@ Total detections: 1,234
 
 ```
 results/
-├── detections.json          # All detections
-├── detections.csv          # CSV format
-├── summary.txt             # Summary statistics
-├── visualizations/         # Annotated images
-│   ├── drone_001.jpg
-│   └── ...
-└── fiftyone/              # FiftyOne dataset (if enabled)
+├── results.json             # All detections with coordinates
+└── visualizations/          # Annotated images (if enabled)
+    ├── drone_001.jpg
+    └── ...
 ```
 
 ### 4.2 Detection JSON Format
@@ -190,15 +172,15 @@ results/
 ### Option A: Using FiftyOne
 
 ```bash
-# Launch FiftyOne
-cd wildetect
-scripts\launch_fiftyone.bat
+# Launch FiftyOne app
+wildetect services fiftyone -a launch
 
-# Or with CLI
-wildetect fiftyone --action launch --dataset my_detections
+# Get dataset info
+wildetect services fiftyone -a info -d my_detections
 ```
 
 Features:
+
 - Interactive viewing
 - Filtering by confidence
 - Filtering by species
@@ -214,168 +196,36 @@ explorer D:\wildlife_detection\results\visualizations
 ### Option C: Using Web UI
 
 ```bash
-cd wildetect
-scripts\launch_ui.bat
+# Launch the Streamlit interface
+wildetect services ui
 ```
 
-Navigate to results viewer.
+Navigate to the results viewer section.
 
 ## Step 6: Analyze Results
 
-### 6.1 Basic Statistics
+Run analysis on the detection results:
 
 ```bash
-wildetect analyze D:/wildlife_detection/results/detections.json \
-    --output D:/wildlife_detection/results/analysis/
+wildetect detection analyze D:/wildlife_detection/results/results.json \
+    -o D:/wildlife_detection/results/analysis/
 ```
 
-### 6.2 Python Analysis
+## Step 7: Export to FiftyOne
 
-```python
-import json
-import pandas as pd
-from collections import Counter
+Export detection results to a FiftyOne dataset for further exploration:
 
-# Load results
-with open("results/detections.json") as f:
-    results = json.load(f)
+```bash
+# Export to COCO format
+wildetect services fiftyone -a export -d my_detections -f coco -o exports/coco/
 
-# Count by species
-species_counts = Counter()
-for result in results:
-    for det in result["detections"]:
-        species_counts[det["class_name"]] += 1
-
-print("Species Counts:")
-for species, count in species_counts.items():
-    print(f"  {species}: {count}")
-
-# Calculate average confidence
-confidences = []
-for result in results:
-    for det in result["detections"]:
-        confidences.append(det["confidence"])
-
-print(f"\nAverage Confidence: {sum(confidences)/len(confidences):.2f}")
+# Export to YOLO format
+wildetect services fiftyone -a export -d my_detections -f yolo -o exports/yolo/
 ```
 
-### 6.3 Generate Report
+## Step 8: Advanced — Large Raster Detection
 
-```python
-from wildetect.analysis import ReportGenerator
-
-generator = ReportGenerator(results_path="results/detections.json")
-report = generator.generate_report(
-    output_path="results/report.pdf",
-    include_maps=True,
-    include_statistics=True
-)
-```
-
-## Step 7: Filter and Refine
-
-### 7.1 Filter by Confidence
-
-```python
-# Filter detections by confidence threshold
-filtered_results = []
-confidence_threshold = 0.7
-
-for result in results:
-    filtered_dets = [
-        det for det in result["detections"]
-        if det["confidence"] >= confidence_threshold
-    ]
-    if filtered_dets:
-        filtered_results.append({
-            **result,
-            "detections": filtered_dets
-        })
-
-# Save filtered results
-with open("results/filtered_detections.json", "w") as f:
-    json.dump(filtered_results, f, indent=2)
-```
-
-### 7.2 Filter by Species
-
-```python
-# Keep only specific species
-target_species = ["elephant", "giraffe"]
-
-species_results = []
-for result in results:
-    species_dets = [
-        det for det in result["detections"]
-        if det["class_name"] in target_species
-    ]
-    if species_dets:
-        species_results.append({
-            **result,
-            "detections": species_dets
-        })
-```
-
-## Step 8: Export Results
-
-### 8.1 Export to CSV
-
-```python
-import csv
-
-# Convert to CSV
-csv_data = []
-for result in results:
-    for det in result["detections"]:
-        csv_data.append({
-            "image": result["image_path"],
-            "species": det["class_name"],
-            "confidence": det["confidence"],
-            "x": det["bbox"][0],
-            "y": det["bbox"][1],
-            "width": det["bbox"][2],
-            "height": det["bbox"][3]
-        })
-
-# Save CSV
-with open("results/detections.csv", "w", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=csv_data[0].keys())
-    writer.writeheader()
-    writer.writerows(csv_data)
-```
-
-### 8.2 Export to Excel
-
-```python
-import pandas as pd
-
-df = pd.DataFrame(csv_data)
-
-# Create Excel with multiple sheets
-with pd.ExcelWriter("results/detections.xlsx") as writer:
-    df.to_excel(writer, sheet_name="All Detections", index=False)
-    
-    # Summary by species
-    summary = df.groupby("species").agg({
-        "confidence": ["count", "mean"]
-    })
-    summary.to_excel(writer, sheet_name="Summary")
-```
-
-### 8.3 Export to COCO Format
-
-```python
-from wildetect.export import COCOExporter
-
-exporter = COCOExporter(results)
-exporter.export("results/detections_coco.json")
-```
-
-## Step 9: Advanced Processing
-
-### 9.1 Large Raster Detection
-
-For large GeoTIFF files:
+For large GeoTIFF / orthomosaic files, use the `raster` pipeline:
 
 ```yaml
 # config/raster_detection.yaml
@@ -400,48 +250,43 @@ output:
 ```
 
 ```bash
-wildetect detect --config config/raster_detection.yaml
+wildetect detection detect -c config/raster_detection.yaml
 ```
 
-### 9.2 Batch Processing Multiple Folders
+## Step 9: System Info
 
-```python
-from pathlib import Path
+Check your environment and GPU status:
 
-# Process multiple folders
-folders = [
-    "D:/surveys/site_a/",
-    "D:/surveys/site_b/",
-    "D:/surveys/site_c/"
-]
-
-for folder in folders:
-    folder_name = Path(folder).name
-    results = pipeline.detect_batch(folder)
-    pipeline.save_results(results, f"results/{folder_name}_detections.json")
+```bash
+wildetect utils info
 ```
+
+This shows Python version, PyTorch version, CUDA availability, GPU info, and installed dependencies.
 
 ## Troubleshooting
 
 ### Detection is Slow
 
 **Solutions**:
+
 1. Increase batch size (if GPU memory allows)
 2. Use smaller tile size
-3. Enable GPU acceleration
-4. Use multithreaded pipeline
+3. Enable GPU acceleration (`device: "cuda"`)
+4. Use the multi-threaded pipeline (`pipeline_type: "mt"`)
 
 ### Out of Memory
 
 **Solutions**:
+
 1. Reduce batch size
 2. Reduce tile size
-3. Use CPU instead of GPU
+3. Use CPU instead of GPU (`device: "cpu"`)
 4. Close other applications
 
 ### Low Detection Accuracy
 
 **Solutions**:
+
 1. Check model is appropriate for your data
 2. Adjust confidence threshold
 3. Verify image quality
@@ -450,80 +295,19 @@ for folder in folders:
 ### Model Won't Load
 
 **Solutions**:
-1. Verify MLflow server is running
-2. Check model name and alias
-3. Verify model path if using file
-4. Check CUDA availability
+
+1. Verify MLflow server is running (`scripts\launch_mlflow.bat`)
+2. Check model name and alias match MLflow registry
+3. Verify model path if using a local file
+4. Check CUDA availability with `wildetect utils info`
 
 ## Next Steps
 
-- [Census Campaign Tutorial](census-campaign.md) - Run a full census
-- [Dataset Preparation](dataset-preparation.md) - Prepare your own training data
-- [Model Training](model-training.md) - Train custom models
-- [Geographic Visualization](../scripts/wildetect/index.md#extract_gpsbat) - Create maps
-
-## Complete Example Script
-
-```python
-#!/usr/bin/env python3
-"""
-Complete detection workflow example
-"""
-from pathlib import Path
-from wildetect.core.pipeline import DetectionPipeline
-import json
-
-def main():
-    # Configuration
-    image_dir = Path("D:/wildlife_detection/images")
-    output_dir = Path("D:/wildlife_detection/results")
-    model_path = "detector.pt"
-    
-    # Initialize pipeline
-    print("Initializing detection pipeline...")
-    pipeline = DetectionPipeline(
-        model_path=model_path,
-        device="cuda"
-    )
-    
-    # Run detection
-    print(f"Processing images in {image_dir}...")
-    results = pipeline.detect_batch(image_dir)
-    
-    # Save results
-    output_dir.mkdir(exist_ok=True)
-    results_file = output_dir / "detections.json"
-    pipeline.save_results(results, results_file)
-    print(f"Results saved to {results_file}")
-    
-    # Print summary
-    total_detections = sum(len(r["detections"]) for r in results)
-    print(f"\nSummary:")
-    print(f"  Images processed: {len(results)}")
-    print(f"  Total detections: {total_detections}")
-    
-    # Species breakdown
-    from collections import Counter
-    species = Counter()
-    for result in results:
-        for det in result["detections"]:
-            species[det["class_name"]] += 1
-    
-    print(f"\nSpecies breakdown:")
-    for name, count in species.items():
-        print(f"  {name}: {count}")
-
-if __name__ == "__main__":
-    main()
-```
-
-Save as `run_detection.py` and run:
-
-```bash
-python run_detection.py
-```
+- [Census Campaign Tutorial](census-campaign.md) — Run a full census
+- [Dataset Preparation](dataset-preparation.md) — Prepare your own training data
+- [Model Training](model-training.md) — Train custom models
+- [WildDetect CLI Reference](../api-reference/wildetect-cli.md) — All CLI commands
 
 ---
 
-**Congratulations!** You've completed the end-to-end detection tutorial. You now know how to run detection, visualize results, and export data for further analysis.
-
+**Congratulations!** You've completed the end-to-end detection tutorial using the WildDetect CLI. You now know how to configure, run detection, visualize results, and export data.

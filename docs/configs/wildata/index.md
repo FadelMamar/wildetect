@@ -319,5 +319,4 @@ roi_config:
 
 - [WilData Scripts](../../scripts/wildata/index.md)
 - [Dataset Preparation Tutorial](../../tutorials/dataset-preparation.md)
-- [WilData API Reference](../../api-reference/wildata-api.md)
 

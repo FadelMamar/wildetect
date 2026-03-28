@@ -467,5 +467,5 @@ Or dive into specific topics:
 
 - [Scripts Reference](../scripts/wildetect/index.md)
 - [Configuration Reference](../configs/wildetect/index.md)
-- [API Documentation](../api-reference/python-api.md)
+- [CLI Reference](../api-reference/python-api.md)
 

@@ -60,7 +60,7 @@ Learn how to use the tools for your wildlife monitoring needs:
 Understand the architecture and extend the toolkit:
 
 - [Architecture Overview](architecture/overview.md) - System design and components
-- [Python API Reference](api-reference/python-api.md) - Programmatic usage
+- [CLI & API Reference](api-reference/python-api.md) - How to use WildDetect
 - [Data Flow](architecture/data-flow.md) - How data moves through the system
 
 ### For Data Scientists & ML Engineers

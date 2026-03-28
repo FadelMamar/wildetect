@@ -424,7 +424,6 @@ WILDATA_API_PORT=8441
 WILDATA_API_DEBUG=false
 ```
 
-**Full API Documentation**: See [WilData API Reference](../../api-reference/wildata-api.md)
 
 ---
 
@@ -634,5 +633,4 @@ transformations:
 - [WilData Configuration Reference](../../configs/wildata/index.md)
 - [WilData CLI Reference](../../api-reference/wildata-cli.md)
 - [Dataset Preparation Tutorial](../../tutorials/dataset-preparation.md)
-- [WilData API Documentation](../../api-reference/wildata-api.md)
 
