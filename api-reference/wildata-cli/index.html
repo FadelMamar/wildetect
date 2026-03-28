@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.618322db.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1936,6 +1936,90 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildata/import-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildata/roi-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ROI Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildata/gps-update-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPS Update Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2013,6 +2097,90 @@
     
   
     Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildtrain/classification-train/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Classification Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildtrain/detection-train/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Detection Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configs/wildtrain/registration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Registration
   
 
     
@@ -2366,18 +2534,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#main-commands" class="md-nav__link">
+  <a href="#version" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Main Commands
+        version
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Main Commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#import-dataset" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2386,9 +2553,65 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="import-dataset">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-a-config-file-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using a Config File (Recommended)
+      
+    </span>
+  </a>
+  
 </li>
         
           <li class="md-nav__item">
+  <a href="#using-direct-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using Direct Arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#all-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        All Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="All Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transformation-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transformation Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#bulk-import-datasets" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2398,8 +2621,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#create-roi-dataset" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2409,41 +2632,52 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#dataset-list" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#bulk-create-roi-datasets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        dataset list
+        bulk-create-roi-datasets
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#dataset-export" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#list-datasets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        dataset export
+        list-datasets
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#visualize-dataset" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#visualize-classification" class="md-nav__link">
     <span class="md-ellipsis">
       
-        visualize-dataset
+        visualize-classification
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
+  <a href="#visualize-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        visualize-detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#update-gps-from-csv" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2452,10 +2686,72 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="update-gps-from-csv">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#all-options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        All Options
+      
+    </span>
+  </a>
+  
 </li>
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-api-server-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        api — API Server Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="api — API Server Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        api serve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        api check
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Reference
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2613,18 +2909,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#main-commands" class="md-nav__link">
+  <a href="#version" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Main Commands
+        version
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Main Commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#import-dataset" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2633,9 +2928,65 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="import-dataset">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-a-config-file-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using a Config File (Recommended)
+      
+    </span>
+  </a>
+  
 </li>
         
           <li class="md-nav__item">
+  <a href="#using-direct-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using Direct Arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#all-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        All Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="All Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transformation-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transformation Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#bulk-import-datasets" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2645,8 +2996,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#create-roi-dataset" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2656,41 +3007,52 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#dataset-list" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#bulk-create-roi-datasets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        dataset list
+        bulk-create-roi-datasets
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#dataset-export" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#list-datasets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        dataset export
+        list-datasets
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#visualize-dataset" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#visualize-classification" class="md-nav__link">
     <span class="md-ellipsis">
       
-        visualize-dataset
+        visualize-classification
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
+  <a href="#visualize-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        visualize-detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#update-gps-from-csv" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2699,10 +3061,72 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="update-gps-from-csv">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#all-options_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        All Options
+      
+    </span>
+  </a>
+  
 </li>
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-api-server-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        api — API Server Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="api — API Server Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        api serve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        api check
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Reference
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2727,69 +3151,666 @@
 
 
 <h1 id="wildata-cli-reference">WilData CLI Reference</h1>
-<p>Complete command-line interface reference for WilData.</p>
-<h2 id="main-commands">Main Commands</h2>
-<h3 id="import-dataset">import-dataset</h3>
-<p>Import dataset from various formats.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>wildata<span class="w"> </span>import-dataset<span class="w"> </span><span class="o">[</span>SOURCE<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+<p>Complete command-line interface reference for the <code>wildata</code> CLI.</p>
+<p>WilData uses <a href="https://typer.tiangolo.com/">Typer</a> for its CLI, providing dataset import, transformation, ROI extraction, visualization, GPS management, and a REST API server.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>wildata<span class="w"> </span><span class="o">[</span>COMMAND<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
-<p><strong>Options:</strong>
-- <code>-f, --format TEXT</code>: Source format (coco/yolo/ls)
-- <code>-n, --name TEXT</code>: Dataset name
-- <code>-c, --config PATH</code>: Config file path
-- <code>--root PATH</code>: Data root directory
-- <code>--split TEXT</code>: Split name (train/val/test)
-- <code>--enable-tiling</code>: Enable image tiling
-- <code>--tile-size INTEGER</code>: Tile size
-- <code>-v, --verbose</code>: Verbose output</p>
-<p><strong>Examples:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># From config</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>wildata<span class="w"> </span>import-dataset<span class="w"> </span>--config<span class="w"> </span>configs/import-config.yaml
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Direct arguments</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>wildata<span class="w"> </span>import-dataset<span class="w"> </span>data.json<span class="w"> </span>--format<span class="w"> </span>coco<span class="w"> </span>--name<span class="w"> </span>dataset1
-</span></code></pre></div></p>
-<h3 id="bulk-import-datasets">bulk-import-datasets</h3>
-<p>Bulk import multiple datasets.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>wildata<span class="w"> </span>bulk-import-datasets<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div>
-<p><strong>Options:</strong>
-- <code>-c, --config PATH</code>: Bulk import config
-- <code>-n, --num-workers INTEGER</code>: Number of workers</p>
-<h3 id="create-roi-dataset">create-roi-dataset</h3>
-<p>Create ROI classification dataset from detection annotations.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>wildata<span class="w"> </span>create-roi-dataset<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div>
-<p><strong>Options:</strong>
-- <code>-c, --config PATH</code>: ROI config file
-- <code>--roi-size INTEGER</code>: ROI box size
-- <code>--random-count INTEGER</code>: Background samples per image</p>
-<h3 id="dataset-list">dataset list</h3>
-<p>List all datasets.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>wildata<span class="w"> </span>dataset<span class="w"> </span>list<span class="w"> </span><span class="o">[</span>--root<span class="w"> </span>PATH<span class="o">]</span>
-</span></code></pre></div>
-<h3 id="dataset-export">dataset export</h3>
-<p>Export dataset to format.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>wildata<span class="w"> </span>dataset<span class="w"> </span><span class="nb">export</span><span class="w"> </span>&lt;name&gt;<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div>
-<p><strong>Options:</strong>
-- <code>--format TEXT</code>: Target format (coco/yolo)
-- <code>--output PATH</code>: Output directory</p>
-<h3 id="visualize-dataset">visualize-dataset</h3>
-<p>Launch dataset visualization.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>wildata<span class="w"> </span>visualize-dataset<span class="w"> </span>--dataset<span class="w"> </span>&lt;name&gt;<span class="w"> </span>--split<span class="w"> </span>&lt;split&gt;
-</span></code></pre></div>
-<h3 id="update-gps-from-csv">update-gps-from-csv</h3>
-<p>Update image GPS metadata from CSV.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>wildata<span class="w"> </span>update-gps-from-csv<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
-</span></code></pre></div>
-<p><strong>Options:</strong>
-- <code>-c, --config PATH</code>: GPS update config
-- <code>--image-folder PATH</code>: Image folder
-- <code>--csv PATH</code>: CSV file path
-- <code>--output PATH</code>: Output directory</p>
 <hr />
-<p>For detailed script documentation, see <a href="../../scripts/wildata/">WilData Scripts</a>.</p>
+<h2 id="version"><code>version</code></h2>
+<p>Show version information.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>wildata<span class="w"> </span>version
+</span></code></pre></div>
+<hr />
+<h2 id="import-dataset"><code>import-dataset</code></h2>
+<p>Import a dataset from various formats (COCO, YOLO, Label Studio) into the WilData pipeline.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>wildata<span class="w"> </span>import-dataset<span class="w"> </span><span class="o">[</span>SOURCE_PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<p>You can use <strong>either</strong> a config file (<code>--config</code>) or provide arguments directly — not both.</p>
+<h3 id="using-a-config-file-recommended">Using a Config File (Recommended)</h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>wildata<span class="w"> </span>import-dataset<span class="w"> </span>--config<span class="w"> </span>configs/import-config-example.yaml
+</span></code></pre></div>
+<h3 id="using-direct-arguments">Using Direct Arguments</h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>wildata<span class="w"> </span>import-dataset<span class="w"> </span>annotations.json<span class="w"> </span>--format<span class="w"> </span>coco<span class="w"> </span>--name<span class="w"> </span>my_dataset
+</span></code></pre></div>
+<h3 id="all-options">All Options</h3>
+<table>
+<thead>
+<tr>
+<th>Argument / Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SOURCE_PATH</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to source dataset (argument)</td>
+</tr>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to YAML config file</td>
+</tr>
+<tr>
+<td><code>-f</code>, <code>--format</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>Source format: <code>coco</code>, <code>yolo</code>, or <code>ls</code></td>
+</tr>
+<tr>
+<td><code>-n</code>, <code>--name</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>Dataset name</td>
+</tr>
+<tr>
+<td><code>-r</code>, <code>--root</code></td>
+<td><code>str</code></td>
+<td><code>data</code></td>
+<td>Root directory for data storage</td>
+</tr>
+<tr>
+<td><code>-s</code>, <code>--split</code></td>
+<td><code>str</code></td>
+<td><code>train</code></td>
+<td>Split name: <code>train</code>, <code>val</code>, or <code>test</code></td>
+</tr>
+<tr>
+<td><code>-m</code>, <code>--mode</code></td>
+<td><code>str</code></td>
+<td><code>batch</code></td>
+<td>Processing mode: <code>streaming</code> or <code>batch</code></td>
+</tr>
+<tr>
+<td><code>--track-dvc</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Track dataset with DVC</td>
+</tr>
+<tr>
+<td><code>--bbox-tolerance</code></td>
+<td><code>int</code></td>
+<td><code>5</code></td>
+<td>Bounding box validation tolerance</td>
+</tr>
+<tr>
+<td><code>--dotenv</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>Path to <code>.env</code> file</td>
+</tr>
+<tr>
+<td><code>--ls-config</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>Label Studio XML config path</td>
+</tr>
+<tr>
+<td><code>--parse-ls-config</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Parse Label Studio config</td>
+</tr>
+<tr>
+<td><code>--disable-roi</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Disable ROI extraction</td>
+</tr>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Verbose output</td>
+</tr>
+</tbody>
+</table>
+<h4 id="transformation-options">Transformation Options</h4>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--enable-bbox-clipping</code></td>
+<td><code>bool</code></td>
+<td><code>None</code></td>
+<td>Enable bounding box clipping</td>
+</tr>
+<tr>
+<td><code>--bbox-clipping-tolerance</code></td>
+<td><code>int</code></td>
+<td><code>5</code></td>
+<td>Bbox clipping tolerance</td>
+</tr>
+<tr>
+<td><code>--skip-invalid-bbox</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Skip invalid bounding boxes</td>
+</tr>
+<tr>
+<td><code>--enable-augmentation</code></td>
+<td><code>bool</code></td>
+<td><code>None</code></td>
+<td>Enable data augmentation</td>
+</tr>
+<tr>
+<td><code>--aug-prob</code></td>
+<td><code>float</code></td>
+<td><code>1.0</code></td>
+<td>Augmentation probability</td>
+</tr>
+<tr>
+<td><code>--num-augs</code></td>
+<td><code>int</code></td>
+<td><code>2</code></td>
+<td>Number of augmentations per image</td>
+</tr>
+<tr>
+<td><code>--enable-tiling</code></td>
+<td><code>bool</code></td>
+<td><code>None</code></td>
+<td>Enable image tiling</td>
+</tr>
+<tr>
+<td><code>--tile-size</code></td>
+<td><code>int</code></td>
+<td><code>512</code></td>
+<td>Tile size in pixels</td>
+</tr>
+<tr>
+<td><code>--tile-stride</code></td>
+<td><code>int</code></td>
+<td><code>416</code></td>
+<td>Tile stride in pixels</td>
+</tr>
+<tr>
+<td><code>--min-visibility</code></td>
+<td><code>float</code></td>
+<td><code>0.1</code></td>
+<td>Minimum visibility ratio for bboxes in tiles</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># From config (recommended for production)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>wildata<span class="w"> </span>import-dataset<span class="w"> </span>-c<span class="w"> </span>configs/import-config-example.yaml
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Direct with tiling</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>wildata<span class="w"> </span>import-dataset<span class="w"> </span>annotations.json<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span>--format<span class="w"> </span>coco<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span>--name<span class="w"> </span>wildlife_train<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span>--enable-tiling<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span>--tile-size<span class="w"> </span><span class="m">800</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span>--tile-stride<span class="w"> </span><span class="m">640</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="c1"># With verbose output</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>wildata<span class="w"> </span>import-dataset<span class="w"> </span>-c<span class="w"> </span>my_config.yaml<span class="w"> </span>-v
+</span></code></pre></div>
+<p>See <a href="../../configs/wildata/import-config/">Import Config Reference</a> for full YAML config documentation.</p>
+<hr />
+<h2 id="bulk-import-datasets"><code>bulk-import-datasets</code></h2>
+<p>Bulk import multiple datasets from all files in a directory using multiprocessing.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>wildata<span class="w"> </span>bulk-import-datasets<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><em>(required)</em></td>
+<td>Path to YAML config file</td>
+</tr>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Verbose output</td>
+</tr>
+<tr>
+<td><code>-n</code>, <code>--num-workers</code></td>
+<td><code>int</code></td>
+<td><code>2</code></td>
+<td>Number of parallel workers</td>
+</tr>
+</tbody>
+</table>
+<p>Each file in the source directory is imported as a separate dataset. Dataset names are derived from filenames.</p>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>wildata<span class="w"> </span>bulk-import-datasets<span class="w"> </span>-c<span class="w"> </span>configs/bulk-import-train.yaml<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span>
+</span></code></pre></div>
+<hr />
+<h2 id="create-roi-dataset"><code>create-roi-dataset</code></h2>
+<p>Create an ROI (Region of Interest) classification dataset from a source detection dataset.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>wildata<span class="w"> </span>create-roi-dataset<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><em>(required)</em></td>
+<td>Path to YAML config file</td>
+</tr>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Verbose output</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>wildata<span class="w"> </span>create-roi-dataset<span class="w"> </span>-c<span class="w"> </span>configs/roi-create-config.yaml
+</span></code></pre></div>
+<p>See <a href="../../configs/wildata/roi-config/">ROI Config Reference</a> for config documentation.</p>
+<hr />
+<h2 id="bulk-create-roi-datasets"><code>bulk-create-roi-datasets</code></h2>
+<p>Bulk create ROI datasets from all files in a directory using multiprocessing.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>wildata<span class="w"> </span>bulk-create-roi-datasets<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><em>(required)</em></td>
+<td>Path to YAML config file</td>
+</tr>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Verbose output</td>
+</tr>
+<tr>
+<td><code>-n</code>, <code>--num-workers</code></td>
+<td><code>int</code></td>
+<td><code>2</code></td>
+<td>Number of parallel workers</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>wildata<span class="w"> </span>bulk-create-roi-datasets<span class="w"> </span>-c<span class="w"> </span>configs/bulk-roi-create-config.yaml<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span>
+</span></code></pre></div>
+<hr />
+<h2 id="list-datasets"><code>list-datasets</code></h2>
+<p>List all available datasets in the data root.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>wildata<span class="w"> </span>list-datasets<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-r</code>, <code>--root</code></td>
+<td><code>str</code></td>
+<td><code>data</code></td>
+<td>Root directory for data storage</td>
+</tr>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Show detailed info per dataset</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Basic listing</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>wildata<span class="w"> </span>list-datasets
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># With details</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>wildata<span class="w"> </span>list-datasets<span class="w"> </span>-v<span class="w"> </span>--root<span class="w"> </span>D:/data
+</span></code></pre></div>
+<hr />
+<h2 id="visualize-classification"><code>visualize-classification</code></h2>
+<p>Visualize a classification dataset in FiftyOne.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>wildata<span class="w"> </span>visualize-classification<span class="w"> </span>DATASET_NAME<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Argument / Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATASET_NAME</code></td>
+<td><code>str</code></td>
+<td><em>(required)</em></td>
+<td>Name for the FiftyOne dataset</td>
+</tr>
+<tr>
+<td><code>--root</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>Root data directory</td>
+</tr>
+<tr>
+<td><code>--single-class</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Load as single class</td>
+</tr>
+<tr>
+<td><code>--background-class</code></td>
+<td><code>str</code></td>
+<td><code>background</code></td>
+<td>Background class name</td>
+</tr>
+<tr>
+<td><code>--single-class-name</code></td>
+<td><code>str</code></td>
+<td><code>wildlife</code></td>
+<td>Single class name</td>
+</tr>
+<tr>
+<td><code>--keep-classes</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>Comma-separated list of classes to keep</td>
+</tr>
+<tr>
+<td><code>--discard-classes</code></td>
+<td><code>str</code></td>
+<td><code>None</code></td>
+<td>Comma-separated list of classes to discard</td>
+</tr>
+<tr>
+<td><code>--split</code></td>
+<td><code>str</code></td>
+<td><code>train</code></td>
+<td>Dataset split</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>wildata<span class="w"> </span>visualize-classification<span class="w"> </span>my_roi_dataset<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span>--root<span class="w"> </span>D:/data/roi<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span>--single-class<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span>--split<span class="w"> </span>train
+</span></code></pre></div>
+<hr />
+<h2 id="visualize-detection"><code>visualize-detection</code></h2>
+<p>Visualize a detection dataset in FiftyOne.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>wildata<span class="w"> </span>visualize-detection<span class="w"> </span>DATASET_NAME<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Argument / Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATASET_NAME</code></td>
+<td><code>str</code></td>
+<td><em>(required)</em></td>
+<td>Name for the FiftyOne dataset</td>
+</tr>
+<tr>
+<td><code>--root</code></td>
+<td><code>str</code></td>
+<td><em>(required)</em></td>
+<td>Root data directory</td>
+</tr>
+<tr>
+<td><code>--split</code></td>
+<td><code>str</code></td>
+<td><code>train</code></td>
+<td>Dataset split</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>wildata<span class="w"> </span>visualize-detection<span class="w"> </span>my_detection_dataset<span class="w"> </span>--root<span class="w"> </span>D:/data/detection<span class="w"> </span>--split<span class="w"> </span>val
+</span></code></pre></div>
+<hr />
+<h2 id="update-gps-from-csv"><code>update-gps-from-csv</code></h2>
+<p>Update EXIF GPS metadata for images using coordinates from a CSV file.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>wildata<span class="w"> </span>update-gps-from-csv<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<p>You can use <strong>either</strong> a config file (<code>--config</code>) or provide arguments directly — not both.</p>
+<h3 id="all-options_1">All Options</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-c</code>, <code>--config</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to YAML config file</td>
+</tr>
+<tr>
+<td><code>-i</code>, <code>--image-folder</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to folder containing images</td>
+</tr>
+<tr>
+<td><code>--csv</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Path to CSV file with GPS coordinates</td>
+</tr>
+<tr>
+<td><code>-o</code>, <code>--output</code></td>
+<td><code>PATH</code></td>
+<td><code>None</code></td>
+<td>Output directory for updated images</td>
+</tr>
+<tr>
+<td><code>--skip-rows</code></td>
+<td><code>int</code></td>
+<td><code>0</code></td>
+<td>Number of rows to skip in CSV</td>
+</tr>
+<tr>
+<td><code>--filename-col</code></td>
+<td><code>str</code></td>
+<td><code>filename</code></td>
+<td>CSV column name for filenames</td>
+</tr>
+<tr>
+<td><code>--lat-col</code></td>
+<td><code>str</code></td>
+<td><code>latitude</code></td>
+<td>CSV column name for latitude</td>
+</tr>
+<tr>
+<td><code>--lon-col</code></td>
+<td><code>str</code></td>
+<td><code>longitude</code></td>
+<td>CSV column name for longitude</td>
+</tr>
+<tr>
+<td><code>--alt-col</code></td>
+<td><code>str</code></td>
+<td><code>altitude</code></td>
+<td>CSV column name for altitude</td>
+</tr>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Verbose output</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Using config file</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>wildata<span class="w"> </span>update-gps-from-csv<span class="w"> </span>-c<span class="w"> </span>configs/gps-update-config-example.yaml
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Using direct arguments</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>wildata<span class="w"> </span>update-gps-from-csv<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span>--image-folder<span class="w"> </span>images/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">    </span>--csv<span class="w"> </span>coordinates.csv<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">    </span>--output<span class="w"> </span>updated_images/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">    </span>--skip-rows<span class="w"> </span><span class="m">4</span>
+</span></code></pre></div>
+<p>See <a href="../../configs/wildata/gps-update-config/">GPS Update Config Reference</a> for YAML config details.</p>
+<hr />
+<h2 id="api-api-server-commands"><code>api</code> — API Server Commands</h2>
+<p>REST API server for programmatic access to WilData features.</p>
+<h3 id="api-serve"><code>api serve</code></h3>
+<p>Start the WilData API server.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>wildata<span class="w"> </span>api<span class="w"> </span>serve<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-h</code>, <code>--host</code></td>
+<td><code>str</code></td>
+<td><code>0.0.0.0</code></td>
+<td>Host to bind to</td>
+</tr>
+<tr>
+<td><code>-p</code>, <code>--port</code></td>
+<td><code>int</code></td>
+<td><code>8000</code></td>
+<td>Port to bind to</td>
+</tr>
+<tr>
+<td><code>-r</code>, <code>--reload</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable auto-reload</td>
+</tr>
+<tr>
+<td><code>-w</code>, <code>--workers</code></td>
+<td><code>int</code></td>
+<td><code>1</code></td>
+<td>Number of worker processes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>wildata<span class="w"> </span>api<span class="w"> </span>serve<span class="w"> </span>--port<span class="w"> </span><span class="m">8080</span><span class="w"> </span>--workers<span class="w"> </span><span class="m">4</span>
+</span></code></pre></div>
+<p>API documentation is available at <code>http://&lt;host&gt;:&lt;port&gt;/docs</code>.</p>
+<hr />
+<h3 id="api-check"><code>api check</code></h3>
+<p>Check current API configuration values.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>wildata<span class="w"> </span>api<span class="w"> </span>check
+</span></code></pre></div>
+<hr />
+<h2 id="quick-reference">Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>wildata import-dataset -c CONFIG</code></td>
+<td>Import dataset from config</td>
+</tr>
+<tr>
+<td><code>wildata bulk-import-datasets -c CONFIG</code></td>
+<td>Bulk import datasets</td>
+</tr>
+<tr>
+<td><code>wildata create-roi-dataset -c CONFIG</code></td>
+<td>Create ROI dataset</td>
+</tr>
+<tr>
+<td><code>wildata bulk-create-roi-datasets -c CONFIG</code></td>
+<td>Bulk create ROI datasets</td>
+</tr>
+<tr>
+<td><code>wildata list-datasets</code></td>
+<td>List all datasets</td>
+</tr>
+<tr>
+<td><code>wildata visualize-classification NAME</code></td>
+<td>Visualize classification data</td>
+</tr>
+<tr>
+<td><code>wildata visualize-detection NAME --root DIR</code></td>
+<td>Visualize detection data</td>
+</tr>
+<tr>
+<td><code>wildata update-gps-from-csv -c CONFIG</code></td>
+<td>Update image GPS from CSV</td>
+</tr>
+<tr>
+<td><code>wildata api serve</code></td>
+<td>Start REST API server</td>
+</tr>
+<tr>
+<td><code>wildata version</code></td>
+<td>Show version</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p>For configuration file details, see <a href="../../configs/wildata/">Configuration Reference</a>.<br />
+For shell scripts, see <a href="../../scripts/wildata/">WilData Scripts</a>.</p>
 
 
 
@@ -2812,7 +3833,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="December 1, 2025 20:11:56 UTC">December 1, 2025</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 28, 2026 12:16:24 UTC">March 28, 2026</span>
   </span>
 
     
@@ -2910,10 +3931,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.annotate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.annotate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.e71a0d61.min.js"></script>
       
     
   </body>
