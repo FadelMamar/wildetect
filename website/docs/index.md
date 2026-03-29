@@ -1,7 +1,7 @@
 # Automated Wildlife detection
 
 <div align="center">
-  <img src="/img/wildetect-hero.png" alt="WildDetect Logo" width="500"/>
+  <img src="img/logo.svg" alt="WildDetect Logo" width="200"/>
   <br/>
   <h3>Transforming Aerial Imagery into Actionable Conservation Intelligence</h3>
 </div>
