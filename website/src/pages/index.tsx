@@ -100,7 +100,7 @@ export default function Home(): JSX.Element {
       description="Scalable and accurate wildlife monitoring using AI-driven aerial imagery analysis.">
       <HeroSection />
       <main>
-        <section className={styles.publications}>
+        <section id="science" className={styles.publications}>
           <div className="container">
             <Heading as="h2" className="text--center">Scientific Impact</Heading>
             <div className={styles.pubGrid}>
@@ -129,7 +129,28 @@ export default function Home(): JSX.Element {
           </div>
         </section>
 
-        <section className={styles.mission}>
+        <section id="contributions" className={styles.contributions}>
+          <div className="container">
+            <Heading as="h2" className="text--center">Ecosystem Contributions</Heading>
+            <p className={clsx('text--center', styles.sectionSubtitle)}>
+              Optimized and relabeled datasets to support the wider wildlife monitoring community.
+            </p>
+            <div className={styles.contributionsGrid}>
+              <Card className={styles.pubCard} shadow={true} to="https://huggingface.co/datasets/fadel841/savmap">
+                <div className={styles.pubBadge}>Hugging Face Datasets</div>
+                <Heading as="h3" className={styles.pubTitle}>
+                  SAVMAP: Ultra-high-resolution UAV imaging for rhinoceros conservation in Namibia
+                </Heading>
+                <p className={styles.pubAuthors}>
+                  SAVMAP Project Team • Refined & Relabeled by WildDetect
+                </p>
+                <div className={styles.pubLink}>Explore Repository →</div>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        <section id="mission" className={styles.mission}>
           <div className="container">
             <div className="row">
               <div className="col col--10 col--offset-1 text--center">
@@ -144,7 +165,7 @@ export default function Home(): JSX.Element {
           </div>
         </section>
 
-        <section className={styles.features}>
+        <section id="ecosystem" className={styles.features}>
           <div className="container">
             <Heading as="h2" className="text--center">A Modular Ecosystem</Heading>
             <div className={styles.featuresGrid}>
@@ -162,7 +183,7 @@ export default function Home(): JSX.Element {
             </div>
           </div>
         </section>
-        <section className={styles.workflow}>
+        <section id="workflow" className={styles.workflow}>
           <div className="container">
             <Heading as="h2" className="text--center">The Workflow</Heading>
             <div className={styles.pipeline}>

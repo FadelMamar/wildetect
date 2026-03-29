@@ -80,6 +80,31 @@ const config: Config = {
           label: 'Documentation',
         },
         {
+          to: '/#science',
+          label: 'Science',
+          position: 'left',
+        },
+        {
+          to: '/#contributions',
+          label: 'Contributions',
+          position: 'left',
+        },
+        {
+          to: '/#mission',
+          label: 'Mission',
+          position: 'left',
+        },
+        {
+          to: '/#ecosystem',
+          label: 'Packages',
+          position: 'left',
+        },
+        {
+          to: '/#workflow',
+          label: 'Workflow',
+          position: 'left',
+        },
+        {
           href: 'https://github.com/fadelmamar/wildetect',
           label: 'GitHub',
           position: 'right',
