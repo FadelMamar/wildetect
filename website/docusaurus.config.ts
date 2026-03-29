@@ -19,7 +19,7 @@ const config: Config = {
 
   organizationName: 'fadelmamar',
   projectName: 'wildetect',
-  deploymentBranch: 'gh-pages-v2',
+  deploymentBranch: 'gh-pages',
 
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
@@ -83,7 +83,7 @@ const config: Config = {
         },
         {
           to: '/#science',
-          label: 'Science',
+          label: 'Publications',
           position: 'left',
         },
         {

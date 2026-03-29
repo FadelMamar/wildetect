@@ -1,6 +1,16 @@
 ## Python code running
 when attempting to run python code, first try "uv run script.py" before "python script.py". Whenever "uv" is installed use it!
 
+# Deploying the website
+To deploy the website, run the following command:
+
+```bash
+npx docusaurus deploy
+```
+```PowerShell
+cmd /C 'set "USE_SSH=true" && npx docusaurus deploy'
+```
+
 ## Git commit messages
 Use conventional-style prefixes:
 

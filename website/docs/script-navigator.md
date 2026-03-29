@@ -10,10 +10,10 @@ graph TB
         WD2 --> WD3["Create ROI Dataset"]
         WD1 -.-> WD4["Visualize Labels"]
         
-        click WD1 "../scripts/wildata/index.md#import-dataset-examplebat" "Click to see Import scripts"
-        click WD2 "../scripts/wildata/index.md#bulk-import-datasetbat" "Click to see Bulk Processing"
-        click WD3 "../scripts/wildata/index.md#create-roi-datasetbat" "Click to see ROI scripts"
-        click WD4 "../scripts/wildata/index.md#visualize_databat" "Click to see Visualization"
+        click WD1 "../docs/scripts/wildata#import-dataset-examplebat" "Click to see Import scripts"
+        click WD2 "../docs/scripts/wildata#bulk-import-datasetbat" "Click to see Bulk Processing"
+        click WD3 "../docs/scripts/wildata#create-roi-datasetbat" "Click to see ROI scripts"
+        click WD4 "../docs/scripts/wildata#visualize_databat" "Click to see Visualization"
     end
 
     subgraph WildTrain ["🎓 2. Model Training (WildTrain)"]
@@ -22,10 +22,10 @@ graph TB
         WT3["Train Classifier"] --> WT2
         WT4["Run Full Pipeline"] --> WT2
         
-        click WT1 "../scripts/wildtrain/index.md#train_yolobat" "Click to see Detection training"
-        click WT3 "../scripts/wildtrain/index.md#train_classifierbat" "Click to see Classification training"
-        click WT2 "../scripts/wildtrain/index.md#register_modelbat" "Click to see Model registration"
-        click WT4 "../scripts/wildtrain/index.md#run_detection_pipelinebat" "Click to see Pipelines"
+        click WT1 "../docs/scripts/wildtrain#train_yolobat" "Click to see Detection training"
+        click WT3 "../docs/scripts/wildtrain#train_classifierbat" "Click to see Classification training"
+        click WT2 "../docs/scripts/wildtrain#register_modelbat" "Click to see Model registration"
+        click WT4 "../docs/scripts/wildtrain#run_detection_pipelinebat" "Click to see Pipelines"
     end
 
     subgraph WildDetect ["🔍 3. Deployment & Analysis (WildDetect)"]
@@ -35,11 +35,11 @@ graph TB
         D4["Launch Dashboard UI"]
         D5["Visualize Predicts"]
         
-        click D1 "../scripts/wildetect/index.md#run_detectionbat" "Click to see Detection scripts"
-        click D2 "../scripts/wildetect/index.md#run_censusbat" "Click to see Census scripts"
-        click D3 "../scripts/wildetect/index.md#run_censusbat" "Click to see report generation"
-        click D4 "../scripts/wildetect/index.md#launch_uibat" "Click to see Dashboard"
-        click D5 "../scripts/wildetect/index.md#launch_fiftyonebat" "Click to see FiftyOne viewer"
+        click D1 "../docs/scripts/wildetect#run_detectionbat" "Click to see Detection scripts"
+        click D2 "../docs/scripts/wildetect#run_censusbat" "Click to see Census scripts"
+        click D3 "../docs/scripts/wildetect#run_censusbat" "Click to see report generation"
+        click D4 "../docs/scripts/wildetect#launch_uibat" "Click to see Dashboard"
+        click D5 "../docs/scripts/wildetect#launch_fiftyonebat" "Click to see FiftyOne viewer"
     end
 
     WD3 --> WT3
