@@ -1,4 +1,4 @@
-# 🚀 WildDetect: AI for Wildlife Conservation
+# Automated Wildlife detection in the African Savanna
 
 <div align="center">
   <img src="assets/image.png" alt="WildDetect Logo" width="500"/>
