@@ -14,14 +14,16 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://github.com',
-  baseUrl: '/',
+  url: 'https://fadelmamar.github.io',
+  baseUrl: '/wildetect/',
 
   organizationName: 'fadelmamar',
   projectName: 'wildetect',
+  deploymentBranch: 'gh-pages-v2',
 
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
+  trailingSlash: false,
 
   i18n: {
     defaultLocale: 'en',
