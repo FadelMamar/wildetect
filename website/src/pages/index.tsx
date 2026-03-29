@@ -35,7 +35,7 @@ function HeroSection() {
           <div className={clsx('col col--5', styles.heroVisual)}>
             <div className={styles.visualStack}>
               <div className={styles.visualCard} style={{
-                backgroundImage: 'url(/img/wildetect-hero.png)',
+                backgroundImage: 'url(img/hero.png)',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
               }}>
