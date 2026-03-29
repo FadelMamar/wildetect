@@ -13,7 +13,7 @@
       
       
       
-        <link rel="prev" href="../api-reference/python-api/">
+        <link rel="prev" href="../api-reference/wildtrain-cli/">
       
       
       
@@ -50,8 +50,6 @@
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
-    
-      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -2518,62 +2516,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api-reference/wildata-api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    WilData REST API
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api-reference/python-api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Python API
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -3517,27 +3459,21 @@
 </span></code></pre></div></p>
 </li>
 <li>
-<p>Clear GPU cache:
-   <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
-</span></code></pre></div></p>
+<p>Restart your terminal session or use a smaller tile size to free up memory.</p>
 </li>
 </ol>
 <h3 id="gpu-not-detected">GPU not detected</h3>
-<p><strong>Check CUDA</strong>:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CUDA available: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CUDA version: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">cuda</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GPU: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_device_name</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<p><strong>Check CUDA with CLI</strong>:
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>wildetect<span class="w"> </span>info
 </span></code></pre></div></p>
 <p><strong>Solutions</strong>:
 1. Reinstall PyTorch with CUDA:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>torchvision<span class="w"> </span>--index-url<span class="w"> </span>https://download.pytorch.org/whl/cu118
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>torch<span class="w"> </span>torchvision<span class="w"> </span>--index-url<span class="w"> </span>https://download.pytorch.org/whl/cu118
 </span></code></pre></div></p>
 <ol>
 <li>Set device explicitly:
-   <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">model</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cuda:0&quot;</span>
+   <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">model</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cuda:0&quot;</span>
 </span></code></pre></div></li>
 </ol>
 <h2 id="windows-specific-issues">Windows-Specific Issues</h2>
@@ -3545,43 +3481,40 @@
 <p><strong>Issue</strong>: <code>ProcessPoolExecutor</code> doesn't work on Windows</p>
 <p><strong>Solution</strong>: Package automatically uses <code>ThreadPoolExecutor</code> on Windows</p>
 <h3 id="path-issues">Path issues</h3>
-<p><strong>Use forward slashes or raw strings</strong>:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Good</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;D:/data/images&quot;</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">path</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;D:\data\images&quot;</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># Bad</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;D:\data\images&quot;</span>  <span class="c1"># Backslashes can cause issues</span>
+<p><strong>Use forward slashes or escaped backslashes in config files</strong>:
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Good</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;D:/data/images&quot;</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;D:\\data\\images&quot;</span>
 </span></code></pre></div></p>
 <h2 id="mlflow-issues">MLflow Issues</h2>
 <h3 id="cant-connect-to-mlflow-server">Can't connect to MLflow server</h3>
 <p><strong>Solutions</strong>:
 1. Start MLflow server:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>scripts<span class="se">\l</span>aunch_mlflow.bat
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>scripts<span class="se">\l</span>aunch_mlflow.bat
 </span></code></pre></div></p>
 <ol>
 <li>
 <p>Check environment variable:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">echo</span><span class="w"> </span>%MLFLOW_TRACKING_URI%
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># Should be: http://localhost:5000</span>
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">echo</span><span class="w"> </span>%MLFLOW_TRACKING_URI%
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># Should be: http://localhost:5000</span>
 </span></code></pre></div></p>
 </li>
 <li>
 <p>Set in <code>.env</code>:
-   <div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>MLFLOW_TRACKING_URI=http://localhost:5000
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>MLFLOW_TRACKING_URI=http://localhost:5000
 </span></code></pre></div></p>
 </li>
 </ol>
 <h3 id="model-not-found-in-registry">Model not found in registry</h3>
 <p><strong>Solutions</strong>:
 1. List available models:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>mlflow<span class="w"> </span>models<span class="w"> </span>list
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>mlflow<span class="w"> </span>models<span class="w"> </span>list
 </span></code></pre></div></p>
 <ol>
 <li>Check model name and alias:
-   <div class="language-yaml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">model</span><span class="p">:</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">mlflow_model_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;detector&quot;</span><span class="w">  </span><span class="c1"># Check this is correct</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">mlflow_model_alias</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;production&quot;</span><span class="w">  </span><span class="c1"># or version number</span>
+   <div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">model</span><span class="p">:</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">mlflow_model_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;detector&quot;</span><span class="w">  </span><span class="c1"># Check this is correct</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">mlflow_model_alias</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;production&quot;</span><span class="w">  </span><span class="c1"># or version number</span>
 </span></code></pre></div></li>
 </ol>
 <h2 id="data-loading-issues">Data Loading Issues</h2>
@@ -3592,10 +3525,7 @@
 3. Verify directory structure</p>
 <h3 id="annotation-format-errors">Annotation format errors</h3>
 <p><strong>Solutions</strong>:
-1. Validate COCO format:
-   <div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">wildata.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_coco</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">errors</span> <span class="o">=</span> <span class="n">validate_coco</span><span class="p">(</span><span class="s2">&quot;annotations.json&quot;</span><span class="p">)</span>
-</span></code></pre></div></p>
+1. Use the <code>wildata</code> import command with <code>--verbose</code> to see validation errors.</p>
 <ol>
 <li>Check bbox coordinates</li>
 <li>Verify image IDs match</li>
@@ -3606,14 +3536,14 @@
 1. Use GPU if available
 2. Increase batch size
 3. Use multithreaded pipeline:
-   <div class="language-yaml highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">processing</span><span class="p">:</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">pipeline_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;multithreaded&quot;</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">num_data_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+   <div class="language-yaml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">processing</span><span class="p">:</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">pipeline_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;multithreaded&quot;</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">num_data_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
 </span></code></pre></div></p>
 <h3 id="high-memory-usage">High memory usage</h3>
 <p><strong>Solutions</strong>:
 1. Enable streaming mode (WilData):
-   <div class="language-yaml highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">processing_mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;streaming&quot;</span>
+   <div class="language-yaml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">processing_mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;streaming&quot;</span>
 </span></code></pre></div></p>
 <ol>
 <li>Process in smaller batches</li>
@@ -3623,18 +3553,18 @@
 <h3 id="dvc-push-fails">DVC push fails</h3>
 <p><strong>Solutions</strong>:
 1. Check remote configuration:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>dvc<span class="w"> </span>remote<span class="w"> </span>list
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>dvc<span class="w"> </span>remote<span class="w"> </span>list
 </span></code></pre></div></p>
 <ol>
 <li>
 <p>Verify credentials:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>dvc<span class="w"> </span>remote<span class="w"> </span>modify<span class="w"> </span>myremote<span class="w"> </span>access_key_id<span class="w"> </span>YOUR_KEY
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>dvc<span class="w"> </span>remote<span class="w"> </span>modify<span class="w"> </span>myremote<span class="w"> </span>access_key_id<span class="w"> </span>YOUR_KEY
 </span></code></pre></div></p>
 </li>
 <li>
 <p>Test connection:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>dvc<span class="w"> </span>remote<span class="w"> </span>list
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>dvc<span class="w"> </span>status
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>dvc<span class="w"> </span>remote<span class="w"> </span>list
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>dvc<span class="w"> </span>status
 </span></code></pre></div></p>
 </li>
 </ol>
@@ -3642,49 +3572,49 @@
 <h3 id="cant-connect-to-label-studio">Can't connect to Label Studio</h3>
 <p><strong>Solutions</strong>:
 1. Start Label Studio:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>scripts<span class="se">\l</span>aunch_labelstudio.bat
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>scripts<span class="se">\l</span>aunch_labelstudio.bat
 </span></code></pre></div></p>
 <ol>
 <li>Check API key in <code>.env</code>:
-   <div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>LABEL_STUDIO_API_KEY=your_key
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>LABEL_STUDIO_URL=http://localhost:8080
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>LABEL_STUDIO_API_KEY=your_key
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>LABEL_STUDIO_URL=http://localhost:8080
 </span></code></pre></div></li>
 </ol>
 <h2 id="fiftyone-issues">FiftyOne Issues</h2>
 <h3 id="fiftyone-app-wont-launch">FiftyOne app won't launch</h3>
 <p><strong>Solutions</strong>:
 1. Check FiftyOne installation:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>fiftyone
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>fiftyone
 </span></code></pre></div></p>
 <ol>
 <li>
 <p>Clear FiftyOne database:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>fiftyone<span class="w"> </span>app<span class="w"> </span>config<span class="w"> </span>database_dir
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>fiftyone<span class="w"> </span>app<span class="w"> </span>config<span class="w"> </span>database_dir
 </span></code></pre></div></p>
 </li>
 <li>
 <p>Use different port:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>fiftyone<span class="w"> </span>app<span class="w"> </span>launch<span class="w"> </span>--port<span class="w"> </span><span class="m">5152</span>
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>fiftyone<span class="w"> </span>app<span class="w"> </span>launch<span class="w"> </span>--port<span class="w"> </span><span class="m">5152</span>
 </span></code></pre></div></p>
 </li>
 </ol>
 <h2 id="common-error-messages">Common Error Messages</h2>
 <h3 id="no-module-named-wildetect">"No module named 'wildetect'"</h3>
 <p><strong>Solution</strong>: Install in development mode:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nb">cd</span><span class="w"> </span>wildetect
-</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nb">cd</span><span class="w"> </span>wildetect
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </span></code></pre></div></p>
 <h3 id="permission-denied">"Permission denied"</h3>
 <p><strong>Solution</strong>: Run as administrator or fix permissions:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>icacls<span class="w"> </span><span class="s2">&quot;D:\data&quot;</span><span class="w"> </span>/grant<span class="w"> </span>%USERNAME%:F<span class="w"> </span>/t
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>icacls<span class="w"> </span><span class="s2">&quot;D:\data&quot;</span><span class="w"> </span>/grant<span class="w"> </span>%USERNAME%:F<span class="w"> </span>/t
 </span></code></pre></div></p>
 <h3 id="port-already-in-use">"Port already in use"</h3>
 <p><strong>Solution</strong>: Kill process using port:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># Find process</span>
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>netstat<span class="w"> </span>-ano<span class="w"> </span><span class="p">|</span><span class="w"> </span>findstr<span class="w"> </span>:5000
-</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>
-</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="c1"># Kill process (replace PID)</span>
-</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>taskkill<span class="w"> </span>/PID<span class="w"> </span>&lt;PID&gt;<span class="w"> </span>/F
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># Find process</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>netstat<span class="w"> </span>-ano<span class="w"> </span><span class="p">|</span><span class="w"> </span>findstr<span class="w"> </span>:5000
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># Kill process (replace PID)</span>
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>taskkill<span class="w"> </span>/PID<span class="w"> </span>&lt;PID&gt;<span class="w"> </span>/F
 </span></code></pre></div></p>
 <h2 id="getting-help">Getting Help</h2>
 <ol>
@@ -3695,14 +3625,11 @@
 </ol>
 <h2 id="debug-mode">Debug Mode</h2>
 <p>Enable debug logging:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="nt">logging</span><span class="p">:</span>
-</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;DEBUG&quot;</span>
-</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="w">  </span><span class="nt">verbose</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="nt">logging</span><span class="p">:</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;DEBUG&quot;</span>
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span><span class="nt">verbose</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
-<p>Or in Python:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
-</span></code></pre></div>
+<p>Enable debug logging in your <code>.env</code> or configuration file:</p>
 <hr />
 <p><strong>Still having issues?</strong> Open an issue on GitHub with:
 - Error message
@@ -3731,7 +3658,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="December 1, 2025 20:11:56 UTC">December 1, 2025</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 28, 2026 21:48:13 UTC">March 28, 2026</span>
   </span>
 
     
