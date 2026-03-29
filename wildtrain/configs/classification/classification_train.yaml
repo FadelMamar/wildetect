@@ -1,0 +1,114 @@
+# Unified Classification Configuration
+# This config demonstrates how to use the unified ClassificationDataModule
+# with both ROI and crop dataset types
+
+dataset:
+  root_data_directory: D:\PhD\workspace\data
+  
+  # Dataset type: "roi" for pre-computed crops, "crop" for dynamic crop extraction
+  dataset_type: "roi"  # or "crop" or "roi" 
+
+  curriculum_config:
+    enabled: false
+    type: "difficulty"
+    difficulty_strategy: "linear"
+    start_difficulty: 0.0
+    end_difficulty: 1.0
+    warmup_epochs: 0
+    log_frequency: 1
+  
+  stats:
+    mean: [0.554, 0.469, 0.348]
+    std: [0.203, 0.173, 0.144]
+  
+  input_size: 384
+
+  batch_size: 64
+
+  transforms:
+    train:
+      - name: Resize
+        params:
+          size: ${dataset.input_size}
+      - name: RandomHorizontalFlip
+        params:
+          p: 0.5
+      - name: ColorJitter
+        params:
+          brightness: 0.1
+          contrast: 0.0
+          saturation: 0.0
+      - name: RandomRotation
+        params:
+          degrees: 45
+    
+    val:
+      - name: Resize
+        params:
+          size: ${dataset.input_size}
+  
+  # ROI dataset parameters (used when dataset_type = "roi")
+  single_class:
+    enable: true
+    background_class_name: "background"
+    single_class_name: "wildlife"
+    keep_classes: null
+    discard_classes: ["rocks","vegetation","other","termite mound"]
+  
+  # Rebalancing
+  rebalance: true # rebalance class distribution
+  
+  # Crop dataset parameters (used when dataset_type = "crop")
+  crop_size: ${dataset.input_size}
+  max_tn_crops: 1
+  p_draw_annotations: 0.2
+  
+  # Curriculum parameters (used when dataset_type = "crop")
+  compute_difficulties: true
+  preserve_aspect_ratio: true
+
+mlflow:
+  experiment_name: wildtrain_classification
+  run_name: "base_dinov2"
+  log_model: true
+
+
+model:
+  backbone: timm/vit_base_patch14_reg4_dinov2.lvd142m
+  pretrained: true
+  backbone_source: timm
+  dropout: 0.2
+  freeze_backbone: true
+  input_size: ${dataset.input_size}
+  mean: ${dataset.stats.mean}
+  std: ${dataset.stats.std}
+  hidden_dim: 128
+  num_layers: 2
+  weights: checkpoints\classification\base_dinov2\best-v3.ckpt
+
+train:
+  batch_size: ${dataset.batch_size}
+  epochs: 20
+  lr: 1e-3
+  label_smoothing: 0.0
+  weight_decay: 1e-3
+  lrf: 1e-2
+  precision: bf16-mixed
+  accelerator: auto
+  num_workers: 4
+  val_check_interval: 2
+
+checkpoint:
+  monitor: val_f1score
+  save_top_k: 1
+  mode: max
+  save_last: true
+  dirpath: checkpoints/classification
+  patience: 10 # for early stopping based on val_f1score
+  save_weights_only: true
+  filename: "best" # "{epoch:02d}-{val_f1score:.2f}"
+  min_delta: 0.001
+
+# DVC dataset tracking configuration
+# track_dataset: false
+# dataset_name: "roi-demo"

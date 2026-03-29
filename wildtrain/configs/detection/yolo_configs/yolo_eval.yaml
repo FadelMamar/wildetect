@@ -1,0 +1,42 @@
+# Example YOLO evaluation configuration
+
+# Path to the trained YOLO weights file
+weights:
+  localizer: D:\PhD\workspace\wildetect\models\labeler\9\artifacts\best.pt
+  classifier: D:\PhD\workspace\wildetect\checkpoints\classification\base_dinov2\best-v6.ckpt
+
+dataset:
+  data_cfg: null
+  root_data_directory: D:\PhD\workspace\data
+  force_merge: true
+  keep_classes: null # either keep_classes or discard_classes must be provided, not both
+  discard_classes: ["rocks","vegetation","other","termite mound","label","detection","background"]
+
+device: "cuda"  # Device to run the evaluation on (cuda/cpu)
+
+metrics:
+  average: macro # weighted, macro, micro
+  class_agnostic: false
+
+# Evaluation parameters
+# 'eval' section is passed as eval_config to the evaluator
+eval:
+  imgsz: 800           # Image size for evaluation
+  split: "val"          # Split to evaluate on
+  iou: 0.5
+  single_cls: true   # Treat dataset as single-class
+  half: false
+  batch_size: 32       # Batch size for DataLoader
+  num_workers: 0       # Number of DataLoader workers (0 for Windows compatibility)
+  rect: false          # Use rectangular batches
+  stride: 32           # Model stride
+  task: "detect"         # Task type (detect/classify/segment)
+  classes: null        # Optionally restrict to specific class indices
+  cache: false         # Use cache for images/labels
+  multi_modal: false   # Not using multi-modal data
+  conf: 0.25        # Confidence threshold for evaluation
+  max_det: 300      # Maximum detections per image
+  verbose: false    # Verbosity level
+  augment: false        # Use Test Time Augmentation
+
+results_dir: results/eval

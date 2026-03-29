@@ -1,0 +1,48 @@
+"""
+Detector implementations for different model types.
+"""
+
+from ..config import DetectionPipelineTypes
+from .asynced import AsyncDetectionPipeline
+from .base import BaseDetectionPipeline, DetectionPipeline, SimpleDetectionPipeline
+from .multiprocessed import MultiProcessingDetectionPipeline
+from .multithreaded import (
+    MultiThreadedDetectionPipeline,
+    SimpleMultiThreadedDetectionPipeline,
+)
+from .raster import MultiThreadedRasterDetectionPipeline, RasterDetectionPipeline
+
+__all__ = [
+    "DetectionPipeline",
+    "MultiProcessingDetectionPipeline",
+    "MultiThreadedDetectionPipeline",
+    "SimpleMultiThreadedDetectionPipeline",
+    "AsyncDetectionPipeline",
+    "SimpleDetectionPipeline",
+    "RasterDetectionPipeline",
+    "MultiThreadedRasterDetectionPipeline",
+]
+
+
+def get_detection_pipeline(
+    pipeline_type: DetectionPipelineTypes, **kwargs
+) -> BaseDetectionPipeline:
+    """Get a detection pipeline based on the pipeline type."""
+    if pipeline_type == DetectionPipelineTypes.MT:
+        return MultiThreadedDetectionPipeline(**kwargs)
+    elif pipeline_type == DetectionPipelineTypes.MT_SIMPLE:
+        return SimpleMultiThreadedDetectionPipeline(**kwargs)
+    elif pipeline_type == DetectionPipelineTypes.MP:
+        return MultiProcessingDetectionPipeline(**kwargs)
+    elif pipeline_type == DetectionPipelineTypes.ASYNC:
+        return AsyncDetectionPipeline(**kwargs)
+    elif pipeline_type == DetectionPipelineTypes.SIMPLE:
+        return SimpleDetectionPipeline(**kwargs)
+    elif pipeline_type == DetectionPipelineTypes.RASTER:
+        return RasterDetectionPipeline(**kwargs)
+    elif pipeline_type == DetectionPipelineTypes.MT_RASTER:
+        return MultiThreadedRasterDetectionPipeline(**kwargs)
+    elif pipeline_type == DetectionPipelineTypes.DEFAULT:
+        return DetectionPipeline(**kwargs)
+    else:
+        raise ValueError(f"Unknown pipeline type: {pipeline_type}")

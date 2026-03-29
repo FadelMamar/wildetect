@@ -1,0 +1,11 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.6
+    hooks:
+      - id: ruff
+        args: [--fix, --select=I]
+        name: "ruff (import sorting)"
+        files: ^(src/|tests/).*\.py$
+      - id: ruff-format
+        name: "ruff (formatting)"
+        files: ^(src/|tests/).*\.py$ 

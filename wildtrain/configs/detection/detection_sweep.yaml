@@ -1,0 +1,99 @@
+# Detection Hyperparameter Sweep Configuration
+# This configuration defines the search space for optimizing detection model hyperparameters
+
+# Path to the base detection training configuration file
+# This file will be used as a template, and hyperparameters will be overridden during the sweep
+base_config: configs/detection/yolo_configs/yolo.yaml
+
+# Hyperparameter search space
+parameters:
+  # Model parameters (optional - leave null to use base config values)
+  model: null
+    # architecture_file:
+    #   - configs/detection/yolo_configs/models/yolo12n.yaml
+    #   - configs/detection/yolo_configs/models/yolo12s.yaml
+    # weights:
+    #   - models/yolo12n.pt
+    #   - models/yolo12s.pt
+
+  # Training parameters to sweep
+  train:
+    # Initial learning rate
+    lr0:
+      - 0.0001
+      - 0.001
+      - 0.01
+    
+    # Learning rate factor (final learning rate = lr0 * lrf)
+    lrf:
+      - 0.01
+      - 0.1
+      - 0.5
+    
+    # Batch size
+    batch:
+      - 8
+      - 16
+      - 32
+    
+    # Number of training epochs
+    epochs:
+      - 10
+      - 20
+      - 30
+    
+    # Image size (input resolution)
+    imgsz:
+      - 640
+      - 1280
+    
+    # Optimizer type
+    optimizer:
+      - SGD
+      - AdamW
+      - Adam
+    
+    # Weight decay for regularization
+    weight_decay:
+      - 0.0001
+      - 0.0005
+      - 0.001
+    
+    # Loss weights (optional - leave null to use base config values)
+    box: null
+      # - 3.0
+      # - 3.5
+      # - 4.0
+    cls: null
+      # - 0.5
+      # - 1.0
+      # - 1.5
+    dfl: null
+      # - 1.0
+      # - 1.5
+      # - 2.0
+
+# Sweep experiment configuration
+sweep_name: detection_sweep
+n_trials: 20
+seed: 42
+
+# Objective to optimize (options: precision, recall, f1_score, map, map_50, map_50_95, fitness)
+objective: map_50
+
+# Optimization direction (minimize or maximize)
+direction: maximize
+
+# Optional: Maximum time for optimization in seconds (null = no timeout)
+timeout: null
+
+# Output configuration
+output:
+  # Directory to save sweep results (defaults to results/sweeps/{sweep_name} if not provided)
+  directory: results/sweeps/detection_sweep
+  save_results: true
+  save_plots: true
+  # Output format: json, csv, or both
+  format: both
+  include_optimization_history: true
+

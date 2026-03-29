@@ -1,0 +1,42 @@
+# Quick-start detector visualization configuration
+# Simple configuration for common use cases
+
+# Dataset configuration
+fiftyone:
+  dataset_name: null
+  prediction_field: "detection_predictions"
+
+label_studio:
+  url: "http://localhost:8080"
+  api_key: "4f3c25bad9334596c5b2c3b270a2d3105c8b5d4a"
+  project_id: 138
+  model_tag: "by-paul"
+
+# processing configuration
+batch_size: 8
+debug: false
+
+mlflow:
+  alias: by-paul
+  name: detector
+  tracking_uri: "http://localhost:5000"
+  dwnd_location: null
+
+
+# localizer configuration
+localizer:
+  weights: models/best.pt
+  imgsz: 800
+  device: "cpu"
+  conf_thres: 0.2
+  iou_thres: 0.3
+  max_det: 300
+  overlap_metric: "IOU"
+
+# classifier configuration (optional)
+classifier_weights: checkpoints/classification/demo/best_classifier.pt
+
+
+
+
+

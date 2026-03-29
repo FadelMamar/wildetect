@@ -1,0 +1,88 @@
+# Census Campaign Configuration
+# This file contains all parameters needed for the census command
+
+# Campaign Configuration
+campaign:
+  id: "K6_8_R1_D_3"
+  pilot_name: "Unknown"
+  target_species: null  # List of target species for detection
+
+# Detection Configuration (inherits from detection.yaml)
+detection:
+
+  # list of image paths
+  image_paths: null
+
+  # or image directory path
+  image_dir: D:\PhD\Data per camp\Dry season\Kapiri\Camp 6-8\Rep 1
+
+  merging_iou_threshold: -0.7036
+  merging_min_overlap_threshold: 0.078
+
+  # or exif gps update configuration
+  # exif_gps_update: 
+   # image_folder: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\cam0  # Path to folder containing images
+   # csv_path: D:\PhD\Harvard Kruger River Surveys\20231012_SabieRiver_GraniteB\SE_SabieRiver_GraniteB_Rectimage.csv  # Path to CSV file with GPS coordinates
+   # skip_rows: 4  # Number of rows to skip in CSV (e.g., header row)
+   # filename_col: "filename"  # CSV column name for filenames
+   # lat_col: "latitude"  # CSV column name for latitude
+   # lon_col: "longitude"  # CSV column name for longitude
+   # alt_col: "altitude"  # CSV column name for altitude
+
+  # Model Configuration
+  model:
+    mlflow_model_name: "detector"
+    mlflow_model_alias: "obb-version18"
+    device: "cuda"  # auto, cpu, cuda
+  
+  # Processing Configuration
+  processing:
+    batch_size: 8
+    tile_size: 800
+    overlap_ratio: 0.2
+    pipeline_type: "mt"  # default, multi, async, mt, mt_simple, simple, raster
+    queue_size: 64  # for multi-threaded pipeline
+    num_data_workers: 1
+    num_inference_workers: 1 # for multi-processing pipeline
+    pin_memory: true
+    prefetch_factor: 2
+  
+    nms_threshold: 0.5 # NMS threshold for detections stitching
+    max_errors: 5
+  # Label Studio Configuration
+  labelstudio:
+    url: null
+    api_key: null
+    project_id: null
+    download_resources: false
+  
+  # Flight Specifications
+  flight_specs:
+    sensor_height: 24  # mm
+    focal_length: 35   # mm
+    flight_height: 180.0  # meters
+    gsd: null # cm/px  *MANDATORY FOR RASTER DETECTION*
+
+  # Inference Service Configuration
+  inference_service:
+    url: null #http://localhost:4141/predict  # URL for external inference service
+    timeout: 60
+  
+  # Profiling Configuration
+  profiling:
+    enable: false
+    memory_profile: false
+    line_profile: false
+    gpu_profile: false
+
+# Export Configuration
+export:
+  to_fiftyone: true
+  create_map: true
+  output_directory: D:\PhD\Data per camp\raw image counts\K6_8\K6_8_R1_D_3  # Will use campaign_id if null
+  export_to_labelstudio: true
+
+# Logging Configuration
+logging:
+  verbose: false
+  log_file: null  # Will use default log path if null

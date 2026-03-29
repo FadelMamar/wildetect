@@ -1,0 +1,106 @@
+dataset:
+  root_data_directory: D:\PhD\workspace\data
+  dataset_type: roi
+  input_size: 384
+  batch_size: 64
+  num_workers: 0
+  stats:
+    mean:
+    - 0.554
+    - 0.469
+    - 0.348
+    std:
+    - 0.203
+    - 0.173
+    - 0.144
+  transforms:
+    train:
+    - name: Resize
+      params:
+        size: 384
+    - name: RandomHorizontalFlip
+      params:
+        p: 0.5
+    - name: ColorJitter
+      params:
+        brightness: 0.1
+        contrast: 0.0
+        saturation: 0.0
+    - name: RandomRotation
+      params:
+        degrees: 45
+    val:
+    - name: Resize
+      params:
+        size: 384
+  curriculum_config:
+    enabled: false
+    type: difficulty
+    difficulty_strategy: linear
+    start_difficulty: 0.0
+    end_difficulty: 1.0
+    warmup_epochs: 0
+    log_frequency: 1
+  single_class:
+    enable: true
+    background_class_name: background
+    single_class_name: wildlife
+    keep_classes: null
+    discard_classes:
+    - rocks
+    - vegetation
+    - other
+    - termite mound
+  rebalance: true
+  crop_size: 384
+  max_tn_crops: 1
+  p_draw_annotations: 0.2
+  compute_difficulties: true
+  preserve_aspect_ratio: true
+model:
+  backbone: timm/vit_base_patch14_reg4_dinov2.lvd142m
+  pretrained: true
+  backbone_source: timm
+  dropout: 0.2
+  freeze_backbone: true
+  input_size: 384
+  mean:
+  - 0.554
+  - 0.469
+  - 0.348
+  std:
+  - 0.203
+  - 0.173
+  - 0.144
+  weights: checkpoints\classification\base_dinov2\best-v3.ckpt
+  hidden_dim: 128
+  num_layers: 2
+train:
+  batch_size: 64
+  epochs: 20
+  lr: 0.001
+  label_smoothing: 0.0
+  weight_decay: 0.001
+  lrf: 0.01
+  precision: bf16-mixed
+  accelerator: auto
+  num_workers: 4
+  val_check_interval: 2
+checkpoint:
+  monitor: val_f1score
+  save_top_k: 1
+  mode: max
+  save_last: true
+  dirpath: checkpoints/classification
+  patience: 10
+  save_weights_only: true
+  filename: best
+  min_delta: 0.001
+mlflow:
+  experiment_name: wildtrain_classification
+  run_name: base_dinov2
+  alias: null
+  name: null
+  tracking_uri: http://localhost:5000
+  dwnd_location: null
+  log_model: true

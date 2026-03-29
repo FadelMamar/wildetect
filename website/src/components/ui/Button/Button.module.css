@@ -1,0 +1,46 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem; /* 0.75rem from DESIGN.md */
+  font-weight: 500;
+  font-family: var(--ifm-heading-font-family);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-decoration: none !important;
+  border: none;
+  font-size: 1rem;
+}
+
+.button--primary {
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, var(--ifm-color-primary-light) 100%);
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(69, 0, 232, 0.15);
+}
+
+.button--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(69, 0, 232, 0.25);
+  filter: brightness(1.1);
+}
+
+.button--secondary {
+  background-color: var(--color-surface-container-low);
+  color: var(--ifm-color-primary) !important;
+}
+
+.button--secondary:hover {
+  background-color: var(--ifm-color-primary-lightest);
+  color: #ffffff !important;
+}
+
+.button--ghost {
+  background: transparent;
+  color: var(--ifm-color-primary) !important;
+}
+
+.button--ghost:hover {
+  text-decoration: underline !important;
+  text-underline-offset: 4px;
+}

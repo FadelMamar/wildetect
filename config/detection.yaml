@@ -1,0 +1,76 @@
+# Detection Pipeline Configuration
+# This file contains all parameters needed for the detection command
+
+# Model Configuration
+model:
+  mlflow_model_name: "detector"
+  mlflow_model_alias: "by-paul"
+  device: "cuda"  # auto, cpu, cuda
+
+# list of image paths
+image_paths: 
+ - D:\PhD\Data per camp\Orthos\Dry season orthos\ortho_l_29_32_rep_3.tif
+
+# or image directory path
+image_dir: null
+
+# or exif gps update configuration
+exif_gps_update:
+  image_folder: null  # Path to folder containing images
+  csv_path: null  # Path to CSV file with GPS coordinates
+  skip_rows: 4  # Number of rows to skip in CSV (e.g., header row)
+  filename_col: "filename"  # CSV column name for filenames
+  lat_col: "latitude"  # CSV column name for latitude
+  lon_col: "longitude"  # CSV column name for longitude
+  alt_col: "altitude"  # CSV column name for altitude
+
+# Label Studio Configuration
+labelstudio:
+  url: null
+  api_key: null 
+  project_id: null
+  download_resources: false
+
+# Processing Configuration
+processing:
+  batch_size: 32
+  tile_size: 800
+  overlap_ratio: 0.2
+  pipeline_type: "raster"  # mt, mp, async, mt_simple, simple, default, raster
+  queue_size: 64  # for multi-threaded pipeline
+  num_data_workers: 1
+  num_inference_workers: 1 # for multi-processing pipeline
+  prefetch_factor: 2
+  pin_memory: true
+  nms_threshold: 0.5 # NMS threshold for detections stitching
+  max_errors: 5
+  
+# Flight Specifications
+flight_specs:
+  sensor_height: 24  # mm
+  focal_length: 35.0   # mm
+  flight_height: 180.0  # meters
+  gsd: 2.38 # cm/px  MANDATORY FOR RASTER DETECTION
+
+
+# Inference Service Configuration
+inference_service:
+  url: null #http://localhost:4141/predict  # URL for external inference service
+  timeout: 60
+
+# Profiling Configuration
+profiling:
+  enable: false
+  memory_profile: false
+  line_profile: false
+  gpu_profile: false
+
+# Output Configuration
+output:
+  directory: D:\PhD\Data per camp\Orthos\Dry season orthos
+  dataset_name: null  # if null, fiftyone dataset upload is disabled
+
+# Logging Configuration
+logging:
+  verbose: false
+  log_file: null  # Will use default log path if null

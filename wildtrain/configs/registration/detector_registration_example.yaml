@@ -1,0 +1,25 @@
+
+classifier:
+  weights: "D:/PhD/workspace/wildetect/models-registry/detector/4/artifacts/best-v6.ckpt"
+  processing:
+    batch_size: 8 # used for onnx export
+    export_format: "torchscript" # torchscript or onnx
+
+localizer:
+  yolo:
+    weights: "C:/Users/Machine Learning/Desktop/workspace-wildAI/datalabeling/runs/mlflow/771014640604815853/b0968b69fae440b8b51c711bdd791565/artifacts/finetuned/artifacts/best.pt"
+    imgsz: 800
+    device: "cuda"
+    conf_thres: 0.1
+    iou_thres: 0.3
+    max_det: 300
+    overlap_metric: "IOU"
+    task: "detect"
+  processing:
+    export_format: "pt"
+    batch_size: 32
+    dynamic: false
+
+processing:
+  name: "detector"
+  mlflow_tracking_uri: "http://localhost:5000"

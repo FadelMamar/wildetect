@@ -1,0 +1,41 @@
+.cardLink {
+  text-decoration: none !important;
+  color: inherit !important;
+  display: block;
+}
+
+.card {
+  background-color: var(--ifm-background-surface-color);
+  border-radius: 0.75rem;
+  padding: 1.5rem; /* spacing.6 from DESIGN.md */
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  position: relative;
+  border: none;
+  overflow: hidden;
+}
+
+.card--shadow {
+  box-shadow: 0 4px 12px rgba(25, 28, 29, 0.04);
+}
+
+.card--shadow:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 32px 64px -4px rgba(25, 28, 29, 0.06); /* Ambient shadow */
+}
+
+.cardHeader {
+  margin-bottom: 1rem;
+}
+
+.cardBody {
+  flex-grow: 1;
+  color: var(--ifm-color-emphasis-800);
+}
+
+.cardFooter {
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+}

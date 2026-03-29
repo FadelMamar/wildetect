@@ -1,0 +1,20 @@
+# Example configuration for updating EXIF GPS data from CSV
+# This file demonstrates how to configure the update_gps_from_csv command
+
+# Required parameters
+image_folder: D:\workspace\data\savmap_dataset_v2\images_splits  # Path to folder containing images
+csv_path: D:\workspace\repos\wildata\examples\mock_csv.csv  # Path to CSV file with GPS coordinates
+output_dir: D:\workspace\repos\wildata\data\savmap_dataset_v2_splits_with_gps  # Output directory for updated images
+
+# Optional parameters
+skip_rows: 0  # Number of rows to skip in CSV (e.g., header row)
+filename_col: "filename"  # CSV column name for filenames
+lat_col: "latitude"  # CSV column name for latitude
+lon_col: "longitude"  # CSV column name for longitude
+alt_col: "altitude"  # CSV column name for altitude
+
+# Example CSV format:
+# filename,latitude,longitude,altitude
+# image1.jpg,40.7128,-74.0060,10.5
+# image2.jpg,40.7589,-73.9851,15.2
+# image3.jpg,40.7505,-73.9934,8.1 

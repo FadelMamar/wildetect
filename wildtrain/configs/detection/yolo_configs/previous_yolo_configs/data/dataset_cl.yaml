@@ -1,0 +1,26 @@
+# dataset root dir
+path: D:\PhD\Data per camp\DetectionDataset
+
+train:
+  - bushriver\images
+  - Rep 3\train\images
+  - Rep 2\train\images
+  - Rep 1\train\images
+  - Rep 1 - Wet\train\images
+  - delplanque_tiled_data\train_tiled\images
+  - delplanque_tiled_data\val_tiled\images
+  - delplanque_tiled_data\test_tiled\images
+  - savmap\images
+
+val:
+  - Rep 3\val\images
+  - Rep 2\val\images
+  - Rep 1\val\images
+  - Rep 1 - Wet\val\images
+
+# test:  # test images (optional)
+
+# Classes
+nc: 1 # number of classes
+names:
+  0: wildlife
