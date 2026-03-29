@@ -109,6 +109,7 @@ nav:
           - GPS Update Config: configs/wildata/gps-update-config.md
       - WildTrain Configs:
           - Overview: configs/wildtrain/index.md
+          - YOLO Config Guide: configs/wildtrain/yolo-config-guide.md
           - Classification Training: configs/wildtrain/classification-train.md
           - Detection Training: configs/wildtrain/detection-train.md
           - Model Registration: configs/wildtrain/registration.md
