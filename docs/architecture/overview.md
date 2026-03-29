@@ -147,9 +147,10 @@ src/package/
 
 [Learn more →](wildetect.md)
 
-## Data Flow
+## Complete Workflow
 
-### Complete Workflow
+> [!TIP]
+> **New to WildDetect?** Use the [Interactive Script Navigator](../script-navigator.md) to visually explore which scripts and CLI commands correspond to each step in the workflow.
 
 ```mermaid
 graph TB

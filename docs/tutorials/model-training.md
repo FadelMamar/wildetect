@@ -6,7 +6,18 @@ Learn how to train detection and classification models using WildTrain.
 
 - WildTrain installed (`uv pip install -e .` in the `wildtrain/` directory)
 - Prepared dataset (see [Dataset Preparation](dataset-preparation.md))
-- MLflow server running (optional, for experiment tracking)
+- MLflow server running (optional - see [Step 0: Start MLflow](#step-0-start-mlflow-optional))
+
+## Step 0: Start MLflow (Optional)
+
+Before you begin training, it is recommended to launch the MLflow tracking server to monitor your experiments in real-time.
+
+```bash
+cd wildetect
+scripts\launch_mlflow.bat
+```
+
+Access at: [http://localhost:5000](http://localhost:5000)
 
 ## Training a YOLO Detector
 
@@ -190,19 +201,9 @@ wildtrain register classifier -c configs/registration/classifier_registration_ex
 
 ---
 
-## Monitor with MLflow
+### Check the Results in MLflow
 
-Start the MLflow tracking server:
-
-```bash
-# Using the provided script
-scripts\launch_mlflow.bat
-
-# Or directly
-uv run mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root mlartifacts --port 5000
-```
-
-Access the MLflow UI at [http://localhost:5000](http://localhost:5000) to view:
+Once your training is complete, access the MLflow UI at [http://localhost:5000](http://localhost:5000) to view:
 
 - Training metrics (loss, accuracy, F1)
 - Hyperparameters
