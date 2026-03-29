@@ -5,6 +5,10 @@ This document describes how data flows through the WildDetect ecosystem, from ra
 ## Complete Pipeline Overview
 
 ```mermaid
+---
+config:
+  layout: elk
+---
 flowchart TB
     subgraph "Stage 1: Data Collection"
         A[Raw Images]

@@ -153,6 +153,10 @@ src/package/
 > **New to WildDetect?** Use the [Interactive Script Navigator](../script-navigator.md) to visually explore which scripts and CLI commands correspond to each step in the workflow.
 
 ```mermaid
+---
+config:
+  layout: elk
+---
 graph TB
     subgraph "1. Data Preparation (WilData)"
         A[Raw Annotations<br/>COCO/YOLO/LS] --> B[WilData Import]

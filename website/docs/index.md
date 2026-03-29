@@ -1,7 +1,7 @@
-# Automated Wildlife detection in the African Savanna
+# Automated Wildlife detection
 
 <div align="center">
-  <img src="assets/image.png" alt="WildDetect Logo" width="500"/>
+  <img src="/img/wildetect-hero.png" alt="WildDetect Logo" width="500"/>
   <br/>
   <h3>Transforming Aerial Imagery into Actionable Conservation Intelligence</h3>
 </div>

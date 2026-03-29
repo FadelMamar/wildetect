@@ -1,32 +1,82 @@
-/**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
- */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Inter:wght@100..900&display=swap');
 
-/* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #3f51b5;
-  --ifm-color-primary-dark: #3949a3;
-  --ifm-color-primary-darker: #36459a;
-  --ifm-color-primary-darkest: #2d3980;
-  --ifm-color-primary-light: #5262bc;
-  --ifm-color-primary-lighter: #5c6bc0;
-  --ifm-color-primary-lightest: #7986cb;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  /* Stitch Digital Architect Tokens */
+  --ifm-color-primary: #4500e8;
+  --ifm-color-primary-dark: #3a00cc;
+  --ifm-color-primary-darker: #3300b8;
+  --ifm-color-primary-darkest: #22007a;
+  --ifm-color-primary-light: #5e39ff;
+  --ifm-color-primary-lighter: #7b5aff;
+  --ifm-color-primary-lightest: #a18aff;
+
+  /* Surface Hierarchy (Tonal Stacking) */
+  --ifm-background-color: #f8f9fa; /* Surface */
+  --ifm-background-surface-color: #ffffff; /* Surface Lowest */
+  --color-surface-container-low: #f3f4f5;
+  
+  /* Typography */
+  --ifm-font-family-base: 'Inter', sans-serif;
+  --ifm-heading-font-family: 'Plus Jakarta Sans', sans-serif;
+  --ifm-font-weight-bold: 700;
+
+  /* No-Line Implementation */
+  --ifm-navbar-shadow: none;
+  --ifm-navbar-background-color: rgba(248, 249, 250, 0.82);
+  --ifm-footer-background-color: #191c1d;
+  --ifm-toc-border-left-width: 0;
+  --ifm-menu-color-active: var(--ifm-color-primary);
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-blur: blur(12px);
+  
+  /* Ambient Shadow */
+  --shadow-ambient: 0 8px 32px -4px rgba(25, 28, 29, 0.06);
 }
 
 [data-theme='dark'] {
-  --ifm-color-primary: #7986cb;
-  --ifm-color-primary-dark: #6473c3;
-  --ifm-color-primary-darker: #596abc;
-  --ifm-color-primary-darkest: #4155ad;
-  --ifm-color-primary-light: #8e98d3;
-  --ifm-color-primary-lighter: #98a1d7;
-  --ifm-color-primary-lightest: #b7bde5;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-color-primary: #a18aff;
+  --ifm-color-primary-dark: #7b5aff;
+  --ifm-color-primary-darker: #5e39ff;
+  --ifm-color-primary-darkest: #4500e8;
+  
+  --ifm-background-color: #191c1d;
+  --ifm-background-surface-color: #1e293b;
+  --color-surface-container-low: #111827;
+
+  --ifm-navbar-background-color: rgba(25, 28, 29, 0.82);
+  --glass-bg: rgba(25, 28, 29, 0.7);
 }
 
+/* Global "No-Line" Overrides */
+.navbar {
+  border-bottom: 0 !important;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
 
-/* Add any additional global styles below */
+.theme-doc-sidebar-container {
+  border-right: 0 !important;
+  background-color: var(--color-surface-container-low) !important;
+}
+
+.table-of-contents {
+  border-left: 0 !important;
+}
+
+/* Typography Hierarchy */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--ifm-heading-font-family);
+  letter-spacing: -0.02em;
+}
+
+.hero--primary {
+  --ifm-hero-background-color: transparent;
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, var(--ifm-color-primary-light) 100%);
+}
+
+/* Ambient Shadow Utility */
+.shadow--ambient {
+  box-shadow: var(--shadow-ambient) !important;
+}
