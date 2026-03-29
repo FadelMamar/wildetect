@@ -14,13 +14,12 @@ All scripts are located in `wildtrain/scripts/` directory.
 | [eval_classifier.bat](#eval_classifierbat) | Evaluate classifier | `configs/classification/classification_eval.yaml` |
 | [eval_detector.bat](#eval_detectorbat) | Evaluate detector | Various detector configs |
 | [train_yolo.bat](#train_yolobat) | Train YOLO detector | `configs/detection/yolo_configs/yolo.yaml` |
-| [train_mmdet.bat](#train_mmdetbat) | Train MMDetection model | `configs/detection/mmdet_configs/mmdet.yaml` |
+| [train_mmdet.bat](#) | Train MMDetection model | `configs/detection/mmdet_configs/mmdet.yaml` |
 | [register_model.bat](#register_modelbat) | Register model to MLflow | `configs/registration/*.yaml` |
 | [run_classification_pipeline.bat](#run_classification_pipelinebat) | Full classification pipeline | `configs/classification/classification_pipeline_config.yaml` |
 | [run_detection_pipeline.bat](#run_detection_pipelinebat) | Full detection pipeline | `configs/detection/yolo_configs/yolo_pipeline_config.yaml` |
 | [run_server.bat](#run_serverbat) | Run inference server | `configs/inference.yaml` |
 | [visualize_predictions.bat](#visualize_predictionsbat) | Visualize predictions | Various configs |
-| [create_dataset.bat](#create_datasetbat) | Create/prepare dataset | `configs/datapreparation/*.yaml` |
 
 ---
 
