@@ -8,6 +8,7 @@ __pycache__/
 *.json
 *.csv
 site/
+node_modules/
 # Distribution / packaging
 .Python
 build/
