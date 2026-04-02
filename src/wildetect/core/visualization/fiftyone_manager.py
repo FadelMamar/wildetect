@@ -62,19 +62,12 @@ class FiftyOneManager:
             self.dataset = fo.Dataset(self.dataset_name, persistent=self.persistent)
             logger.info(f"Created new dataset: {self.dataset_name}")
 
-    def _ensure_dataset_initialized(self):
-        """Ensure dataset is initialized before operations."""
-        if self.dataset is None:
-            self._init_dataset()
-
     def _create_fo_sample(self, drone_image: DroneImage):
         """Add a DroneImage to the dataset.
 
         Args:
             drone_image: DroneImage object to add
         """
-        self._ensure_dataset_initialized()
-
         if self.dataset is None:
             logger.error("Dataset is not initialized")
             return
@@ -136,15 +129,14 @@ class FiftyOneManager:
         Args:
             drone_images: List of DroneImage objects to add
         """
-        self._ensure_dataset_initialized()
 
         assert isinstance(drone_images, list), "drone_images must be a list"
         from ..data.drone_image import DroneImage
 
         for drone_image in drone_images:
-            assert isinstance(drone_image, DroneImage), (
-                "drone_images must be a list of DroneImage objects"
-            )
+            assert isinstance(
+                drone_image, DroneImage
+            ), "drone_images must be a list of DroneImage objects"
 
         if self.dataset is None:
             logger.error("Dataset is not initialized")
@@ -169,8 +161,6 @@ class FiftyOneManager:
         Returns:
             List of samples with GPS data
         """
-        self._ensure_dataset_initialized()
-
         if self.dataset is None:
             return []
 
@@ -227,8 +217,6 @@ class FiftyOneManager:
     # TODO: debug
     def get_dataset_info(self) -> Dict[str, Any]:
         """Get information about the dataset."""
-        self._ensure_dataset_initialized()
-
         if self.dataset is None:
             return {
                 "name": "uninitialized",
@@ -249,7 +237,6 @@ class FiftyOneManager:
     # TODO: debug
     def compute_similarity(self):
         """Compute similarity between samples using FiftyOne Brain."""
-        self._ensure_dataset_initialized()
 
         if self.dataset is None:
             logger.error("Dataset is not initialized")
@@ -265,7 +252,6 @@ class FiftyOneManager:
     # TODO: debug
     def get_annotation_stats(self) -> Dict[str, Any]:
         """Get statistics about annotations in the dataset."""
-        self._ensure_dataset_initialized()
 
         if self.dataset is None:
             return {
@@ -303,8 +289,6 @@ class FiftyOneManager:
 
     def save_dataset(self):
         """Save the dataset to disk."""
-        self._ensure_dataset_initialized()
-
         if self.dataset is None:
             logger.error("Dataset is not initialized")
             return

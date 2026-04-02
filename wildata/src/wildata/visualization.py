@@ -58,11 +58,6 @@ class FiftyOneManager:
             self.dataset = fo.Dataset(self.dataset_name, persistent=self.persistent)
             logger.info(f"Created new dataset: {self.dataset_name}")
 
-    def _ensure_dataset_initialized(self):
-        """Ensure dataset is initialized before operations."""
-        if self.dataset is None:
-            self._init_dataset()
-
     def _create_classification_sample(
         self,
         image_path: str,
@@ -98,8 +93,6 @@ class FiftyOneManager:
         """User-facing API: Load and import a classification dataset for visualization."""
 
         self.dataset_name = f"{dataset_name}-{split}"
-
-        self._ensure_dataset_initialized()
 
         dataset = ROIDataset(
             dataset_name=dataset_name,
@@ -184,7 +177,6 @@ class FiftyOneManager:
     ):
         """User-facing API: Load and import a detection dataset for visualization."""
         self.dataset_name = f"{dataset_name}-{split}"
-        self._ensure_dataset_initialized()
 
         dataset, class_mapping = load_detection_dataset(
             root_data_directory, dataset_name, split
