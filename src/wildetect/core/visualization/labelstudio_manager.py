@@ -66,8 +66,8 @@ class LabelStudioManager:
         self.client.import_storage.local.sync(id=resp_storage.id)
         return r.id
 
-    def get_image_path(self, task):
-        url = unquote(task.data["image"])
+    def get_image_path(self, task:Task) -> str:
+        url = unquote(task.data.image)
         return get_local_path(
             url,
             download_resources=self.download_resources,
