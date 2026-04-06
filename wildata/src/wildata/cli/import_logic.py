@@ -7,7 +7,7 @@ import traceback
 import typer
 from pydantic import ValidationError
 
-from ..config import AugmentationConfig, ImportDatasetConfig, ROIConfig, TilingConfig
+from ..config import ImportDatasetConfig, ROIConfig
 from ..pipeline import DataPipeline
 from ..transformations import (
     AugmentationTransformer,
@@ -22,15 +22,7 @@ def _import_dataset_core(config: ImportDatasetConfig, verbose: bool = False) -> 
     # Convert ROI config if provided
     roi_config = None
     if not config.disable_roi and config.roi_config:
-        roi_config = ROIConfig(
-            random_roi_count=config.roi_config.random_roi_count,
-            roi_box_size=config.roi_config.roi_box_size,
-            min_roi_size=config.roi_config.min_roi_size,
-            dark_threshold=config.roi_config.dark_threshold,
-            background_class=config.roi_config.background_class,
-            save_format=config.roi_config.save_format,
-            quality=config.roi_config.quality,
-        )
+        roi_config = config.roi_config
 
     # Create transformation pipeline if configured
     transformation_pipeline = None
@@ -62,18 +54,7 @@ def _import_dataset_core(config: ImportDatasetConfig, verbose: bool = False) -> 
         ):
             aug_config = config.transformations.augmentation
             aug_transformer = AugmentationTransformer(
-                config=AugmentationConfig(
-                    rotation_range=aug_config.rotation_range,
-                    probability=aug_config.probability,
-                    brightness_range=aug_config.brightness_range,
-                    scale=aug_config.scale,
-                    translate=aug_config.translate,
-                    shear=aug_config.shear,
-                    contrast_range=aug_config.contrast_range,
-                    noise_std=aug_config.noise_std,
-                    seed=aug_config.seed,
-                    num_transforms=aug_config.num_transforms,
-                )
+                config=aug_config
             )
             transformation_pipeline.add_transformer(aug_transformer)
             if verbose:
@@ -85,14 +66,7 @@ def _import_dataset_core(config: ImportDatasetConfig, verbose: bool = False) -> 
         if config.transformations.enable_tiling and config.transformations.tiling:
             tiling_config = config.transformations.tiling
             tiling_transformer = TilingTransformer(
-                config=TilingConfig(
-                    tile_size=tiling_config.tile_size,
-                    stride=tiling_config.stride,
-                    min_visibility=tiling_config.min_visibility,
-                    max_negative_tiles_in_negative_image=tiling_config.max_negative_tiles_in_negative_image,
-                    negative_positive_ratio=tiling_config.negative_positive_ratio,
-                    dark_threshold=tiling_config.dark_threshold,
-                )
+                config=tiling_config
             )
             transformation_pipeline.add_transformer(tiling_transformer)
             if verbose:

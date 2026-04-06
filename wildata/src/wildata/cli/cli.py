@@ -10,20 +10,15 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from pydantic import ValidationError
 
 from ..adapters.utils import ExifGPSManager
 from ..config import (
     ROOT,
-    AugmentationConfig,
-    BboxClippingConfig,
     BulkCreateROIDatasetConfig,
     BulkImportDatasetConfig,
     ExifGPSUpdateConfig,
     ImportDatasetConfig,
     ROIDatasetConfig,
-    TilingConfig,
-    TransformationConfig,
 )
 from ..logging_config import setup_logging
 from ..pipeline import DataPipeline
@@ -56,69 +51,6 @@ def import_dataset(
     config_file: Optional[str] = typer.Option(
         None, "--config", "-c", help="Path to YAML config file"
     ),
-    source_path: Optional[str] = typer.Argument(None, help="Path to source dataset"),
-    source_format: Optional[str] = typer.Option(
-        None, "--format", "-f", help="Source format (coco/yolo/ls)"
-    ),
-    dataset_name: Optional[str] = typer.Option(
-        None, "--name", "-n", help="Dataset name"
-    ),
-    root: Optional[str] = typer.Option(
-        None, "--root", "-r", help="Root directory for data storage"
-    ),
-    split_name: Optional[str] = typer.Option(
-        None, "--split", "-s", help="Split name (train/val/test)"
-    ),
-    processing_mode: Optional[str] = typer.Option(
-        None, "--mode", "-m", help="Processing mode (streaming/batch)"
-    ),
-    track_with_dvc: Optional[bool] = typer.Option(
-        None, "--track-dvc", help="Track dataset with DVC"
-    ),
-    bbox_tolerance: Optional[int] = typer.Option(
-        None, "--bbox-tolerance", help="Bbox validation tolerance"
-    ),
-    dotenv_path: Optional[str] = typer.Option(
-        None, "--dotenv", help="Path to .env file"
-    ),
-    ls_xml_config: Optional[str] = typer.Option(
-        None, "--ls-config", help="Label Studio XML config path"
-    ),
-    ls_parse_config: Optional[bool] = typer.Option(
-        None, "--parse-ls-config", help="Parse Label Studio config"
-    ),
-    # Transformation pipeline options
-    enable_bbox_clipping: Optional[bool] = typer.Option(
-        None, "--enable-bbox-clipping", help="Enable bbox clipping"
-    ),
-    bbox_clipping_tolerance: Optional[int] = typer.Option(
-        None, "--bbox-clipping-tolerance", help="Bbox clipping tolerance"
-    ),
-    skip_invalid_bbox: Optional[bool] = typer.Option(
-        None, "--skip-invalid-bbox", help="Skip invalid bboxes"
-    ),
-    enable_augmentation: Optional[bool] = typer.Option(
-        None, "--enable-augmentation", help="Enable data augmentation"
-    ),
-    augmentation_probability: Optional[float] = typer.Option(
-        None, "--aug-prob", help="Augmentation probability"
-    ),
-    num_augmentations: Optional[int] = typer.Option(
-        None, "--num-augs", help="Number of augmentations per image"
-    ),
-    enable_tiling: Optional[bool] = typer.Option(
-        None, "--enable-tiling", help="Enable image tiling"
-    ),
-    tile_size: Optional[int] = typer.Option(None, "--tile-size", help="Tile size"),
-    tile_stride: Optional[int] = typer.Option(
-        None, "--tile-stride", help="Tile stride"
-    ),
-    min_visibility: Optional[float] = typer.Option(
-        None, "--min-visibility", help="Minimum visibility ratio"
-    ),
-    disable_roi: Optional[bool] = typer.Option(
-        None, "--disable-roi", help="Disable ROI extraction"
-    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     """Import a dataset from various formats into the WildData pipeline."""
@@ -130,102 +62,11 @@ def import_dataset(
     )
     setup_logging(log_file=log_file.as_posix())
 
-    # Enforce mutual exclusivity
-    if config_file:
-        # If config is given, do not allow any other required args
-        if any([source_path, source_format, dataset_name]):
-            typer.echo(
-                "[ERROR] If --config is provided, do not provide other arguments.",
-                err=True,
-            )
-            raise typer.Exit(1)
-        try:
-            config = ImportDatasetConfig.from_yaml(config_file)
-        except Exception:
-            typer.echo(f"[ERROR] Failed to load config file: {traceback.format_exc()}")
-            raise typer.Exit(1)
-    else:
-        # If config is not given, require all required args
-        missing = []
-        if not source_path:
-            missing.append("source_path")
-        if not source_format:
-            missing.append("source_format")
-        if not dataset_name:
-            missing.append("dataset_name")
-        if missing:
-            typer.echo(
-                f"[ERROR] Missing required arguments: {', '.join(missing)}", err=True
-            )
-            raise typer.Exit(1)
-        # Create transformation config from command-line arguments
-        transformation_config = None
-        if enable_bbox_clipping or enable_augmentation or enable_tiling:
-            transformation_config = TransformationConfig(
-                enable_bbox_clipping=enable_bbox_clipping
-                if enable_bbox_clipping is not None
-                else True,
-                bbox_clipping=BboxClippingConfig(
-                    tolerance=bbox_clipping_tolerance
-                    if bbox_clipping_tolerance is not None
-                    else 5,
-                    skip_invalid=skip_invalid_bbox
-                    if skip_invalid_bbox is not None
-                    else False,
-                )
-                if enable_bbox_clipping
-                else None,
-                enable_augmentation=enable_augmentation
-                if enable_augmentation is not None
-                else False,
-                augmentation=AugmentationConfig(
-                    probability=augmentation_probability
-                    if augmentation_probability is not None
-                    else 1.0,
-                    num_transforms=num_augmentations
-                    if num_augmentations is not None
-                    else 2,
-                )
-                if enable_augmentation
-                else None,
-                enable_tiling=enable_tiling if enable_tiling is not None else False,
-                tiling=TilingConfig(
-                    tile_size=tile_size if tile_size is not None else 512,
-                    stride=tile_stride if tile_stride is not None else 416,
-                    min_visibility=min_visibility
-                    if min_visibility is not None
-                    else 0.1,
-                )
-                if enable_tiling
-                else None,
-            )
-        # Create config from command-line arguments
-        config_data = {
-            "source_path": source_path,
-            "source_format": source_format,
-            "dataset_name": dataset_name,
-            "root": root if root is not None else "data",
-            "split_name": split_name if split_name is not None else "train",
-            "processing_mode": processing_mode
-            if processing_mode is not None
-            else "batch",
-            "track_with_dvc": track_with_dvc if track_with_dvc is not None else False,
-            "bbox_tolerance": bbox_tolerance if bbox_tolerance is not None else 5,
-            "dotenv_path": dotenv_path,
-            "ls_xml_config": ls_xml_config,
-            "ls_parse_config": ls_parse_config
-            if ls_parse_config is not None
-            else False,
-            "transformations": transformation_config,
-            "disable_roi": disable_roi if disable_roi is not None else False,
-        }
-        try:
-            config = ImportDatasetConfig(**config_data)
-        except ValidationError as e:
-            typer.echo("[ERROR] Configuration validation error:")
-            for error in e.errors():
-                typer.echo(f"   {error['loc'][0]}: {error['msg']}")
-            raise typer.Exit(1)
+    try:
+        config = ImportDatasetConfig.from_yaml(config_file)
+    except Exception:
+        typer.echo(f"[ERROR] Failed to load config file: {traceback.format_exc()}")
+        raise typer.Exit(1)
 
     _import_dataset_core(config, verbose)
 
@@ -527,31 +368,7 @@ def visualize_detection(
 def update_gps_from_csv(
     config_file: Optional[str] = typer.Option(
         None, "--config", "-c", help="Path to YAML config file"
-    ),
-    image_folder: Optional[str] = typer.Option(
-        None, "--image-folder", "-i", help="Path to folder containing images"
-    ),
-    csv_path: Optional[str] = typer.Option(
-        None, "--csv", help="Path to CSV file with GPS coordinates"
-    ),
-    output_dir: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Output directory for updated images"
-    ),
-    skip_rows: Optional[int] = typer.Option(
-        None, "--skip-rows", help="Number of rows to skip in CSV"
-    ),
-    filename_col: Optional[str] = typer.Option(
-        None, "--filename-col", help="CSV column name for filenames"
-    ),
-    lat_col: Optional[str] = typer.Option(
-        None, "--lat-col", help="CSV column name for latitude"
-    ),
-    lon_col: Optional[str] = typer.Option(
-        None, "--lon-col", help="CSV column name for longitude"
-    ),
-    alt_col: Optional[str] = typer.Option(
-        None, "--alt-col", help="CSV column name for altitude"
-    ),
+    ),    
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     """Update EXIF GPS data for images using coordinates from a CSV file."""
@@ -563,54 +380,12 @@ def update_gps_from_csv(
     )
     setup_logging(log_file=log_file.as_posix())
 
-    # Enforce mutual exclusivity
-    if config_file:
-        # If config is given, do not allow any other required args
-        if any([image_folder, csv_path, output_dir]):
-            typer.echo(
-                "[ERROR] If --config is provided, do not provide other arguments.",
-                err=True,
-            )
-            raise typer.Exit(1)
-        try:
-            config = ExifGPSUpdateConfig.from_yaml(config_file)
-        except Exception:
-            typer.echo(f"[ERROR] Failed to load config file: {traceback.format_exc()}")
-            raise typer.Exit(1)
-    else:
-        # If config is not given, require all required args
-        missing = []
-        if not image_folder:
-            missing.append("image_folder")
-        if not csv_path:
-            missing.append("csv_path")
-        if not output_dir:
-            missing.append("output_dir")
-        if missing:
-            typer.echo(
-                f"[ERROR] Missing required arguments: {', '.join(missing)}", err=True
-            )
-            raise typer.Exit(1)
-
-        # Create config from command-line arguments
-        config_data = {
-            "image_folder": image_folder,
-            "csv_path": csv_path,
-            "output_dir": output_dir,
-            "skip_rows": skip_rows if skip_rows is not None else 0,
-            "filename_col": filename_col if filename_col is not None else "filename",
-            "lat_col": lat_col if lat_col is not None else "latitude",
-            "lon_col": lon_col if lon_col is not None else "longitude",
-            "alt_col": alt_col if alt_col is not None else "altitude",
-        }
-        try:
-            config = ExifGPSUpdateConfig(**config_data)
-        except ValidationError as e:
-            typer.echo("[ERROR] Configuration validation error:")
-            for error in e.errors():
-                typer.echo(f"   {error['loc'][0]}: {error['msg']}")
-            raise typer.Exit(1)
-
+    try:
+        config = ExifGPSUpdateConfig.from_yaml(config_file)
+    except Exception:
+        typer.echo(f"[ERROR] Failed to load config file: {traceback.format_exc()}")
+        raise typer.Exit(1)
+    
     try:
         if verbose:
             typer.echo(f"[FOLDER] Image folder: {config.image_folder}")
