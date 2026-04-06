@@ -276,12 +276,9 @@ class CampaignManager:
             logger.warning("No drone images available for FiftyOne export.")
             return
 
-        if isinstance(images, list):
-            self.fiftyone_manager.add_drone_images(images)
-            self.fiftyone_manager.save_dataset()
-            logger.info(f"Exported {len(images)} images to FiftyOne")
-        else:
-            logger.warning("Invalid images format for FiftyOne export.")
+        self.fiftyone_manager.add_drone_images(images)
+        self.fiftyone_manager.save_dataset()
+        logger.info(f"Exported {len(images)} images to FiftyOne")
 
     def export_to_labelstudio(self) -> int:
         """Export campaign data to LabelStudio for annotation/review."""
