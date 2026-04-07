@@ -526,7 +526,7 @@ class ROIAdapter(BaseAdapter):
             if roi_result is None:
                 continue
             bbox = roi_result["roi_image"]["bbox"]
-            path = roi_result["roi_image"]["original_image_path"]
+            # path = roi_result["roi_image"]["original_image_path"]
             cropped_img = self.crop_image(image, bbox)
             if not self.is_image_dark(cropped_img):
                 return roi_result

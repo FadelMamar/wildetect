@@ -20,6 +20,7 @@ from ..config import (
     ImportDatasetConfig,
     ROIDatasetConfig,
 )
+from ..converters import LabelstudioConverter
 from ..logging_config import setup_logging
 from ..pipeline import DataPipeline
 from ..visualization import FiftyOneManager
@@ -417,6 +418,97 @@ def update_gps_from_csv(
 
     except Exception as e:
         typer.echo(f"[ERROR] Failed to update GPS data: {str(e)}")
+        if verbose:
+            typer.echo(f"   Traceback: {traceback.format_exc()}")
+        raise typer.Exit(1)
+
+@app.command()
+def convert_ls_to_coco(
+    input_file: str = typer.Argument(
+        ..., help="Path to Label Studio JSON annotation file"
+    ),
+    out_file: Optional[str] = typer.Option(
+        None, "--out-file", "-o", help="Path to write COCO JSON output"
+    ),
+    ls_xml_config: Optional[str] = typer.Option(
+        None,
+        "--ls-xml-config",
+        help="Optional Label Studio XML config to preserve category IDs",
+    ),
+    dotenv_path: Optional[str] = typer.Option(
+        None,
+        "--dotenv-path",
+        help="Path to .env with LABEL_STUDIO_URL and LABEL_STUDIO_API_KEY",
+    ),
+    parse_ls_config: bool = typer.Option(
+        False,
+        "--parse-ls-config",
+        help="Use Label Studio project config from API to derive categories",
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+):
+    """Convert a Label Studio JSON export to COCO and save it."""
+    try:
+        input_path = Path(input_file)
+        if not input_path.is_file():
+            typer.echo(f"[ERROR] Input file not found: {input_file}")
+            raise typer.Exit(1)
+        if input_path.suffix.lower() != ".json":
+            typer.echo(f"[ERROR] Input file must be a JSON file: {input_file}")
+            raise typer.Exit(1)
+
+        output_path = Path(out_file) if out_file else input_path.with_name(
+            f"{input_path.stem}_coco.json"
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        converter = LabelstudioConverter(dotenv_path=dotenv_path)
+        category_mapping = None
+
+        if ls_xml_config is not None:
+            xml_path = Path(ls_xml_config)
+            if not xml_path.is_file():
+                typer.echo(f"[ERROR] Label Studio XML config not found: {ls_xml_config}")
+                raise typer.Exit(1)
+            category_mapping = converter.get_category_mapping(ls_xml_config=ls_xml_config)
+            if verbose:
+                typer.echo(
+                    f"[INFO] Loaded category mapping from XML with {len(category_mapping)} class(es)"
+                )
+        elif parse_ls_config:
+            parsed_config = converter.get_ls_parsed_config(ls_json_path=str(input_path))
+            if parsed_config:
+                category_mapping = converter.get_category_mapping(
+                    parsed_config=parsed_config
+                )
+                if verbose:
+                    typer.echo(
+                        "[INFO] Loaded category mapping from Label Studio parsed config "
+                        f"with {len(category_mapping)} class(es)"
+                    )
+            elif verbose:
+                typer.echo(
+                    "[INFO] Label Studio parsed config unavailable; using default category order"
+                )
+        else:
+            raise ValueError()
+
+        coco_annotations = converter.convert_ls_json_to_coco(
+            input_file=str(input_path),
+            category_mapping=category_mapping,
+            out_file_name=str(output_path),
+        )
+
+        typer.echo(f"[SUCCESS] COCO annotations saved to: {output_path.as_posix()}")
+        if verbose:
+            typer.echo(f"   Images: {len(coco_annotations.get('images', []))}")
+            typer.echo(f"   Annotations: {len(coco_annotations.get('annotations', []))}")
+            typer.echo(f"   Categories: {len(coco_annotations.get('categories', []))}")
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"[ERROR] Failed to convert Label Studio JSON to COCO: {str(e)}")
         if verbose:
             typer.echo(f"   Traceback: {traceback.format_exc()}")
         raise typer.Exit(1)
