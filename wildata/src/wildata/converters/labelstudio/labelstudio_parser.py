@@ -11,12 +11,13 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 
+from fsspec.transaction import FileActor
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
 from .labelstudio_schemas import LabelStudioExport, ResultOrigin, Task
-
+from ...adapters.utils import read_image
 
 class SourceType(StrEnum):
     ANNOTATION = "annotation"
@@ -539,9 +540,10 @@ class LabelStudioParser:
         current_image_id = image_id_start
         current_annotation_id = annotation_id_start
 
-        for task in self.tasks:
+        for task in tqdm(self.tasks,desc="ConvertingLSToCOCO"):
             # Get image dimensions from first result, or use defaults
             first_result = None
+            filename = task.image_path
             for ann in task.annotations:
                 if ann.result:
                     first_result = ann.result[0]
@@ -551,11 +553,8 @@ class LabelStudioParser:
                 img_width = first_result.original_width
                 img_height = first_result.original_height
             else:
-                img_width = 0
-                img_height = 0
-
-            # Create image entry if new
-            filename = task.image_filename
+                img_width, img_height = read_image(filename).size
+            
             if filename not in image_id_map:
                 image_id_map[filename] = current_image_id
                 images.append(

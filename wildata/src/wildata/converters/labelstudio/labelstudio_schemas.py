@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import unquote
 
 from label_studio_tools.core.utils.io import get_local_path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ResultValue(BaseModel):
@@ -322,6 +322,8 @@ class Task(BaseModel):
         default_factory=list, description="Model predictions"
     )
     meta: Dict[str, Any] = Field(default_factory=dict, description="Task metadata")
+
+    
     created_at: Optional[datetime] = Field(
         default=None, description="Creation timestamp"
     )
@@ -347,6 +349,16 @@ class Task(BaseModel):
 
     class Config:
         extra = "ignore"  # Ignore additional fields
+    
+    @field_validator("predictions", mode="before")
+    @classmethod
+    def predictions_drop_id_only_entries(cls, v: Any) -> List[Any]:
+        """Label Studio exports sometimes list prediction IDs (ints) without objects."""
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            return []
+        return [item for item in v if isinstance(item, dict)]
 
     @property
     def image_filename(self) -> str:

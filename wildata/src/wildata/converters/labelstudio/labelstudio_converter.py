@@ -1,20 +1,25 @@
 import json
 import os
-import tempfile
+import xml.etree.ElementTree as ET
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from dotenv import load_dotenv
 from label_studio_sdk.client import LabelStudio
-from label_studio_sdk.converter import Converter
 
 from ..base_converter import BaseConverter
+from .labelstudio_parser import LabelStudioParser
 
 
 class LabelstudioConverter(BaseConverter):
     """
     Converter for Label Studio JSON annotations to COCO format.
     Inherits from BaseConverter and implements the required interface.
+
+    COCO conversion uses :class:`LabelStudioParser` and supports
+    ``rectanglelabels`` (bbox) exports. Optional ``ls_xml_config`` supplies
+    category IDs (XML ``<Label value=\"...\"/>`` order, 1-based) for COCO
+    ``categories``; otherwise IDs follow sorted labels in the export.
     """
 
     def __init__(
@@ -58,18 +63,22 @@ class LabelstudioConverter(BaseConverter):
         """
         Convert Label Studio JSON annotations to COCO format.
         """
-
+        category_mapping: Optional[Dict[str, int]] = None
+        if ls_xml_config is not None:
+            if not os.path.isfile(ls_xml_config):
+                raise FileNotFoundError(
+                    f"Label Studio XML config not found: {ls_xml_config}"
+                )            
         parsed_config = None
         if parse_ls_config:
-            parsed_config = self.get_ls_parsed_config(
-                ls_json_path=input_file,
-            )
+            parsed_config = self.get_ls_parsed_config(ls_json_path=input_file)
+        
+        category_mapping = self.get_category_mapping(ls_xml_config=ls_xml_config,parsed_config=parsed_config)
 
         coco_data = self._convert_ls_json_to_coco(
             input_file=input_file,
+            category_mapping=category_mapping,
             out_file_name=None,
-            parsed_config=parsed_config,
-            ls_xml_config=ls_xml_config,
         )
 
         # Create dataset info
@@ -87,55 +96,25 @@ class LabelstudioConverter(BaseConverter):
     def _convert_ls_json_to_coco(
         self,
         input_file: str,
-        ls_xml_config: Optional[str] = None,
+        category_mapping: Optional[Dict[str, int]] = None,
         out_file_name: Optional[str] = None,
-        parsed_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
-        Converts LS json annotations to coco format
+        Converts LS json annotations to coco format via :meth:`LabelStudioParser.to_coco_format`.
 
         Args:
             input_file: path to LS json annotation file
-            ls_xml_config: path to Label Studio XML config file
+            category_mapping: optional label name -> COCO category id (e.g. from XML)
             out_file_name: if not None, it will save the converted annotations
-            parsed_config: parsed Label Studio configuration
 
         Returns:
             dict: annotations in coco format
         """
+        parser = LabelStudioParser.from_file(input_file)
+        coco_annotations = parser.to_coco_format(category_mapping=category_mapping)
 
-        # Load converter
-        config_str = None
-        assert not all([parsed_config is not None, ls_xml_config is not None]), (
-            "Either parsed_config or ls_xml_config must be provided"
-        )
-
-        if parsed_config is not None:
-            config_str = parsed_config
-
-        else:
-            with open(ls_xml_config, encoding="utf-8") as f:
-                config_str = f.read()
-
-        handler = Converter(
-            config=config_str, project_dir=None, download_resources=False
-        )
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            handler.convert_to_coco(
-                input_data=input_file,
-                output_dir=tmp_dir,
-                output_image_dir=os.path.join(tmp_dir, "images"),
-                is_dir=False,
-            )
-            # Load and update image paths
-            coco_json_path = os.path.join(tmp_dir, "result.json")
-
-            with open(coco_json_path, "r", encoding="utf-8") as f:
-                coco_annotations = json.load(f)
-
-            if out_file_name is not None:
-                self.save_coco_annotation(coco_annotations, out_file_name)
+        if out_file_name is not None:
+            self.save_coco_annotation(coco_annotations, out_file_name)
 
         return coco_annotations
 
@@ -172,7 +151,43 @@ class LabelstudioConverter(BaseConverter):
             )
             return {}
 
-        project = self.ls_client.projects.get(id=project_id)
-        parsed_config = project.parsed_label_config
-
+        parsed_config = self.ls_client.projects.get(id=project_id).parsed_label_config
         return parsed_config
+
+    def get_category_mapping(self, ls_xml_config: Optional[str]=None, parsed_config:Optional[dict]=None) -> Dict[str, int]:
+        """
+        Build label name -> COCO category id (1-based, stable) from a Label Studio
+        labeling config XML. Uses ``<Label value=\"...\"/>`` elements in document order.
+        """
+
+        assert (ls_xml_config is None) ^ (parsed_config is None), "Exactly one should be provided."
+
+        if parsed_config:
+            labels = parsed_config['detections']['labels']
+            mapping = dict()
+            for i,label in enumerate(labels):
+                mapping[label] = i+1
+            return mapping
+
+        tree = ET.parse(ls_xml_config)
+        root = tree.getroot()
+        labels: List[str] = []
+        seen: set[str] = set()
+        for el in root.iter():
+            local = el.tag.split("}", 1)[-1]
+            if local != "Label":
+                continue
+            raw = el.attrib.get("value")
+            if raw is None or not str(raw).strip():
+                continue
+            name = str(raw).strip()
+            if name not in seen:
+                seen.add(name)
+                labels.append(name)
+        if not labels:
+            self.logger.warning(
+                "No <Label value=\"...\"/> entries found in %s; "
+                "category IDs will follow the export default",
+                ls_xml_config,
+            )
+        return {name: i + 1 for i, name in enumerate(labels)}
