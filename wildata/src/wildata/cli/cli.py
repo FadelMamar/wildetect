@@ -456,6 +456,8 @@ def convert_ls_to_coco(
         if input_path.suffix.lower() != ".json":
             typer.echo(f"[ERROR] Input file must be a JSON file: {input_file}")
             raise typer.Exit(1)
+        if out_file:
+            assert os.path.exists(out_file), f"Not found: {out_file}"
 
         output_path = Path(out_file) if out_file else input_path.with_name(
             f"{input_path.stem}_coco.json"
