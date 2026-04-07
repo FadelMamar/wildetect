@@ -17,7 +17,8 @@ from PIL import Image
 from tqdm import tqdm
 
 from ...shared.models import CurriculumConfig
-from ...utils.io import read_image
+from wildata.adapters.utils import read_image
+
 from ..utils import load_all_detection_datasets
 
 logger = logging.getLogger(__name__)

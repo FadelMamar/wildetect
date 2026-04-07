@@ -7,7 +7,7 @@ from torchvision import transforms as T
 from wildata.datasets.detection import load_detection_dataset
 from wildata.pipeline.path_manager import PathManager
 
-from ..utils.io import read_image
+from wildata.adapters.utils import read_image
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)

@@ -10,19 +10,11 @@ from functools import lru_cache
 from itertools import chain
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-
+from wildata.adapters.utils import read_image
 import torch
-from PIL import Image, ImageOps
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
-
-
-def read_image(image_path: str) -> Image.Image:
-    """Load an image from a file path."""
-    image = Image.open(image_path)
-    ImageOps.exif_transpose(image, in_place=True)
-    return image
 
 
 @lru_cache(maxsize=512)
