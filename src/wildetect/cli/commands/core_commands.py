@@ -69,9 +69,7 @@ def detect(
             ^ (image_dir is not None)
             ^ (loaded_config.labelstudio.project_id is not None)
             ^ (loaded_config.exif_gps_update.image_folder is not None)
-        ), (
-            "Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided"
-        )
+        ), "Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided"
 
         # load image paths from label studio
         image_paths_task_ids = dict()
@@ -237,7 +235,6 @@ def census(
             + (loaded_config.detection.labelstudio.project_id is not None)
             + (loaded_config.detection.exif_gps_update is not None)
         )
-
         if check != 1:
             console.print(
                 "[red]Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update must be provided[/red]"
@@ -246,6 +243,11 @@ def census(
                 f"[red]image_paths {loaded_config.detection.image_paths}, image_dir {loaded_config.detection.image_dir}, labelstudio.project_id {loaded_config.detection.labelstudio.project_id}, exif_gps_update {loaded_config.detection.exif_gps_update}[/red]"
             )
             raise typer.Exit(1)
+
+        if loaded_config.export.export_to_labelstudio:
+            assert (
+                loaded_config.detection.labelstudio.project_id is None
+            ), "labelstudio.project_id must not be provided when export_to_labelstudio is True. It will be created automatically."
 
         image_paths_task_ids = dict()
         if loaded_config.detection.labelstudio.project_id is not None:
@@ -352,18 +354,14 @@ def census(
                     image_paths=image_paths,
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
-                    export_to_labelstudio=loaded_config.detection.labelstudio.project_id
-                    is None
-                    and loaded_config.export.export_to_labelstudio,
+                    export_to_labelstudio=loaded_config.export.export_to_labelstudio,
                 )
             else:
                 results = campaign_manager.run_complete_campaign(
                     image_paths=image_paths,
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
-                    export_to_labelstudio=loaded_config.detection.labelstudio.project_id
-                    is None
-                    and loaded_config.export.export_to_labelstudio,
+                    export_to_labelstudio=loaded_config.export.export_to_labelstudio,
                 )
 
         # Display results

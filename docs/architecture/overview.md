@@ -59,18 +59,7 @@ Each package has a single, well-defined responsibility:
 
 ### 2. Modularity
 
-Packages can be used independently:
-
-```python
-# Use WilData alone for data management
-from wildata import DataPipeline
-
-# Use WildTrain alone for training
-from wildtrain import Trainer
-
-# Use WildDetect for detection
-from wildetect import DetectionPipeline
-```
+The toolkit is designed with modularity in mind, allowing each package to be used independently via its CLI or service interface.
 
 ### 3. Configuration-Driven
 
@@ -158,9 +147,10 @@ src/package/
 
 [Learn more →](wildetect.md)
 
-## Data Flow
+## Complete Workflow
 
-### Complete Workflow
+> [!TIP]
+> **New to WildDetect?** Use the [Interactive Script Navigator](../script-navigator.md) to visually explore which scripts and CLI commands correspond to each step in the workflow.
 
 ```mermaid
 graph TB
@@ -192,31 +182,7 @@ graph TB
 
 ### Example: Complete Pipeline
 
-```python
-# 1. WilData: Prepare dataset
-from wildata import DataPipeline
-
-pipeline = DataPipeline("data")
-pipeline.import_dataset(
-    source_path="annotations.json",
-    source_format="coco",
-    dataset_name="training_data"
-)
-
-# 2. WildTrain: Train model
-from wildtrain import Trainer
-
-trainer = Trainer(config="configs/yolo.yaml")
-model = trainer.train()
-model_uri = trainer.register_model("detector_v1")
-
-# 3. WildDetect: Run detection
-from wildetect import DetectionPipeline
-
-detector = DetectionPipeline(model_uri=model_uri)
-results = detector.detect_batch("aerial_images/")
-detector.generate_report(results, "census_report.json")
-```
+A typical workflow involves preparing data with WilData, training a model with WildTrain, and then performing detection and analysis with WildDetect.
 
 [See detailed data flow →](data-flow.md)
 
@@ -260,59 +226,7 @@ detector.generate_report(results, "census_report.json")
 
 ## Design Patterns
 
-### 1. Factory Pattern
-
-Used for creating detectors, trainers, and datasets:
-
-```python
-# Detector factory
-detector = DetectorFactory.create(
-    framework="yolo",
-    model_path="model.pt"
-)
-
-# Dataset factory
-dataset = DatasetFactory.create(
-    format="coco",
-    path="annotations.json"
-)
-```
-
-### 2. Strategy Pattern
-
-Used for different processing strategies:
-
-```python
-# Different detection strategies
-pipeline = DetectionPipeline(
-    strategy="raster"  # or "simple", "multithreaded", etc.
-)
-```
-
-### 3. Adapter Pattern
-
-Used for format conversions:
-
-```python
-# COCO to YOLO adapter
-coco_data = COCODataset(path)
-yolo_adapter = YOLOAdapter(coco_data)
-yolo_data = yolo_adapter.convert()
-```
-
-### 4. Pipeline Pattern
-
-Used for data transformations:
-
-```python
-# Transformation pipeline
-pipeline = TransformationPipeline([
-    BBoxClippingTransform(),
-    TilingTransform(tile_size=800),
-    AugmentationTransform()
-])
-transformed = pipeline.apply(dataset)
-```
+The project uses various design patterns to ensure modularity and extensibility, such as the Factory pattern for creating components and the Strategy pattern for implementing different detection algorithms.
 
 ## Configuration Management
 
@@ -343,93 +257,22 @@ Priority: CLI > Env Vars > YAML > Defaults
 ## Error Handling
 
 ### Centralized Error Management
-
-```python
-from wildetect.core.exceptions import (
-    DetectionError,
-    ModelLoadError,
-    ConfigurationError
-)
-
-try:
-    detector.detect(image)
-except ModelLoadError as e:
-    logger.error(f"Failed to load model: {e}")
-except DetectionError as e:
-    logger.error(f"Detection failed: {e}")
-```
+The ecosystem includes a centralized error handling system to provide clear feedback on common issues like configuration errors or image loading problems.
 
 ### Validation
-
-All inputs are validated using Pydantic:
-
-```python
-from pydantic import BaseModel, validator
-
-class DetectionConfig(BaseModel):
-    batch_size: int
-    tile_size: int
-    
-    @validator('batch_size')
-    def validate_batch_size(cls, v):
-        if v <= 0:
-            raise ValueError("batch_size must be positive")
-        return v
-```
+All inputs and configurations are validated to ensure they meet the required schema, preventing runtime errors.
 
 ## Logging and Monitoring
 
 ### Structured Logging
-
-```python
-import logging
-
-logger = logging.getLogger(__name__)
-logger.info("Processing image", extra={
-    "image_path": path,
-    "tile_size": 800,
-    "batch_size": 32
-})
-```
+Comprehensive logging is implemented across all packages to track core operations and simplify debugging.
 
 ### Experiment Tracking
-
-```python
-import mlflow
-
-with mlflow.start_run():
-    mlflow.log_params(config)
-    mlflow.log_metrics({"accuracy": 0.95})
-    mlflow.log_artifact("model.pt")
-```
+Built-in support for MLflow allows for detailed tracking of model training runs, metrics, and hyperparameter tuning.
 
 ## Testing Strategy
 
-### Test Structure
-
-```
-tests/
-├── unit/              # Unit tests
-│   ├── test_core/
-│   └── test_adapters/
-├── integration/       # Integration tests
-│   └── test_pipelines/
-└── e2e/              # End-to-end tests
-    └── test_workflows/
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-uv run pytest tests/ -v
-
-# Run specific package tests
-uv run pytest tests/test_detection_pipeline.py -v
-
-# With coverage
-uv run pytest --cov=wildetect tests/
-```
+WildDetect uses a robust testing strategy including unit, integration, and end-to-end tests to ensure reliability across all packages.
 
 ## Performance Considerations
 
@@ -465,7 +308,6 @@ Explore individual package architectures:
 
 Or dive into specific topics:
 
-- [Scripts Reference](../scripts/wildetect/index.md)
-- [Configuration Reference](../configs/wildetect/index.md)
-- [API Documentation](../api-reference/python-api.md)
-
+- [Scripts Reference →](../scripts/wildetect/index.md)
+- [Configuration Reference →](../configs/wildetect/index.md)
+- [CLI Reference →](../api-reference/wildetect-cli.md)
