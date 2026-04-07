@@ -504,11 +504,8 @@ class DroneImage(Tile):
             except Exception as e:
                 logger.error(f"Failed to load image {task.image_path}: {e}")
                 logger.debug(f"task dump: {task.model_dump()}")
-                #logger.error(traceback.format_exc())
                 failed_paths.append(task.image_path)
                 errors += 1
-                #if errors > 5:
-                #    raise Exception("Stopping due to too many errors.")
         
         if len(failed_paths):
             logger.error(f"Failed for these images: {failed_paths}")
