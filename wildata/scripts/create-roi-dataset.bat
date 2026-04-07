@@ -1,5 +1,4 @@
 @echo off
-REM Example: Import a dataset using the WildTrain CLI with a YAML config file
 
 call cd /d "%~dp0" && cd ..
 
