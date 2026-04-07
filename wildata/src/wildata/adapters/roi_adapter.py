@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import random
+from sre_parse import MIN_REPEAT
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -20,9 +21,21 @@ from .utils import read_image
 
 logger = logging.getLogger(__name__)
 
+def is_roi_size_small(bbox:list, roi_box_size=128, min_roi_size=32) -> bool:
+    x, y, w, h = bbox
+    pad_x = roi_box_size // 2
+    pad_y = roi_box_size // 2
+    x1 = max(0, int(x - pad_x))
+    y1 = max(0, int(y - pad_y))
+    x2 = int(x + w + pad_x)
+    y2 = int(y + h + pad_y)
+
+    if (x2 - x1) < min_roi_size or (y2 - y1) < min_roi_size:
+        return True
+    return False
 
 def extract_roi_from_image_bbox(
-    image_path, bbox, roi_box_size=128, min_roi_size=32
+    image:Image.Image, bbox:list, roi_box_size=128, min_roi_size=32
 ) -> Optional[Image.Image]:
     """
     Utility to extract a ROI from an image given a bbox, with padding and resizing.
@@ -35,7 +48,22 @@ def extract_roi_from_image_bbox(
     Returns:
         PIL.Image or None
     """
-    img = read_image(image_path)
+    pad_roi = A.Compose(
+            [
+                A.PadIfNeeded(
+                    min_height=roi_box_size,
+                    min_width=roi_box_size,
+                    border_mode=cv2.BORDER_CONSTANT,
+                    fill=0,
+                ),
+                A.CenterCrop(
+                    height=roi_box_size,
+                    width=roi_box_size,
+                    p=1,
+                ),
+            ]
+        )
+    
     x, y, w, h = bbox
     pad_x = roi_box_size // 2
     pad_y = roi_box_size // 2
@@ -48,8 +76,8 @@ def extract_roi_from_image_bbox(
         logger.warning(f"ROI size is too small: {x2 - x1}x{y2 - y1}")
         return None
 
-    roi = img.crop((x1, y1, x2, y2))
-    roi = roi.resize((roi_box_size, roi_box_size))
+    roi = image.crop((x1, y1, x2, y2))
+    roi = pad_roi(image=roi)["image"]
 
     return roi
 
@@ -216,7 +244,7 @@ class ROIAdapter(BaseAdapter):
                 statistics["rois_from_random"] += image_rois["random_rois"]
                 statistics["total_rois"] += len(image_rois["roi_images"])
 
-        print(statistics)
+        #print(statistics)
 
         return {
             "roi_images": roi_images,
@@ -290,11 +318,8 @@ class ROIAdapter(BaseAdapter):
         height = image["height"]
 
         # Load image for cropping
-        try:
-            img = read_image(image_path)
-            width, height = img.size
-        except Exception as e:
-            logger.warning(f"Error loading image {image_path}: {e}")
+        if not os.path.exists(image_path):
+            logger.warning(f"image {image_path} does not exist")
             return {"roi_images": [], "roi_labels": [], "next_counter": counter}
 
         for ann in annotations:
@@ -436,10 +461,8 @@ class ROIAdapter(BaseAdapter):
         Returns:
             Dictionary with ROI image, label, and next counter, or None if failed
         """
-        roi = extract_roi_from_image_bbox(
-            image_path, bbox, self.roi_box_size, self.min_roi_size
-        )
-        if roi is None:
+        check = is_roi_size_small(bbox=bbox,roi_box_size=self.roi_box_size,min_roi_size=self.min_roi_size)
+        if check:
             return None
         x, y, w, h = bbox
         pad_x = self.roi_box_size // 2
@@ -488,12 +511,11 @@ class ROIAdapter(BaseAdapter):
         width = image_width
         height = image_height
 
-        print("Width:",width,"; height:",height)
-
         w = self.roi_box_size
         h = self.roi_box_size
         x = random.randint(w // 2, width - w // 2)
         y = random.randint(h // 2, height - h // 2)
+        image = read_image(image_path)
 
         bbox = [x, y, w, h]
         roi_result = None
@@ -505,7 +527,7 @@ class ROIAdapter(BaseAdapter):
                 continue
             bbox = roi_result["roi_image"]["bbox"]
             path = roi_result["roi_image"]["original_image_path"]
-            cropped_img = self.crop_image(path, bbox)
+            cropped_img = self.crop_image(image, bbox)
             if not self.is_image_dark(cropped_img):
                 return roi_result
 
@@ -518,20 +540,19 @@ class ROIAdapter(BaseAdapter):
 
     def crop_image(
         self,
-        image_path: Union[str, Path],
+        image: Image.Image,
         bbox: Tuple[float, float, float, float],
         original_bbox: Optional[Tuple[float, float, float, float]] = None,
     ) -> np.ndarray:
-        img = read_image(image_path)
         if original_bbox:
-            img = sv.TriangleAnnotator().annotate(
-                scene=img.copy(),
+            image = sv.TriangleAnnotator().annotate(
+                scene=image.copy(),
                 detections=sv.Detections(
                     xyxy=np.array(original_bbox).reshape(1, 4),
                     class_id=np.array([0]),
                 ),
             )
-        cropped_img = img.crop(bbox)
+        cropped_img = image.crop(bbox)
         cropped_img = np.array(cropped_img)
         return cropped_img
 
@@ -550,7 +571,7 @@ class ROIAdapter(BaseAdapter):
             try:
                 roi_path = str(output_dir / roi_info["roi_filename"])
                 cropped_img = self.crop_image(
-                    roi_info["original_image_path"],
+                    read_image(roi_info["original_image_path"]),
                     roi_info["bbox"],
                     roi_info.get("original_bbox") if draw_original_bboxes else None,
                 )
