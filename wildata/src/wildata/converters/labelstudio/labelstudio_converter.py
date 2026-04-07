@@ -75,7 +75,7 @@ class LabelstudioConverter(BaseConverter):
         
         category_mapping = self.get_category_mapping(ls_xml_config=ls_xml_config,parsed_config=parsed_config)
 
-        coco_data = self._convert_ls_json_to_coco(
+        coco_data = self.convert_ls_json_to_coco(
             input_file=input_file,
             category_mapping=category_mapping,
             out_file_name=None,
@@ -93,7 +93,7 @@ class LabelstudioConverter(BaseConverter):
 
         return dataset_info, coco_data
 
-    def _convert_ls_json_to_coco(
+    def convert_ls_json_to_coco(
         self,
         input_file: str,
         category_mapping: Optional[Dict[str, int]] = None,
