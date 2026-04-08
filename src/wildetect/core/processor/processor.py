@@ -183,8 +183,8 @@ class Classifier(Processor):
         self.model = self.model.to(device)
         try:
             self.model.eval()
-        except Exception:
-            pass
+        except Exception as e:
+            self.logger.warning(f"Failed to set model to eval mode: {e}")
 
         # Setup transform
         self.transform = transform
