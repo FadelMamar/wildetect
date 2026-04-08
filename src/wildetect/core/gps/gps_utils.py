@@ -166,7 +166,7 @@ class GPSUtils:
             # map GPSAltitudeRef
             try:
                 gps_info["GPSAltitudeRef"] = altitude_map[gps_info["GPSAltitudeRef"]]
-            except:
+            except (KeyError, TypeError, IndexError):
                 gps_info["GPSAltitudeRef"] = altitude_map[gps_info["GPSAltitudeRef"][0]]
 
         # rewite latitude
