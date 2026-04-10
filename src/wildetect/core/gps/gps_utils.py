@@ -5,16 +5,14 @@ GPS utilities for wildlife detection with optional dependencies.
 import logging
 from typing import Union
 
-import numpy as np
-
-from ..config import FlightSpecs
-from ..data.utils import read_image
-
-logger = logging.getLogger(__name__)
-
 import geopy
+import numpy as np
 import utm
 from PIL import Image, ImageOps
+
+from ..config import FlightSpecs
+
+logger = logging.getLogger(__name__)
 
 
 def get_pixel_gps_coordinates(
@@ -216,6 +214,8 @@ def get_gsd(
             if exif and "ExifImageHeight" in exif:
                 image_height = exif["ExifImageHeight"]
             else:
+                from ..data.utils import read_image
+
                 image = read_image(image_path)
                 image_height = image.height
 
