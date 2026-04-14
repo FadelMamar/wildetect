@@ -448,6 +448,7 @@ def convert_ls_to_coco(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
     """Convert a Label Studio JSON export to COCO and save it."""
+    assert (ls_xml_config is not None) ^ parse_ls_config, "Provide XML or set parse_ls_config=True"
     try:
         input_path = Path(input_file)
         if not input_path.is_file():
@@ -477,7 +478,7 @@ def convert_ls_to_coco(
                 typer.echo(
                     f"[INFO] Loaded category mapping from XML with {len(category_mapping)} class(es)"
                 )
-        elif parse_ls_config:
+        else:
             parsed_config = converter.get_ls_parsed_config(ls_json_path=str(input_path))
             if parsed_config:
                 category_mapping = converter.get_category_mapping(
@@ -488,12 +489,8 @@ def convert_ls_to_coco(
                         "[INFO] Loaded category mapping from Label Studio parsed config "
                         f"with {len(category_mapping)} class(es)"
                     )
-            elif verbose:
-                typer.echo(
-                    "[INFO] Label Studio parsed config unavailable; using default category order"
-                )
-        else:
-            raise ValueError()
+            else:
+                raise ValueError("Failed to load category mapping from Label Studio")
 
         coco_annotations = converter.convert_ls_json_to_coco(
             input_file=str(input_path),
