@@ -11,7 +11,7 @@
 from dataclasses import dataclass
 from typing import Sequence, Dict, Optional
 from itertools import chain
-from collections import OrderedDict
+
 from torchvision.utils import save_image
 import torchvision.transforms
 from tqdm import tqdm
@@ -49,8 +49,19 @@ class Args:
     n_workers:int=1 
 
     out_file:str="coordinates.json"
+    
+    save_tiles:bool=False
+    out_folder:Optional[str]=None
         
     patterns:str=("*.JPG","*.jpg","*.png","*.PNG","*.jpeg","*.JPEG")
+
+    def __post_init__(self,):
+        if self.out_folder is not None:
+            Path(self.out_folder).mkdir(parents=False,exist_ok=True)
+        
+        assert Path(self.out_file).parent.exists(), "Output directory for JSON file does not exist"
+        assert self.overlapfactor<1, 'It should be less than 1.'
+        assert (self.ratiowidth<=1.0) and (self.ratioheight<=1.0), "The ratios should be at most 1.0"
 
 
 def get_coordinates(image_width,tile_w,image_height,tile_h,overlaping_factor):
@@ -81,7 +92,46 @@ def get_coordinates(image_width,tile_w,image_height,tile_h,overlaping_factor):
         coordinates = product(x_coords,y_coords)
         return list(coordinates)
 
-def process_one_image(args:Args,img_path:str):
+def get_patches(image_tensor,coords:list):
+    
+    patches = list()
+    
+    # store patches
+    for (x_left,x_right),(y_top,y_bottom) in coords:
+        patches.append(image_tensor[:,y_top:y_bottom,x_left:x_right])
+        
+    return patches
+
+def save_list_images(
+    image_tensor:list,
+    tiles_bounds:list,
+    basename: str,
+    dest_folder: str
+    ) -> None:
+    ''' Save mini-batch tensors into image files
+
+    Use torchvision save_image function,
+    see https://pytorch.org/vision/stable/utils.html#torchvision.utils.save_image
+
+    Args:
+        batch (list): mini-batch tensor
+        basename (str) : parent image name, with extension
+        dest_folder (str): destination folder path
+    '''
+    
+
+    # get patches
+    patches = list()
+    for (x_left,x_right),(y_top,y_bottom) in tiles_bounds:
+        patches.append(image_tensor[:,y_top:y_bottom,x_left:x_right])
+
+    base_wo_extension, extension = basename.split('.')[0], basename.split('.')[1]
+    for i, b in enumerate(range(len(patches))):
+        full_path = '_'.join([base_wo_extension, str(i) + '.']) + extension
+        save_path = os.path.join(dest_folder, full_path)
+        save_image(patches[b], fp=save_path)
+
+def get_tile_metadata(args:Args,img_path:str) -> dict:
 
     try:
         pil_img = Image.open(img_path)
@@ -137,36 +187,38 @@ def process_one_image(args:Args,img_path:str):
         for (x_left,x_right),(y_top,y_bottom) in coords:
             x = (x_left+x_right)/2
             y = (y_top+y_bottom)/2
-            lat, lon = get_pixel_gps_coordinates(x=x,y=y,
+            tile_lat, tile_lon = get_pixel_gps_coordinates(x=x,y=y,
                                             W=image_width,
                                             H=image_height,
                                             lat_center=lat,lon_center=long,
                                             gsd=gsd)
-            tile_gps_coords.append((float(lat),float(lon)))
+            tile_gps_coords.append((float(tile_lat),float(tile_lon)))
     else:
         tile_gps_coords = [None for _ in range(len(coords))]
     
     tile_metadata = dict()
-    tile_metadata[Path(img_path).stem] = dict(xy_coords=coords,
-                                        gps_coords=tile_gps_coords,                    
+    tile_metadata[Path(img_path).stem] = dict(tiles_bounds=coords,
+                                        tiles_gps_coords=tile_gps_coords,                    
                                         )
-    return tile_metadata
-        
+    if args.save_tiles:
+        save_list_images(image_tensor=img_tensor,
+                        tiles_bounds=coords,
+                        basename=img_name,
+                        dest_folder=args.out_folder)
+    return tile_metadata 
 
-def get_tiles_gps_and_dimensions(args:Args):
-
-    assert Path(args.out_file).parent.exists(), "Output directory does not exist"
-    assert args.overlapfactor<1, 'It should be less than 1.'
-    assert (args.ratiowidth<=1.0) and (args.ratioheight<=1.0), "The ratios should be at most 1.0"
+def get_tiles_gps_and_dimensions(args:Args) -> dict:
 
     images_paths = chain.from_iterable([Path(args.root).glob(p) for p in args.patterns])
-    images_paths = list(images_paths)
+    images_paths = list(set(images_paths))
 
     tile_metadata = dict()
-    with ThreadPoolExecutor(max_workers=args.n_workers) as executor:
-        futures = [executor.submit(process_one_image, args, img_path) for img_path in images_paths]
-        for future in tqdm(as_completed(futures), total=len(images_paths), desc='Exporting patches'):
-            tile_metadata.update(future.result())
+    #with ThreadPoolExecutor(max_workers=args.n_workers) as executor:
+    #    futures = [executor.submit(get_tile_metadata, args, img_path,save=args.save_tiles) for img_path in images_paths]
+    #    for future in tqdm(as_completed(futures), total=len(images_paths), desc='Exporting patches'):
+    #        tile_metadata.update(future.result())
+    for img_path in tqdm(images_paths, total=len(images_paths), desc='Exporting patches'):
+        tile_metadata.update(get_tile_metadata(args, img_path))
 
     # saving metdata
     json_path = args.out_file
@@ -219,82 +271,166 @@ def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequ
         return False
 
 
-def match_tiles_gps(tile_data: dict, images_dir: str, parent_root: str, cache_size: int = 5):
+def _find_parent_image(parent_root: str, image_name: str) -> Optional[Path]:
+    """Search for parent image file with common extensions."""
+    for ext in ['.JPG', '.jpg', '.png', '.jpeg', '.PNG']:
+        path = Path(parent_root) / f"{image_name}{ext}"
+        if path.exists():
+            return path
+    return None
+
+
+def _process_parent_group(
+    image_name: str,
+    tiles: list,
+    tile_data: dict,
+    parent_root: str,
+) -> tuple:
     """
-    Match tiles gps coordinates to tile paths and verify them.
+    Process all tiles belonging to a single parent image.
+    
+    Loads the parent image once, then verifies and collects metadata
+    for each tile in the group.
+    
+    Args:
+        image_name: parent image stem name
+        tiles: list of (tile_path, index) tuples for this parent
+        tile_data: full tile metadata dict
+        parent_root: directory containing parent images
+    
+    Returns:
+        (group_metadata, verification_failures, error_msg)
+        - group_metadata: dict mapping tile_path -> {tile_bounds, tile_gps_coords}
+        - verification_failures: number of tiles that failed verification
+        - error_msg: None if successful, error string if parent failed
+    """
+    metadata = tile_data.get(image_name)
+    if metadata is None:
+        return {}, 0, f"Image {image_name} not found in metadata"
+
+    parent_path = _find_parent_image(parent_root, image_name)
+    if parent_path is None:
+        return {}, 0, f"Parent image not found for {image_name}"
+
+    try:
+        parent_array = np.array(Image.open(parent_path))
+    except Exception as e:
+        return {}, 0, f"Failed to load parent image {image_name}: {e}"
+
+    group_metadata = {}
+    v_failures = 0
+
+    for tile_path, index in tiles:
+        try:
+            tile_coords = metadata['tiles_bounds'][index]
+            tile_gps = metadata['tiles_gps_coords'][index]
+
+            if not verify_tile(parent_array, tile_path, tile_coords):
+                v_failures += 1
+                continue
+
+            group_metadata[str(tile_path)] = dict(
+                tile_bounds=tile_coords,
+                tile_gps_coords=tile_gps,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to match tile {index} - {tile_path}: {e}")
+
+    return group_metadata, v_failures, None
+
+
+def match_tiles_gps(
+    tile_data: dict,
+    images_dir: str,
+    parent_root: str,
+    max_workers: int = 3,
+):
+    """
+    Match tiles gps coordinates to tile paths and verify them using
+    multi-threading.
+    
+    Tiles are grouped by parent image so each thread loads its parent
+    image once, then verifies all associated tiles. This maximizes I/O
+    parallelism while avoiding shared-cache contention.
     
     Args:
         tile_data (dict): tile data
         images_dir (str): directory containing tile images
         parent_root (str): directory containing parent images
-        cache_size (int): number of parent images to keep in FIFO cache
+        max_workers (int): number of threads to use
     
     Returns:
         dict: tile metadata
     """
-    tile_paths = chain.from_iterable([Path(images_dir).glob(p) for p in ['*.JPG', '*.jpeg', '*.png', '*.jpg', '*.PNG', '*.JPEG']])
-    tile_paths = list(tile_paths)
+    # Discover and group tiles by parent image name
+    _exts = ['*.jpg', '*.jpeg', '*.png']
+    tile_paths = chain.from_iterable(
+        [Path(images_dir).glob(p) for p in _exts + [e.upper() for e in _exts]]
+    )
 
-    tiles_metadata = dict()
-    parent_cache = OrderedDict()
-    failed = set()
-    verification_failures = 0
-    
-    for tile_path in tqdm(tile_paths, desc='Matching tiles gps coordinates'):
+    parent_groups: Dict[str, list] = {}
+    skipped = 0
+    for tile_path in tile_paths:
         try:
             parts = Path(tile_path).stem.split('_')
             index = int(parts[-1])
             image_name = "_".join(parts[:-1])
         except (ValueError, IndexError):
+            skipped += 1
             continue
-        
-        metadata = tile_data.get(image_name)
-        if metadata is None:
-            if image_name not in failed:
-                logger.warning(f"Image {image_name} not found in metadata")
-            failed.add(image_name)
-        else:
+        parent_groups.setdefault(image_name, []).append((tile_path, index))
+
+    if skipped:
+        logger.debug(f"Skipped {skipped} tiles with unparseable names")
+
+    # Process groups in parallel
+    tiles_metadata = {}
+    failed = set()
+    verification_failures = 0
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_name = {
+            executor.submit(
+                _process_parent_group,
+                image_name,
+                tiles,
+                tile_data,
+                parent_root,
+            ): image_name
+            for image_name, tiles in parent_groups.items()
+        }
+
+        for future in tqdm(
+            as_completed(future_to_name),
+            total=len(future_to_name),
+            desc='Matching tiles gps coordinates',
+        ):
+            image_name = future_to_name[future]
             try:
-                tile_coords = metadata['xy_coords'][index]
-                tile_gps = metadata['gps_coords'][index]
-                
-                # Check cache or load parent image
-                if image_name not in parent_cache:
-                    if len(parent_cache) >= cache_size:
-                        parent_cache.popitem(last=False)
-                    
-                    # Search for parent image with common extensions
-                    parent_path = None
-                    for ext in ['.JPG', '.jpg', '.png', '.jpeg', '.PNG']:
-                        path = Path(parent_root) / f"{image_name}{ext}"
-                        if path.exists():
-                            parent_path = path
-                            break
-                    
-                    if parent_path:
-                        parent_cache[image_name] = np.array(Image.open(parent_path))
-                    else:
-                        logger.warning(f"Parent image not found for {image_name}")
-                        parent_cache[image_name] = None
-                
-                parent_array = parent_cache[image_name]
-                if parent_array is not None:
-                    if not verify_tile(parent_array, tile_path, tile_coords):
-                        verification_failures += 1
-                
-                tiles_metadata[str(tile_path)] = dict(tile_coordinates=tile_coords,
-                                                  tile_gps_coord=tile_gps)
+                group_meta, v_failures, error_msg = future.result()
             except Exception as e:
-                if image_name not in failed:
-                    logger.warning(f"Failed to match tile {index} - {tile_path}: {e}")
+                logger.warning(f"Unexpected error processing {image_name}: {e}")
                 failed.add(image_name)
-        
-        if len(failed) > 10:
-            break
-                
+                continue
+
+            if error_msg:
+                logger.warning(error_msg)
+                failed.add(image_name)
+            else:
+                tiles_metadata.update(group_meta)
+                verification_failures += v_failures
+
+            if len(failed) > 10:
+                logger.warning("Too many failures, cancelling remaining tasks")
+                for f in future_to_name:
+                    f.cancel()
+                break
+
     logger.info(f"Failed to match {len(failed)} images")
     if verification_failures > 0:
         logger.info(f"Verification failed for {verification_failures} tiles")
+
+    return tiles_metadata
 
 
 if __name__ == "__main__":
@@ -309,10 +445,14 @@ if __name__ == "__main__":
             flight_height=180,
             sensor_height=7.4,
             out_file=r"D:\workspace\data\savmap_dataset_v2\raw\tiles_coordinates.json",
+            out_folder=r"D:\workspace\data\savmap_dataset_v2\raw\tiles",
+            save_tiles=False
             )
+    
+    
 
-    tile_data = get_tiles_gps_and_dimensions(args)
+    #tile_data = get_tiles_gps_and_dimensions(args)
 
-    #tile_data = load_coordinates(args.out_file)
+    tile_data = load_coordinates(args.out_file)
 
-    match_tiles_gps(tile_data, r"D:\workspace\data\savmap_dataset_v2\images_splits", parent_root=args.root)
+    match_tiles_gps(tile_data, r"D:\workspace\data\savmap_dataset_v2\raw\tiles", parent_root=args.root)
