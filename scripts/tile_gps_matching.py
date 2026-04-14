@@ -8,7 +8,6 @@
 - ```-rmwidth``` : percentage of width to remove or crop on each side of the image
 - ```-pattern``` : "**/*.JPG" will get all .JPG images in directory and subdirectories. On windows it will get both .JPG and .jpg. On unix it will only get .JPG images
 """
-from dataclasses import dataclass
 from typing import Sequence, Dict, Optional
 from itertools import chain
 
@@ -18,10 +17,13 @@ from tqdm import tqdm
 import math
 from itertools import product
 import numpy as np
+import csv
 import json, os
 from pathlib import Path
 from PIL import Image
 import logging
+from pydantic import BaseModel, Field, model_validator
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from wildetect.core.gps import GPSUtils, get_gsd, get_pixel_gps_coordinates
 from wildetect.core.config import FlightSpecs
@@ -30,43 +32,69 @@ from wildetect.core.config import FlightSpecs
 
 logger = logging.getLogger(__name__)
 
-@dataclass
-class Args:
+
+class Args(BaseModel):
 
     root:str
 
     rmheight:float
     rmwidth:float
 
-    flight_height:float=180
-    sensor_height:float=7.4,
+    flight_height: float = 180
+    sensor_height: float = 7.4
 
-    overlapfactor:float=0.1
+    overlapfactor: float = Field(default=0.1,lt=1.,ge=0.0)
 
-    ratiowidth:float=0.5
-    ratioheight:float=0.5  
+    ratiowidth: float = Field(default=0.5,le=1.,ge=0.0)
+    ratioheight: float = Field(default=0.5,le=1.,ge=0.0)
 
-    n_workers:int=1 
+    n_workers: int = 3
 
-    out_file:str="coordinates.json"
+    mae_threshold:float = 70.0
+
+    out_json_coords_files: Optional[str] = None
     
-    save_tiles:bool=False
-    out_folder:Optional[str]=None
-        
-    patterns:tuple = tuple(
-        f"**/{ext}"
-        for base in ("*.jpg", "*.jpeg", "*.png")
-        for ext in (base, base.upper())
+    save_tiles: bool = False
+    out_folder: Optional[str] = None
+
+    patterns: tuple[str, ...] = Field(
+        default_factory=lambda: tuple(
+            f"**/{ext}"
+            for base in ("*.jpg", "*.jpeg", "*.png")
+            for ext in (base, base.upper())
+        )
     )
 
+    # tile
+    tiled_images_folder: Optional[str] = None
 
-    def __post_init__(self,):
+    # CSV
+    altitude: Optional[float] = None
+    filename_col:str = "filename"  # CSV column name for filenames
+    lat_col:str = "latitude" # CSV column name for latitude
+    lon_col:str = "longitude"  # CSV column name for longitude
+    alt_col:str = "altitude"  # CSV column name for altitude
+    out_csv_path: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_args(self) -> "Args":
         if self.out_folder is not None:
-            Path(self.out_folder).mkdir(parents=False,exist_ok=True)
-        
-        assert Path(self.out_file).parent.exists(), "Output directory for JSON file does not exist"
-        assert self.overlapfactor<1, 'It should be less than 1.'
-        assert (self.ratiowidth<=1.0) and (self.ratioheight<=1.0), "The ratios should be at most 1.0"
+            Path(self.out_folder).mkdir(parents=False, exist_ok=True)
+
+        if self.overlapfactor >= 1:
+            raise ValueError("overlapfactor should be less than 1")
+        if self.ratiowidth > 1.0 or self.ratioheight > 1.0:
+            raise ValueError("ratiowidth and ratioheight should be at most 1.0")
+
+        if self.out_json_coords_files is None:
+            root_name = Path(self.root).stem
+            self.out_json_coords_files = Path(self.root).with_name(root_name+"-coordinates.json")
+
+        if self.out_csv_path is None:
+            root_name = Path(self.root).stem
+            self.out_csv_path = str(Path(self.root).with_name(root_name + "-coordinates.csv"))
+
+        return self
 
 
 def get_coordinates(image_width,tile_w,image_height,tile_h,overlaping_factor):
@@ -224,12 +252,11 @@ def get_tiles_gps_and_dimensions(args:Args) -> dict:
             tile_metadata.update(future.result())
 
     # saving metdata
-    json_path = args.out_file
+    json_path = args.out_json_coords_files
     with open(json_path, "w") as f:
         json.dump(tile_metadata, f, indent=1)
 
     return tile_metadata
-
 
 def load_coordinates(coord_path:str):
     """
@@ -245,8 +272,7 @@ def load_coordinates(coord_path:str):
         tile_data = json.load(file)
     return tile_data
 
-
-def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequence[int]], thresh: float = 20.0):
+def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequence[int]], thresh: float = 60.0):
     """
     Verify that a tile matches its parent image at the given coordinates.
     """
@@ -273,21 +299,19 @@ def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequ
         logger.warning(f"Error during verification of {tile_path.name}: {str(e)}")
         return False
 
-
-def _find_parent_image(parent_root: str, image_name: str) -> Optional[Path]:
+def _find_parent_image(images_paths: list[str], image_name: str) -> Optional[Path]:
     """Search for parent image file with common extensions."""
-    for ext in ['.JPG', '.jpg', '.png', '.jpeg', '.PNG']:
-        path = Path(parent_root) / f"{image_name}{ext}"
-        if path.exists():
-            return path
+    for p in images_paths:
+        if Path(p).stem == image_name:
+            return p
     return None
-
 
 def _process_parent_group(
     image_name: str,
     tiles: list,
     tile_data: dict,
-    parent_root: str,
+    parent_images_paths: str,
+    mae_threshold: float = 65
 ) -> tuple:
     """
     Process all tiles belonging to a single parent image.
@@ -311,7 +335,7 @@ def _process_parent_group(
     if metadata is None:
         return {}, 0, f"Image {image_name} not found in metadata"
 
-    parent_path = _find_parent_image(parent_root, image_name)
+    parent_path = _find_parent_image(parent_images_paths, image_name)
     if parent_path is None:
         return {}, 0, f"Parent image not found for {image_name}"
 
@@ -328,7 +352,7 @@ def _process_parent_group(
             tile_coords = metadata['tiles_bounds'][index]
             tile_gps = metadata['tiles_gps_coords'][index]
 
-            if not verify_tile(parent_array, tile_path, tile_coords):
+            if not verify_tile(parent_array, tile_path, tile_coords, mae_threshold):
                 v_failures += 1
                 continue
 
@@ -341,13 +365,14 @@ def _process_parent_group(
 
     return group_metadata, v_failures, None
 
-
 def match_tiles_gps(
     tile_data: dict,
     images_dir: str,
     parent_root: str,
     max_workers: int = 3,
-):
+    failure_threshold: int = 10,
+    mae_threshold: float = 70.
+) -> dict:
     """
     Match tiles gps coordinates to tile paths and verify them using
     multi-threading.
@@ -370,7 +395,11 @@ def match_tiles_gps(
     tile_paths = chain.from_iterable(
         [Path(images_dir).glob(p) for p in _exts + [e.upper() for e in _exts]]
     )
-    tile_paths = list(set(tile_paths))
+    tile_paths = sorted(list(set(tile_paths)))
+
+    # Get Parent images
+    parent_images_paths = chain.from_iterable([Path(parent_root).glob(p) for p in args.patterns])
+    parent_images_paths = sorted(list(set(parent_images_paths)))
 
     parent_groups: Dict[str, list] = {}
     skipped = 0
@@ -399,7 +428,8 @@ def match_tiles_gps(
                 image_name,
                 tiles,
                 tile_data,
-                parent_root,
+                parent_images_paths,
+                mae_threshold
             ): image_name
             for image_name, tiles in parent_groups.items()
         }
@@ -424,7 +454,7 @@ def match_tiles_gps(
                 tiles_metadata.update(group_meta)
                 verification_failures += v_failures
 
-            if len(failed) > 10:
+            if len(failed) > failure_threshold:
                 logger.warning("Too many failures, cancelling remaining tasks")
                 for f in future_to_name:
                     f.cancel()
@@ -436,27 +466,104 @@ def match_tiles_gps(
 
     return tiles_metadata
 
+def convert_metadata_to_csv(
+    tiles_metadata: dict,
+    out_csv_path: str,
+    altitude: Optional[float] = None,
+    filename_col:str = "filename",  # CSV column name for filenames
+    lat_col:str = "latitude",  # CSV column name for latitude
+    lon_col:str = "longitude",  # CSV column name for longitude
+    alt_col:str = "altitude",  # CSV column name for altitude
+) -> tuple[str, int]:
+
+    out_path = Path(out_csv_path)
+    if not out_path.parent.exists():
+        raise FileNotFoundError(f"Output directory does not exist: {out_path.parent}")
+
+    rows = []
+    for tile_path, metadata in tqdm(tiles_metadata.items(),desc="Creating CSV"):
+        lat = None
+        lon = None
+        tile_gps = None
+
+        if isinstance(metadata, dict):
+            tile_gps = metadata.get("tile_gps_coords")
+        else:
+            logger.warning(f"Malformed metadata for tile {tile_path}: expected dict")
+
+        if tile_gps is not None:
+            if isinstance(tile_gps, (list, tuple)) and len(tile_gps) == 2:
+                lat, lon = tile_gps
+            else:
+                logger.warning(
+                    f"Malformed tile_gps_coords for tile {tile_path}: {tile_gps}"
+                )
+
+        rows.append(
+            {
+                filename_col: Path(tile_path).name,
+                lat_col: lat,
+                lon_col: lon,
+                alt_col: altitude,
+            }
+        )
+
+    fieldnames = [filename_col, lat_col, lon_col, alt_col]
+    with out_path.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    logger.info(f"Wrote {len(rows)} rows to CSV: {out_path}")
+    return str(out_path), len(rows)
 
 if __name__ == "__main__":
 
-    args = Args(root=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1",
+    args = Args(
+        
+            # Parent image folder
+            root=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1",
+
+            # cropping configs
             overlapfactor=0.1,
             ratiowidth=0.5,
-            ratioheight=0.9999,
+            ratioheight=1.0,
             rmheight=0.31,
             rmwidth=0.20,
-            flight_height=180,
+            flight_height=180, # Used to compute GSD 
             sensor_height=24,
-            out_file=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep1_coordinates.json",
+
+            out_json_coords_files=None,
             out_folder=None,
             save_tiles=False,
-            n_workers=3,
+
+            tiled_images_folder=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled",
+
+            # CSV config
+            altitude=180,
+            filename_col="filename",
+            lat_col="latitude",
+            lon_col="longitude",
+            alt_col="altitude",
+            out_csv_path=None
+
             )
     
-    
-
     tile_data = get_tiles_gps_and_dimensions(args)
+    
+    #tile_data = load_coordinates(args.out_json_coords_files)
 
-    #tile_data = load_coordinates(args.out_file)
-
-    match_tiles_gps(tile_data, r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled", parent_root=args.root)
+    tiles_metadata = match_tiles_gps(
+        tile_data,
+        args.tiled_images_folder,
+        parent_root=args.root,
+    )
+    convert_metadata_to_csv(
+        tiles_metadata,
+        out_csv_path=args.out_csv_path,
+        altitude=args.altitude if args.altitude is not None else args.flight_height,
+        filename_col=args.filename_col,
+        lat_col=args.lat_col,
+        lon_col=args.lon_col,
+        alt_col=args.alt_col,
+    )
