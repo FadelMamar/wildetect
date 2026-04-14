@@ -69,7 +69,7 @@ class ExifGPSUpdateConfig(BaseModel):
     csv_path: Optional[str] = Field(
         default=None, description="Path to CSV file with GPS coordinates"
     )
-    skip_rows: int = Field(default=0, description="Number of rows to skip in CSV")
+    skip_rows: Optional[int] = Field(default=None, description="Number of rows to skip in CSV")
     filename_col: str = Field(
         default="filename", description="CSV column name for filenames"
     )
