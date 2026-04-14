@@ -17,11 +17,10 @@ import torchvision.transforms.v2 as T
 from label_studio_sdk.client import LabelStudio
 from label_studio_tools.core.utils.io import get_local_path
 from tqdm import tqdm
+from wildata.adapters.utils import read_image
 
 from wildtrain.models.classifier import GenericClassifier
 from wildtrain.models.detector import Detector
-
-from .utils.io import read_image
 
 logger = logging.getLogger(__name__)
 

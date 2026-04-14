@@ -4,19 +4,12 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-from PIL import Image, ImageOps
 from wildata.pipeline.path_manager import PathManager
+from wildata.adapters.utils import read_image
 
 from .logging import get_logger
 
 logger = get_logger(__name__)
-
-
-def read_image(image_path: str) -> Image.Image:
-    """Load an image from a file path."""
-    image = Image.open(image_path)
-    image = ImageOps.exif_transpose(image)
-    return image
 
 
 def load_yaml(path: str):
