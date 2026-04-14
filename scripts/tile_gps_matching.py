@@ -17,7 +17,7 @@ from tqdm import tqdm
 import math
 from itertools import product
 import numpy as np
-import csv
+import pandas as pd
 import json, os
 from pathlib import Path
 from PIL import Image
@@ -508,11 +508,8 @@ def convert_metadata_to_csv(
             }
         )
 
-    fieldnames = [filename_col, lat_col, lon_col, alt_col]
-    with out_path.open("w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    dataframe = pd.DataFrame(rows, columns=[filename_col, lat_col, lon_col, alt_col])
+    dataframe.to_csv(out_path, index=False, encoding="utf-8")
 
     logger.info(f"Wrote {len(rows)} rows to CSV: {out_path}")
     return str(out_path), len(rows)
@@ -523,6 +520,7 @@ if __name__ == "__main__":
         
             # Parent image folder
             root=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1",
+            tiled_images_folder=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled",
 
             # cropping configs
             overlapfactor=0.1,
@@ -533,11 +531,9 @@ if __name__ == "__main__":
             flight_height=180, # Used to compute GSD 
             sensor_height=24,
 
-            out_json_coords_files=None,
-            out_folder=None,
+            out_json_coords_files=None, # Set automatically
+            out_folder=None, # Set if tiles should be saved
             save_tiles=False,
-
-            tiled_images_folder=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled",
 
             # CSV config
             altitude=180,
@@ -549,9 +545,9 @@ if __name__ == "__main__":
 
             )
     
-    tile_data = get_tiles_gps_and_dimensions(args)
+    #tile_data = get_tiles_gps_and_dimensions(args)
     
-    #tile_data = load_coordinates(args.out_json_coords_files)
+    tile_data = load_coordinates(args.out_json_coords_files)
 
     tiles_metadata = match_tiles_gps(
         tile_data,
