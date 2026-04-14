@@ -11,9 +11,9 @@ REM Default output is <input_stem>_coco.json beside the input. Uncomment to set 
 call uv run --env-file ..\.env wildata convert-ls-to-coco "%LS_JSON%" --verbose --parse-ls-config
 
 REM Optional: category IDs from Label Studio XML labeling config
-::call uv run --env-file ..\.env wildata convert-ls-to-coco "%LS_JSON%" %OUT_OPT% --ls-xml-config "configs\label_studio_config.xml" --verbose
+::call uv run --env-file ..\.env wildata convert-ls-to-coco "%LS_JSON%" -o %OUT_OPT% --ls-xml-config "configs\label_studio_config.xml" --verbose
 
 REM Optional: derive categories from Label Studio API (LABEL_STUDIO_URL / LABEL_STUDIO_API_KEY in ..\.env)
-::call uv run --env-file ..\.env wildata convert-ls-to-coco "%LS_JSON%" %OUT_OPT% --parse-ls-config --verbose
+::call uv run --env-file ..\.env wildata convert-ls-to-coco "%LS_JSON%" -o %OUT_OPT% --parse-ls-config --verbose
 
 call pause
