@@ -218,12 +218,10 @@ def get_tiles_gps_and_dimensions(args:Args) -> dict:
     images_paths = list(set(images_paths))
 
     tile_metadata = dict()
-    #with ThreadPoolExecutor(max_workers=args.n_workers) as executor:
-    #    futures = [executor.submit(get_tile_metadata, args, img_path,save=args.save_tiles) for img_path in images_paths]
-    #    for future in tqdm(as_completed(futures), total=len(images_paths), desc='Exporting patches'):
-    #        tile_metadata.update(future.result())
-    for img_path in tqdm(images_paths, total=len(images_paths), desc='Exporting patches'):
-        tile_metadata.update(get_tile_metadata(args, img_path))
+    with ThreadPoolExecutor(max_workers=args.n_workers) as executor:
+        futures = [executor.submit(get_tile_metadata, args, img_path) for img_path in images_paths]
+        for future in tqdm(as_completed(futures), total=len(images_paths), desc='Exporting patches'):
+            tile_metadata.update(future.result())
 
     # saving metdata
     json_path = args.out_file
@@ -372,6 +370,7 @@ def match_tiles_gps(
     tile_paths = chain.from_iterable(
         [Path(images_dir).glob(p) for p in _exts + [e.upper() for e in _exts]]
     )
+    tile_paths = list(set(tile_paths))
 
     parent_groups: Dict[str, list] = {}
     skipped = 0
