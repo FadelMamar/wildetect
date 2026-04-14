@@ -206,14 +206,23 @@ class LoaderConfig:
             and (self.alt_col is not None)
             and (self.filename_col is not None)
         ), "lat_col, lon_col, alt_col, and filename_col must be provided"
-        cfg = {
-            self.lat_col: "latitude",
-            self.lon_col: "longitude",
-            self.alt_col: "altitude",
-            self.filename_col: "image_path",
-        }
-        return (
-            self.csv_data.rename(columns=cfg)
-            .set_index("image_path")
-            .to_dict(orient="index")
+        df = self.csv_data.rename(
+            columns={
+                self.lat_col: "latitude",
+                self.lon_col: "longitude",
+                self.alt_col: "altitude",
+            }
         )
+        
+        if "image_path" in df.columns:
+            path_series = df["image_path"]
+        elif self.filename_col in df.columns:
+            path_series = df[self.filename_col]
+        else:
+            raise ValueError(
+                "csv_data must contain an 'image_path' column (from to_df) "
+                f"or filename column {self.filename_col!r}"
+            )
+        out = df[["latitude", "longitude", "altitude"]].copy()
+        out.index = path_series.astype(str)
+        return out.to_dict(orient="index")

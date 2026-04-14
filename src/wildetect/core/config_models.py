@@ -70,6 +70,7 @@ class ExifGPSUpdateConfig(BaseModel):
         default=None, description="Path to CSV file with GPS coordinates"
     )
     skip_rows: Optional[int] = Field(default=None, description="Number of rows to skip in CSV")
+    delimiter: str = Field(default=';', description="CSV delimiter")
     filename_col: str = Field(
         default="filename", description="CSV column name for filenames"
     )
@@ -98,24 +99,19 @@ class ExifGPSUpdateConfig(BaseModel):
 
     def to_df(self) -> pd.DataFrame:
         """Convert configuration to DataFrame."""
-        try:
-            df = pd.read_csv(
-                self.csv_path,
-                skiprows=self.skip_rows,
-                sep=";",
-            )
-        except Exception:
-            logger.debug(
-                f"Failed to read CSV file {self.csv_path} with separator ';', trying with ','"
-            )
-            df = pd.read_csv(
-                self.csv_path,
-                skiprows=self.skip_rows,
-                sep=",",
-            )
-        df[self.filename_col] = df[self.filename_col].apply(
-            lambda x: os.path.join(self.image_folder, os.path.basename(x))
+        df = pd.read_csv(
+            self.csv_path,
+            skiprows=self.skip_rows,
+            sep=self.delimiter,
         )
+        
+        try:
+            df["image_path"] = df[self.filename_col].apply(
+                lambda x: os.path.join(self.image_folder, os.path.basename(x))
+            )
+        except Exception as e:
+            print("Columns:",df.columns)
+            raise e
         return df
 
 

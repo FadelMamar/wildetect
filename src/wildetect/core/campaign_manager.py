@@ -355,6 +355,7 @@ class CampaignManager:
         pbar = tqdm(total=len(image_paths), desc="Validating image paths")
 
         def validate_image(image_path: str) -> bool:
+            nonlocal no_gps_count, num_files_not_found
             reason = None
             assert isinstance(image_path, str), "image_paths must be a list of strings"
             try:
@@ -373,9 +374,9 @@ class CampaignManager:
                 return
             # Check for GPS coordinates
             try:
-                lat, lon, alt = self.detection_pipeline.get_image_gps_coords(image_path)
-                if (lat is None) or (lon is None):
-                    if GPSUtils.get_gps_coord(file_name=image_path) is None:
+                if GPSUtils.get_gps_coord(file_name=image_path) is None:
+                    lat, lon, alt = self.detection_pipeline.get_image_gps_coords(image_path)
+                    if (lat is None) or (lon is None):
                         reason = "No GPS coordinates found"
                         no_gps_count += 1
                         invalid_images.append((image_path, reason))
@@ -385,7 +386,7 @@ class CampaignManager:
                         pbar.update(1)
                         return
             except Exception as e:
-                reason = f"Error extracting GPS: {e}"
+                reason = f"{type(e).__name__}: {e}"
                 invalid_images.append((image_path, reason))
                 logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
                 pbar.update(1)

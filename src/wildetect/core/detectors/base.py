@@ -132,15 +132,35 @@ class BaseDetectionPipeline(ABC):
 
         return None
 
+    def _csv_row_for_image_path(self, image_path: str) -> Optional[dict]:
+        """Resolve CSV row for a path; keys may be absolute, normalized, or basename-only."""
+        if not self.image_csv_data:
+            return None
+        candidates = [
+            image_path,
+            os.path.normpath(image_path),
+            os.path.normcase(os.path.normpath(image_path)),
+            os.path.basename(image_path),
+        ]
+        try:
+            candidates.append(str(Path(image_path).resolve()))
+        except OSError:
+            pass
+        for key in candidates:
+            row = self.image_csv_data.get(key)
+            if row is not None:
+                return row
+        return None
+
     def get_image_gps_coords(self, image_path: str) -> Tuple:
         """Get image GPS coordinates from CSV or image directory."""
         if self.image_csv_data is not None:
-            return (
-                self.image_csv_data[image_path]["latitude"],
-                self.image_csv_data[image_path]["longitude"],
-                self.image_csv_data[image_path]["altitude"],
-            )
+            row = self._csv_row_for_image_path(image_path)
+            if row is None:
+                return None, None, None
+            return row["latitude"], row["longitude"], row["altitude"]
         else:
+            logger.warning("``self.image_csv_data is not set``")
             return None, None, None
 
     def clear(
