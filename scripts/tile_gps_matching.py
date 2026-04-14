@@ -440,18 +440,18 @@ def match_tiles_gps(
 
 if __name__ == "__main__":
 
-    args = Args(root=r"D:\workspace\data\savmap_dataset_v2\raw\images",
+    args = Args(root=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1",
             overlapfactor=0.1,
-            ratiowidth=0.33,
-            ratioheight=0.5,
-            rmheight=0.0,
-            n_workers=3,
-            rmwidth=0.0,
+            ratiowidth=0.5,
+            ratioheight=0.9999,
+            rmheight=0.31,
+            rmwidth=0.20,
             flight_height=180,
-            sensor_height=7.4,
-            out_file=r"D:\workspace\data\savmap_dataset_v2\raw\tiles_coordinates.json",
-            out_folder=r"D:\workspace\data\savmap_dataset_v2\raw\tiles",
-            save_tiles=False
+            sensor_height=24,
+            out_file=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep1_coordinates.json",
+            out_folder=None,
+            save_tiles=False,
+            n_workers=3,
             )
     
     
@@ -460,4 +460,4 @@ if __name__ == "__main__":
 
     #tile_data = load_coordinates(args.out_file)
 
-    match_tiles_gps(tile_data, r"D:\workspace\data\savmap_dataset_v2\raw\tiles", parent_root=args.root)
+    match_tiles_gps(tile_data, r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled", parent_root=args.root)
