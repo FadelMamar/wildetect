@@ -53,7 +53,12 @@ class Args:
     save_tiles:bool=False
     out_folder:Optional[str]=None
         
-    patterns:str=("*.JPG","*.jpg","*.png","*.PNG","*.jpeg","*.JPEG")
+    patterns:tuple = tuple(
+        f"**/{ext}"
+        for base in ("*.jpg", "*.jpeg", "*.png")
+        for ext in (base, base.upper())
+    )
+
 
     def __post_init__(self,):
         if self.out_folder is not None:
@@ -451,8 +456,8 @@ if __name__ == "__main__":
     
     
 
-    #tile_data = get_tiles_gps_and_dimensions(args)
+    tile_data = get_tiles_gps_and_dimensions(args)
 
-    tile_data = load_coordinates(args.out_file)
+    #tile_data = load_coordinates(args.out_file)
 
     match_tiles_gps(tile_data, r"D:\workspace\data\savmap_dataset_v2\raw\tiles", parent_root=args.root)
