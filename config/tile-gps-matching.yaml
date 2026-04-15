@@ -1,0 +1,44 @@
+# Tile / GPS matching for scripts/tile_gps_matching.py (see Args in that file).
+# Edit paths, then run: uv run scripts/tile_gps_matching.py run --config=config/tile-gps-matching.yaml
+
+# Parent folder of full-resolution images (required)
+root: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1
+
+# Folder containing tiled images to match (optional but typical)
+tiled_images_folder: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled
+
+# Crop margins as fraction of height/width removed from each edge band (required)
+rmheight: 0.31
+rmwidth: 0.20
+
+flight_height: 180
+sensor_height: 7.4
+
+overlapfactor: 0.1
+ratiowidth: 0.5
+ratioheight: 1.0
+
+n_workers: 3
+
+# Mean Absolute Error
+mae_threshold: 70.0
+
+# Written by the script unless overridden
+out_json_coords_files: null
+save_tiles: false
+out_folder: null
+
+patterns:
+  - "**/*.jpg"
+  - "**/*.JPG"
+  - "**/*.jpeg"
+  - "**/*.JPEG"
+  - "**/*.png"
+  - "**/*.PNG"
+
+altitude: 180
+filename_col: "filename"
+lat_col: "latitude"
+lon_col: "longitude"
+alt_col: "altitude"
+out_csv_path: null

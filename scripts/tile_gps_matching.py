@@ -22,6 +22,8 @@ import json, os
 from pathlib import Path
 from PIL import Image
 import logging
+import fire
+import yaml
 from pydantic import BaseModel, Field, model_validator
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -514,40 +516,11 @@ def convert_metadata_to_csv(
     logger.info(f"Wrote {len(rows)} rows to CSV: {out_path}")
     return str(out_path), len(rows)
 
-if __name__ == "__main__":
+def main(args:Args):
 
-    args = Args(
-        
-            # Parent image folder
-            root=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1",
-            tiled_images_folder=r"D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled",
-
-            # cropping configs
-            overlapfactor=0.1,
-            ratiowidth=0.5,
-            ratioheight=1.0,
-            rmheight=0.31,
-            rmwidth=0.20,
-            flight_height=180, # Used to compute GSD 
-            sensor_height=24,
-
-            out_json_coords_files=None, # Set automatically
-            out_folder=None, # Set if tiles should be saved
-            save_tiles=False,
-
-            # CSV config
-            altitude=180,
-            filename_col="filename",
-            lat_col="latitude",
-            lon_col="longitude",
-            alt_col="altitude",
-            out_csv_path=None
-
-            )
+    tile_data = get_tiles_gps_and_dimensions(args)
     
-    #tile_data = get_tiles_gps_and_dimensions(args)
-    
-    tile_data = load_coordinates(args.out_json_coords_files)
+    #tile_data = load_coordinates(args.out_json_coords_files)
 
     tiles_metadata = match_tiles_gps(
         tile_data,
@@ -563,3 +536,54 @@ if __name__ == "__main__":
         lon_col=args.lon_col,
         alt_col=args.alt_col,
     )
+
+
+def _args_from_config_and_overrides(
+    config: Optional[str], overrides: dict[str, object]
+) -> Args:
+    merged: dict = {}
+    if config is not None:
+        path = Path(config).expanduser().resolve()
+        with open(path, encoding="utf-8") as f:
+            loaded = yaml.safe_load(f)
+        if loaded is None:
+            loaded = {}
+        if not isinstance(loaded, dict):
+            raise ValueError(f"Config must be a YAML mapping at top level, got {type(loaded)}")
+        merged = dict(loaded)
+
+    field_names = set(Args.model_fields.keys())
+    for key, value in overrides.items():
+        if key not in field_names:
+            continue
+        if value is not None:
+            merged[key] = value
+
+    return Args(**merged)
+
+
+class TileGpsMatchingCli:
+    """CLI for tile GPS matching (Fire). Use the ``run`` command."""
+
+    def run(
+        self,
+        config: Optional[str] = None,
+        trace: bool = False,
+        help: bool = False,  # noqa: A002 — Fire passes this for ``run --help``
+        **overrides: object,
+    ) -> None:
+        """Load YAML from ``config`` then apply any ``Args`` fields passed as flags."""
+        if help:
+            logger.info(
+                "For a full flag list including ``Args`` fields, run: "
+                "%s run -- --help",
+                Path(__file__).name,
+            )
+            return
+        del trace  # Fire-only flag
+        args = _args_from_config_and_overrides(config, dict(overrides))
+        main(args)
+
+
+if __name__ == "__main__":
+    fire.Fire(TileGpsMatchingCli)
