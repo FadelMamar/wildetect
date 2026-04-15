@@ -441,7 +441,6 @@ class DroneImage(Tile):
                 exif_gps_update.lat_col: "latitude",
                 exif_gps_update.lon_col: "longitude",
                 exif_gps_update.alt_col: "altitude",
-                exif_gps_update.filename_col: "image_path",
             }
             csv_dict = (
                 df.rename(columns=cfg_rename)
@@ -452,14 +451,15 @@ class DroneImage(Tile):
         def get_image_gps_coords(
             img_path: str,
         ) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+            nonlocal errors_gps
             if csv_dict is None:
                 return None, None, None
             else:
                 if img_path not in csv_dict:
                     logger.error(f"Image path {img_path} not found in csv_dict")
                     errors_gps += 1
-                    if errors_gps > 5:
-                        raise Exception("Image paths not found in csv_dict.")
+                    if errors_gps > 10:
+                        raise Exception("+10 Image paths not found in csv_dict.")
                     return None, None, None
                 return (
                     csv_dict[img_path]["latitude"],
@@ -509,9 +509,10 @@ class DroneImage(Tile):
                 errors += 1
                 #if errors > 5:
                 #    raise Exception("Stopping due to too many errors.")
-        
-        if len(failed_paths):
-            logger.error(f"Failed for these images: {failed_paths}")
+        num_failed = len(failed_paths)
+        if num_failed:
+            n = min(5,num_failed)
+            logger.error(f"Failed for {num_failed} images e.g. {failed_paths[:n]}...")
 
         return all_drone_images
 
