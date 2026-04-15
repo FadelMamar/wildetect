@@ -11,12 +11,12 @@ tiled_images_folder: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep
 rmheight: 0.31
 rmwidth: 0.20
 
-flight_height: 180
-sensor_height: 7.4
-
 overlapfactor: 0.1
 ratiowidth: 0.5
 ratioheight: 1.0
+
+flight_height: 180
+sensor_height: 24
 
 n_workers: 3
 
@@ -25,6 +25,9 @@ mae_threshold: 70.0
 
 # Written by the script unless overridden
 out_json_coords_files: null
+load_existing_json_file: false
+
+# save
 save_tiles: false
 out_folder: null
 

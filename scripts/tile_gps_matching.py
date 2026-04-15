@@ -55,6 +55,7 @@ class Args(BaseModel):
     mae_threshold:float = 70.0
 
     out_json_coords_files: Optional[str] = None
+    load_existing_json_file: bool = False
     
     save_tiles: bool = False
     out_folder: Optional[str] = None
@@ -78,6 +79,8 @@ class Args(BaseModel):
     alt_col:str = "altitude"  # CSV column name for altitude
     out_csv_path: Optional[str] = None
 
+
+
     @model_validator(mode="after")
     def validate_args(self) -> "Args":
         if self.out_folder is not None:
@@ -91,10 +94,14 @@ class Args(BaseModel):
         if self.out_json_coords_files is None:
             root_name = Path(self.root).stem
             self.out_json_coords_files = Path(self.root).with_name(root_name+"-coordinates.json")
+        else:
+            assert Path(self.out_json_coords_files), "Provide a valid file like coords.json"
 
         if self.out_csv_path is None:
             root_name = Path(self.root).stem
             self.out_csv_path = str(Path(self.root).with_name(root_name + "-coordinates.csv"))
+        else:
+            assert Path(self.out_csv_path).is_file(), "Provide a file path like gps.csv"
 
         return self
 
@@ -371,6 +378,7 @@ def match_tiles_gps(
     tile_data: dict,
     images_dir: str,
     parent_root: str,
+    image_ext_patterns:list,
     max_workers: int = 3,
     failure_threshold: int = 10,
     mae_threshold: float = 70.
@@ -393,14 +401,13 @@ def match_tiles_gps(
         dict: tile metadata
     """
     # Discover and group tiles by parent image name
-    _exts = ['*.jpg', '*.jpeg', '*.png']
     tile_paths = chain.from_iterable(
-        [Path(images_dir).glob(p) for p in _exts + [e.upper() for e in _exts]]
+        [Path(images_dir).glob(p) for p in image_ext_patterns]
     )
     tile_paths = sorted(list(set(tile_paths)))
 
     # Get Parent images
-    parent_images_paths = chain.from_iterable([Path(parent_root).glob(p) for p in args.patterns])
+    parent_images_paths = chain.from_iterable([Path(parent_root).glob(p) for p in image_ext_patterns])
     parent_images_paths = sorted(list(set(parent_images_paths)))
 
     parent_groups: Dict[str, list] = {}
@@ -518,14 +525,19 @@ def convert_metadata_to_csv(
 
 def main(args:Args):
 
-    tile_data = get_tiles_gps_and_dimensions(args)
+    if args.load_existing_json_file:
+        tile_data = load_coordinates(args.out_json_coords_files)
+    else:
+        tile_data = get_tiles_gps_and_dimensions(args)
     
-    #tile_data = load_coordinates(args.out_json_coords_files)
-
     tiles_metadata = match_tiles_gps(
         tile_data,
         args.tiled_images_folder,
         parent_root=args.root,
+        max_workers=args.n_workers,
+        mae_threshold=args.mae_threshold,
+        image_ext_patterns=args.patterns,
+        failure_threshold=10
     )
     convert_metadata_to_csv(
         tiles_metadata,
