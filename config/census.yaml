@@ -7,6 +7,13 @@ campaign:
   pilot_name: "test"
   target_species: null  # List of target species for detection
 
+# Export Configuration
+export:
+  to_fiftyone: false
+  create_map: true
+  output_directory: D:\PhD\Data per camp\raw image counts\K145\K145_R1  # Will use campaign_id if null
+  export_to_labelstudio: false
+
 # Detection Configuration (inherits from detection.yaml)
 detection:
 
@@ -41,7 +48,7 @@ detection:
     batch_size: 8
     tile_size: 800
     overlap_ratio: 0.2
-    pipeline_type: "default"  # default, multi, async, mt, mt_simple, simple, raster
+    pipeline_type: "mt"  # default, multi, async, mt, mt_simple, simple, raster
     queue_size: 64  # for multi-threaded pipeline
     num_data_workers: 3
     num_inference_workers: 1 # for multi-processing pipeline
@@ -77,12 +84,6 @@ detection:
     line_profile: false
     gpu_profile: false
 
-# Export Configuration
-export:
-  to_fiftyone: false
-  create_map: true
-  output_directory: D:\PhD\Data per camp\raw image counts\K145\K145_R1  # Will use campaign_id if null
-  export_to_labelstudio: false
 
 # Logging Configuration
 logging:
