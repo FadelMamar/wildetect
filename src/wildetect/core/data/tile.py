@@ -94,15 +94,15 @@ class Tile:
             try:
                 with Image.open(self.parent_image) as img:
                     self.timestamp = img._getexif()[36867]
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to extract timestamp from {self.parent_image}: {e}")
 
         elif self.image_path:
             try:
                 with Image.open(self.image_path) as img:
                     self.timestamp = img._getexif()[36867]
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to extract timestamp from {self.image_path}: {e}")
 
     def _set_image_dimensions(self):
         """Set image dimensions."""
