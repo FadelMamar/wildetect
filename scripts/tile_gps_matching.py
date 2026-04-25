@@ -78,6 +78,7 @@ class Args(BaseModel):
     lon_col:str = "longitude"  # CSV column name for longitude
     alt_col:str = "altitude"  # CSV column name for altitude
     out_csv_path: Optional[str] = None
+    log_file: Optional[str] = "tile_gps_matching.log"
 
 
 
@@ -108,6 +109,31 @@ class Args(BaseModel):
             raise ValueError("ratiowidth and ratioheight should be at most 1.0")
 
         return self
+
+
+def setup_logging(log_file: Optional[str]) -> None:
+    if not log_file:
+        return
+
+    log_path = Path(log_file).expanduser()
+    if log_path.parent != Path("."):
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+    )
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+
+    # Avoid duplicate file handlers if run is called multiple times.
+    for handler in root_logger.handlers:
+        if isinstance(handler, logging.FileHandler) and getattr(handler, "baseFilename", None) == str(log_path.resolve()):
+            return
+
+    root_logger.addHandler(file_handler)
 
 
 def get_coordinates(image_width,tile_w,image_height,tile_h,overlaping_factor):
@@ -528,6 +554,7 @@ def convert_metadata_to_csv(
     return str(out_path), len(rows)
 
 def process_single_run(args: Args):
+    logger.info(f"config:{args}")
     if args.load_existing_json_file:
         tile_data = load_coordinates(args.out_json_coords_files)
     else:
@@ -553,6 +580,7 @@ def process_single_run(args: Args):
     )
 
 def main(args: Args):
+    setup_logging(args.log_file)
     if args.config_file_csv:
         import pandas as pd
         df = pd.read_csv(args.config_file_csv, sep=';', decimal=',')
