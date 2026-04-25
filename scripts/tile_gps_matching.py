@@ -26,7 +26,7 @@ import fire
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from wildetect.core.gps import GPSUtils, get_gsd, get_pixel_gps_coordinates
 from wildetect.core.config import FlightSpecs
 
@@ -37,18 +37,18 @@ logger = logging.getLogger(__name__)
 
 class Args(BaseModel):
 
-    root:str
-
-    rmheight:float
-    rmwidth:float
-
+    # configuration of full resolution images
+    root: Optional[str] = None
+    rmheight: Optional[float] = None
+    rmwidth: Optional[float] = None
     flight_height: float = 180
-    sensor_height: float = 7.4
-
+    sensor_height: float = 24.0
     overlapfactor: float = Field(default=0.1,lt=1.,ge=0.0)
-
     ratiowidth: float = Field(default=0.5,le=1.,ge=0.0)
     ratioheight: float = Field(default=0.5,le=1.,ge=0.0)
+
+    # configuration in csv
+    config_file_csv: Optional[str] = None
 
     n_workers: int = 3
 
@@ -83,6 +83,22 @@ class Args(BaseModel):
 
     @model_validator(mode="after")
     def validate_args(self) -> "Args":
+        if self.config_file_csv is None:
+            if self.root is None or self.rmheight is None or self.rmwidth is None:
+                raise ValueError("root, rmheight, and rmwidth are required if config_file_csv is not provided")
+
+            if self.out_json_coords_files is None:
+                root_name = Path(self.root).stem
+                self.out_json_coords_files = str(Path(self.root).with_name(root_name+"-coordinates.json"))
+            else:
+                assert Path(self.out_json_coords_files), "Provide a valid file like coords.json"
+
+            if self.out_csv_path is None:
+                root_name = Path(self.root).stem
+                self.out_csv_path = str(Path(self.root).with_name(root_name + "-coordinates.csv"))
+            else:
+                assert Path(self.out_csv_path).is_file(), "Provide a file path like gps.csv"
+
         if self.out_folder is not None:
             Path(self.out_folder).mkdir(parents=False, exist_ok=True)
 
@@ -90,18 +106,6 @@ class Args(BaseModel):
             raise ValueError("overlapfactor should be less than 1")
         if self.ratiowidth > 1.0 or self.ratioheight > 1.0:
             raise ValueError("ratiowidth and ratioheight should be at most 1.0")
-
-        if self.out_json_coords_files is None:
-            root_name = Path(self.root).stem
-            self.out_json_coords_files = Path(self.root).with_name(root_name+"-coordinates.json")
-        else:
-            assert Path(self.out_json_coords_files), "Provide a valid file like coords.json"
-
-        if self.out_csv_path is None:
-            root_name = Path(self.root).stem
-            self.out_csv_path = str(Path(self.root).with_name(root_name + "-coordinates.csv"))
-        else:
-            assert Path(self.out_csv_path).is_file(), "Provide a file path like gps.csv"
 
         return self
 
@@ -523,8 +527,7 @@ def convert_metadata_to_csv(
     logger.info(f"Wrote {len(rows)} rows to CSV: {out_path}")
     return str(out_path), len(rows)
 
-def main(args:Args):
-
+def process_single_run(args: Args):
     if args.load_existing_json_file:
         tile_data = load_coordinates(args.out_json_coords_files)
     else:
@@ -548,6 +551,56 @@ def main(args:Args):
         lon_col=args.lon_col,
         alt_col=args.alt_col,
     )
+
+def main(args: Args):
+    if args.config_file_csv:
+        import pandas as pd
+        df = pd.read_csv(args.config_file_csv, sep=';', decimal=',')
+        for _, row in df.iterrows():
+            dump = args.model_dump(exclude={'config_file_csv', 'out_json_coords_files', 'out_csv_path'})
+            
+            roots = []
+            if 'raw_image_path' in row and pd.notna(row['raw_image_path']):
+                roots.append(str(row['raw_image_path']).strip())
+            
+            for col in df.columns:
+                if str(col).startswith('Unnamed') and pd.notna(row[col]):
+                    val = str(row[col]).strip()
+                    if val:
+                        roots.append(val)
+            
+            if not roots:
+                logger.warning(f"No raw_image_path found for row, skipping: {row.to_dict()}")
+                continue
+                
+            dump['root'] = os.path.commonpath(roots) if len(roots) > 1 else roots[0]
+            
+            if pd.notna(row.get('tiled_image_path')):
+                dump['tiled_images_folder'] = str(row['tiled_image_path']).strip()
+            if pd.notna(row.get('rm_height')):
+                dump['rmheight'] = float(row['rm_height'])
+            if pd.notna(row.get('rm_width')):
+                dump['rmwidth'] = float(row['rm_width'])
+            if pd.notna(row.get('ratio_height')):
+                dump['ratioheight'] = float(row['ratio_height'])
+            if pd.notna(row.get('ratio_width')):
+                dump['ratiowidth'] = float(row['ratio_width'])
+            if pd.notna(row.get('overlap_factor')):
+                dump['overlapfactor'] = float(row['overlap_factor'])
+                
+            first_root = roots[0]
+            root_name = Path(first_root).stem
+            dump['out_json_coords_files'] = str(Path(first_root).with_name(root_name+"-coordinates.json"))
+            dump['out_csv_path'] = str(Path(first_root).with_name(root_name + "-coordinates.csv"))
+            
+            try:
+                row_args = Args(**dump)
+                logger.info(f"Processing row with root: {row_args.root}")
+                process_single_run(row_args)
+            except Exception as e:
+                logger.error(f"Failed to process row: {row.to_dict()}\nError: {e}")
+    else:
+        process_single_run(args)
 
 
 def _args_from_config_and_overrides(
