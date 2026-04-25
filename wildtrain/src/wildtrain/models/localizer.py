@@ -23,11 +23,16 @@ class ObjectLocalizer(ABC):
 
     @abstractmethod
     def predict(self, images: torch.Tensor) -> list[sv.Detections]:
-        """ """
+        """Predict without Sahi algorithm"""
+        pass
+
+    @abstractmethod
+    def predict_sahi(self, image: torch.Tensor, overlap_ratio_wh:tuple[float, float]=(0.2, 0.2), thread_workers:int=3)->list[sv.Detections]:
+        """Predict using Sahi algorithm"""
         pass
 
     def forward(self, images: torch.Tensor) -> list[sv.Detections]:
-        """ """
+        """Forward pass for the model"""
         return self.predict(images)
 
     @property
@@ -103,12 +108,20 @@ class UltralyticsLocalizer(ObjectLocalizer):
     @classmethod
     def from_config(cls, config: YoloInferenceConfig):
         return cls(config=config)
+    
+    def _update_class_mapping(self, detections: sv.Detections)->sv.Detections:
+        """Update metadata for detections."""
+        detections.metadata["class_mapping"] = self.model.names
+        if len(self.model.names) == 1:
+            detections.class_id = detections.class_id + 1
+        return detections
 
     def _apply_filtering(
         self,
         detections: sv.Detections,
     ) -> sv.Detections:
         """Apply filtering to remove duplicate predictions."""
+        detections = self._update_class_mapping(detections)
         if self.merging_method == "nms":
             return detections.with_nms(
                 threshold=self.iou_thres,
@@ -124,6 +137,35 @@ class UltralyticsLocalizer(ObjectLocalizer):
         else:
             raise ValueError(f"Invalid merging method: {self.merging_method}")
 
+    def predict_sahi(self, image: torch.Tensor, 
+        overlap_ratio_wh:tuple[float, float]=(0.2, 0.2),
+        thread_workers:int=3,
+        )->list[sv.Detections]:
+        """
+        Args:
+            image (torch.Tensor): Image, shape (C, H, W)
+            overlap_ratio_wh (tuple[float, float]): Overlap ratio in width and height
+            thread_workers (int): Number of worker threads
+        Returns:
+            list[sv.Detections]: Detections for the image
+        """        
+        assert image.dim() == 3, "Image must be 3D tensor"
+        
+        def callback(image_slice: np.ndarray) -> sv.Detections:
+            image_slice = torch.from_numpy(image_slice)
+            return self.predict(image_slice)[0]
+
+        slicer = sv.InferenceSlicer(
+            callback=callback,
+            slice_wh=(self.imgsz, self.imgsz),
+            overlap_ratio_wh=overlap_ratio_wh,
+            thread_workers=thread_workers,
+            iou_threshold=1.0,  # disable nms
+            overlap_filter=None,
+        )
+        detections = slicer.slice(image.permute(1,2,0).cpu().numpy())
+        return detections
+
     def predict(self, images: torch.Tensor) -> list[sv.Detections]:
         """
         Args:
@@ -134,9 +176,9 @@ class UltralyticsLocalizer(ObjectLocalizer):
         """
         if images.dim() == 3:
             images = images.unsqueeze(0)
-
+        assert images.shape[1] == 3, f"Image must be in (B, C, H, W) format. Got {images.shape}"
         assert images.min() >= 0.0 and images.max() <= 1.0, (
-            "Images must be normalized to [0,1]"
+            f"Image must be normalized to [0,1]. Got {images.min()} {images.max()}"
         )
 
         predictions = self.model.predict(
@@ -151,11 +193,4 @@ class UltralyticsLocalizer(ObjectLocalizer):
         detections = [sv.Detections.from_ultralytics(pred) for pred in predictions]
         if not self.disable_detection_filtering:
             detections = [self._apply_filtering(det) for det in detections]
-        for det in detections:
-            det.metadata["class_mapping"] = self.model.names
-
-        if len(self.model.names) == 1:
-            for det in detections:
-                det.class_id = det.class_id + 1
-
         return detections

@@ -232,52 +232,7 @@ class Detector(torch.nn.Module):
             fo_detections.append(fo_detection)
         return fo_detections
 
-    @staticmethod
-    def to_label_studio(
-        from_name: str,
-        to_name: str,
-        label_type: str,
-        img_height: int,
-        img_width: int,
-        detection: sv.Detections,
-    ) -> List[Dict]:
-        ls_predictions = []
-        num_detections = detection.xyxy.shape[0]
-        for i in range(num_detections):
-            x_min, y_min, x_max, y_max = detection.xyxy[i]
-            x_min, y_min, x_max, y_max = (
-                float(x_min),
-                float(y_min),
-                float(x_max),
-                float(y_max),
-            )
-            w = x_max - x_min
-            h = y_max - y_min
-            score = float(detection.confidence[i])
-            label = int(detection.class_id[i])
-            class_name = detection.metadata["class_mapping"][label]
-            template = {
-                "from_name": from_name,
-                "to_name": to_name,
-                "type": label_type,
-                "original_width": img_width,
-                "original_height": img_height,
-                "image_rotation": 0,
-                "value": {
-                    label_type: [
-                        class_name,
-                    ],
-                    "x": x_min / img_width * 100,
-                    "y": y_min / img_height * 100,
-                    "width": w / img_width * 100,
-                    "height": h / img_height * 100,
-                    "rotation": 0,
-                },
-                "score": score,
-            }
-            ls_predictions.append(template)
-        return ls_predictions
-
+    
     @staticmethod
     def predict_inference_service(
         batch: torch.Tensor,
@@ -298,12 +253,16 @@ class Detector(torch.nn.Module):
 
     @torch.no_grad()
     def predict(
-        self, images: torch.Tensor, return_as_dict: bool = False
+        self, images: torch.Tensor, return_as_dict: bool = False, sahi: bool = False, overlap_ratio_wh:tuple[float, float]=(0.2, 0.2), thread_workers:int=3,
     ) -> Union[List[sv.Detections], List[Dict]]:
         """Detects objects in a batch of images and classifies each ROI."""
         b = images.shape[0]
-        detections: list[sv.Detections] = self.localizer.predict(
-            self._pad_if_needed(images)
+        
+        if sahi:
+            detections: list[sv.Detections] = self.localizer.predict_sahi(images, overlap_ratio_wh, thread_workers)
+        else:
+            detections: list[sv.Detections] = self.localizer.predict(
+                self._pad_if_needed(images)
         )[:b]
 
         if self.classifier is None:
@@ -409,5 +368,6 @@ class Detector(torch.nn.Module):
                 detections.extend(future.result())
         return detections
 
-    def forward(self, images: torch.Tensor) -> List[Dict]:
-        return self.predict(images, return_as_dict=True)
+
+    def forward(self, images: torch.Tensor) -> List[sv.Detections]:
+        return self.predict(images, return_as_dict=False)
