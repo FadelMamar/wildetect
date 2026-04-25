@@ -7,6 +7,9 @@ root: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1
 # Folder containing tiled images to match (optional but typical)
 tiled_images_folder: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled
 
+# GPS coordinate file (optional, will be created if not provided)
+config_file_csv: tiling_args.csv
+
 # Crop margins as fraction of height/width removed from each edge band (required)
 rmheight: 0.31
 rmwidth: 0.20
