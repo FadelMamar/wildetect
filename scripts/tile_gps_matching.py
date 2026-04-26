@@ -34,6 +34,11 @@ from wildetect.core.config import FlightSpecs
 logger = logging.getLogger(__name__)
 
 
+def _is_ignored_image_path(path: Path) -> bool:
+    """Ignore OS-generated image artifacts such as macOS AppleDouble files."""
+    return path.name.startswith("._")
+
+
 class Args(BaseModel):
 
     # configuration of full resolution images
@@ -293,7 +298,7 @@ def get_tile_metadata(args:Args,img_path:str) -> dict:
 def get_tiles_gps_and_dimensions(args:Args) -> dict:
 
     images_paths = chain.from_iterable([Path(args.root).glob(p) for p in args.patterns])
-    images_paths = list(set(images_paths))
+    images_paths = [p for p in set(images_paths) if not _is_ignored_image_path(p)]
 
     tile_metadata = dict()
     with ThreadPoolExecutor(max_workers=args.n_workers) as executor:
@@ -548,11 +553,13 @@ def match_tiles_gps(
     tile_paths = chain.from_iterable(
         [Path(images_dir).glob(p) for p in image_ext_patterns]
     )
-    tile_paths = sorted(list(set(tile_paths)))
+    tile_paths = sorted([p for p in set(tile_paths) if not _is_ignored_image_path(p)])
 
     # Get Parent images
     parent_images_paths = chain.from_iterable([Path(parent_root).glob(p) for p in image_ext_patterns])
-    parent_images_paths = sorted(list(set(parent_images_paths)))
+    parent_images_paths = sorted(
+        [p for p in set(parent_images_paths) if not _is_ignored_image_path(p)]
+    )
 
     parent_groups: Dict[str, list] = {}
     skipped = 0
