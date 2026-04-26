@@ -8,8 +8,9 @@
 - ```-rmwidth``` : percentage of width to remove or crop on each side of the image
 - ```-pattern``` : "**/*.JPG" will get all .JPG images in directory and subdirectories. On windows it will get both .JPG and .jpg. On unix it will only get .JPG images
 """
-from typing import Sequence, Dict, Optional
+from typing import Sequence, Dict, Optional, Any
 from itertools import chain
+from datetime import datetime, timezone
 
 from torchvision.utils import save_image
 import torchvision.transforms
@@ -41,7 +42,7 @@ class Args(BaseModel):
     rmwidth: Optional[float] = None
     flight_height: float = 180
     sensor_height: float = 24.0
-    overlapfactor: float = Field(default=0.0,le=0.0,ge=0.0)
+    overlapfactor: float = Field(default=0.0,le=1.0,ge=0.0)
     ratiowidth: float = Field(default=0.5,le=1.,gt=0.0)
     ratioheight: float = Field(default=0.5,le=1.,gt=0.0)
 
@@ -77,10 +78,12 @@ class Args(BaseModel):
     lon_col:str = "longitude"  # CSV column name for longitude
     alt_col:str = "altitude"  # CSV column name for altitude
     out_csv_path: Optional[str] = None
+    out_report_json: Optional[str] = None
     log_file: Optional[str] = "tile_gps_matching.log"
 
     @property
     def expected_tiles_per_image(self) -> int:
+        """Lower bound on expected number of tiles. Does not account for overlap factor"""
         return round((1.0 / self.ratiowidth) * (1.0 / self.ratioheight))
 
     @model_validator(mode="after")
@@ -92,22 +95,21 @@ class Args(BaseModel):
             if self.out_json_coords_files is None:
                 root_name = Path(self.root).stem
                 self.out_json_coords_files = str(Path(self.root).with_name(root_name+"-coordinates.json"))
-            else:
-                assert Path(self.out_json_coords_files), "Provide a valid file like coords.json"
 
             if self.out_csv_path is None:
                 root_name = Path(self.root).stem
                 self.out_csv_path = str(Path(self.root).with_name(root_name + "-coordinates.csv"))
             else:
-                assert Path(self.out_csv_path).is_file(), "Provide a file path like gps.csv"
+                out_csv = Path(self.out_csv_path)
+                if out_csv.suffix.lower() != ".csv":
+                    raise ValueError("out_csv_path must be a .csv file path")
+                if out_csv.parent != Path(".") and not out_csv.parent.exists():
+                    raise FileNotFoundError(
+                        f"Output directory does not exist for out_csv_path: {out_csv.parent}"
+                    )
 
         if self.out_folder is not None:
             Path(self.out_folder).mkdir(parents=False, exist_ok=True)
-
-        if self.overlapfactor != 0.0:
-            raise ValueError("overlapfactor must be 0.0")
-        if self.ratiowidth > 1.0 or self.ratioheight > 1.0:
-            raise ValueError("ratiowidth and ratioheight should be at most 1.0")
 
         return self
 
@@ -247,7 +249,7 @@ def get_tile_metadata(args:Args,img_path:str) -> dict:
     coords =  get_coordinates(image_width,tile_w=width,image_height=image_height,tile_h=height,overlaping_factor=args.overlapfactor)       
 
     if len(coords) != args.expected_tiles_per_image:
-        logger.warning(f"Expected {args.expected_tiles_per_image} tile bounds for {img_name}, but generated {len(coords)}.")
+        logger.warning(f"Expected at least {args.expected_tiles_per_image} tile bounds for {img_name}, but generated {len(coords)}.")
 
     # get tiles gps coordinates
     image_gps = GPSUtils.get_gps_coord(file_name=None,
@@ -388,26 +390,34 @@ def _process_parent_group(
         parent_root: directory containing parent images
     
     Returns:
-        (group_metadata, verification_failures, error_msg)
+        (group_metadata, group_report, error_msg)
         - group_metadata: dict mapping tile_path -> {tile_bounds, tile_gps_coords}
-        - verification_failures: number of tiles that failed verification
+        - group_report: per-parent structured counters/details
         - error_msg: None if successful, error string if parent failed
     """
     metadata = tile_data.get(image_name)
+    parent_report: dict[str, Any] = {
+        "parent": image_name,
+        "success_count": 0,
+        "verification_failures": 0,
+        "index_failures": 0,
+        "other_failures": 0,
+        "failure_details": [],
+    }
     if metadata is None:
-        return {}, 0, f"Image {image_name} not found in metadata"
+        return {}, parent_report, f"Image {image_name} not found in metadata"
 
     parent_path = _find_parent_image(parent_images_paths, image_name)
     if parent_path is None:
-        return {}, 0, f"Parent image not found for {image_name}"
+        return {}, parent_report, f"Parent image not found for {image_name}"
+    parent_report["parent_path"] = str(parent_path)
 
     try:
         parent_array = np.array(Image.open(parent_path))
     except Exception as e:
-        return {}, 0, f"Failed to load parent image {image_name}: {e}"
+        return {}, parent_report, f"Failed to load parent image {image_name}: {e}"
 
     group_metadata = {}
-    v_failures = 0
     tiles_bounds = metadata.get("tiles_bounds") if isinstance(metadata, dict) else None
     tiles_gps_coords = metadata.get("tiles_gps_coords") if isinstance(metadata, dict) else None
 
@@ -420,7 +430,17 @@ def _process_parent_group(
             type(tiles_bounds).__name__,
             type(tiles_gps_coords).__name__,
         )
-        return {}, 0, f"Malformed metadata for {image_name}"
+        parent_report["other_failures"] += 1
+        parent_report["failure_details"].append(
+            {
+                "type": "malformed_metadata",
+                "parent": image_name,
+                "parent_path": str(parent_path),
+                "tiles_bounds_type": type(tiles_bounds).__name__,
+                "tiles_gps_coords_type": type(tiles_gps_coords).__name__,
+            }
+        )
+        return {}, parent_report, f"Malformed metadata for {image_name}"
 
     for tile_path, index in tiles:
         try:
@@ -428,13 +448,24 @@ def _process_parent_group(
             tile_gps = tiles_gps_coords[index]
 
             if not verify_tile(parent_array, tile_path, tile_coords, mae_threshold):
-                v_failures += 1
+                parent_report["verification_failures"] += 1
+                parent_report["failure_details"].append(
+                    {
+                        "type": "verification_failed",
+                        "parent": image_name,
+                        "parent_path": str(parent_path),
+                        "index": index,
+                        "tile": str(tile_path),
+                        "tile_bounds": tile_coords,
+                    }
+                )
                 continue
 
             group_metadata[str(tile_path)] = dict(
                 tile_bounds=tile_coords,
                 tile_gps_coords=tile_gps,
             )
+            parent_report["success_count"] += 1
         except IndexError as e:
             logger.warning(
                 "Tile index out of range while matching: "
@@ -447,6 +478,19 @@ def _process_parent_group(
                 tile_path,
                 e,
             )
+            parent_report["index_failures"] += 1
+            parent_report["failure_details"].append(
+                {
+                    "type": "index_out_of_range",
+                    "parent": image_name,
+                    "parent_path": str(parent_path),
+                    "index": index,
+                    "bounds_len": len(tiles_bounds),
+                    "gps_len": len(tiles_gps_coords),
+                    "tile": str(tile_path),
+                    "error": str(e),
+                }
+            )
         except Exception as e:
             logger.warning(
                 "Failed to match tile: parent=%s parent_path=%s index=%s tile=%s error=%s",
@@ -456,11 +500,22 @@ def _process_parent_group(
                 tile_path,
                 e,
             )
+            parent_report["other_failures"] += 1
+            parent_report["failure_details"].append(
+                {
+                    "type": "match_exception",
+                    "parent": image_name,
+                    "parent_path": str(parent_path),
+                    "index": index,
+                    "tile": str(tile_path),
+                    "error": str(e),
+                }
+            )
 
     if len(group_metadata) != expected_tiles_per_image:
-        logger.warning(f"Expected {expected_tiles_per_image} verified tiles for {image_name}, but found {len(group_metadata)}.")
+        logger.warning(f"Expected at leat {expected_tiles_per_image} verified tiles for {image_name}, but found {len(group_metadata)}.")
 
-    return group_metadata, v_failures, None
+    return group_metadata, parent_report, None
 
 def match_tiles_gps(
     tile_data: dict,
@@ -471,7 +526,7 @@ def match_tiles_gps(
     failure_threshold: int = 10,
     mae_threshold: float = 70.,
     expected_tiles_per_image: int = 1
-) -> dict:
+) -> tuple[dict, dict[str, Any]]:
     """
     Match tiles gps coordinates to tile paths and verify them using
     multi-threading.
@@ -517,7 +572,20 @@ def match_tiles_gps(
     # Process groups in parallel
     tiles_metadata = {}
     failed = set()
-    verification_failures = 0
+    report: dict[str, Any] = {
+        "summary": {
+            "tiles_discovered": len(tile_paths),
+            "tiles_with_unparseable_name": skipped,
+            "parent_groups": len(parent_groups),
+            "tiles_matched_successfully": 0,
+            "verification_failures": 0,
+            "index_failures": 0,
+            "other_failures": 0,
+            "failed_parent_count": 0,
+        },
+        "failed_parents": [],
+        "failure_details": [],
+    }
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_name = {
@@ -540,30 +608,93 @@ def match_tiles_gps(
         ):
             image_name = future_to_name[future]
             try:
-                group_meta, v_failures, error_msg = future.result()
+                group_meta, parent_report, error_msg = future.result()
             except Exception as e:
                 logger.warning(f"Unexpected error processing {image_name}: {e}")
                 failed.add(image_name)
+                report["summary"]["other_failures"] += 1
+                report["failure_details"].append(
+                    {
+                        "type": "unexpected_parent_exception",
+                        "parent": image_name,
+                        "error": str(e),
+                    }
+                )
                 continue
 
             if error_msg:
                 logger.warning(error_msg)
                 failed.add(image_name)
+                report["failure_details"].append(
+                    {
+                        "type": "parent_error",
+                        "parent": image_name,
+                        "error": error_msg,
+                    }
+                )
             else:
                 tiles_metadata.update(group_meta)
-                verification_failures += v_failures
+                report["summary"]["tiles_matched_successfully"] += parent_report.get("success_count", 0)
+                report["summary"]["verification_failures"] += parent_report.get("verification_failures", 0)
+                report["summary"]["index_failures"] += parent_report.get("index_failures", 0)
+                report["summary"]["other_failures"] += parent_report.get("other_failures", 0)
+                report["failure_details"].extend(parent_report.get("failure_details", []))
 
             if len(failed) > failure_threshold:
                 logger.warning("Too many failures, cancelling remaining tasks")
                 for f in future_to_name:
                     f.cancel()
-                break
+                raise RuntimeError(f"Too many failures, cancelling remaining tasks. We reached threshold: {failure_threshold}")
+
+    report["failed_parents"] = sorted(list(failed))
+    report["summary"]["failed_parent_count"] = len(failed)
 
     logger.info(f"Failed to match {len(failed)} images")
-    if verification_failures > 0:
-        logger.info(f"Verification failed for {verification_failures} tiles")
+    if report["summary"]["verification_failures"] > 0:
+        logger.info(f"Verification failed for {report['summary']['verification_failures']} tiles")
 
-    return tiles_metadata
+    return tiles_metadata, report
+
+
+def _default_report_path(out_csv_path: str) -> str:
+    out_csv = Path(out_csv_path)
+    return str(out_csv.with_name(f"{out_csv.stem}-matching-report.json"))
+
+
+def write_match_report_json(
+    args: Args,
+    match_report: dict[str, Any],
+    out_csv_path: str,
+    csv_rows_written: int,
+) -> str:
+    report_path = args.out_report_json or _default_report_path(out_csv_path)
+    report_file = Path(report_path)
+    if not report_file.parent.exists():
+        raise FileNotFoundError(f"Output directory does not exist for report: {report_file.parent}")
+
+    payload: dict[str, Any] = {
+        "run_info": {
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "root": args.root,
+            "tiled_images_folder": args.tiled_images_folder,
+            "out_csv_path": out_csv_path,
+            "out_json_coords_files": args.out_json_coords_files,
+            "patterns": list(args.patterns),
+            "n_workers": args.n_workers,
+            "mae_threshold": args.mae_threshold,
+            "expected_tiles_per_image": args.expected_tiles_per_image,
+        },
+        "summary": dict(match_report.get("summary", {})),
+        "failed_parents": list(match_report.get("failed_parents", [])),
+        "failure_details": list(match_report.get("failure_details", [])),
+    }
+    payload["summary"]["csv_rows_written"] = csv_rows_written
+
+    with open(report_file, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+
+    logger.info("Wrote run report JSON: %s", report_file)
+    return str(report_file)
 
 def convert_metadata_to_csv(
     tiles_metadata: dict,
@@ -620,7 +751,7 @@ def process_single_run(args: Args):
     else:
         tile_data = get_tiles_gps_and_dimensions(args)
     
-    tiles_metadata = match_tiles_gps(
+    tiles_metadata, match_report = match_tiles_gps(
         tile_data,
         args.tiled_images_folder,
         parent_root=args.root,
@@ -630,7 +761,7 @@ def process_single_run(args: Args):
         failure_threshold=args.failure_threshold,
         expected_tiles_per_image=args.expected_tiles_per_image
     )
-    convert_metadata_to_csv(
+    out_csv_path, rows_written = convert_metadata_to_csv(
         tiles_metadata,
         out_csv_path=args.out_csv_path,
         altitude=args.altitude if args.altitude is not None else args.flight_height,
@@ -638,6 +769,23 @@ def process_single_run(args: Args):
         lat_col=args.lat_col,
         lon_col=args.lon_col,
         alt_col=args.alt_col,
+    )
+    if rows_written == 0:
+        summary = match_report.get("summary", {})
+        logger.warning(
+            "CSV output is empty (0 rows). verification_failures=%s index_failures=%s "
+            "other_failures=%s failed_parent_count=%s out_csv=%s",
+            summary.get("verification_failures", 0),
+            summary.get("index_failures", 0),
+            summary.get("other_failures", 0),
+            summary.get("failed_parent_count", 0),
+            out_csv_path,
+        )
+    write_match_report_json(
+        args=args,
+        match_report=match_report,
+        out_csv_path=out_csv_path,
+        csv_rows_written=rows_written,
     )
 
 def main(args: Args):
