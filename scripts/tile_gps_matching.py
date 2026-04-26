@@ -651,7 +651,7 @@ def match_tiles_gps(
     if len(failed):
         logger.warning(f"Failed to match {len(failed)} images")
     if report["summary"]["verification_failures"] > 0:
-        logger.info(f"Verification failed for {report['summary']['verification_failures']} tiles")
+        logger.warning(f"Verification failed for {report['summary']['verification_failures']} tiles")
 
     return tiles_metadata, report
 
@@ -737,10 +737,12 @@ def convert_metadata_to_csv(
                 alt_col: altitude,
             }
         )
+    
+    if len(rows) == 0:
+        raise ValueError("No rows to save")
 
     dataframe = pd.DataFrame(rows, columns=[filename_col, lat_col, lon_col, alt_col])
     dataframe.to_csv(out_path, index=False, encoding="utf-8")
-
     logger.info(f"Wrote {len(rows)} rows to CSV: {out_path}")
     return str(out_path), len(rows)
 
@@ -801,15 +803,8 @@ def main(args: Args):
             "skipped_count": 0,
             "rows": {},
         }
-        for row_idx, row in df.iterrows():
-            logger.info(
-                "Processing CSV row %s/%s (Project_ID=%s, Project_name=%s)",
-                int(row_idx) + 1,
-                len(df),
-                row.get("Project_ID"),
-                row.get("Project_name"),
-            )
-            
+        for row_idx, row in tqdm(df.iterrows(),desc="Processing CSV rows",total=len(df)):
+                        
             dump = args.model_dump(exclude={'config_file_csv', 'out_json_coords_files', 'out_csv_path'})
             
             roots = []
