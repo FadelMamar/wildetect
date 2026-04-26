@@ -141,6 +141,52 @@ class Visualizer:
                     )
                     sample.save()
         self.fiftyone_dataset.save()
+    
+    def to_label_studio(self,
+        from_name: str,
+        to_name: str,
+        label_type: str,
+        img_height: int,
+        img_width: int,
+        detection: sv.Detections,
+    ) -> List[Dict]:
+        ls_predictions = []
+        num_detections = detection.xyxy.shape[0]
+        for i in range(num_detections):
+            x_min, y_min, x_max, y_max = detection.xyxy[i]
+            x_min, y_min, x_max, y_max = (
+                float(x_min),
+                float(y_min),
+                float(x_max),
+                float(y_max),
+            )
+            w = x_max - x_min
+            h = y_max - y_min
+            score = float(detection.confidence[i])
+            label = int(detection.class_id[i])
+            class_name = detection.metadata["class_mapping"][label]
+            template = {
+                "from_name": from_name,
+                "to_name": to_name,
+                "type": label_type,
+                "original_width": img_width,
+                "original_height": img_height,
+                "image_rotation": 0,
+                "value": {
+                    label_type: [
+                        class_name,
+                    ],
+                    "x": x_min / img_width * 100,
+                    "y": y_min / img_height * 100,
+                    "width": w / img_width * 100,
+                    "height": h / img_height * 100,
+                    "rotation": 0,
+                },
+                "score": score,
+            }
+            ls_predictions.append(template)
+        return ls_predictions
+
 
     def add_predictions_from_detector(
         self,
@@ -190,7 +236,7 @@ class Visualizer:
                 for task_id, detection in zip(task_ids, detections_list):
                     if detection is None or len(detection) == 0:
                         continue
-                    formatted_pred = Detector.to_label_studio(
+                    formatted_pred = self.to_label_studio(
                         from_name=from_name,
                         to_name=to_name,
                         label_type=label_type,

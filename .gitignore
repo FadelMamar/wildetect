@@ -29,6 +29,8 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+.venv-ls
+
 *.onnx
 *.pt
 *.pth

@@ -30,8 +30,6 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_compl
 from wildetect.core.gps import GPSUtils, get_gsd, get_pixel_gps_coordinates
 from wildetect.core.config import FlightSpecs
 
-#from wildata.adapters.utils import read_image
-
 logger = logging.getLogger(__name__)
 
 
@@ -43,9 +41,9 @@ class Args(BaseModel):
     rmwidth: Optional[float] = None
     flight_height: float = 180
     sensor_height: float = 24.0
-    overlapfactor: float = Field(default=0.1,lt=1.,ge=0.0)
-    ratiowidth: float = Field(default=0.5,le=1.,ge=0.0)
-    ratioheight: float = Field(default=0.5,le=1.,ge=0.0)
+    overlapfactor: float = Field(default=0.0,le=0.0,ge=0.0)
+    ratiowidth: float = Field(default=0.5,le=1.,gt=0.0)
+    ratioheight: float = Field(default=0.5,le=1.,gt=0.0)
 
     # configuration in csv
     config_file_csv: Optional[str] = None
@@ -53,6 +51,7 @@ class Args(BaseModel):
     n_workers: int = 3
 
     mae_threshold:float = 70.0
+    failure_threshold: int = 10
 
     out_json_coords_files: Optional[str] = None
     load_existing_json_file: bool = False
@@ -80,7 +79,9 @@ class Args(BaseModel):
     out_csv_path: Optional[str] = None
     log_file: Optional[str] = "tile_gps_matching.log"
 
-
+    @property
+    def expected_tiles_per_image(self) -> int:
+        return round((1.0 / self.ratiowidth) * (1.0 / self.ratioheight))
 
     @model_validator(mode="after")
     def validate_args(self) -> "Args":
@@ -103,8 +104,8 @@ class Args(BaseModel):
         if self.out_folder is not None:
             Path(self.out_folder).mkdir(parents=False, exist_ok=True)
 
-        if self.overlapfactor >= 1:
-            raise ValueError("overlapfactor should be less than 1")
+        if self.overlapfactor != 0.0:
+            raise ValueError("overlapfactor must be 0.0")
         if self.ratiowidth > 1.0 or self.ratioheight > 1.0:
             raise ValueError("ratiowidth and ratioheight should be at most 1.0")
 
@@ -231,14 +232,22 @@ def get_tile_metadata(args:Args,img_path:str) -> dict:
     # Computes tile width and height using the given ratios
     if args.ratiowidth > 0.0:
         width = math.ceil(img_tensor.shape[2]*args.ratiowidth)
+    else:
+        raise ValueError("ratiowidth should be greater than 0.0")
+
     if args.ratioheight > 0.0:
         height = math.ceil(img_tensor.shape[1]*args.ratioheight)
+    else:
+        raise ValueError("ratioheight should be greater than 0.0")
     
     image_width=img_tensor.shape[2]
     image_height=img_tensor.shape[1]
 
     # get tile coordinates
     coords =  get_coordinates(image_width,tile_w=width,image_height=image_height,tile_h=height,overlaping_factor=args.overlapfactor)       
+
+    if len(coords) != args.expected_tiles_per_image:
+        logger.warning(f"Expected {args.expected_tiles_per_image} tile bounds for {img_name}, but generated {len(coords)}.")
 
     # get tiles gps coordinates
     image_gps = GPSUtils.get_gps_coord(file_name=None,
@@ -363,7 +372,8 @@ def _process_parent_group(
     tiles: list,
     tile_data: dict,
     parent_images_paths: str,
-    mae_threshold: float = 65
+    mae_threshold: float = 70,
+    expected_tiles_per_image: int = 0
 ) -> tuple:
     """
     Process all tiles belonging to a single parent image.
@@ -447,6 +457,9 @@ def _process_parent_group(
                 e,
             )
 
+    if len(group_metadata) != expected_tiles_per_image:
+        logger.warning(f"Expected {expected_tiles_per_image} verified tiles for {image_name}, but found {len(group_metadata)}.")
+
     return group_metadata, v_failures, None
 
 def match_tiles_gps(
@@ -456,7 +469,8 @@ def match_tiles_gps(
     image_ext_patterns:list,
     max_workers: int = 3,
     failure_threshold: int = 10,
-    mae_threshold: float = 70.
+    mae_threshold: float = 70.,
+    expected_tiles_per_image: int = 1
 ) -> dict:
     """
     Match tiles gps coordinates to tile paths and verify them using
@@ -513,7 +527,8 @@ def match_tiles_gps(
                 tiles,
                 tile_data,
                 parent_images_paths,
-                mae_threshold
+                mae_threshold,
+                expected_tiles_per_image
             ): image_name
             for image_name, tiles in parent_groups.items()
         }
@@ -612,7 +627,8 @@ def process_single_run(args: Args):
         max_workers=args.n_workers,
         mae_threshold=args.mae_threshold,
         image_ext_patterns=args.patterns,
-        failure_threshold=10
+        failure_threshold=args.failure_threshold,
+        expected_tiles_per_image=args.expected_tiles_per_image
     )
     convert_metadata_to_csv(
         tiles_metadata,
@@ -625,9 +641,11 @@ def process_single_run(args: Args):
     )
 
 def main(args: Args):
+
     setup_logging(args.log_file)
+
     if args.config_file_csv:
-        import pandas as pd
+        
         df = pd.read_csv(args.config_file_csv, sep=';', decimal=',')
         for _, row in df.iterrows():
             dump = args.model_dump(exclude={'config_file_csv', 'out_json_coords_files', 'out_csv_path'})

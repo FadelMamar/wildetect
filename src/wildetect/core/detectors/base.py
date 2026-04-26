@@ -11,6 +11,7 @@ import pandas as pd
 import supervision as sv
 import torch
 from tqdm import tqdm
+
 from wildtrain.models.detector import Detector
 from wildtrain.utils.mlflow import load_registered_model
 
@@ -176,6 +177,7 @@ class BaseDetectionPipeline(ABC):
         batch: torch.Tensor,
         progress_bar: Optional[tqdm] = None,
         use_dataset_mode: bool = False,
+        sahi: bool = False,
     ) -> List[List[Detection]]:
         """Process a single batch of tiles."""
         # Run inference
@@ -186,7 +188,13 @@ class BaseDetectionPipeline(ABC):
                 batch, return_as_dict=False, max_workers=self.config.num_workers
             )
         elif self.config.inference_service_url is None:
-            detections = self.detection_system.predict(batch, return_as_dict=False)
+            detections = self.detection_system.predict(
+                batch,
+                return_as_dict=False,
+                sahi=sahi,
+                overlap_ratio_wh=(self.config.overlap_ratio, self.config.overlap_ratio),
+                thread_workers=self.config.num_workers,
+            )
         else:
             detections = self.detection_system(batch)
 
@@ -213,9 +221,9 @@ class BaseDetectionPipeline(ABC):
         detections = batch.get("detections", [])
         for tile_data, tile_detections in zip(batch["tiles"], detections):
             tile = Tile.from_dict(tile_data)
-            assert tile.parent_image is not None, (
-                "Parent image is None. Error in dataloader."
-            )
+            assert (
+                tile.parent_image is not None
+            ), "Parent image is None. Error in dataloader."
 
             # Create or get drone image for this parent
             if tile.parent_image not in self.drone_images:
@@ -411,9 +419,9 @@ class DetectionPipeline(BaseDetectionPipeline):
         if self.image_csv_data is not None:
             image_paths = self._get_image_paths(from_csv=True)
         else:
-            assert (image_paths is not None) ^ (image_dir is not None), (
-                "image_paths or image_dir must be provided"
-            )
+            assert (image_paths is not None) ^ (
+                image_dir is not None
+            ), "image_paths or image_dir must be provided"
 
         data_loader = self.get_data_loader(
             image_paths=image_paths,
@@ -473,7 +481,7 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
         """Run detection on one image."""
         for img, idx in loader:
             # yield self._process_one_image(img), idx
-            yield self._process_batch(img, use_dataset_mode=True), idx
+            yield self._process_batch(img, sahi=True), idx
 
     def _postprocess_one_image(
         self, detections: List[List[Detection]], offset_info: Dict
@@ -549,9 +557,9 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
         if self.image_csv_data is not None:
             image_paths = self._get_image_paths(from_csv=True)
         else:
-            assert (image_paths is not None) ^ (image_dir is not None), (
-                "image_paths or image_dir must be provided"
-            )
+            assert (image_paths is not None) ^ (
+                image_dir is not None
+            ), "image_paths or image_dir must be provided"
 
         self.save_path = save_path
         if self.save_path:
