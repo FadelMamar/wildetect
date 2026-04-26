@@ -567,7 +567,7 @@ def match_tiles_gps(
         parent_groups.setdefault(image_name, []).append((tile_path, index))
 
     if skipped:
-        logger.debug(f"Skipped {skipped} tiles with unparseable names")
+        logger.warning(f"Skipped {skipped} tiles with unparseable names")
 
     # Process groups in parallel
     tiles_metadata = {}
@@ -620,27 +620,26 @@ def match_tiles_gps(
                         "error": str(e),
                     }
                 )
-                continue
-
-            if error_msg:
-                logger.warning(error_msg)
-                failed.add(image_name)
-                report["failure_details"].append(
-                    {
-                        "type": "parent_error",
-                        "parent": image_name,
-                        "error": error_msg,
-                    }
-                )
             else:
-                tiles_metadata.update(group_meta)
-                report["summary"]["tiles_matched_successfully"] += parent_report.get("success_count", 0)
-                report["summary"]["verification_failures"] += parent_report.get("verification_failures", 0)
-                report["summary"]["index_failures"] += parent_report.get("index_failures", 0)
-                report["summary"]["other_failures"] += parent_report.get("other_failures", 0)
-                report["failure_details"].extend(parent_report.get("failure_details", []))
+                if error_msg:
+                    logger.warning(error_msg)
+                    failed.add(image_name)
+                    report["failure_details"].append(
+                        {
+                            "type": "parent_error",
+                            "parent": image_name,
+                            "error": error_msg,
+                        }
+                    )
+                else:
+                    tiles_metadata.update(group_meta)
+                    report["summary"]["tiles_matched_successfully"] += parent_report.get("success_count", 0)
+                    report["summary"]["verification_failures"] += parent_report.get("verification_failures", 0)
+                    report["summary"]["index_failures"] += parent_report.get("index_failures", 0)
+                    report["summary"]["other_failures"] += parent_report.get("other_failures", 0)
+                    report["failure_details"].extend(parent_report.get("failure_details", []))
 
-            if len(failed) > failure_threshold:
+            if len(failed) >= failure_threshold:
                 logger.warning("Too many failures, cancelling remaining tasks")
                 for f in future_to_name:
                     f.cancel()
@@ -649,7 +648,8 @@ def match_tiles_gps(
     report["failed_parents"] = sorted(list(failed))
     report["summary"]["failed_parent_count"] = len(failed)
 
-    logger.info(f"Failed to match {len(failed)} images")
+    if len(failed):
+        logger.warning(f"Failed to match {len(failed)} images")
     if report["summary"]["verification_failures"] > 0:
         logger.info(f"Verification failed for {report['summary']['verification_failures']} tiles")
 
@@ -795,7 +795,13 @@ def main(args: Args):
     if args.config_file_csv:
         
         df = pd.read_csv(args.config_file_csv, sep=';', decimal=',')
-        for _, row in df.iterrows():
+        batch_stats: dict[str, Any] = {
+            "success_count": 0,
+            "failure_count": 0,
+            "skipped_count": 0,
+            "rows": {},
+        }
+        for row_idx, row in df.iterrows():
             dump = args.model_dump(exclude={'config_file_csv', 'out_json_coords_files', 'out_csv_path'})
             
             roots = []
@@ -810,6 +816,11 @@ def main(args: Args):
             
             if not roots:
                 logger.warning(f"No raw_image_path found for row, skipping: {row.to_dict()}")
+                batch_stats["skipped_count"] += 1
+                batch_stats["rows"][int(row_idx)] = {
+                    "status": "skipped",
+                    "error": "No raw_image_path found",
+                }
                 continue
                 
             dump['root'] = os.path.commonpath(roots) if len(roots) > 1 else roots[0]
@@ -836,8 +847,21 @@ def main(args: Args):
                 row_args = Args(**dump)
                 logger.info(f"Processing row with root: {row_args.root}")
                 process_single_run(row_args)
+                batch_stats["success_count"] += 1
+                batch_stats["rows"][int(row_idx)] = {
+                    "status": "success",
+                    "root": row_args.root,
+                    "out_csv_path": dump.get("out_csv_path"),
+                }
             except Exception as e:
                 logger.error(f"Failed to process row: {row.to_dict()}\nError: {e}")
+                batch_stats["failure_count"] += 1
+                batch_stats["rows"][int(row_idx)] = {
+                    "status": "failure",
+                    "root": dump.get("root"),
+                    "error": str(e),
+                }
+        logger.info("CSV batch row summary: %s", batch_stats)
     else:
         process_single_run(args)
 
