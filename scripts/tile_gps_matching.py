@@ -802,6 +802,14 @@ def main(args: Args):
             "rows": {},
         }
         for row_idx, row in df.iterrows():
+            logger.info(
+                "Processing CSV row %s/%s (Project_ID=%s, Project_name=%s)",
+                int(row_idx) + 1,
+                len(df),
+                row.get("Project_ID"),
+                row.get("Project_name"),
+            )
+            
             dump = args.model_dump(exclude={'config_file_csv', 'out_json_coords_files', 'out_csv_path'})
             
             roots = []
