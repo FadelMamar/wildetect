@@ -122,7 +122,7 @@ def setup_logging(log_file: Optional[str]) -> None:
     formatter = logging.Formatter(
         "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
     )
-    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
     file_handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
@@ -323,8 +323,21 @@ def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequ
         tile_array = np.array(tile_img)
         
         if parent_patch.shape != tile_array.shape:
-            logger.warning(f"Dimension mismatch for {tile_path.name}: "
-                           f"Parent patch {parent_patch.shape} vs Tile {tile_array.shape}")
+            parent_h, parent_w = parent_patch.shape[:2]
+            tile_h, tile_w = tile_array.shape[:2]
+
+            # Ratios help identify systematic resizing/cropping issues quickly.
+            h_ratio = (tile_h / parent_h) if parent_h else float("nan")
+            w_ratio = (tile_w / parent_w) if parent_w else float("nan")
+            parent_area = parent_h * parent_w
+            tile_area = tile_h * tile_w
+            area_ratio = (tile_area / parent_area) if parent_area else float("nan")
+
+            logger.warning(
+                f"Dimension mismatch for {tile_path.name}: "
+                f"Parent patch {parent_patch.shape} vs Tile {tile_array.shape} | "
+                f"tile/parent ratios: h={h_ratio:.4f}, w={w_ratio:.4f}, area={area_ratio:.4f}"
+            )
             return False
             
         mae = np.mean(np.abs(parent_patch.astype(np.float32) - tile_array.astype(np.float32)))
@@ -385,11 +398,24 @@ def _process_parent_group(
 
     group_metadata = {}
     v_failures = 0
+    tiles_bounds = metadata.get("tiles_bounds") if isinstance(metadata, dict) else None
+    tiles_gps_coords = metadata.get("tiles_gps_coords") if isinstance(metadata, dict) else None
+
+    if not isinstance(tiles_bounds, list) or not isinstance(tiles_gps_coords, list):
+        logger.warning(
+            "Malformed metadata for parent=%s parent_path=%s: "
+            "tiles_bounds_type=%s tiles_gps_coords_type=%s",
+            image_name,
+            parent_path,
+            type(tiles_bounds).__name__,
+            type(tiles_gps_coords).__name__,
+        )
+        return {}, 0, f"Malformed metadata for {image_name}"
 
     for tile_path, index in tiles:
         try:
-            tile_coords = metadata['tiles_bounds'][index]
-            tile_gps = metadata['tiles_gps_coords'][index]
+            tile_coords = tiles_bounds[index]
+            tile_gps = tiles_gps_coords[index]
 
             if not verify_tile(parent_array, tile_path, tile_coords, mae_threshold):
                 v_failures += 1
@@ -399,8 +425,27 @@ def _process_parent_group(
                 tile_bounds=tile_coords,
                 tile_gps_coords=tile_gps,
             )
+        except IndexError as e:
+            logger.warning(
+                "Tile index out of range while matching: "
+                "parent=%s parent_path=%s index=%s bounds_len=%s gps_len=%s tile=%s error=%s",
+                image_name,
+                parent_path,
+                index,
+                len(tiles_bounds),
+                len(tiles_gps_coords),
+                tile_path,
+                e,
+            )
         except Exception as e:
-            logger.warning(f"Failed to match tile {index} - {tile_path}: {e}")
+            logger.warning(
+                "Failed to match tile: parent=%s parent_path=%s index=%s tile=%s error=%s",
+                image_name,
+                parent_path,
+                index,
+                tile_path,
+                e,
+            )
 
     return group_metadata, v_failures, None
 
