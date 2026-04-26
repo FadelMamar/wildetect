@@ -26,6 +26,9 @@ n_workers: 3
 # Mean Absolute Error
 mae_threshold: 70.0
 
+# Failure threshold: number of verification failures tolerated before stopping  the script
+failure_threshold: 15 
+
 # Written by the script unless overridden
 out_json_coords_files: null
 load_existing_json_file: false
