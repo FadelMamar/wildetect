@@ -107,7 +107,7 @@ class ExifGPSUpdateConfig(BaseModel):
         
         try:
             df["image_path"] = df[self.filename_col].apply(
-                lambda x: os.path.join(self.image_folder, os.path.basename(x))
+                lambda x: Path(os.path.join(self.image_folder, os.path.basename(x))).as_posix()
             )
         except Exception as e:
             print("Columns:",df.columns)

@@ -7,7 +7,7 @@ import traceback
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
-
+from pathlib import Path
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
@@ -455,16 +455,19 @@ class DroneImage(Tile):
             if csv_dict is None:
                 return None, None, None
             else:
-                if img_path not in csv_dict:
+                index = img_path
+                if index in csv_dict:
+                    pass
+                else:
                     logger.error(f"Image path {img_path} not found in csv_dict")
                     errors_gps += 1
                     if errors_gps > 10:
                         raise Exception("+10 Image paths not found in csv_dict.")
                     return None, None, None
                 return (
-                    csv_dict[img_path]["latitude"],
-                    csv_dict[img_path]["longitude"],
-                    csv_dict[img_path]["altitude"],
+                    csv_dict[index]["latitude"],
+                    csv_dict[index]["longitude"],
+                    csv_dict[index]["altitude"],
                 )
 
         assert (labelstudio_config.project_id is not None) ^ (

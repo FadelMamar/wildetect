@@ -368,7 +368,7 @@ class Task(BaseModel):
     @property
     def image_path(self) -> str:
         """Get the decoded image path."""
-        return self.data.get_image_path()
+        return Path(self.data.get_image_path()).as_posix()
 
     @property
     def has_annotations(self) -> bool:
