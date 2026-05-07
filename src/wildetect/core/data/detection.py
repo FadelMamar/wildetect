@@ -327,7 +327,7 @@ class Detection:
             return None
 
     @classmethod
-    def from_ls(cls, detections: list, image_path: str) -> List["Detection"]:
+    def from_ls(cls, detections: list, image_path: str, tolerance: int = 5) -> List["Detection"]:
         """Create a list of Detection objects from Label Studio format annotations.
         Args:
             detections (list): List of Label Studio detection dicts.
@@ -378,10 +378,10 @@ class Detection:
                     class_name and len(class_name) == 1
                 ), f"Error. Check out code or Labeling format. class_name: {class_name}"
                 assert (
-                    int(x_min + w) <= image_width
+                    int(x_min + w) <= (image_width + tolerance) # adding tolerance
                 ), f"Error. Check out code or Labeling format. x_min: {x_min} + w: {w} = {x_min + w} > image_width: {image_width}"
                 assert (
-                    int(y_min + h) <= image_height
+                    int(y_min + h) <= (image_height + tolerance) # adding tolerance
                 ), f"Error. Check out code or Labeling format. y_min: {y_min} + h: {h} = {y_min + h} > image_height: {image_height}"
                 width, height = get_image_dimensions(image_path)
                 assert (
