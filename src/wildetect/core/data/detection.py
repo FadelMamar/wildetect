@@ -327,7 +327,9 @@ class Detection:
             return None
 
     @classmethod
-    def from_ls(cls, detections: list, image_path: str, tolerance: int = 5) -> List["Detection"]:
+    def from_ls(
+        cls, detections: list, image_path: str, tolerance: int = 5
+    ) -> List["Detection"]:
         """Create a list of Detection objects from Label Studio format annotations.
         Args:
             detections (list): List of Label Studio detection dicts.
@@ -376,20 +378,29 @@ class Detection:
                 # Ensure class_name is a list (Label Studio format)
                 assert (
                     class_name and len(class_name) == 1
-                ), f"Error. Check out code or Labeling format. class_name: {class_name}"
-                assert (
-                    int(x_min + w) <= (image_width + tolerance) # adding tolerance
-                ), f"Error. Check out code or Labeling format. x_min: {x_min} + w: {w} = {x_min + w} > image_width: {image_width}"
-                assert (
-                    int(y_min + h) <= (image_height + tolerance) # adding tolerance
-                ), f"Error. Check out code or Labeling format. y_min: {y_min} + h: {h} = {y_min + h} > image_height: {image_height}"
+                ), f"Excepted detection to have one class. Found: class_name: {class_name}"
+
+                if (
+                    int(x_min + w) <= (image_width + tolerance)  # adding tolerance
+                ):
+                    logger.warning(
+                        f"Discrepancies with detection bounds. x_min: {x_min} + w: {w} = {x_min + w} > image_width: {image_width}"
+                    )
+
+                if (
+                    int(y_min + h) <= (image_height + tolerance)  # adding tolerance
+                ):
+                    logger.warning(
+                        f"Discrepancies with detection bounds.. y_min: {y_min} + h: {h} = {y_min + h} > image_height: {image_height}"
+                    )
+
                 width, height = get_image_dimensions(image_path)
                 assert (
                     image_width == width
-                ), f"Error. Check out code or Labeling format. ls_width: {image_width} != image_width: {width} for image: {image_path}"
+                ), f"ls_width: {image_width} != image_width: {width} for image: {image_path}"
                 assert (
                     image_height == height
-                ), f"Error. Check out code or Labeling format. ls_height: {image_height} != image_height: {height} for image: {image_path}"
+                ), f"ls_height: {image_height} != image_height: {height} for image: {image_path}"
 
                 class_name = class_name[0]
                 confidence = get_val(det, "score", 1.0)
