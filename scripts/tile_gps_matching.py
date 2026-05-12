@@ -41,7 +41,7 @@ def _is_ignored_image_path(path: Path) -> bool:
     """Ignore OS-generated image artifacts such as macOS AppleDouble files."""
     return path.name.startswith("._")
 
-@lru_cache(max_size=10)
+@lru_cache(maxsize=10)
 def load_images_paths(image_dir:str,patterns:tuple[str])->list[str]:
     images_paths = chain.from_iterable([Path(image_dir).glob(p) for p in patterns])
     images_paths = sorted([p for p in set(images_paths) if not _is_ignored_image_path(p)])

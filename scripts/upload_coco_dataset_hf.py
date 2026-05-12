@@ -53,7 +53,8 @@ def upload(images_dir:str, json_file:str, repository:str, skip_existing:bool=Tru
         gen,
         features=features,
         split=split_name,
-        cache_dir=str(CACHE_DIR)  
+        cache_dir=str(CACHE_DIR),
+        writer_batch_size=50,
     )
     
     logger.info(f"STARTING UPLOAD")
