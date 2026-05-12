@@ -345,6 +345,7 @@ def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequ
     Verify that a tile matches its parent image at the given coordinates.
     """
     try:
+        tile_path = Path(tile_path)
         (x_min, x_max), (y_min, y_max) = coords
         parent_patch = parent_array[y_min:y_max, x_min:x_max]
         
