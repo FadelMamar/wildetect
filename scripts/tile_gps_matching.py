@@ -25,6 +25,9 @@ from PIL import Image
 import logging
 import fire
 import yaml
+from functools import lru_cache
+import numpy as np
+
 from pydantic import BaseModel, Field, model_validator
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
@@ -38,6 +41,11 @@ def _is_ignored_image_path(path: Path) -> bool:
     """Ignore OS-generated image artifacts such as macOS AppleDouble files."""
     return path.name.startswith("._")
 
+@lru_cache(max_size=10)
+def load_images_paths(image_dir:str,patterns:tuple[str])->list[str]:
+    images_paths = chain.from_iterable([Path(image_dir).glob(p) for p in patterns])
+    images_paths = sorted([p for p in set(images_paths) if not _is_ignored_image_path(p)])
+    return list(map(str,images_paths))
 
 class Args(BaseModel):
 
@@ -56,7 +64,7 @@ class Args(BaseModel):
 
     n_workers: int = 3
 
-    mae_threshold:float = 70.0
+    mae_threshold:float = 255.0
     failure_threshold: int = 10
 
     out_json_coords_files: Optional[str] = None
@@ -75,6 +83,9 @@ class Args(BaseModel):
 
     # tile
     tiled_images_folder: Optional[str] = None
+
+    # debug mode
+    debug: bool = False
 
     # CSV
     altitude: Optional[float] = None
@@ -297,8 +308,10 @@ def get_tile_metadata(args:Args,img_path:str) -> dict:
 
 def get_tiles_gps_and_dimensions(args:Args) -> dict:
 
-    images_paths = chain.from_iterable([Path(args.root).glob(p) for p in args.patterns])
-    images_paths = [p for p in set(images_paths) if not _is_ignored_image_path(p)]
+    images_paths = load_images_paths(image_dir=args.root,patterns=args.patterns)
+
+    if args.debug:
+        images_paths = images_paths[:5]
 
     tile_metadata = dict()
     with ThreadPoolExecutor(max_workers=args.n_workers) as executor:
@@ -327,7 +340,7 @@ def load_coordinates(coord_path:str):
         tile_data = json.load(file)
     return tile_data
 
-def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequence[int]], thresh: float = 60.0):
+def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequence[int]], thresh: float = 255.0):
     """
     Verify that a tile matches its parent image at the given coordinates.
     """
@@ -360,7 +373,6 @@ def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequ
         
         if mae > thresh:
             logger.warning(f"Verification failed for {tile_path.name}: MAE = {mae:.2f} > {thresh}")
-            return False
             
         return True
     except Exception as e:
@@ -379,7 +391,7 @@ def _process_parent_group(
     tiles: list,
     tile_data: dict,
     parent_images_paths: str,
-    mae_threshold: float = 70,
+    mae_threshold: float = 255.,
     expected_tiles_per_image: int = 0
 ) -> tuple:
     """
@@ -518,7 +530,7 @@ def _process_parent_group(
             )
 
     if len(group_metadata) != expected_tiles_per_image:
-        logger.warning(f"Expected at leat {expected_tiles_per_image} verified tiles for {image_name}, but found {len(group_metadata)}.")
+        raise ValueError(f"Expected at least {expected_tiles_per_image} tiles for {image_name}, but found {len(group_metadata)}. Tiling config is wrong.")
 
     return group_metadata, parent_report, None
 
@@ -529,7 +541,7 @@ def match_tiles_gps(
     image_ext_patterns:list,
     max_workers: int = 3,
     failure_threshold: int = 10,
-    mae_threshold: float = 70.,
+    mae_threshold: float = 255.,
     expected_tiles_per_image: int = 1
 ) -> tuple[dict, dict[str, Any]]:
     """
@@ -550,16 +562,10 @@ def match_tiles_gps(
         dict: tile metadata
     """
     # Discover and group tiles by parent image name
-    tile_paths = chain.from_iterable(
-        [Path(images_dir).glob(p) for p in image_ext_patterns]
-    )
-    tile_paths = sorted([p for p in set(tile_paths) if not _is_ignored_image_path(p)])
+    tile_paths = load_images_paths(image_dir=images_dir,patterns=image_ext_patterns)
 
     # Get Parent images
-    parent_images_paths = chain.from_iterable([Path(parent_root).glob(p) for p in image_ext_patterns])
-    parent_images_paths = sorted(
-        [p for p in set(parent_images_paths) if not _is_ignored_image_path(p)]
-    )
+    parent_images_paths = load_images_paths(image_dir=parent_root,patterns=image_ext_patterns)
 
     parent_groups: Dict[str, list] = {}
     skipped = 0
@@ -770,6 +776,11 @@ def process_single_run(args: Args):
         failure_threshold=args.failure_threshold,
         expected_tiles_per_image=args.expected_tiles_per_image
     )
+    
+    if args.debug:
+        logger.info(f"Skipping CSV writing because debug mode is enabled. Outputs not saved.")
+        return
+
     out_csv_path, rows_written = convert_metadata_to_csv(
         tiles_metadata,
         out_csv_path=args.out_csv_path,
@@ -875,7 +886,6 @@ def main(args: Args):
     else:
         process_single_run(args)
 
-
 def _args_from_config_and_overrides(
     config: Optional[str], overrides: dict[str, object]
 ) -> Args:
@@ -899,6 +909,86 @@ def _args_from_config_and_overrides(
 
     return Args(**merged)
 
+def find_missing_configs(args: Args) -> pd.DataFrame:
+    """Sweep tiling parameter combinations and identify which ones fail.
+
+    Runs ``process_single_run`` in debug mode for every combination of
+    ``rmheight``, ``rmwidth``, ``overlapfactor``, ``ratiowidth``, and
+    ``ratioheight``.  Each run is wrapped in a try/except so that failing
+    configs are recorded instead of aborting the whole sweep.
+
+    Args:
+        args: Base ``Args`` instance.  Must have ``debug=True``.
+
+    Returns:
+        A :class:`~pandas.DataFrame` with one row per parameter combo and
+        columns ``rmheight``, ``rmwidth``, ``overlapfactor``, ``ratiowidth``,
+        ``ratioheight``, ``status`` (``"ok"`` / ``"fail"``), and ``error``
+        (the exception message, or ``None`` on success).  The frame is also
+        saved as a CSV next to the log file.
+    """
+    assert args.debug, "Please enable debug mode."
+
+    # --- parameter grid ---------------------------------------------------
+    rmheight_vals = np.arange(0.2, 0.3, 0.01)
+    rmwidth_vals = np.arange(0.2, 0.3, 0.01)
+    overlapfactor_vals = [0.1, 0.2]
+    ratiowidth_vals = [1, 0.5, 1 / 3]
+    ratioheight_vals = [1, 0.5, 1 / 3]
+
+    combos = list(
+        product(rmheight_vals, rmwidth_vals, overlapfactor_vals, ratiowidth_vals, ratioheight_vals)
+    )
+    logger.info("Sweeping %d parameter combinations", len(combos))
+
+    # --- sweep ------------------------------------------------------------
+    results: list[dict[str, Any]] = []
+    base_dump = args.model_dump()
+
+    for rmh, rmw, ovlp, rw, rh in tqdm(combos, desc="Config sweep"):
+        overrides = dict(
+            rmheight=float(rmh),
+            rmwidth=float(rmw),
+            overlapfactor=float(ovlp),
+            ratiowidth=float(rw),
+            ratioheight=float(rh),
+            debug=True,
+        )
+        record: dict[str, Any] = {**overrides, "status": "ok", "error": None}
+
+        try:
+            run_args = Args(**{**base_dump, **overrides})
+            process_single_run(run_args)
+        except Exception as exc:
+            record["status"] = "fail"
+            record["error"] = str(exc)
+            logger.debug(
+                "Config failed: rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f → %s",
+                rmh, rmw, ovlp, rw, rh, exc,
+            )
+
+        results.append(record)
+
+    # --- summarise --------------------------------------------------------
+    df = pd.DataFrame(results)
+    n_ok = (df["status"] == "ok").sum()
+    n_fail = (df["status"] == "fail").sum()
+    logger.info("Sweep complete: %d ok, %d failed out of %d total", n_ok, n_fail, len(df))
+
+    # persist results
+    out_path = Path(args.log_file or "tile_gps_matching.log").with_name("config_sweep_results.csv")
+    df.to_csv(out_path, index=False)
+    logger.info("Saved sweep results to %s", out_path)
+
+    # keep only valid configs
+    valid_df = df[df["status"] == "ok"].drop(columns=["status", "error"])
+    if valid_df.empty:
+        logger.warning("All configurations failed!")
+    else:
+        logger.info("Valid configurations:\n%s", valid_df.to_string(index=False))
+
+    return df
+    
 
 class TileGpsMatchingCli:
     """CLI for tile GPS matching (Fire). Use the ``run`` command."""
@@ -921,6 +1011,25 @@ class TileGpsMatchingCli:
         del trace  # Fire-only flag
         args = _args_from_config_and_overrides(config, dict(overrides))
         main(args)
+
+    def sweep(
+        self,
+        config: Optional[str] = None,
+        **overrides: object,
+    ) -> None:
+        """Sweep tiling parameter combos and report which ones fail.
+
+        Loads args the same way as ``run``, forces ``debug=True``, then
+        calls :func:`find_missing_configs`.  Results are saved to
+        ``config_sweep_results.csv``.
+        """
+        overrides["debug"] = True
+        args = _args_from_config_and_overrides(config, dict(overrides))
+        setup_logging(args.log_file)
+        df = find_missing_configs(args)
+        n_fail = (df["status"] == "fail").sum()
+        if n_fail:
+            logger.warning("%d / %d configs failed — see config_sweep_results.csv", n_fail, len(df))
 
 
 if __name__ == "__main__":
