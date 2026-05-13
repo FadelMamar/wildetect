@@ -583,6 +583,13 @@ def match_tiles_gps(
     if skipped:
         logger.warning(f"Skipped {skipped} tiles with unparseable names")
 
+    # Filter groups to only those present in tile_data
+    parent_groups = {k: v for k, v in parent_groups.items() if k in tile_data}
+
+    if not parent_groups:
+        logger.warning("No tiles matched any parent images in the metadata.")
+        return {}, report
+
     # Process groups in parallel
     tiles_metadata = {}
     failed = set()
@@ -910,6 +917,35 @@ def _args_from_config_and_overrides(
 
     return Args(**merged)
 
+def _sweep_worker(sweep_args: tuple) -> dict:
+    """Top-level worker so ProcessPoolExecutor can pickle it."""
+    from typing import Any
+    base_dump, rmh, rmw, ovlp, rw, rh = sweep_args
+    overrides = dict(
+        rmheight=rmh, rmwidth=rmw, overlapfactor=ovlp,
+        ratiowidth=rw, ratioheight=rh, debug=True,
+    )
+    row: dict = dict(
+        rmheight=rmh, rmwidth=rmw, overlapfactor=ovlp,
+        ratiowidth=rw, ratioheight=rh, status="ok", error=None,
+    )
+    try:
+        run_args = Args(**{**base_dump, **overrides})
+        process_single_run(run_args)
+        logger.info(
+            "Config ok:   rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f",
+            rmh, rmw, ovlp, rw, rh,
+        )
+    except Exception as exc:
+        row["status"] = "fail"
+        row["error"] = str(exc)
+        logger.debug(
+            "Config fail: rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f -> %s",
+            rmh, rmw, ovlp, rw, rh, exc,
+        )
+    return row
+
+
 def find_missing_configs(args: Args) -> pd.DataFrame:
     """Sweep tiling parameter combinations and identify which ones fail.
 
@@ -933,56 +969,56 @@ def find_missing_configs(args: Args) -> pd.DataFrame:
     # --- parameter grid ---------------------------------------------------
     rmheight_vals = np.arange(0.2, 0.3, 0.01)
     rmwidth_vals = np.arange(0.2, 0.3, 0.01)
-    overlapfactor_vals = [0.1, 0.2]
+    overlapfactor_vals = np.arange(0.1, 0.3, 0.1)
     ratiowidth_vals = [1, 0.5, 1 / 3]
     ratioheight_vals = [1, 0.5, 1 / 3]
-
-    # random shuffle for each 
-    np.random.shuffle(rmheight_vals)
-    np.random.shuffle(rmwidth_vals)
-    np.random.shuffle(overlapfactor_vals)
-    np.random.shuffle(ratiowidth_vals)
-    np.random.shuffle(ratioheight_vals)
 
     combos = list(
         product(rmheight_vals, rmwidth_vals, overlapfactor_vals, ratiowidth_vals, ratioheight_vals)
     )
+    # Shuffle so workers sample the space evenly from the start
+    np.random.shuffle(combos)
     logger.info("Sweeping %d parameter combinations", len(combos))
 
-    # --- sweep ------------------------------------------------------------
-    results: list[dict[str, Any]] = []
+    # --- parallel sweep (ProcessPoolExecutor) -----------------------------
     base_dump = args.model_dump()
+    sweep_args_list = [
+        (base_dump, float(rmh), float(rmw), float(ovlp), float(rw), float(rh))
+        for rmh, rmw, ovlp, rw, rh in combos
+    ]
 
-    for rmh, rmw, ovlp, rw, rh in tqdm(combos, desc="Config sweep"):
-        overrides = dict(
-            rmheight=float(rmh),
-            rmwidth=float(rmw),
-            overlapfactor=float(ovlp),
-            ratiowidth=float(rw),
-            ratioheight=float(rh),
-            debug=True,
-        )
+    results = []
+    max_workers = min(args.n_workers, len(combos))
 
-        try:
-            run_args = Args(**{**base_dump, **overrides})
-            process_single_run(run_args)
-            logger.info(
-                "Config ok: rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f → %s",
-                rmh, rmw, ovlp, rw, rh, exc,
-            )
-            break
-        except Exception as exc:
-            logger.debug(
-                "Config failed: rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f → %s",
-                rmh, rmw, ovlp, rw, rh, exc,
-            )
-    
-    # Valid config
-    print("Valid config:", run_args)
-    
+    from concurrent.futures import ProcessPoolExecutor, as_completed  # noqa: PLC0415
 
-    return None
-    
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_sweep_worker, sa): sa for sa in sweep_args_list}
+        for future in tqdm(as_completed(futures), total=len(combos), desc="Config sweep"):
+            results.append(future.result())
+
+    # --- collate & save ---------------------------------------------------
+    df = pd.DataFrame(
+        results,
+        columns=["rmheight", "rmwidth", "overlapfactor", "ratiowidth", "ratioheight", "status", "error"],
+    )
+
+    ok_count = (df["status"] == "ok").sum()
+    logger.info(
+        "Sweep complete: %d ok / %d fail out of %d combos",
+        ok_count, len(df) - ok_count, len(df),
+    )
+
+    out_csv = (
+        Path(args.log_file).with_name("config_sweep_results.csv")
+        if args.log_file
+        else Path("config_sweep_results.csv")
+    )
+    df.to_csv(out_csv, index=False)
+    logger.info("Sweep results saved to %s", out_csv)
+
+    return df
+
 
 class TileGpsMatchingCli:
     """CLI for tile GPS matching (Fire). Use the ``run`` command."""
@@ -1018,13 +1054,16 @@ class TileGpsMatchingCli:
         ``config_sweep_results.csv``.
         """
         overrides["debug"] = True
+        overrides["failure_threshold"] = 999999
         args = _args_from_config_and_overrides(config, dict(overrides))
         setup_logging(args.log_file)
-        df = find_missing_configs(args)
-        n_fail = (df["status"] == "fail").sum()
-        if n_fail:
-            logger.warning("%d / %d configs failed — see config_sweep_results.csv", n_fail, len(df))
+        find_missing_configs(args)
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    try:
+        multiprocessing.set_start_method('spawn', force=True)
+    except RuntimeError:
+        pass
     fire.Fire(TileGpsMatchingCli)
