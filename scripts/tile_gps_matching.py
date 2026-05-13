@@ -937,6 +937,13 @@ def find_missing_configs(args: Args) -> pd.DataFrame:
     ratiowidth_vals = [1, 0.5, 1 / 3]
     ratioheight_vals = [1, 0.5, 1 / 3]
 
+    # random shuffle for each 
+    np.random.shuffle(rmheight_vals)
+    np.random.shuffle(rmwidth_vals)
+    np.random.shuffle(overlapfactor_vals)
+    np.random.shuffle(ratiowidth_vals)
+    np.random.shuffle(ratioheight_vals)
+
     combos = list(
         product(rmheight_vals, rmwidth_vals, overlapfactor_vals, ratiowidth_vals, ratioheight_vals)
     )
