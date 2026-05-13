@@ -955,40 +955,26 @@ def find_missing_configs(args: Args) -> pd.DataFrame:
             ratioheight=float(rh),
             debug=True,
         )
-        record: dict[str, Any] = {**overrides, "status": "ok", "error": None}
 
         try:
             run_args = Args(**{**base_dump, **overrides})
             process_single_run(run_args)
+            logger.info(
+                "Config ok: rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f → %s",
+                rmh, rmw, ovlp, rw, rh, exc,
+            )
+            break
         except Exception as exc:
-            record["status"] = "fail"
-            record["error"] = str(exc)
             logger.debug(
                 "Config failed: rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f → %s",
                 rmh, rmw, ovlp, rw, rh, exc,
             )
+    
+    # Valid config
+    print("Valid config:", run_args)
+    
 
-        results.append(record)
-
-    # --- summarise --------------------------------------------------------
-    df = pd.DataFrame(results)
-    n_ok = (df["status"] == "ok").sum()
-    n_fail = (df["status"] == "fail").sum()
-    logger.info("Sweep complete: %d ok, %d failed out of %d total", n_ok, n_fail, len(df))
-
-    # persist results
-    out_path = Path(args.log_file or "tile_gps_matching.log").with_name("config_sweep_results.csv")
-    df.to_csv(out_path, index=False)
-    logger.info("Saved sweep results to %s", out_path)
-
-    # keep only valid configs
-    valid_df = df[df["status"] == "ok"].drop(columns=["status", "error"])
-    if valid_df.empty:
-        logger.warning("All configurations failed!")
-    else:
-        logger.info("Valid configurations:\n%s", valid_df.to_string(index=False))
-
-    return df
+    return None
     
 
 class TileGpsMatchingCli:
