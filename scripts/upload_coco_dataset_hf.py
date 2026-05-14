@@ -1,4 +1,5 @@
 import os
+import re
 import supervision as sv
 from datasets import Dataset, Features, Value, Image as ImageFeature, List, get_dataset_split_names
 from pathlib import Path
@@ -34,7 +35,7 @@ def upload(images_dir:str, json_file:str, repository:str, skip_existing:bool=Tru
             class_id = annot.class_id.tolist()
             yield {"file_name": name, "image": Image.fromarray(image), "annotations": xyxy, "class_id": class_id}
     
-    split_name = Path(json_file).stem.replace(" ","").replace(",","").replace("-","")
+    split_name = re.sub(r"[^\w.]", "", Path(json_file).stem)
     features = Features({
         'file_name': Value('string'),
         'image': ImageFeature(),
