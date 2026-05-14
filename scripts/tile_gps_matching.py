@@ -656,7 +656,6 @@ def match_tiles_gps(
                         "error": str(e),
                     }
                 )
-                raise RuntimeError(f"Unexpected error processing {image_name}: {e}")
             else:
                 if error_msg:
                     logger.warning(error_msg)
