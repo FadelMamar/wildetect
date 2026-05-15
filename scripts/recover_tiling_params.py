@@ -7,6 +7,7 @@ import fire
 from pathlib import Path
 from itertools import product
 from typing import List, Tuple
+from itertools import chain
 
 import cv2
 import numpy as np
@@ -257,6 +258,20 @@ def recover_parameters(parent_img_path: str, tiles_dir: str, config_path: str):
         print("\nFailed to find matching parameters.")
 
 
+def _is_ignored_image_path(path: Path) -> bool:
+    """Ignore OS-generated image artifacts such as macOS AppleDouble files."""
+    return path.name.startswith("._")
+
+def load_images_paths(image_dir:str)->list[str]:
+    patterns = tuple(
+            f"**/{ext}"
+            for base in ("*.jpg", "*.jpeg", "*.png")
+            for ext in (base, base.upper())
+        )
+    images_paths = chain.from_iterable([Path(image_dir).glob(p) for p in patterns])
+    images_paths = sorted([p for p in set(images_paths) if not _is_ignored_image_path(p)])
+    return list(map(str,images_paths))
+
 def main(config: str = "config/tile-gps-matching.yaml", parent_image: str = "", tiles_dir: str = ""):
     """
     Recover tiling parameters using template matching.
@@ -279,7 +294,7 @@ def main(config: str = "config/tile-gps-matching.yaml", parent_image: str = "", 
             default_tiles = cfg_data.get("tiled_images_folder", "")
             
             if root_dir.exists():
-                images = list(root_dir.glob("*.JPG")) + list(root_dir.glob("*.jpg"))
+                images = load_images_paths(root_dir)
                 if images:
                     default_parent = str(images[0])
         except Exception as e:
