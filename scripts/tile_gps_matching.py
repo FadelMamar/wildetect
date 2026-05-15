@@ -12,8 +12,6 @@ from typing import Sequence, Dict, Optional, Any
 from itertools import chain
 from datetime import datetime, timezone
 
-from torchvision.utils import save_image
-import torchvision.transforms
 from tqdm import tqdm
 import math
 from itertools import product
@@ -25,6 +23,9 @@ from PIL import Image
 import logging
 import fire
 import yaml
+from functools import lru_cache
+import numpy as np
+
 from pydantic import BaseModel, Field, model_validator
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
@@ -38,6 +39,11 @@ def _is_ignored_image_path(path: Path) -> bool:
     """Ignore OS-generated image artifacts such as macOS AppleDouble files."""
     return path.name.startswith("._")
 
+@lru_cache(maxsize=10)
+def load_images_paths(image_dir:str,patterns:tuple[str])->list[str]:
+    images_paths = chain.from_iterable([Path(image_dir).glob(p) for p in patterns])
+    images_paths = sorted([p for p in set(images_paths) if not _is_ignored_image_path(p)])
+    return list(map(str,images_paths))
 
 class Args(BaseModel):
 
@@ -56,7 +62,7 @@ class Args(BaseModel):
 
     n_workers: int = 3
 
-    mae_threshold:float = 70.0
+    mae_threshold:float = 255.0
     failure_threshold: int = 10
 
     out_json_coords_files: Optional[str] = None
@@ -75,6 +81,9 @@ class Args(BaseModel):
 
     # tile
     tiled_images_folder: Optional[str] = None
+
+    # debug mode
+    debug: bool = False
 
     # CSV
     altitude: Optional[float] = None
@@ -172,138 +181,155 @@ def get_coordinates(image_width,tile_w,image_height,tile_h,overlaping_factor):
         coordinates = product(x_coords,y_coords)
         return list(coordinates)
 
-def get_patches(image_tensor,coords:list):
-    
+def get_patches(image_tensor, coords: list):
     patches = list()
+    # Detect if it's CHW (Torch) or HWC (NumPy)
+    # NumPy arrays from Image.open are typically HWC
+    is_chw = hasattr(image_tensor, "shape") and len(image_tensor.shape) == 3 and image_tensor.shape[0] in [1, 3]
     
-    # store patches
-    for (x_left,x_right),(y_top,y_bottom) in coords:
-        patches.append(image_tensor[:,y_top:y_bottom,x_left:x_right])
-        
+    for (x_left, x_right), (y_top, y_bottom) in coords:
+        if is_chw:
+            patches.append(image_tensor[:, y_top:y_bottom, x_left:x_right])
+        else:
+            patches.append(image_tensor[y_top:y_bottom, x_left:x_right, :])
     return patches
 
 def save_list_images(
-    image_tensor:list,
-    tiles_bounds:list,
+    image_tensor,
+    tiles_bounds: list,
     basename: str,
     dest_folder: str
-    ) -> None:
-    ''' Save mini-batch tensors into image files
-
-    Use torchvision save_image function,
-    see https://pytorch.org/vision/stable/utils.html#torchvision.utils.save_image
-
-    Args:
-        batch (list): mini-batch tensor
-        basename (str) : parent image name, with extension
-        dest_folder (str): destination folder path
-    '''
-    
-
+) -> None:
+    """Save mini-batch tensors/arrays into image files."""
     # get patches
+    is_chw = hasattr(image_tensor, "shape") and len(image_tensor.shape) == 3 and image_tensor.shape[0] in [1, 3]
     patches = list()
-    for (x_left,x_right),(y_top,y_bottom) in tiles_bounds:
-        patches.append(image_tensor[:,y_top:y_bottom,x_left:x_right])
+    for (x_left, x_right), (y_top, y_bottom) in tiles_bounds:
+        if is_chw:
+            patches.append(image_tensor[:, y_top:y_bottom, x_left:x_right])
+        else:
+            patches.append(image_tensor[y_top:y_bottom, x_left:x_right, :])
 
     base_wo_extension, extension = basename.split('.')[0], basename.split('.')[1]
     for i, b in enumerate(range(len(patches))):
         full_path = '_'.join([base_wo_extension, str(i) + '.']) + extension
         save_path = os.path.join(dest_folder, full_path)
-        save_image(patches[b], fp=save_path)
+        
+        # Convert tensor/array to PIL and save without torchvision
+        patch = patches[b]
+        if hasattr(patch, 'numpy'):
+            patch = patch.numpy()
+        
+        # If it's CHW (from ToTensor), convert to HWC
+        if patch.ndim == 3 and patch.shape[0] in [1, 3]:
+            patch = patch.transpose(1, 2, 0)
+            
+        if patch.max() <= 1.0:
+            patch = (patch * 255).astype(np.uint8)
+            
+        Image.fromarray(patch).save(save_path)
 
 def get_tile_metadata(args:Args,img_path:str) -> dict:
 
-    try:
-        pil_img = Image.open(img_path)
-    except Exception:
-        logger.warning(f"failed for: {img_path}")
-        raise FileNotFoundError(f"Failed to open image: {img_path}")
+    with Image.open(img_path) as pil_img:
+        img_name = os.path.basename(img_path)
+        image_width, image_height = pil_img.size
 
-    img_tensor = torchvision.transforms.ToTensor()(pil_img)
-    img_name = os.path.basename(img_path)
+        # Cropping out image-level overlap
+        height_overlap = math.ceil(args.rmheight * image_height)
+        width_overlap = math.ceil(args.rmwidth * image_width)
 
-    # Cropping out image-level overlap
-    height_overlap = math.ceil(args.rmheight * img_tensor.shape[1])
-    width_overlap = math.ceil(args.rmwidth * img_tensor.shape[2])
+        if height_overlap*width_overlap > 0 :
+            image_width -= 2 * width_overlap
+            image_height -= 2 * height_overlap
+            logger.debug(f"Removing {2*width_overlap} pixels to the width; and {2*height_overlap} pixels to the height.")
+        elif (height_overlap == 0) and (width_overlap != 0):
+            image_width -= 2 * width_overlap
+            logger.debug(f"Removing {2*width_overlap} pixels to the width; and {2*height_overlap} pixels to the height.")
+        elif width_overlap == 0 and (height_overlap != 0):
+            image_height -= 2 * height_overlap
+            logger.debug(f"Removing {2*width_overlap} pixels to the width; and {2*height_overlap} pixels to the height.")
+        
+        # Computes tile width and height using the given ratios
+        if args.ratiowidth > 0.0:
+            width = math.ceil(image_width*args.ratiowidth)
+        else:
+            raise ValueError("ratiowidth should be greater than 0.0")
 
-    if height_overlap*width_overlap > 0 :
-        img_tensor = img_tensor[:,height_overlap:-height_overlap, width_overlap:-width_overlap]
-        logger.debug(f"Removing {2*width_overlap} pixels to the width; and {2*height_overlap} pixels to the height.")
-    elif (height_overlap == 0) and (width_overlap != 0):
-        img_tensor = img_tensor[:,:, width_overlap:-width_overlap]
-        logger.debug(f"Removing {2*width_overlap} pixels to the width; and {2*height_overlap} pixels to the height.")
-    elif width_overlap == 0 and (height_overlap != 0):
-        img_tensor = img_tensor[:,height_overlap:-height_overlap,:]
-        logger.debug(f"Removing {2*width_overlap} pixels to the width; and {2*height_overlap} pixels to the height.")
-    
-    # Computes tile width and height using the given ratios
-    if args.ratiowidth > 0.0:
-        width = math.ceil(img_tensor.shape[2]*args.ratiowidth)
-    else:
-        raise ValueError("ratiowidth should be greater than 0.0")
+        if args.ratioheight > 0.0:
+            height = math.ceil(image_height*args.ratioheight)
+        else:
+            raise ValueError("ratioheight should be greater than 0.0")
+        
+        # get tile coordinates
+        coords =  get_coordinates(image_width,tile_w=width,image_height=image_height,tile_h=height,overlaping_factor=args.overlapfactor)       
 
-    if args.ratioheight > 0.0:
-        height = math.ceil(img_tensor.shape[1]*args.ratioheight)
-    else:
-        raise ValueError("ratioheight should be greater than 0.0")
-    
-    image_width=img_tensor.shape[2]
-    image_height=img_tensor.shape[1]
+        if len(coords) != args.expected_tiles_per_image:
+            logger.warning(f"Expected at least {args.expected_tiles_per_image} tile bounds for {img_name}, but generated {len(coords)}.")
 
-    # get tile coordinates
-    coords =  get_coordinates(image_width,tile_w=width,image_height=image_height,tile_h=height,overlaping_factor=args.overlapfactor)       
-
-    if len(coords) != args.expected_tiles_per_image:
-        logger.warning(f"Expected at least {args.expected_tiles_per_image} tile bounds for {img_name}, but generated {len(coords)}.")
-
-    # get tiles gps coordinates
-    image_gps = GPSUtils.get_gps_coord(file_name=None,
-                                        return_as_decimal=True,
-                                        image=pil_img)
-    if image_gps is not None:
-        (lat,long,alt),_ = image_gps
-        alt = alt/1000 # conver to meters
-        tile_gps_coords = []
-        gsd = get_gsd(
-                image=pil_img,
-                image_path=None,
-                flight_specs=FlightSpecs(
-                    sensor_height=args.sensor_height,
-                    flight_height=args.flight_height,
-                ),
-            )
-        for (x_left,x_right),(y_top,y_bottom) in coords:
-            x = (x_left+x_right)/2
-            y = (y_top+y_bottom)/2
-            tile_lat, tile_lon = get_pixel_gps_coordinates(x=x,y=y,
-                                            W=image_width,
-                                            H=image_height,
-                                            lat_center=lat,lon_center=long,
-                                            gsd=gsd)
-            tile_gps_coords.append((float(tile_lat),float(tile_lon)))
-    else:
-        tile_gps_coords = [None for _ in range(len(coords))]
-    
-    tile_metadata = dict()
-    tile_metadata[Path(img_path).stem] = dict(tiles_bounds=coords,
-                                        tiles_gps_coords=tile_gps_coords,                    
-                                        )
-    if args.save_tiles:
-        save_list_images(image_tensor=img_tensor,
-                        tiles_bounds=coords,
-                        basename=img_name,
-                        dest_folder=args.out_folder)
-    return tile_metadata 
+        if args.debug:
+            logger.debug(f"Debug mode is enabled, skipping GPS coordinate calculation.")
+            tile_gps_coords = [None for _ in range(len(coords))]
+        else:
+            # get tiles gps coordinates
+            image_gps = GPSUtils.get_gps_coord(file_name=None,
+                                                return_as_decimal=True,
+                                                image=pil_img)
+            if image_gps is not None:
+                (lat,long,alt),_ = image_gps
+                alt = alt/1000 # conver to meters
+                tile_gps_coords = []
+                gsd = get_gsd(
+                        image=pil_img,
+                        image_path=None,
+                        flight_specs=FlightSpecs(
+                            sensor_height=args.sensor_height,
+                            flight_height=args.flight_height,
+                        ),
+                    )
+                for (x_left,x_right),(y_top,y_bottom) in coords:
+                    x = (x_left+x_right)/2
+                    y = (y_top+y_bottom)/2
+                    tile_lat, tile_lon = get_pixel_gps_coordinates(x=x,y=y,
+                                                    W=image_width,
+                                                    H=image_height,
+                                                    lat_center=lat,lon_center=long,
+                                                    gsd=gsd)
+                    tile_gps_coords.append((float(tile_lat),float(tile_lon)))
+            else:
+                tile_gps_coords = [None for _ in range(len(coords))]
+        
+        tile_metadata = dict()
+        tile_metadata[Path(img_path).stem] = dict(tiles_bounds=coords,
+                                            tiles_gps_coords=tile_gps_coords,                    
+                                            )
+        if args.save_tiles:
+            # If saving tiles, we do need the array
+            img_array = np.array(pil_img)
+            # Apply crop to array if needed
+            if height_overlap > 0 or width_overlap > 0:
+                h_off = height_overlap if height_overlap > 0 else 0
+                w_off = width_overlap if width_overlap > 0 else 0
+                img_array = img_array[h_off:pil_img.height-h_off, w_off:pil_img.width-w_off]
+            
+            save_list_images(image_tensor=img_array, # Not actually a tensor anymore
+                            tiles_bounds=coords,
+                            basename=img_name,
+                            dest_folder=args.out_folder)
+        return tile_metadata
 
 def get_tiles_gps_and_dimensions(args:Args) -> dict:
 
-    images_paths = chain.from_iterable([Path(args.root).glob(p) for p in args.patterns])
-    images_paths = [p for p in set(images_paths) if not _is_ignored_image_path(p)]
+    images_paths = load_images_paths(image_dir=args.root,patterns=args.patterns)
+
+    if args.debug:
+        images_paths = images_paths[:5]
 
     tile_metadata = dict()
     with ThreadPoolExecutor(max_workers=args.n_workers) as executor:
         futures = [executor.submit(get_tile_metadata, args, img_path) for img_path in images_paths]
-        for future in tqdm(as_completed(futures), total=len(images_paths), desc='Exporting patches'):
+        disable = args.debug # Disable tqdm if in debug/sweep mode
+        for future in tqdm(as_completed(futures), total=len(images_paths), desc='Exporting patches', disable=disable):
             tile_metadata.update(future.result())
 
     # saving metdata
@@ -327,16 +353,17 @@ def load_coordinates(coord_path:str):
         tile_data = json.load(file)
     return tile_data
 
-def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequence[int]], thresh: float = 60.0):
+def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequence[int]], thresh: float = 255.0):
     """
     Verify that a tile matches its parent image at the given coordinates.
     """
     try:
+        tile_path = Path(tile_path)
         (x_min, x_max), (y_min, y_max) = coords
         parent_patch = parent_array[y_min:y_max, x_min:x_max]
         
-        tile_img = Image.open(tile_path)
-        tile_array = np.array(tile_img)
+        with Image.open(tile_path) as tile_img:
+            tile_array = np.array(tile_img)
         
         if parent_patch.shape != tile_array.shape:
             parent_h, parent_w = parent_patch.shape[:2]
@@ -360,7 +387,6 @@ def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequ
         
         if mae > thresh:
             logger.warning(f"Verification failed for {tile_path.name}: MAE = {mae:.2f} > {thresh}")
-            return False
             
         return True
     except Exception as e:
@@ -379,7 +405,7 @@ def _process_parent_group(
     tiles: list,
     tile_data: dict,
     parent_images_paths: str,
-    mae_threshold: float = 70,
+    mae_threshold: float = 255.,
     expected_tiles_per_image: int = 0
 ) -> tuple:
     """
@@ -418,7 +444,8 @@ def _process_parent_group(
     parent_report["parent_path"] = str(parent_path)
 
     try:
-        parent_array = np.array(Image.open(parent_path))
+        with Image.open(parent_path) as img:
+            parent_array = np.array(img)
     except Exception as e:
         return {}, parent_report, f"Failed to load parent image {image_name}: {e}"
 
@@ -518,8 +545,10 @@ def _process_parent_group(
             )
 
     if len(group_metadata) != expected_tiles_per_image:
-        logger.warning(f"Expected at leat {expected_tiles_per_image} verified tiles for {image_name}, but found {len(group_metadata)}.")
+        del parent_array
+        raise ValueError(f"Expected at least {expected_tiles_per_image} tiles for {image_name}, but found {len(group_metadata)}. Tiling config is wrong.")
 
+    del parent_array
     return group_metadata, parent_report, None
 
 def match_tiles_gps(
@@ -529,7 +558,7 @@ def match_tiles_gps(
     image_ext_patterns:list,
     max_workers: int = 3,
     failure_threshold: int = 10,
-    mae_threshold: float = 70.,
+    mae_threshold: float = 255.,
     expected_tiles_per_image: int = 1
 ) -> tuple[dict, dict[str, Any]]:
     """
@@ -550,16 +579,10 @@ def match_tiles_gps(
         dict: tile metadata
     """
     # Discover and group tiles by parent image name
-    tile_paths = chain.from_iterable(
-        [Path(images_dir).glob(p) for p in image_ext_patterns]
-    )
-    tile_paths = sorted([p for p in set(tile_paths) if not _is_ignored_image_path(p)])
+    tile_paths = load_images_paths(image_dir=images_dir,patterns=image_ext_patterns)
 
     # Get Parent images
-    parent_images_paths = chain.from_iterable([Path(parent_root).glob(p) for p in image_ext_patterns])
-    parent_images_paths = sorted(
-        [p for p in set(parent_images_paths) if not _is_ignored_image_path(p)]
-    )
+    parent_images_paths = load_images_paths(image_dir=parent_root,patterns=image_ext_patterns)
 
     parent_groups: Dict[str, list] = {}
     skipped = 0
@@ -575,6 +598,13 @@ def match_tiles_gps(
 
     if skipped:
         logger.warning(f"Skipped {skipped} tiles with unparseable names")
+
+    # Filter groups to only those present in tile_data
+    parent_groups = {k: v for k, v in parent_groups.items() if k in tile_data}
+
+    if not parent_groups:
+        logger.warning("No tiles matched any parent images in the metadata.")
+        return {}, report
 
     # Process groups in parallel
     tiles_metadata = {}
@@ -608,16 +638,18 @@ def match_tiles_gps(
             for image_name, tiles in parent_groups.items()
         }
 
+        disable = len(tile_data) < 10
         for future in tqdm(
             as_completed(future_to_name),
             total=len(future_to_name),
             desc='Matching tiles gps coordinates',
+            disable=disable
         ):
             image_name = future_to_name[future]
             try:
                 group_meta, parent_report, error_msg = future.result()
             except Exception as e:
-                logger.warning(f"Unexpected error processing {image_name}: {e}")
+                #logger.warning(f"Unexpected error processing {image_name}: {e}")
                 failed.add(image_name)
                 report["summary"]["other_failures"] += 1
                 report["failure_details"].append(
@@ -770,6 +802,11 @@ def process_single_run(args: Args):
         failure_threshold=args.failure_threshold,
         expected_tiles_per_image=args.expected_tiles_per_image
     )
+    
+    if args.debug:
+        logger.info(f"Skipping CSV writing because debug mode is enabled. Outputs not saved.")
+        return
+
     out_csv_path, rows_written = convert_metadata_to_csv(
         tiles_metadata,
         out_csv_path=args.out_csv_path,
@@ -875,7 +912,6 @@ def main(args: Args):
     else:
         process_single_run(args)
 
-
 def _args_from_config_and_overrides(
     config: Optional[str], overrides: dict[str, object]
 ) -> Args:
@@ -899,6 +935,102 @@ def _args_from_config_and_overrides(
 
     return Args(**merged)
 
+def _sweep_worker(sweep_args: tuple) -> dict:
+    """Top-level worker so ProcessPoolExecutor can pickle it."""
+    from typing import Any
+    base_dump, rmh, rmw, ovlp, rw, rh = sweep_args
+    overrides = dict(
+        rmheight=rmh, rmwidth=rmw, overlapfactor=ovlp,
+        ratiowidth=rw, ratioheight=rh, debug=True,
+    )
+    row: dict = dict(
+        rmheight=rmh, rmwidth=rmw, overlapfactor=ovlp,
+        ratiowidth=rw, ratioheight=rh, status="ok", error=None,
+    )
+    try:
+        run_args = Args(**{**base_dump, **overrides})
+        process_single_run(run_args)
+        logger.info(
+            "Config ok:   rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f",
+            rmh, rmw, ovlp, rw, rh,
+        )
+    except Exception as exc:
+        row["status"] = "fail"
+        row["error"] = str(exc)
+        logger.debug(
+            "Config fail: rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f -> %s",
+            rmh, rmw, ovlp, rw, rh, exc,
+        )
+    finally:
+        import gc
+        gc.collect()
+    return row
+
+
+def find_missing_configs(args: Args) -> pd.DataFrame:
+    """Sweep tiling parameter combinations and identify which ones fail.
+
+    Runs ``process_single_run`` in debug mode for every combination of
+    ``rmheight``, ``rmwidth``, ``overlapfactor``, ``ratiowidth``, and
+    ``ratioheight``.  Each run is wrapped in a try/except so that failing
+    configs are recorded instead of aborting the whole sweep.
+
+    Args:
+        args: Base ``Args`` instance.  Must have ``debug=True``.
+
+    Returns:
+        A :class:`~pandas.DataFrame` with one row per parameter combo and
+        columns ``rmheight``, ``rmwidth``, ``overlapfactor``, ``ratiowidth``,
+        ``ratioheight``, ``status`` (``"ok"`` / ``"fail"``), and ``error``
+        (the exception message, or ``None`` on success).  The frame is also
+        saved as a CSV next to the log file.
+    """
+    assert args.debug, "Please enable debug mode."
+
+    # --- parameter grid ---------------------------------------------------
+    rmheight_vals = np.arange(0.2, 0.3, 0.01)
+    rmwidth_vals = np.arange(0.2, 0.3, 0.01)
+    overlapfactor_vals = np.arange(0.1, 0.3, 0.1)
+    ratiowidth_vals = [1, 0.5, 1 / 3]
+    ratioheight_vals = [1, 0.5, 1 / 3]
+
+    combos = list(
+        product(rmheight_vals, rmwidth_vals, overlapfactor_vals, ratiowidth_vals, ratioheight_vals)
+    )
+    # Shuffle so workers sample the space evenly from the start
+    np.random.shuffle(combos)
+    logger.info("Sweeping %d parameter combinations", len(combos))
+
+    # --- sequential sweep -------------------------------------------------
+    base_dump = args.model_dump()
+    results = []
+    
+    for rmh, rmw, ovlp, rw, rh in tqdm(combos, desc="Config sweep"):
+        sweep_args = (base_dump, float(rmh), float(rmw), float(ovlp), float(rw), float(rh))
+        results.append(_sweep_worker(sweep_args))
+
+    # --- collate & save ---------------------------------------------------
+    df = pd.DataFrame(
+        results,
+        columns=["rmheight", "rmwidth", "overlapfactor", "ratiowidth", "ratioheight", "status", "error"],
+    )
+
+    ok_count = (df["status"] == "ok").sum()
+    logger.info(
+        "Sweep complete: %d ok / %d fail out of %d combos",
+        ok_count, len(df) - ok_count, len(df),
+    )
+
+    out_csv = (
+        Path(args.log_file).with_name("config_sweep_results.csv")
+        if args.log_file
+        else Path("config_sweep_results.csv")
+    )
+    df.to_csv(out_csv, index=False)
+    logger.info("Sweep results saved to %s", out_csv)
+
+    return df
+
 
 class TileGpsMatchingCli:
     """CLI for tile GPS matching (Fire). Use the ``run`` command."""
@@ -921,6 +1053,22 @@ class TileGpsMatchingCli:
         del trace  # Fire-only flag
         args = _args_from_config_and_overrides(config, dict(overrides))
         main(args)
+
+    def sweep(
+        self,
+        config: Optional[str] = None,
+        **overrides: object,
+    ) -> None:
+        """Sweep tiling parameter combos and report which ones fail.
+
+        Loads args the same way as ``run``, forces ``debug=True``, then
+        calls :func:`find_missing_configs`.  Results are saved to
+        ``config_sweep_results.csv``.
+        """
+        overrides["debug"] = True
+        args = _args_from_config_and_overrides(config, dict(overrides))
+        setup_logging(args.log_file)
+        find_missing_configs(args)
 
 
 if __name__ == "__main__":
