@@ -8,9 +8,9 @@ root: null
 tiled_images_folder: null
 
 # GPS coordinate file (optional, will be created if not provided)
-config_file_csv: tiling_args_failed_only.csv
+config_file_csv: D:\PhD\workspace\wildetect\tiling_args_failed_only.csv
 
-log_file: tiling_args_failed_only.log
+log_file: tiling_args_succeeded_only.log
 
 # Crop margins as fraction of height/width removed from each edge band (required)
 rmheight: 0.31
