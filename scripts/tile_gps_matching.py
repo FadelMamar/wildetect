@@ -12,9 +12,6 @@ from typing import Sequence, Dict, Optional, Any
 from itertools import chain
 from datetime import datetime, timezone
 
-# torchvision and torch removed from top-level to avoid issues with spawn/fork
-# from torchvision.utils import save_image
-# import torchvision.transforms
 from tqdm import tqdm
 import math
 from itertools import product
@@ -270,33 +267,37 @@ def get_tile_metadata(args:Args,img_path:str) -> dict:
         if len(coords) != args.expected_tiles_per_image:
             logger.warning(f"Expected at least {args.expected_tiles_per_image} tile bounds for {img_name}, but generated {len(coords)}.")
 
-        # get tiles gps coordinates
-        image_gps = GPSUtils.get_gps_coord(file_name=None,
-                                            return_as_decimal=True,
-                                            image=pil_img)
-        if image_gps is not None:
-            (lat,long,alt),_ = image_gps
-            alt = alt/1000 # conver to meters
-            tile_gps_coords = []
-            gsd = get_gsd(
-                    image=pil_img,
-                    image_path=None,
-                    flight_specs=FlightSpecs(
-                        sensor_height=args.sensor_height,
-                        flight_height=args.flight_height,
-                    ),
-                )
-            for (x_left,x_right),(y_top,y_bottom) in coords:
-                x = (x_left+x_right)/2
-                y = (y_top+y_bottom)/2
-                tile_lat, tile_lon = get_pixel_gps_coordinates(x=x,y=y,
-                                                W=image_width,
-                                                H=image_height,
-                                                lat_center=lat,lon_center=long,
-                                                gsd=gsd)
-                tile_gps_coords.append((float(tile_lat),float(tile_lon)))
-        else:
+        if args.debug:
+            logger.debug(f"Debug mode is enabled, skipping GPS coordinate calculation.")
             tile_gps_coords = [None for _ in range(len(coords))]
+        else:
+            # get tiles gps coordinates
+            image_gps = GPSUtils.get_gps_coord(file_name=None,
+                                                return_as_decimal=True,
+                                                image=pil_img)
+            if image_gps is not None:
+                (lat,long,alt),_ = image_gps
+                alt = alt/1000 # conver to meters
+                tile_gps_coords = []
+                gsd = get_gsd(
+                        image=pil_img,
+                        image_path=None,
+                        flight_specs=FlightSpecs(
+                            sensor_height=args.sensor_height,
+                            flight_height=args.flight_height,
+                        ),
+                    )
+                for (x_left,x_right),(y_top,y_bottom) in coords:
+                    x = (x_left+x_right)/2
+                    y = (y_top+y_bottom)/2
+                    tile_lat, tile_lon = get_pixel_gps_coordinates(x=x,y=y,
+                                                    W=image_width,
+                                                    H=image_height,
+                                                    lat_center=lat,lon_center=long,
+                                                    gsd=gsd)
+                    tile_gps_coords.append((float(tile_lat),float(tile_lon)))
+            else:
+                tile_gps_coords = [None for _ in range(len(coords))]
         
         tile_metadata = dict()
         tile_metadata[Path(img_path).stem] = dict(tiles_bounds=coords,
@@ -361,8 +362,8 @@ def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequ
         (x_min, x_max), (y_min, y_max) = coords
         parent_patch = parent_array[y_min:y_max, x_min:x_max]
         
-        tile_img = Image.open(tile_path)
-        tile_array = np.array(tile_img)
+        with Image.open(tile_path) as tile_img:
+            tile_array = np.array(tile_img)
         
         if parent_patch.shape != tile_array.shape:
             parent_h, parent_w = parent_patch.shape[:2]
@@ -544,8 +545,10 @@ def _process_parent_group(
             )
 
     if len(group_metadata) != expected_tiles_per_image:
+        del parent_array
         raise ValueError(f"Expected at least {expected_tiles_per_image} tiles for {image_name}, but found {len(group_metadata)}. Tiling config is wrong.")
 
+    del parent_array
     return group_metadata, parent_report, None
 
 def match_tiles_gps(
@@ -635,7 +638,7 @@ def match_tiles_gps(
             for image_name, tiles in parent_groups.items()
         }
 
-        disable = (tile_data is not None and len(tile_data) < 10) or (hasattr(args, 'debug') and args.debug)
+        disable = len(tile_data) < 10
         for future in tqdm(
             as_completed(future_to_name),
             total=len(future_to_name),
@@ -958,6 +961,9 @@ def _sweep_worker(sweep_args: tuple) -> dict:
             "Config fail: rmh=%.3f rmw=%.3f ovlp=%.2f rw=%.4f rh=%.4f -> %s",
             rmh, rmw, ovlp, rw, rh, exc,
         )
+    finally:
+        import gc
+        gc.collect()
     return row
 
 
