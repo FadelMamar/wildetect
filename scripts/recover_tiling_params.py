@@ -306,6 +306,9 @@ def main(config: str = "config/tile-gps-matching.yaml", parent_image: str = "", 
     if not final_parent or not final_tiles:
         print("Error: Could not determine default paths from config, and arguments were not provided.")
         sys.exit(1)
+
+    print("Using parent image:", final_parent)
+    print("Using tiles directory:", final_tiles)
     
     recover_parameters(final_parent, final_tiles, str(config_path))
 
