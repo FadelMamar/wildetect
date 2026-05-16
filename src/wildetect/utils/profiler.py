@@ -379,14 +379,31 @@ class ProfilerManager:
                 {"header": "Value", "style": "magenta"},
             ]
 
+            # Get memory summary if available
+            memory_summary = self.get_memory_summary()
+
+            # Calculate peak memory
+            peak_memory_gb = 0.0
+            if memory_summary:
+                peak_memory_gb = memory_summary["rss_max"] / 1024.0
+            else:
+                try:
+                    import resource
+
+                    # resource.ru_maxrss is in KiB on Linux
+                    peak_memory_gb = (
+                        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                        / (1024 * 1024)
+                    )
+                except (ImportError, AttributeError):
+                    peak_memory_gb = memory_info.rss / 1024**3
+
             # Prepare data for table
             table_data = [
                 ["Current Memory", f"{memory_info.rss / 1024**3:.2f} GB"],
-                ["Peak Memory", f"{memory_info.peak_wset / 1024**3:.2f} GB"],
+                ["Peak Memory", f"{peak_memory_gb:.2f} GB"],
             ]
 
-            # Get memory summary if available
-            memory_summary = self.get_memory_summary()
             if memory_summary:
                 table_data.extend(
                     [
@@ -417,9 +434,7 @@ class ProfilerManager:
             with open(memory_profile_path, "w") as f:
                 f.write("=== MEMORY PROFILING RESULTS ===\n")
                 f.write(f"Current Memory Usage: {memory_info.rss / 1024**3:.2f} GB\n")
-                f.write(
-                    f"Peak Memory Usage: {memory_info.peak_wset / 1024**3:.2f} GB\n"
-                )
+                f.write(f"Peak Memory Usage: {peak_memory_gb:.2f} GB\n")
                 f.write(f"Memory Info: {memory_info}\n")
 
                 if memory_summary:
