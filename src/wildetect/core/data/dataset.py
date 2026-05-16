@@ -376,15 +376,7 @@ class ImageDataset(Dataset):
         image = self.pil_to_tensor(image.convert("RGB"))
         image = image / 255.0  # normalize to [0,1]
 
-        # get patches and offset info
-        patches, _ = self.tiler.get_patches_and_offset_info(
-            image=image,
-            patch_size=self.tile_size,
-            stride=self.stride,
-            validate=False,
-            file_name=image_path,
-        )
-        return patches, idx
+        return image, idx, image_path
 
     def _collate_fn(self, batch: List[torch.Tensor]) -> torch.Tensor:
         """Custom collate function to handle variable-sized batches."""
@@ -395,28 +387,7 @@ class ImageDataset(Dataset):
         self, image_path: Union[str, None], idx: Optional[int] = None
     ) -> Dict:
         """Get offset info for an image path."""
-        assert (image_path is None) ^ (idx is None), (
-            "image_path and idx  cannot be provided together"
-        )
-        if isinstance(idx, int):
-            image_path = self.image_paths[idx]
-        try:
-            width, height = get_image_dimensions(image_path)
-            return self.tiler.get_offset_info(
-                width=width,
-                height=height,
-                patch_size=self.tile_size,
-                stride=self.stride,
-                file_name=image_path,
-            )
-        except KeyError as e:
-            logger.error(f"Offset info not found or not loaded for {image_path}")
-            raise e
-        except Exception as e:
-            logger.error(
-                f"Error getting offset info for path:{image_path} or idx:{idx}"
-            )
-            raise e
+        return dict()
 
 
 class RasterDataset(Dataset):

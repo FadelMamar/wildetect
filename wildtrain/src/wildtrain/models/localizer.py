@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
+import numpy as np
 import supervision as sv
 import torch
+from sahi import AutoDetectionModel
+from sahi.predict import get_sliced_prediction
 from ultralytics import YOLO
 
 from ..shared.schemas.yolo import (
@@ -95,11 +98,17 @@ class UltralyticsLocalizer(ObjectLocalizer):
             self.disable_detection_filtering = disable_detection_filtering
 
         self.class_agnostic = True  # single class detection is localization
-        assert self.overlap_metric in [OverlapMetricConfig.IOU, OverlapMetricConfig.IOS]
         self.overlap_metrics = {
             OverlapMetricConfig.IOU: sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
             OverlapMetricConfig.IOS: sv.detection.utils.iou_and_nms.OverlapMetric.IOS,
         }
+        self.sahi_model = AutoDetectionModel.from_pretrained(
+                model_type="ultralytics",
+                model=self.model,
+                confidence_threshold=self.conf_thres,
+                image_size=self.imgsz,
+                device=self.device,
+            )
 
     @property
     def class_mapping(self):
@@ -122,13 +131,13 @@ class UltralyticsLocalizer(ObjectLocalizer):
     ) -> sv.Detections:
         """Apply filtering to remove duplicate predictions."""
         detections = self._update_class_mapping(detections)
-        if self.merging_method == "nms":
+        if self.merging_method == MergingMethodConfig.NMS:
             return detections.with_nms(
                 threshold=self.iou_thres,
                 class_agnostic=self.class_agnostic,
                 overlap_metric=self.overlap_metrics[self.overlap_metric],
             )
-        elif self.merging_method == "nmm":
+        elif self.merging_method == MergingMethodConfig.NMM:
             return detections.with_nmm(
                 threshold=self.iou_thres,
                 class_agnostic=self.class_agnostic,
@@ -137,34 +146,80 @@ class UltralyticsLocalizer(ObjectLocalizer):
         else:
             raise ValueError(f"Invalid merging method: {self.merging_method}")
 
-    def predict_sahi(self, image: torch.Tensor, 
-        overlap_ratio_wh:tuple[float, float]=(0.2, 0.2),
-        thread_workers:int=3,
-        )->list[sv.Detections]:
+    def _sahi_to_supervision(self, sahi_result) -> sv.Detections:
+        """Convert SAHI result to supervision Detections."""
+        if len(sahi_result.object_prediction_list) == 0:
+            return sv.Detections.empty()
+
+        xyxy = np.array(
+            [
+                [p.bbox.minx, p.bbox.miny, p.bbox.maxx, p.bbox.maxy]
+                for p in sahi_result.object_prediction_list
+            ]
+        )
+        confidence = np.array(
+            [p.score.value for p in sahi_result.object_prediction_list]
+        )
+        class_ids = np.array(
+            [p.category.id for p in sahi_result.object_prediction_list], dtype=int
+        )
+
+        # Create Detections object
+        detections = sv.Detections(
+            xyxy=xyxy.astype(np.float32),
+            confidence=confidence.astype(np.float32),
+            class_id=class_ids,
+        )
+
+        # Add class mapping to metadata if available
+        if sahi_result.object_prediction_list:
+            category_mapping = {
+                p.category.id: p.category.name
+                for p in sahi_result.object_prediction_list
+            }
+            detections.metadata = {"class_mapping": category_mapping}
+
+        return self._apply_filtering(detections)
+
+    def predict_sahi(
+        self,
+        image: torch.Tensor,
+        overlap_ratio_wh: tuple[float, float] = (0.2, 0.2),
+        batch_size: int = 8,
+    ) -> list[sv.Detections]:
         """
         Args:
             image (torch.Tensor): Image, shape (C, H, W)
             overlap_ratio_wh (tuple[float, float]): Overlap ratio in width and height
-            thread_workers (int): Number of worker threads
         Returns:
             list[sv.Detections]: Detections for the image
-        """        
-        assert image.dim() == 3, "Image must be 3D tensor"
-        
-        def callback(image_slice: np.ndarray) -> sv.Detections:
-            image_slice = torch.from_numpy(image_slice)
-            return self.predict(image_slice)[0]
-
-        slicer = sv.InferenceSlicer(
-            callback=callback,
-            slice_wh=(self.imgsz, self.imgsz),
-            overlap_ratio_wh=overlap_ratio_wh,
-            thread_workers=thread_workers,
-            iou_threshold=1.0,  # disable nms
-            overlap_filter=None,
+        """
+        assert image.dim() == 3, f"Image must be 3D tensor, got {image.shape}"
+        assert image.min() >= 0.0 and image.max() <= 1.0, (
+            f"Image must be normalized to [0,1]. Got {image.min()} {image.max()}"
         )
-        detections = slicer.slice(image.permute(1,2,0).cpu().numpy())
-        return detections
+
+        # Convert torch tensor to numpy [0, 255] uint8
+        image_np = (image.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
+
+        # Run sliced prediction
+        result = get_sliced_prediction(
+            image_np,
+            self.sahi_model,
+            slice_height=self.imgsz,
+            slice_width=self.imgsz,
+            overlap_height_ratio=overlap_ratio_wh[0],
+            overlap_width_ratio=overlap_ratio_wh[1],
+            postprocess_type=str(self.merging_method).upper(),
+            postprocess_match_threshold=0.5,
+            postprocess_match_metric=str(self.overlap_metric).upper(),
+            verbose=0,
+            batch_size=batch_size,
+            confidence_threshold=0.05, # disable confidence filtering
+        )
+
+        detections = self._sahi_to_supervision(result)
+        return [detections]
 
     def predict(self, images: torch.Tensor) -> list[sv.Detections]:
         """
@@ -186,7 +241,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
             imgsz=self.imgsz,
             verbose=False,
             conf=0.05,  # disable confidence filtering
-            iou=1.0,  # disable nms
+            iou=0.8,  # remove some duplicates
             device=self.device,
             max_det=self.max_det,
         )

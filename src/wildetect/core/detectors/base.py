@@ -161,7 +161,7 @@ class BaseDetectionPipeline(ABC):
                 return None, None, None
             return row["latitude"], row["longitude"], row["altitude"]
         else:
-            logger.warning("``self.image_csv_data is not set``")
+            logger.debug("``self.image_csv_data is not set``")
             return None, None, None
 
     def clear(
@@ -193,7 +193,7 @@ class BaseDetectionPipeline(ABC):
                 return_as_dict=False,
                 sahi=sahi,
                 overlap_ratio_wh=(self.config.overlap_ratio, self.config.overlap_ratio),
-                thread_workers=self.config.num_workers,
+                batch_size=self.loader_config.batch_size,
             )
         else:
             detections = self.detection_system(batch)
@@ -465,70 +465,40 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
     def __init__(self, config: PredictionConfig, loader_config: LoaderConfig):
         super().__init__(config, loader_config)
 
-    def _process_one_image(
-        self, image_as_patches: torch.Tensor
-    ) -> List[List[Detection]]:
-        result = []
-        b = min(self.loader_config.batch_size, image_as_patches.shape[0])
-        for i in range(0, image_as_patches.shape[0], b):
-            batch = image_as_patches[i : i + b]
-            result.extend(self._process_batch(batch))
-            self.total_batches += 1
-            self.total_tiles += batch.shape[0]
-        return result
-
     def _run_one_image(self, loader: DataLoader) -> List[List[Detection]]:
         """Run detection on one image."""
-        for img, idx in loader:
-            # yield self._process_one_image(img), idx
-            yield self._process_batch(img, sahi=True), idx
+        for img, idx, image_path in loader:
+            yield self._process_batch(img, sahi=True), idx, image_path
 
     def _postprocess_one_image(
-        self, detections: List[List[Detection]], offset_info: Dict
+        self, detections: List[List[Detection]], image_path: str
     ) -> DroneImage:
-        num_tiles = len(detections)
-        y_offset_len = len(offset_info["y_offset"])
-        assert num_tiles == y_offset_len, (
-            f"len(detections) != len(offset_info['y_offset']) "
-            f"-> {num_tiles} != {y_offset_len}"
-        )
 
-        y_offset = offset_info["y_offset"]
-        x_offset = offset_info["x_offset"]
-        y_end = offset_info["y_end"]
-        x_end = offset_info["x_end"]
-        file_name = offset_info["file_name"]
-
-        latitude, longitude, altitude = self.get_image_gps_coords(file_name)
-
+        latitude, longitude, altitude = self.get_image_gps_coords(image_path)
         drone_image = DroneImage.from_image_path(
-            image_path=file_name,
+            image_path=image_path,
             flight_specs=self.loader_config.flight_specs,
             latitude=latitude,
             longitude=longitude,
             altitude=altitude,
         )
-
-        # add tiles to drone image
-        for i in range(num_tiles):
-            tile = Tile(
-                x_offset=x_offset[i],
-                y_offset=y_offset[i],
-                width=x_end[i] - x_offset[i],
-                height=y_end[i] - y_offset[i],
-            )
-            if detections[i]:
-                tile.set_predictions(detections[i], update_gps=False)
-            else:
-                tile.set_predictions([], update_gps=False)
-            drone_image.add_tile(
-                tile=tile,
-                x_offset=tile.x_offset,
-                y_offset=tile.y_offset,
-                offset_detections=True,
-                nms_threshold=self.config.nms_threshold,
-            )
-
+        tile = Tile(
+            x_offset=0,
+            y_offset=0,
+            width=drone_image.width,
+            height=drone_image.height,
+        )
+        if detections:
+            tile.set_predictions(detections[0], update_gps=False)
+        else:
+            tile.set_predictions([], update_gps=False)
+        drone_image.add_tile(
+            tile=tile,
+            x_offset=tile.x_offset,
+            y_offset=tile.y_offset,
+            offset_detections=False,
+            nms_threshold=self.config.nms_threshold,
+        )
         return drone_image
 
     def run_detection(
@@ -572,17 +542,16 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             image_dir=image_dir,
             use_tile_dataset=False,
         )
-
+        
         if len(loader) == 0:
             logger.warning("No batches to process")
             return []
 
         # Process batches
-        for detections, idx in self._run_one_image(
+        for detections, idx, image_path in self._run_one_image(
             tqdm(loader, desc="Processing images", unit="image")
         ):
-            offset_info = loader.get_offset_info(idx=idx)
-            drone_image = self._postprocess_one_image(detections, offset_info)
+            drone_image = self._postprocess_one_image(detections, image_path)
             self.drone_images[drone_image.image_path] = drone_image
             # Save results when completed
             if self.save_path:

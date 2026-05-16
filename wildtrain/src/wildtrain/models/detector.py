@@ -253,13 +253,16 @@ class Detector(torch.nn.Module):
 
     @torch.no_grad()
     def predict(
-        self, images: torch.Tensor, return_as_dict: bool = False, sahi: bool = False, overlap_ratio_wh:tuple[float, float]=(0.2, 0.2), thread_workers:int=3,
+        self, images: torch.Tensor, return_as_dict: bool = False, 
+        sahi: bool = False, 
+        overlap_ratio_wh:tuple[float, float]=(0.2, 0.2),
+        batch_size:int=8
     ) -> Union[List[sv.Detections], List[Dict]]:
         """Detects objects in a batch of images and classifies each ROI."""
         b = images.shape[0]
         
         if sahi:
-            detections: list[sv.Detections] = self.localizer.predict_sahi(images, overlap_ratio_wh, thread_workers)
+            detections: list[sv.Detections] = self.localizer.predict_sahi(images, overlap_ratio_wh,batch_size=batch_size)
         else:
             detections: list[sv.Detections] = self.localizer.predict(
                 self._pad_if_needed(images)
