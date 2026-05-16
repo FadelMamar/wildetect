@@ -8,7 +8,8 @@ using FiftyOne for wildlife detection datasets.
 import logging
 import math
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
+import supervision as sv
 from urllib.parse import unquote
 
 import fiftyone as fo
