@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from wildtrain.models.detector import Detector
 from wildtrain.utils.mlflow import load_registered_model
-
+from wildtrain.shared.schemas.yolo import MergingMethodConfig
 from ..config import LoaderConfig, PredictionConfig
 from ..data import Detection, DroneImage, Tile
 from ..data.loader import DataLoader
@@ -47,6 +47,12 @@ class BaseDetectionPipeline(ABC):
             self.metadata = self.detection_system.metadata
             logger.info("Loading weights from MLFlow")
             self.detection_system.set_device(config.device)
+
+            # Bypass tile-level localizer NMS in custom tiling pipelines to resolve hierarchical NMS differences.
+            # SAHI-based pipelines (SimpleDetectionPipeline) still need their global merging.
+            if self.__class__.__name__ != "SimpleDetectionPipeline" and hasattr(self.detection_system, "localizer"):
+                self.detection_system.localizer.merging_method = MergingMethodConfig.NONE
+                logger.info("Localizer tile-level NMS bypassed for custom tiling pipeline.")
         else:
             self.detection_system = partial(
                 Detector.predict_inference_service,

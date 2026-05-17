@@ -143,6 +143,8 @@ class UltralyticsLocalizer(ObjectLocalizer):
                 class_agnostic=self.class_agnostic,
                 overlap_metric=self.overlap_metrics[self.overlap_metric],
             )
+        elif self.merging_method == MergingMethodConfig.NONE:
+            return detections
         else:
             raise ValueError(f"Invalid merging method: {self.merging_method}")
 
