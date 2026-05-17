@@ -174,11 +174,11 @@ def recover_parameters(parent_img_path: str, tiles_dir: str, config_path: str):
         
     # the original script used steps of 0.01 for rmh/rmw and 0.1 for overlapfactor
     # but we will do a finer search around the exact estimate
-    rmw_vals = get_search_range(est_rmwidth, 0.01, count=5)
-    rmh_vals = get_search_range(est_rmheight, 0.01, count=5)
+    rmw_vals = get_search_range(est_rmwidth, 0.01, count=10)
+    rmh_vals = get_search_range(est_rmheight, 0.01, count=10)
     rw_vals  = [1.0, 0.5, 1/3, 0.3336, est_ratiowidth] # test specific and estimated
     rh_vals  = [1.0, 0.5, 1/3, 0.3336, est_ratioheight]
-    of_vals  = get_search_range(est_overlapfactor, 0.01, count=5)
+    of_vals  = get_search_range(est_overlapfactor, 0.01, count=10)
     
     # Also add standard values just in case
     rw_vals = sorted(list(set(rw_vals)))

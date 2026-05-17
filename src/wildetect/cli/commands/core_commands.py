@@ -68,8 +68,7 @@ def detect(
             (image_paths is not None)
             ^ (image_dir is not None)
             ^ (loaded_config.labelstudio.project_id is not None)
-            ^ (loaded_config.exif_gps_update.image_folder is not None)
-        ), "Exactly One of image_paths, image_dir, labelstudio.project_id, or exif_gps_update.image_folder must be provided"
+        ), "Exactly One of image_paths, image_dir, or labelstudio.project_id must be provided"
 
         # load image paths from label studio
         image_paths_task_ids = dict()

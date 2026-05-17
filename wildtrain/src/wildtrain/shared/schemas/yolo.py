@@ -30,6 +30,7 @@ class MergingMethodConfig(StrEnum):
 
     NMS = "nms"
     NMM = "nmm"
+    NONE = "none"
 
     @classmethod
     def _missing_(cls, value: object):

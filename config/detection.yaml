@@ -4,25 +4,17 @@
 # Model Configuration
 model:
   mlflow_model_name: "detector"
-  mlflow_model_alias: "yolo12s_no_classifier"
+  mlflow_model_alias: "yolo12s"
   device: "cuda"  # auto, cpu, cuda
 
 # list of image paths
 image_paths: null
 
 # or image directory path
-image_dir: null
+image_dir: "/home/fadelmamar.seydou/workspace/wildetect/data/example"
 
 # or exif gps update configuration
-exif_gps_update:
-  image_folder: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled # Path to folder containing images
-  csv_path: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1-coordinates.csv  # Path to CSV file with GPS coordinates
-  skip_rows: null  # null or Number of rows to skip in CSV (e.g., header row)
-  delimiter: ","
-  filename_col: "filename"  # CSV column name for filenames
-  lat_col: "latitude"  # CSV column name for latitude
-  lon_col: "longitude"  # CSV column name for longitude
-  alt_col: "altitude"  # CSV column name for altitude
+
 
 # Label Studio Configuration
 labelstudio:
@@ -36,7 +28,7 @@ processing:
   batch_size: 8
   tile_size: 800
   overlap_ratio: 0.2
-  pipeline_type: "default"  # mt, mp, async, mt_simple, simple, default, raster
+  pipeline_type: "simple"  # mt, mp, async, mt_simple, simple, default, raster
   queue_size: 64  # for multi-threaded pipeline
   num_data_workers: 3
   num_inference_workers: 1 # for multi-processing pipeline
