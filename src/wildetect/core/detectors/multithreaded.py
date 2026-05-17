@@ -132,6 +132,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
 
                 # Process batch
                 self.process_one_batch(batch)
+                progress_bar.update(1)
 
         except KeyboardInterrupt:
             logger.info("Detection process stopped by keyboard interrupt")
@@ -233,7 +234,7 @@ class MultiThreadedDetectionPipeline(DetectionPipeline):
             self.stop_event.set()
 
         logger.info(
-            f"Completed processing {len(self.detection_results)} batches with {self.error_count} errors"
+            f"Completed processing {self.total_batches} batches with {self.error_count} errors"
         )
 
         # Update GPS in detections

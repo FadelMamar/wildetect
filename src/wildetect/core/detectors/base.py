@@ -200,8 +200,8 @@ class BaseDetectionPipeline(ABC):
 
         if progress_bar:
             progress_bar.update(1)
-            self.total_batches += 1
-            self.total_tiles += batch.shape[0]
+        self.total_batches += 1
+        self.total_tiles += batch.shape[0]
 
         # Convert to Detection objects
         detections = self._convert_to_detection(detections)
