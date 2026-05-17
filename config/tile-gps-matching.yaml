@@ -2,10 +2,10 @@
 # Edit paths, then run: uv run scripts/tile_gps_matching.py run --config=config/tile-gps-matching.yaml
 
 # Parent folder of full-resolution images (required)
-root: data/Dry-season-Kapiri-Camp2-Rep1-Raw
+root: data/DryseasonKapiriCamp3Rep1Raw
 
 # Folder containing tiled images to match (optional but typical)
-tiled_images_folder: data/Dry_Kapiri/Camp 2/Rep 1 - tiled
+tiled_images_folder: data/Dry_Kapiri/Camp 3/Rep 1 - tiled
 
 # GPS coordinate file (optional, will be created if not provided)
 config_file_csv: null
@@ -13,12 +13,12 @@ config_file_csv: null
 log_file: tiles_matching.log
 
 # Crop margins as fraction of height/width removed from each edge band (required)
-rmheight: 0.24
-rmwidth: 0.21
+rmheight: 0.15
+rmwidth: 0.05
 
 overlapfactor: 0.1
-ratiowidth: 1.0
-ratioheight: 1.0
+ratiowidth: 0.33333
+ratioheight: 0.5
 
 flight_height: 180
 sensor_height: 24
