@@ -13,8 +13,9 @@ import torch
 from tqdm import tqdm
 
 from wildtrain.models.detector import Detector
-from wildtrain.utils.mlflow import load_registered_model
 from wildtrain.shared.schemas.yolo import MergingMethodConfig
+from wildtrain.utils.mlflow import load_registered_model
+
 from ..config import LoaderConfig, PredictionConfig
 from ..data import Detection, DroneImage, Tile
 from ..data.loader import DataLoader
@@ -48,11 +49,6 @@ class BaseDetectionPipeline(ABC):
             logger.info("Loading weights from MLFlow")
             self.detection_system.set_device(config.device)
 
-            # Bypass tile-level localizer NMS in custom tiling pipelines to resolve hierarchical NMS differences.
-            # SAHI-based pipelines (SimpleDetectionPipeline) still need their global merging.
-            if self.__class__.__name__ != "SimpleDetectionPipeline" and hasattr(self.detection_system, "localizer"):
-                self.detection_system.localizer.merging_method = MergingMethodConfig.NONE
-                logger.info("Localizer tile-level NMS bypassed for custom tiling pipeline.")
         else:
             self.detection_system = partial(
                 Detector.predict_inference_service,
@@ -479,7 +475,6 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
     def _postprocess_one_image(
         self, detections: List[List[Detection]], image_path: str
     ) -> DroneImage:
-
         latitude, longitude, altitude = self.get_image_gps_coords(image_path)
         drone_image = DroneImage.from_image_path(
             image_path=image_path,
@@ -495,6 +490,9 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             height=drone_image.height,
         )
         if detections:
+            assert (
+                len(detections) == 1
+            ), f"detections should have only one element, got {len(detections)}"
             tile.set_predictions(detections[0], update_gps=False)
         else:
             tile.set_predictions([], update_gps=False)
@@ -548,7 +546,7 @@ class SimpleDetectionPipeline(BaseDetectionPipeline):
             image_dir=image_dir,
             use_tile_dataset=False,
         )
-        
+
         if len(loader) == 0:
             logger.warning("No batches to process")
             return []
