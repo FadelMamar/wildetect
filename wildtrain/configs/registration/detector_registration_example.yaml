@@ -10,9 +10,9 @@ localizer:
     weights: "/home/fadelmamar.seydou/workspace/wildetect/checkpoints/localizer.pt"
     imgsz: 800
     device: "cuda"
-    conf_thres: 0.1
-    iou_thres: 0.3
-    max_det: 300
+    conf_thres: 0.703
+    iou_thres: 0.719
+    max_det: 100
     overlap_metric: "IOU"
     merging_method: "NMS"
     task: "detect"
