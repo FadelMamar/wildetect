@@ -27,14 +27,14 @@ labelstudio:
 processing:
   batch_size: 8
   tile_size: 800
-  overlap_ratio: 0.2
+  overlap_ratio: 0.34
   pipeline_type: "simple"  # mt, mp, async, mt_simple, simple, default, raster
   queue_size: 64  # for multi-threaded pipeline
   num_data_workers: 3
   num_inference_workers: 1 # for multi-processing pipeline
   prefetch_factor: 2
   pin_memory: true
-  nms_threshold: 0.5 # NMS threshold for detections stitching
+  nms_threshold: 0.719 # NMS threshold for detections stitching
   max_errors: 5
   
 # Flight Specifications

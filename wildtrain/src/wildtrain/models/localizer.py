@@ -180,8 +180,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
                 for p in sahi_result.object_prediction_list
             }
             detections.metadata = {"class_mapping": category_mapping}
-
-        return self._apply_filtering(detections)
+        return self._update_class_mapping(detections)
 
     def predict_sahi(
         self,
@@ -213,11 +212,10 @@ class UltralyticsLocalizer(ObjectLocalizer):
             overlap_height_ratio=overlap_ratio_wh[0],
             overlap_width_ratio=overlap_ratio_wh[1],
             postprocess_type=str(self.merging_method).upper(),
-            postprocess_match_threshold=0.5,
+            postprocess_match_threshold=self.iou_thres,
             postprocess_match_metric=str(self.overlap_metric).upper(),
             verbose=0,
             batch_size=batch_size,
-            confidence_threshold=0.05, # disable confidence filtering
         )
 
         detections = self._sahi_to_supervision(result)
@@ -242,8 +240,8 @@ class UltralyticsLocalizer(ObjectLocalizer):
             images,
             imgsz=self.imgsz,
             verbose=False,
-            conf=0.05,  # disable confidence filtering
-            iou=1.0,  # disable nms
+            conf=self.conf_thres,
+            iou=self.iou_thres
             device=self.device,
             max_det=self.max_det,
         )
