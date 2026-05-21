@@ -545,8 +545,7 @@ def _process_parent_group(
             )
 
     if len(group_metadata) != expected_tiles_per_image:
-        del parent_array
-        raise ValueError(f"Expected at least {expected_tiles_per_image} tiles for {image_name}, but found {len(group_metadata)}. Tiling config is wrong.")
+        logger.warning(f"Expected at least {expected_tiles_per_image} tiles for {image_name}, but found {len(group_metadata)}. Tiling config might be wrong or tiles are missing.")
 
     del parent_array
     return group_metadata, parent_report, None
@@ -682,7 +681,7 @@ def match_tiles_gps(
                 logger.warning("Too many failures, cancelling remaining tasks")
                 for f in future_to_name:
                     f.cancel()
-                raise RuntimeError(f"Too many failures, cancelling remaining tasks. We reached threshold: {failure_threshold}")
+                raise RuntimeError(f"Too many failures, cancelling remaining tasks. We reached threshold: {failure_threshold}. Failure report: {report}")
 
     report["failed_parents"] = sorted(list(failed))
     report["summary"]["failed_parent_count"] = len(failed)

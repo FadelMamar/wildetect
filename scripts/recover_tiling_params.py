@@ -8,6 +8,7 @@ from pathlib import Path
 from itertools import product
 from typing import List, Tuple
 from itertools import chain
+import random
 
 import cv2
 import numpy as np
@@ -296,6 +297,7 @@ def main(config: str = "config/tile-gps-matching.yaml", parent_image: str = "", 
             if root_dir.exists():
                 images = load_images_paths(root_dir)
                 if images:
+                    random.shuffle(images) # shuffle to avoid always picking the same one if multiple
                     default_parent = str(images[0])
         except Exception as e:
             print(f"Warning: Could not read defaults from {config_path}: {e}")
