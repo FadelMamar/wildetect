@@ -24,7 +24,7 @@ from rich.table import Table
 from rich.traceback import install
 
 # Install Rich traceback handler for better error display
-install(show_locals=True)
+install(show_locals=False)
 
 # Create Rich console instance
 console = Console()
