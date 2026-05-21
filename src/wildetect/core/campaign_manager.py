@@ -358,6 +358,12 @@ class CampaignManager:
             nonlocal no_gps_count, num_files_not_found
             reason = None
             assert isinstance(image_path, str), "image_paths must be a list of strings"
+
+            if Path(image_path).suffix in ['.tif','.geotif']:
+                valid_images.append(image_path)
+                pbar.update(1)
+                return
+
             try:
                 with Image.open(image_path) as img:
                     img.verify()
@@ -372,6 +378,7 @@ class CampaignManager:
                 logger.warning(f"Invalid image: {image_path} | Reason: {reason}")
                 pbar.update(1)
                 return
+
             # Check for GPS coordinates
             try:
                 if GPSUtils.get_gps_coord(file_name=image_path) is None:
@@ -405,7 +412,7 @@ class CampaignManager:
         )
         if len(valid_images) == 0 or no_gps_count == len(image_paths):
             raise ValueError(
-                "None of the images have GPS coordinates. Validation failed."
+                f"None of the images have GPS coordinates. Validation failed. Num valide images {len(valid_images)}"
             )
         if num_files_not_found > 0:
             logger.warning(f"Number of files not found: {num_files_not_found}")

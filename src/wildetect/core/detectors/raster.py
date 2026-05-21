@@ -73,7 +73,7 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
     ) -> Union[Tuple[float, float], str]:
         longitude, latitude = self.src.xy(row, col)
         longitude, latitude = transform(
-            src_crs=self.src.crs, dst_crs="EPSG:4326", xs=[longitude], ys=[latitude]
+            src_crs=self.src.crs, dst_crs="ESPG:4326", xs=[longitude], ys=[latitude]
         )
         if as_decimal:
             return longitude[0], latitude[0]
@@ -144,7 +144,7 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
                 # Move batch to device
                 batch_tensor = batch_data.to(self.config.device, non_blocking=True)
                 # Run detection
-                detections = self._process_batch(batch_tensor)
+                detections = self._process_batch(batch_tensor,sahi=False)
                 # add detections to drone image
                 self._add_batch_detections_to_drone_image(
                     detections, batch_bounds, gps_coords
