@@ -316,6 +316,9 @@ class DetectConfigModel(BaseModel):
     merging_min_overlap_threshold: float = Field(
         default=0.0, description="Minimum overlap threshold between overlapping images"
     )
+    disable_gps_detection_merging: bool = Field(
+        default=False, description="Whether to disable GPS detection merging"
+    )
 
     def to_prediction_config(self, verbose: bool = False) -> PredictionConfig:
         """Convert to existing PredictionConfig dataclass."""

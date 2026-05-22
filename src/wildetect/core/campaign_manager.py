@@ -421,6 +421,7 @@ class CampaignManager:
     def run_complete_campaign(
         self,
         image_paths: List[str],
+        disable_gps_detection_merging: bool = False,
         output_dir: Optional[str] = None,
         export_to_fiftyone: bool = True,
         export_to_labelstudio: bool = True,
@@ -429,6 +430,7 @@ class CampaignManager:
 
         Args:
             image_paths: List of image paths to process
+            disable_gps_detection_merging: Whether to disable GPS detection merging
             output_dir: Optional output directory for results
             run_flight_analysis: Whether to run flight path analysis
             run_geographic_merging: Whether to run geographic merging
@@ -471,7 +473,10 @@ class CampaignManager:
 
         # Step 5: Geographic merging (optional)
         try:
-            self.merge_detections_geographically()
+            if disable_gps_detection_merging:
+                logger.info("GPS detection merging is disabled. Skipping merging step.")
+            else:
+                self.merge_detections_geographically()
         except Exception as e:
             logger.error(f"Error merging detections: {e}")
             # logger.error(f"Error merging detections: {traceback.format_exc()}")
