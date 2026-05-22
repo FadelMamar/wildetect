@@ -73,7 +73,7 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
     ) -> Union[Tuple[float, float], str]:
         longitude, latitude = self.src.xy(row, col)
         longitude, latitude = transform(
-            src_crs=self.src.crs, dst_crs="ESPG:4326", xs=[longitude], ys=[latitude]
+            src_crs=self.src.crs, dst_crs="EPSG:4326", xs=[longitude], ys=[latitude]
         )
         if as_decimal:
             return longitude[0], latitude[0]
