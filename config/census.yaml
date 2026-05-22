@@ -25,6 +25,7 @@ detection:
 
   merging_iou_threshold: -0.7036
   merging_min_overlap_threshold: 0.078
+  disable_gps_detection_merging: false
 
   # or exif gps update configuration
   exif_gps_update: 
