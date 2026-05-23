@@ -226,7 +226,7 @@ def recover_parameters(parent_img_path: str, tiles_dir: str, config_path: str):
         print(f"ratiowidth:    {rw:.4f}")
         print(f"ratioheight:   {rh:.4f}")
         print(f"overlapfactor: {of:.4f}")
-        print(f"Match Error:   {best_error}")
+        print(f"Lowest MAE:   {best_error}")
         
         sim_bounds = simulate_bounds(W, H, rmh, rmw, rw, rh, of)
         print(f"Generated Tiles: {len(sim_bounds)}")
