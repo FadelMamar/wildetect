@@ -296,7 +296,6 @@ def main(config: str = "config/tile-gps-matching.yaml", parent_image: str = "", 
             
             if root_dir.exists():
                 images = load_images_paths(root_dir)
-                random.shuffle(images)
                 if images:
                     random.shuffle(images) # shuffle to avoid always picking the same one if multiple
                     default_parent = str(images[0])
