@@ -89,21 +89,21 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
-    #volumes:
-    #  - mlflow_data:/mlflow-artifacts
+      - MLFLOW_SERVER_ALLOWED_HOSTS=wildetect-mlflow.delcaux.com,localhost,127.0.0.1
     command: >
-      mlflow server
+      uv run mlflow server
       --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@mlflow-db:5432/${POSTGRES_DB}
-      --default-artifact-root s3://mlflow
+      --default-artifact-root mlruns
       --host 0.0.0.0
       --port 5000
+    volumes:
+      - ./docker-mlflow-artifacts:/app/mlruns
     depends_on:
       mlflow-db:
         condition: service_healthy
-      minio:
-        condition: service_healthy
-      minio-create-bucket:
-        condition: service_completed_successfully
+      tunnel:
+        condition: service_started
+
 
 volumes:
   postgres_data:
