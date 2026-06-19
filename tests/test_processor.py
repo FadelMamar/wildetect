@@ -476,7 +476,7 @@ class TestRoIPostProcessor:
     def test_roi_post_processor_initialization_with_classifier(self):
         """Test RoIPostProcessor initialization with existing classifier."""
         label_map = {0: "groundtruth", 1: "other"}
-        classifier = Mock()
+        classifier = Mock(spec=Classifier)
 
         processor = RoIPostProcessor(
             model_path=str(self.model_path),
