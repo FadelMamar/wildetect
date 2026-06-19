@@ -94,14 +94,14 @@ class Tile:
             try:
                 with Image.open(self.parent_image) as img:
                     self.timestamp = img._getexif()[36867]
-            except:
+            except (AttributeError, KeyError, IndexError, TypeError, OSError):
                 pass
 
         elif self.image_path:
             try:
                 with Image.open(self.image_path) as img:
                     self.timestamp = img._getexif()[36867]
-            except:
+            except (AttributeError, KeyError, IndexError, TypeError, OSError):
                 pass
 
     def _set_image_dimensions(self):
