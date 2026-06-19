@@ -143,8 +143,8 @@ class LabelStudioManager:
                     img_height=drone_image.height,
                     img_width=drone_image.width,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Failed to upload detections for {drone_image.image_path}: {e}")
 
         for drone_image in tqdm(
             drone_images, desc="Uploading detections to Label Studio"
