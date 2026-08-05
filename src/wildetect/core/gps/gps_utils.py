@@ -214,7 +214,7 @@ def get_gsd(
             if exif and "ExifImageHeight" in exif:
                 image_height = exif["ExifImageHeight"]
             else:
-                from ..data.utils import read_image
+                from wildata.adapters.utils import read_image
 
                 image = read_image(image_path)
                 image_height = image.height

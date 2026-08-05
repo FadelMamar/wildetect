@@ -35,9 +35,9 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
         self.raster_path: Optional[str] = None
 
     def set_drone_image(self, image_paths: List[str]):
-        assert len(image_paths) == 1, (
-            f"Only one image path is supported for raster detection. Received {len(image_paths)} image paths."
-        )
+        assert (
+            len(image_paths) == 1
+        ), f"Only one image path is supported for raster detection. Received {len(image_paths)} image paths."
         self.raster_path = image_paths[0]
         self.src = rio.open(self.raster_path)
 
@@ -71,9 +71,9 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
     def get_gps_coords(
         self, row: int, col: int, altitude: float, as_decimal: bool = False
     ) -> Union[Tuple[float, float], str]:
-        longitude, latitude = self.src.xy(row, col)
+        x, y = self.src.xy(row=row, col=col)
         longitude, latitude = transform(
-            src_crs=self.src.crs, dst_crs="EPSG:4326", xs=[longitude], ys=[latitude]
+            src_crs=self.src.crs, dst_crs="EPSG:4326", xs=[x], ys=[y]
         )
         if as_decimal:
             return longitude[0], latitude[0]
@@ -103,9 +103,9 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
         Returns:
             Dictionary with raster path, detections with spatial bounds
         """
-        assert (image_paths is None) ^ (image_dir is None), (
-            "One of image_paths and image_dir must be None"
-        )
+        assert (image_paths is None) ^ (
+            image_dir is None
+        ), "One of image_paths and image_dir must be None"
         logger.info("Starting raster detection pipeline")
         if image_dir is not None:
             image_paths = get_images_paths(image_dir)
@@ -395,9 +395,9 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
         Returns:
             List containing a single DroneImage with detections
         """
-        assert (image_paths is None) ^ (image_dir is None), (
-            "One of image_paths and image_dir must be None"
-        )
+        assert (image_paths is None) ^ (
+            image_dir is None
+        ), "One of image_paths and image_dir must be None"
         logger.info("Starting multi-threaded raster detection pipeline")
 
         if image_dir is not None:

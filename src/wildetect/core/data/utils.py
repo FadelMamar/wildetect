@@ -10,9 +10,11 @@ from functools import lru_cache
 from itertools import chain
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from wildata.adapters.utils import read_image
+
 import torch
 from tqdm import tqdm
+
+from wildata.adapters.utils import read_image
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +23,7 @@ logger = logging.getLogger(__name__)
 def get_image_dimensions(image_path: str) -> Tuple[int, int]:
     """Get the dimensions of an image."""
     image = read_image(image_path)
-    width, height = image.width, image.height
-    return width, height
+    return image.width, image.height
 
 
 def get_images_paths(
@@ -74,9 +75,9 @@ def validate_results(
 
     # More tolerant comparison for SAHI results
     try:
-        assert torch.allclose(tiles, extracted_regions, atol=1e-2, rtol=1e-2), (
-            "error in tiling. Extracted value and offsets don't match"
-        )
+        assert torch.allclose(
+            tiles, extracted_regions, atol=1e-2, rtol=1e-2
+        ), "error in tiling. Extracted value and offsets don't match"
     except AssertionError as e:
         # Print some debugging info
         print(f"Validation failed: {e}")
