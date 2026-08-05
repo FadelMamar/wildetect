@@ -1,12 +1,12 @@
+import json
 import logging
 import queue
 import threading
 import time
 import traceback
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
-import geopy
 import rasterio as rio
 import torch
 from rasterio.warp import transform
@@ -31,60 +31,6 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
     def __init__(self, config: PredictionConfig, loader_config: LoaderConfig):
         super().__init__(config, loader_config)
         self.drone_image: Optional[DroneImage] = None
-        self.src: Optional[rio.DatasetReader] = None
-        self.raster_path: Optional[str] = None
-
-    def set_drone_image(self, image_paths: List[str]):
-        assert (
-            len(image_paths) == 1
-        ), f"Only one image path is supported for raster detection. Received {len(image_paths)} image paths."
-        self.raster_path = image_paths[0]
-        self.src = rio.open(self.raster_path)
-
-        longitude, latitude = self.get_gps_coords(
-            row=int(self.src.height / 2),
-            col=int(self.src.width / 2),
-            altitude=self.loader_config.flight_specs.flight_height,
-            as_decimal=True,
-        )
-
-        self.drone_image = DroneImage.from_image_path(
-            image_path=self.raster_path,
-            flight_specs=self.loader_config.flight_specs,
-            width=self.src.width,
-            height=self.src.height,
-            latitude=latitude,
-            longitude=longitude,
-            gsd=self.config.flight_specs.gsd,
-            is_raster=True,
-        )
-
-    def close_reader(self):
-        try:
-            if self.src is not None:
-                self.src.close()
-                self.src = None
-        except Exception:
-            logger.error(traceback.format_exc())
-        return None
-
-    def get_gps_coords(
-        self, row: int, col: int, altitude: float, as_decimal: bool = False
-    ) -> Union[Tuple[float, float], str]:
-        x, y = self.src.xy(row=row, col=col)
-        longitude, latitude = transform(
-            src_crs=self.src.crs, dst_crs="EPSG:4326", xs=[x], ys=[y]
-        )
-        if as_decimal:
-            return longitude[0], latitude[0]
-        else:
-            return str(
-                geopy.Point(
-                    latitude=latitude[0],
-                    longitude=longitude[0],
-                    altitude=altitude / 1e3,
-                )
-            )
 
     def run_detection(
         self,
@@ -110,8 +56,27 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
         if image_dir is not None:
             image_paths = get_images_paths(image_dir)
 
-        # set drone image
-        self.set_drone_image(image_paths)
+        assert (
+            len(image_paths) == 1
+        ), f"Only one image path is supported for raster detection. Received {len(image_paths)} image paths."
+        for path in image_paths:
+            with rio.open(path) as src:
+                latitude, longitude = src.xy(int(src.height / 2), int(src.width / 2))
+                latitude, longitude = transform(
+                    src_crs=src.crs, dst_crs="EPSG:4326", xs=[latitude], ys=[longitude]
+                )
+                latitude, longitude = latitude[0], longitude[0]
+                self.drone_image = DroneImage.from_image_path(
+                    image_path=path,
+                    flight_specs=self.loader_config.flight_specs,
+                    width=src.width,
+                    height=src.height,
+                    latitude=latitude,
+                    longitude=longitude,
+                    gsd=self.config.flight_specs.gsd,
+                )
+
+        # print('drone_image:',self.drone_image)
 
         # Update config from metadata if available
         if override_loading_config:
@@ -125,7 +90,7 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
 
         # Create data loader with raster_path
         data_loader = DataLoader(
-            raster_path=self.raster_path,
+            raster_path=image_paths[0],
             config=self.loader_config,
         )
 
@@ -155,10 +120,14 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
                 logger.error(f"Failed to process batch: {e}")
                 logger.debug(traceback.format_exc())
 
-                if self.error_count > self.config.max_errors:
-                    raise ValueError(
-                        f"Too many errors. Stopping. {self.error_count} > {self.config.max_errors}"
+                if self.error_count > 5:
+                    raise RuntimeError(
+                        f"Too many errors. Stopping. {traceback.format_exc()}"
                     )
+
+        # update gps of detections
+        # if self.drone_image is not None:
+        # self.drone_image.update_detection_gps("predictions")
 
         logger.info(
             f"Completed processing {total_batches} batches "
@@ -169,8 +138,6 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
         # Save results if path provided
         if save_path:
             self._save_results(self.get_drone_images(), save_path)
-
-        self.close_reader()
 
         return self.get_drone_images()
 
@@ -191,27 +158,16 @@ class RasterDetectionPipeline(BaseDetectionPipeline):
                 longitude=lon,
                 latitude=lat,
                 gsd=self.config.flight_specs.gsd,
-                is_raster=True,
             )
 
-            if len(detection) > 0:
-                for det in detection:
-                    det.gps_loc = self.get_gps_coords(
-                        row=det.y_center + tile.y_offset,
-                        col=det.x_center + tile.x_offset,
-                        altitude=self.drone_image.altitude,
-                        as_decimal=False,
-                    )
-                tile.set_predictions(detection, update_gps=False)
+            if detection:
+                tile.set_predictions(detection, update_gps=True)
             else:
                 tile.set_predictions([], update_gps=False)
-
             self.drone_image.add_tile(
-                tile=tile,
-                x_offset=tile.x_offset,
-                y_offset=tile.y_offset,
-                offset_detections=True,
-                nms_threshold=self.config.nms_threshold,
+                tile,
+                tile.x_offset,
+                tile.y_offset,
             )
 
     def get_drone_images(self) -> List[DroneImage]:
@@ -246,7 +202,7 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
         self.data_thread: Optional[threading.Thread] = None
         self.detection_thread: Optional[threading.Thread] = None
 
-        logger.info("Initialized MultiThreadedRasterDetectionPipeline")
+        logger.info(f"Initialized MultiThreadedRasterDetectionPipeline")
 
     def _data_loading_worker(
         self,
@@ -356,13 +312,12 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
                         detections, batch_bounds, gps_coords
                     )
 
-                except Exception:
+                except Exception as e:
                     self.error_count += 1
-
-                if self.error_count > self.config.max_errors:
-                    raise ValueError(
-                        f"Too many errors. Stopping detection worker. {self.error_count} > {self.config.max_errors}"
-                    )
+                    if self.error_count > 5:
+                        raise Exception(
+                            f"Too many errors. Stopping detection worker. {traceback.format_exc()}"
+                        )
 
         except KeyboardInterrupt:
             logger.info("Detection process stopped by keyboard interrupt")
@@ -403,7 +358,31 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
         if image_dir is not None:
             image_paths = get_images_paths(image_dir)
 
-        self.set_drone_image(image_paths)
+        assert len(image_paths) == 1, (
+            f"Only one image path is supported for raster detection. "
+            f"Received {len(image_paths)} image paths."
+        )
+
+        # Initialize drone image from raster metadata
+        path = image_paths[0]
+        with rio.open(path) as src:
+            latitude, longitude = src.xy(int(src.height / 2), int(src.width / 2))
+            latitude, longitude = transform(
+                src_crs=src.crs,
+                dst_crs="EPSG:4326",
+                xs=[latitude],
+                ys=[longitude],
+            )
+            latitude, longitude = latitude[0], longitude[0]
+            self.drone_image = DroneImage.from_image_path(
+                image_path=path,
+                flight_specs=self.loader_config.flight_specs,
+                width=src.width,
+                height=src.height,
+                latitude=latitude,
+                longitude=longitude,
+                gsd=self.config.flight_specs.gsd,
+            )
 
         # Update config from metadata if available
         if override_loading_config:
@@ -417,7 +396,7 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
 
         # Create data loader with raster_path
         data_loader = DataLoader(
-            raster_path=image_paths[0],
+            raster_path=path,
             config=self.loader_config,
         )
 
@@ -478,7 +457,5 @@ class MultiThreadedRasterDetectionPipeline(RasterDetectionPipeline):
         # Save results if path provided
         if save_path:
             self._save_results(self.get_drone_images(), save_path)
-
-        self.close_reader()
 
         return self.get_drone_images()

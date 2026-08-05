@@ -3,52 +3,53 @@
 
 # Campaign Configuration
 campaign:
-  id: "LeopardRock-camp23_28-Rep-1"
-  pilot_name: "test"
+  id: "K6_8_R3_ortho"
+  pilot_name: "K6_8_R3_orhto_count"
   target_species: null  # List of target species for detection
 
 # Export Configuration
 export:
   to_fiftyone: false
   create_map: true
-  output_directory: D:\PhD\Data per camp\raw image counts\K145\K145_R1  # Will use campaign_id if null
-  export_to_labelstudio: false
+  output_directory: D:\PhD\Data per camp\ortho counts\K6_8\K6_8_R3  # Will use campaign_id if null
+  export_to_labelstudio: true
 
 # Detection Configuration (inherits from detection.yaml)
 detection:
 
   # list of image paths
-  image_paths: null
+  image_paths: [ D:\PhD\Data per camp\Orthos\Dry season orthos\ortho_k_9_11_rep_3.tif]
 
   # or image directory path
   image_dir: null
 
   merging_iou_threshold: -0.7036
   merging_min_overlap_threshold: 0.078
+  disable_gps_detection_merging: false
 
   # or exif gps update configuration
-  exif_gps_update: 
-   image_folder: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled # Path to folder containing images
-   csv_path: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1-coordinates.csv  # Path to CSV file with GPS coordinates
-   skip_rows: null  # null or Number of rows to skip in CSV (e.g., header row)
-   delimiter: ","
-   filename_col: "filename"  # CSV column name for filenames
-   lat_col: "latitude"  # CSV column name for latitude
-   lon_col: "longitude"  # CSV column name for longitude
-   alt_col: "altitude"  # CSV column name for altitude
+  #exif_gps_update: 
+  # image_folder: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1 - tiled # Path to folder containing images
+  # csv_path: D:\PhD\Data per camp\Wet season\Leopard rock\Camp 23-28\Rep 1-coordinates.csv  # Path to CSV file with GPS coordinates
+  # skip_rows: null  # null or Number of rows to skip in CSV (e.g., header row)
+  # delimiter: ","
+  # filename_col: "filename"  # CSV column name for filenames
+  # lat_col: "latitude"  # CSV column name for latitude
+  # lon_col: "longitude"  # CSV column name for longitude
+  # alt_col: "altitude"  # CSV column name for altitude
 
   # Model Configuration
   model:
     mlflow_model_name: "detector"
-    mlflow_model_alias: "yolo12s_no_classifier"
+    mlflow_model_alias: "yolo12s-river"
     device: "cuda"  # auto, cpu, cuda
   
   # Processing Configuration
   processing:
     batch_size: 8
     tile_size: 800
-    overlap_ratio: 0.2
-    pipeline_type: "mt"  # default, multi, async, mt, mt_simple, simple, raster
+    overlap_ratio: 0.34
+    pipeline_type: "raster"  # default, multi, async, mt, mt_simple, simple, raster
     queue_size: 64  # for multi-threaded pipeline
     num_data_workers: 3
     num_inference_workers: 1 # for multi-processing pipeline

@@ -236,7 +236,7 @@ class Tile:
             d["geographic_footprint"] = self.geographic_footprint.to_dict()
         d["geo_box"] = self.geo_box
         d["type"] = "Tile"
-        d["flight_specs"] = vars(self.flight_specs)
+        #d["flight_specs"] = vars(self.flight_specs)
         d["predictions"] = [det.to_dict() for det in self.predictions]
         d["annotations"] = [det.to_dict() for det in self.annotations]
         return d

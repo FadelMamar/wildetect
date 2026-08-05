@@ -1,6 +1,6 @@
 
 classifier:
-  weights: null
+  weights: null # "D:/PhD/workspace/wildetect/models-registry/detector/4/artifacts/best-v6.ckpt"
   processing:
     batch_size: 8 # used for onnx export
     export_format: "torchscript" # torchscript or onnx

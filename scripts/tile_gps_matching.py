@@ -11,7 +11,7 @@
 from typing import Sequence, Dict, Optional, Any
 from itertools import chain
 from datetime import datetime, timezone
-
+import random
 from tqdm import tqdm
 import math
 from itertools import product
@@ -63,7 +63,7 @@ class Args(BaseModel):
     n_workers: int = 3
 
     mae_threshold:float = 255.0
-    failure_threshold: int = 10
+    failure_threshold: int = 5
 
     out_json_coords_files: Optional[str] = None
     load_existing_json_file: bool = False
@@ -320,10 +320,10 @@ def get_tile_metadata(args:Args,img_path:str) -> dict:
 
 def get_tiles_gps_and_dimensions(args:Args) -> dict:
 
-    images_paths = load_images_paths(image_dir=args.root,patterns=args.patterns)
-
+    images_paths = load_images_paths(image_dir=args.root,patterns=args.patterns)    
     if args.debug:
-        images_paths = images_paths[:5]
+        random.shuffle(images_paths)  # Shuffle to distribute workload in debug mode
+        images_paths = images_paths[:10]  # Limit to first 10 images in debug mode
 
     tile_metadata = dict()
     with ThreadPoolExecutor(max_workers=args.n_workers) as executor:
@@ -375,23 +375,24 @@ def verify_tile(parent_array: np.ndarray, tile_path: Path, coords: Sequence[Sequ
             parent_area = parent_h * parent_w
             tile_area = tile_h * tile_w
             area_ratio = (tile_area / parent_area) if parent_area else float("nan")
-
-            logger.warning(
+            error_msg = (
                 f"Dimension mismatch for {tile_path.name}: "
                 f"Parent patch {parent_patch.shape} vs Tile {tile_array.shape} | "
                 f"tile/parent ratios: h={h_ratio:.4f}, w={w_ratio:.4f}, area={area_ratio:.4f}"
             )
-            return False
+            logger.warning(error_msg)
+            return False, error_msg
             
         mae = np.mean(np.abs(parent_patch.astype(np.float32) - tile_array.astype(np.float32)))
         
         if mae > thresh:
             logger.warning(f"Verification failed for {tile_path.name}: MAE = {mae:.2f} > {thresh}")
             
-        return True
+        return True, None
     except Exception as e:
-        logger.warning(f"Error during verification of {tile_path.name}: {str(e)}")
-        return False
+        error_msg = f"Error during verification of {tile_path.name}: {str(e)}"
+        logger.warning(error_msg)
+        return False, error_msg
 
 def _find_parent_image(images_paths: list[str], image_name: str) -> Optional[Path]:
     """Search for parent image file with common extensions."""
@@ -478,8 +479,8 @@ def _process_parent_group(
         try:
             tile_coords = tiles_bounds[index]
             tile_gps = tiles_gps_coords[index]
-
-            if not verify_tile(parent_array, tile_path, tile_coords, mae_threshold):
+            check, error_msg = verify_tile(parent_array, tile_path, tile_coords, mae_threshold)
+            if not check:
                 parent_report["verification_failures"] += 1
                 parent_report["failure_details"].append(
                     {
@@ -489,6 +490,7 @@ def _process_parent_group(
                         "index": index,
                         "tile": str(tile_path),
                         "tile_bounds": tile_coords,
+                        "error": error_msg,
                     }
                 )
                 continue
@@ -545,8 +547,7 @@ def _process_parent_group(
             )
 
     if len(group_metadata) != expected_tiles_per_image:
-        del parent_array
-        raise ValueError(f"Expected at least {expected_tiles_per_image} tiles for {image_name}, but found {len(group_metadata)}. Tiling config is wrong.")
+        logger.warning(f"Expected at least {expected_tiles_per_image} tiles for {image_name}, but found {len(group_metadata)}. Tiling config might be wrong or tiles are missing.")
 
     del parent_array
     return group_metadata, parent_report, None
@@ -670,6 +671,9 @@ def match_tiles_gps(
                             "error": error_msg,
                         }
                     )
+                if len(parent_report["failure_details"])>0:
+                    failed.add(image_name)
+                    report["failure_details"].extend(parent_report.get("failure_details", []))
                 else:
                     tiles_metadata.update(group_meta)
                     report["summary"]["tiles_matched_successfully"] += parent_report.get("success_count", 0)
@@ -682,7 +686,7 @@ def match_tiles_gps(
                 logger.warning("Too many failures, cancelling remaining tasks")
                 for f in future_to_name:
                     f.cancel()
-                raise RuntimeError(f"Too many failures, cancelling remaining tasks. We reached threshold: {failure_threshold}")
+                raise RuntimeError(f"Too many failures, cancelling remaining tasks. We reached threshold: {failure_threshold}. Failure report: {json.dumps(report, indent=2)}")
 
     report["failed_parents"] = sorted(list(failed))
     report["summary"]["failed_parent_count"] = len(failed)

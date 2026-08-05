@@ -4,11 +4,12 @@ import sys
 import subprocess
 import yaml
 import fire
+from tqdm import tqdm
 from pathlib import Path
 from itertools import product
 from typing import List, Tuple
 from itertools import chain
-
+import random
 import cv2
 import numpy as np
 
@@ -174,11 +175,11 @@ def recover_parameters(parent_img_path: str, tiles_dir: str, config_path: str):
         
     # the original script used steps of 0.01 for rmh/rmw and 0.1 for overlapfactor
     # but we will do a finer search around the exact estimate
-    rmw_vals = get_search_range(est_rmwidth, 0.01, count=10)
-    rmh_vals = get_search_range(est_rmheight, 0.01, count=10)
+    rmw_vals = get_search_range(est_rmwidth, 0.01, count=20)
+    rmh_vals = get_search_range(est_rmheight, 0.01, count=20)
     rw_vals  = [1.0, 0.5, 1/3, 0.3336, est_ratiowidth] # test specific and estimated
     rh_vals  = [1.0, 0.5, 1/3, 0.3336, est_ratioheight]
-    of_vals  = get_search_range(est_overlapfactor, 0.01, count=10)
+    of_vals  = get_search_range(est_overlapfactor, 0.01, count=20)
     
     # Also add standard values just in case
     rw_vals = sorted(list(set(rw_vals)))
@@ -193,7 +194,7 @@ def recover_parameters(parent_img_path: str, tiles_dir: str, config_path: str):
     best_combo = None
     best_error = float('inf')
     
-    for rmw, rmh, rw, rh, of in combos:
+    for rmw, rmh, rw, rh, of in tqdm(combos, desc="Checking combinations"):
         try:
             sim_bounds = simulate_bounds(W, H, rmh, rmw, rw, rh, of)
             sim_top_lefts = sorted([(x_left, y_top) for (x_left, x_right), (y_top, y_bottom) in sim_bounds])
@@ -225,7 +226,7 @@ def recover_parameters(parent_img_path: str, tiles_dir: str, config_path: str):
         print(f"ratiowidth:    {rw:.4f}")
         print(f"ratioheight:   {rh:.4f}")
         print(f"overlapfactor: {of:.4f}")
-        print(f"Match Error:   {best_error}")
+        print(f"Lowest MAE:   {best_error}")
         
         sim_bounds = simulate_bounds(W, H, rmh, rmw, rw, rh, of)
         print(f"Generated Tiles: {len(sim_bounds)}")
@@ -233,7 +234,7 @@ def recover_parameters(parent_img_path: str, tiles_dir: str, config_path: str):
         print("\n--- Validating with tile_gps_matching.py ---")
         try:
             cmd = [
-                "uv", "run", "scripts/tile_gps_matching.py", "run",
+                "uv", "run","--no-sync", "scripts/tile_gps_matching.py", "run",
                 f"--config={config_path}",
                 f"--rmwidth={rmw}",
                 f"--rmheight={rmh}",
@@ -296,6 +297,7 @@ def main(config: str = "config/tile-gps-matching.yaml", parent_image: str = "", 
             if root_dir.exists():
                 images = load_images_paths(root_dir)
                 if images:
+                    random.shuffle(images) # shuffle to avoid always picking the same one if multiple
                     default_parent = str(images[0])
         except Exception as e:
             print(f"Warning: Could not read defaults from {config_path}: {e}")

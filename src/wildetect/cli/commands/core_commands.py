@@ -354,6 +354,7 @@ def census(
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
                     export_to_labelstudio=loaded_config.export.export_to_labelstudio,
+                    disable_gps_detection_merging=loaded_config.detection.disable_gps_detection_merging,
                 )
             else:
                 results = campaign_manager.run_complete_campaign(
@@ -361,6 +362,7 @@ def census(
                     output_dir=output_dir,
                     export_to_fiftyone=loaded_config.export.to_fiftyone,
                     export_to_labelstudio=loaded_config.export.export_to_labelstudio,
+                    disable_gps_detection_merging=loaded_config.detection.disable_gps_detection_merging,
                 )
 
         # Display results
