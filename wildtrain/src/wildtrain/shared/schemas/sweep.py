@@ -63,7 +63,7 @@ class ClassificationSweepTrainParametersConfig(BaseConfig):
         description="List of weight decay values to search"
     )
     batch_size: List[int] = Field(description="List of batch sizes to search")
-    epochs: List[int] = Field(gt=0, description="Number of training epochs")
+    epochs: List[int] = Field(description="List of epoch counts to search")
 
     @field_validator("lr")
     @classmethod
@@ -107,6 +107,16 @@ class ClassificationSweepTrainParametersConfig(BaseConfig):
                 raise ValueError(
                     f"weight_decay values must be non-negative, got {value}"
                 )
+        return v
+
+    @field_validator("epochs")
+    @classmethod
+    def validate_epochs(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("epochs list cannot be empty")
+        for value in v:
+            if value <= 0:
+                raise ValueError(f"epochs values must be greater than 0, got {value}")
         return v
 
     @field_validator("batch_size")

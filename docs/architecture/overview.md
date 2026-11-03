@@ -234,12 +234,18 @@ The project uses various design patterns to ensure modularity and extensibility,
 Each package uses a hierarchical configuration system:
 
 ```yaml
-# wildtrain experiment file: a training YAML plus a task name
+# wildtrain experiment: shared blocks plus one task body
 task: detection
+tracking:
+  mlflow: {}
+run:
+  name: yolo12s-d0
+  project: runs/detect
 ```
 
 ```bash
 wildtrain run -c path/to/experiment.yaml
+wildtrain sweep -c path/to/sweep.yaml
 wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
 ```
 

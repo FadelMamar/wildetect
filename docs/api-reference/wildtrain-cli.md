@@ -64,6 +64,44 @@ wildtrain train detector -c configs/detection/yolo_configs/yolo_train.yaml
 
 See [Detection Training Config](../configs/wildtrain/detection-train.md) for config details.
 
+Both commands accept today's flat YAML. They wrap it as an experiment and dispatch through the harness registry. A file that already has `task:` must name the same task as the command.
+
+---
+
+### `run`
+
+Train the task named by an experiment file.
+
+```bash
+wildtrain run -c path/to/experiment.yaml
+wildtrain run -c path/to/experiment.yaml --debug
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `-c`, `--config` | `PATH` | Canonical experiment YAML, or a flat training YAML with `task:` |
+| `--debug` | flag | Short debug training pass |
+
+The canonical file has `tracking`, `run`, an optional `sweep`, and one of `classification` or `detection`. Flat training YAML with a top-level `task` key still loads.
+
+---
+
+### `sweep`
+
+Run one Optuna study for either task.
+
+```bash
+wildtrain sweep -c path/to/experiment.yaml
+wildtrain sweep -c configs/classification/classification_sweep.yaml
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `-c`, `--config` | `PATH` | Experiment file with a `sweep` block, or a legacy `base_config` sweep file |
+| `--debug` | flag | Short debug training trials |
+
+`sweep.parameters` is a map of dotted paths to lists of choices (`train.lr`, `model.backbone`, `train.lr0`). Legacy sweep YAML is converted to that map.
+
 ---
 
 ## `evaluate` — Evaluation Commands
@@ -382,8 +420,10 @@ wildtrain run-server --port 4141 -w 2
 
 | Command | Description |
 |---------|-------------|
-| `wildtrain train classifier -c CONFIG` | Train a classifier |
-| `wildtrain train detector -c CONFIG` | Train a YOLO detector |
+| `wildtrain run -c CONFIG` | Train the task named in an experiment file |
+| `wildtrain sweep -c CONFIG` | Optuna sweep for either task |
+| `wildtrain train classifier -c CONFIG` | Train a classifier (legacy YAML adapter) |
+| `wildtrain train detector -c CONFIG` | Train a YOLO detector (legacy YAML adapter) |
 | `wildtrain evaluate classifier -c CONFIG` | Evaluate a classifier |
 | `wildtrain evaluate detector -c CONFIG` | Evaluate a detector |
 | `wildtrain register classifier -c CONFIG` | Register classifier to MLflow |

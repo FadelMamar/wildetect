@@ -117,13 +117,16 @@ Models are automatically registered in the MLflow Model Registry, allowing for v
 
 Training configs are Pydantic models loaded from YAML. OmegaConf resolves `${...}` interpolations before validation. The CLI is Typer, not Hydra, and there is no `main.py` config group.
 
-`wildtrain train detector` and `wildtrain train classifier` take the existing files. `wildtrain run -c experiment.yaml` takes the same document plus a top-level `task: detection` or `task: classification`.
+`wildtrain run -c experiment.yaml` loads one `ExperimentConfig`. The file has shared `tracking`, `run`, and optional `sweep` blocks, plus either a `classification` or a `detection` body. Those bodies are the existing training configs. A flat training YAML still loads, with or without a top-level `task` key. `wildtrain train detector` and `wildtrain train classifier` are adapters onto that loader. `wildtrain sweep -c` runs one Optuna study for either task.
 
 ```bash
+wildtrain run -c path/to/experiment.yaml
+wildtrain sweep -c path/to/sweep.yaml
 wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
 wildtrain train classifier -c configs/classification/classification_train.yaml
-wildtrain run -c path/to/experiment.yaml
 ```
+
+The field layout and the legacy conversion are in the WildTrain README.
 
 ## CLI Interface
 

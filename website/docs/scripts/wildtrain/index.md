@@ -35,6 +35,8 @@ All scripts are located in `wildtrain/scripts/` directory.
 uv run wildtrain train classifier -c configs\classification\classification_train.yaml
 ```
 
+The same YAML also loads through `wildtrain run -c` once it has `task: classification`, or as a canonical experiment with `tracking`, `run`, and a `classification` body. See the WildTrain README.
+
 **Configuration**: `wildtrain/configs/classification/classification_train.yaml`
 
 **Key Parameters**:

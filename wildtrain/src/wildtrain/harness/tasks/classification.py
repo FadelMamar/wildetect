@@ -1,7 +1,7 @@
 """Classification wrapper around the existing Lightning trainer."""
 
-from ...shared.schemas.classification import ClassificationConfig
 from ...trainers.classification_trainer import ClassifierTrainer
+from ..config import ExperimentConfig
 from ..result import FitResult
 
 
@@ -19,8 +19,16 @@ class ClassificationTask:
 
     name = "classification"
 
-    def run(self, config: ClassificationConfig, debug: bool = False) -> FitResult:
-        trainer = ClassifierTrainer(config)
+    def run(self, config, debug: bool = False) -> FitResult:
+        trainer_config = config
+        if isinstance(config, ExperimentConfig):
+            if config.task != self.name:
+                raise ValueError(
+                    f"{self.name} task received a {config.task} experiment"
+                )
+            trainer_config = config.trainer_config()
+            debug = debug or config.run.debug
+        trainer = ClassifierTrainer(trainer_config)
         trainer.run(debug=debug)
         return FitResult(
             best_path=trainer.best_model_path,

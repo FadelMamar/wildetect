@@ -7,12 +7,14 @@ import supervision as sv
 import yaml
 from PIL import Image
 
+from wildtrain.harness.config import load_experiment
 from wildtrain.harness.detection.backends import (
     CustomYoloBackend,
     UltralyticsBackend,
     select_detection_backend,
 )
 from wildtrain.harness.detection.metrics import build_detection_metrics
+from wildtrain.harness.runner import run_experiment
 from wildtrain.models.localizer import (
     UltralyticsLocalizer,
     apply_single_class_id_shift,
@@ -304,7 +306,15 @@ def test_multi_class_nms_is_per_class_without_id_shift() -> None:
 
 def test_tiny_ultralytics_run(tmp_path: Path) -> None:
     config = _config(tmp_path)
-    trainer = UltralyticsDetectionTrainer(config)
-    trainer.run(debug=False)
-    assert trainer.best_model_path
-    assert Path(trainer.best_model_path).exists()
+    path = tmp_path / "experiment.yaml"
+    path.write_text(
+        yaml.safe_dump(config.model_dump(mode="json", exclude_none=True)),
+        encoding="utf-8",
+    )
+    experiment = load_experiment(path)
+    assert experiment.task == "detection"
+    assert experiment.train.single_cls is True
+    result = run_experiment(experiment, debug=False)
+    assert result.best_path
+    assert Path(result.best_path).exists()
+    assert result.score_name == "fitness"

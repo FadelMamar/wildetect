@@ -5,12 +5,13 @@ config and registry tests do not import the trainers.
 """
 
 __all__ = [
-    "ClassificationExperiment",
-    "DetectionExperiment",
     "ExperimentConfig",
     "FitResult",
+    "RunBlock",
+    "SweepBlock",
     "Task",
     "TaskRegistry",
+    "TrackingBlock",
     "default_registry",
     "load_experiment",
     "run_experiment",
@@ -19,9 +20,10 @@ __all__ = [
 
 def __getattr__(name: str):
     if name in {
-        "ClassificationExperiment",
-        "DetectionExperiment",
         "ExperimentConfig",
+        "RunBlock",
+        "SweepBlock",
+        "TrackingBlock",
         "load_experiment",
     }:
         from . import config as config_module

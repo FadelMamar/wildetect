@@ -1,4 +1,4 @@
-from wildtrain.trainers.sweeps import ClassifierSweeper
+from wildtrain.trainers.sweepers import ClassifierSweeper
 
 
 def main():

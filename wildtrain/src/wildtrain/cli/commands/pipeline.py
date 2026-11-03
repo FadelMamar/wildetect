@@ -5,8 +5,7 @@ from pathlib import Path
 
 import typer
 
-from ...pipeline.classification_pipeline import ClassificationPipeline
-from ...pipeline.detection_pipeline import DetectionPipeline
+from ...harness.pipeline import ExperimentPipeline
 from ...shared.config_loader import ConfigLoader
 from ...shared.validation import (
     ConfigFileNotFoundError,
@@ -43,7 +42,7 @@ def detection(
         # Convert validated config back to DictConfig for backward compatibility
         console.print("cfg:", cfg)
 
-        pipeline = DetectionPipeline(str(config))
+        pipeline = ExperimentPipeline(str(config), task="detection")
         results = pipeline.run()
         console.print(
             "\n[bold blue]Detection pipeline completed. Evaluation results:[/bold blue]"
@@ -88,7 +87,7 @@ def classification(
         )
         console.print("cfg:", cfg)
 
-        pipeline = ClassificationPipeline(str(config))
+        pipeline = ExperimentPipeline(str(config), task="classification")
         results = pipeline.run()
         console.print(
             "\n[bold blue]Classification pipeline completed. Evaluation results:[/bold blue]"

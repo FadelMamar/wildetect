@@ -307,7 +307,7 @@ def test_run_command_dispatches_without_training(
     assert seen == {"task": "detection", "debug": True, "single_cls": True}
 
 
-def test_train_commands_call_wrapper_tasks(
+def test_train_commands_dispatch_through_the_registry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     classification = _resolved_mapping(CLASSIFICATION_YAML)
@@ -317,20 +317,14 @@ def test_train_commands_call_wrapper_tasks(
 
     called: list[str] = []
 
-    class FakeClassification:
-        def run(self, config, debug: bool = False) -> FitResult:
+    def fake_run(config, debug: bool = False, registry=None) -> FitResult:
+        if config.task == "classification":
             called.append(f"classification:{config.dataset.dataset_type}")
-            return FitResult(best_path=None, best_score=None)
-
-    class FakeDetection:
-        def run(self, config, debug: bool = False) -> FitResult:
+        else:
             called.append(f"detection:{config.train.single_cls}")
-            return FitResult(best_path=None, best_score=None)
+        return FitResult(best_path=None, best_score=None)
 
-    monkeypatch.setattr(
-        "wildtrain.cli.commands.train.ClassificationTask", FakeClassification
-    )
-    monkeypatch.setattr("wildtrain.cli.commands.train.DetectionTask", FakeDetection)
+    monkeypatch.setattr("wildtrain.cli.commands.train.run_experiment", fake_run)
 
     classification_result = RUNNER.invoke(
         app, ["train", "classifier", "--config", str(classification_path)]

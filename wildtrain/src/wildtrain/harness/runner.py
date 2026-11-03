@@ -1,6 +1,6 @@
-"""Dispatch an experiment config to the registered task."""
+"""Dispatch an experiment config through the task registry."""
 
-from .config import ClassificationExperiment, DetectionExperiment
+from .config import ExperimentConfig
 from .registry import TaskRegistry
 from .result import FitResult
 from .tasks import ClassificationTask, DetectionTask
@@ -15,11 +15,11 @@ def default_registry() -> TaskRegistry:
 
 
 def run_experiment(
-    config: ClassificationExperiment | DetectionExperiment,
+    config: ExperimentConfig,
     debug: bool = False,
     registry: TaskRegistry | None = None,
 ) -> FitResult:
     """Run the task named by ``config.task``."""
     active = registry if registry is not None else default_registry()
     task = active.get(config.task)
-    return task.run(config, debug=debug)
+    return task.run(config, debug=debug or config.run.debug)

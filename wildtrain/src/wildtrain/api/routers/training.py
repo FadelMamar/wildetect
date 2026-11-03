@@ -8,6 +8,7 @@ from ..dependencies import get_logger
 from ..models.requests import (
     ClassificationTrainingRequest,
     DetectionTrainingRequest,
+    ExperimentTrainingRequest,
     JobCancelRequest,
 )
 from ..models.responses import JobDetailResponse, JobListResponse, TrainingResponse
@@ -20,6 +21,32 @@ logger = get_logger("training")
 router = APIRouter()
 
 
+@router.post("/experiments", response_model=TrainingResponse)
+async def train_experiment(request: ExperimentTrainingRequest) -> TrainingResponse:
+    """Train the task named in the experiment document."""
+
+    try:
+        job_id = create_background_job(
+            task_func=_train_experiment_task,
+            config=request.config,
+            debug=request.debug,
+            metadata={
+                "task_type": "experiment",
+                "config": request.config,
+            },
+        )
+        return TrainingResponse(
+            success=True,
+            message="Experiment training job created",
+            job_id=job_id,
+            status="pending",
+            progress=0.0,
+        )
+    except Exception as e:
+        logger.error(f"Failed to create experiment training job: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/classifier", response_model=TrainingResponse)
 async def train_classifier(request: ClassificationTrainingRequest) -> TrainingResponse:
     """Train a classification model."""
@@ -29,6 +56,7 @@ async def train_classifier(request: ClassificationTrainingRequest) -> TrainingRe
         job_id = create_background_job(
             task_func=_train_classifier_task,
             config=request.config,
+            debug=request.debug,
             metadata={
                 "task_type": "classification_training",
                 "model_type": "classifier",
@@ -58,6 +86,7 @@ async def train_detector(request: DetectionTrainingRequest) -> TrainingResponse:
         job_id = create_background_job(
             task_func=_train_detector_task,
             config=request.config,
+            debug=request.debug,
             metadata={
                 "task_type": "detection_training",
                 "model_type": "detector",
@@ -180,29 +209,34 @@ async def cancel_training_job(request: JobCancelRequest) -> JobDetailResponse:
 
 
 # Background task functions
-def _train_classifier_task(config: Any) -> None:
-    """Background task for classifier training using actual CLI integration."""
-    logger.info("Starting classifier training task with CLI integration")
-
+def _train_experiment_task(config: Any, debug: bool = False) -> None:
+    """Background task that dispatches through the harness registry."""
+    logger.info("Starting experiment training task")
     try:
-        # Use the training service to run actual CLI training
-        TrainingService.train_classifier(config)
+        TrainingService.train_experiment(config, debug=debug)
+        logger.info("Experiment training completed successfully")
+    except Exception as e:
+        logger.error(f"Experiment training failed: {e}")
+        raise
+
+
+def _train_classifier_task(config: Any, debug: bool = False) -> None:
+    """Background task for the classification adapter."""
+    logger.info("Starting classifier training task")
+    try:
+        TrainingService.train_classifier(config, debug=debug)
         logger.info("Classifier training completed successfully")
-        return
     except Exception as e:
         logger.error(f"Classifier training failed: {e}")
         raise
 
 
-def _train_detector_task(config: Any) -> None:
-    """Background task for detector training using actual CLI integration."""
-    logger.info("Starting detector training task with CLI integration")
-
+def _train_detector_task(config: Any, debug: bool = False) -> None:
+    """Background task for the detection adapter."""
+    logger.info("Starting detector training task")
     try:
-        # Use the training service to run actual CLI training
-        TrainingService.train_detector(config)
+        TrainingService.train_detector(config, debug=debug)
         logger.info("Detector training completed successfully")
-        return
     except Exception as e:
         logger.error(f"Detector training failed: {e}")
         raise

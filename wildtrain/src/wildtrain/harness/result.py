@@ -15,3 +15,4 @@ class FitResult:
     best_path: Optional[str]
     best_score: Optional[float]
     score_name: Optional[str] = None
+    metrics: Optional[dict] = None
