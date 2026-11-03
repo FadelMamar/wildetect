@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from .dependencies import get_settings
 from .models.requests import ExperimentTrainingRequest
-from .routers import config, dataset, evaluation, pipeline, training, visualization
+from .routers import config, dataset, evaluation, training, visualization
 from .utils.error_handling import WildTrainAPIException, wildtrain_exception_handler
 
 # Configure logging
@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        servers=[{"url": "/"}],
     )
 
     # Add CORS middleware
@@ -51,8 +52,8 @@ def create_app() -> FastAPI:
     async def train_experiment(request: ExperimentTrainingRequest):
         """Train the task named in the experiment document."""
         return await training.train_experiment(request)
+
     app.include_router(evaluation.router, prefix="/evaluation", tags=["Evaluation"])
-    app.include_router(pipeline.router, prefix="/pipeline", tags=["Pipeline"])
     app.include_router(
         visualization.router, prefix="/visualization", tags=["Visualization"]
     )

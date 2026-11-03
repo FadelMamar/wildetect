@@ -92,6 +92,7 @@ pretraining:
 # wildtrain evaluate still reads yolo_eval.yaml. This block is recorded only.
 # A sweep objective must use an Ultralytics key such as metrics/mAP50(B).
 eval:
+  enabled: false
   split: val
   metrics: [metrics/precision(B), metrics/recall(B), metrics/mAP50(B), metrics/mAP50-95(B)]
   conf: 0.1

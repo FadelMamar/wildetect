@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from wildtrain.cli.config_loader import ROOT, ConfigLoader
+from wildtrain.cli.config_loader import ROOT
 from wildtrain.harness.config import load_experiment
 
 from wildtrain.api.main import fastapi_app as app
@@ -100,25 +100,3 @@ def detection_visualization_config():
     return _document(load_visualization_document, path)
 
 
-@pytest.fixture
-def classification_pipeline_config():
-    """Load real classification pipeline config for testing."""
-    config_path = (
-        ROOT / "configs" / "classification" / "classification_pipeline_config.yaml"
-    )
-    return safe_load_config(
-        config_path,
-        lambda p: ConfigLoader.load_pipeline_config(p, "classification"),
-    )
-
-
-@pytest.fixture
-def detection_pipeline_config():
-    """Load real detection pipeline config for testing."""
-    config_path = (
-        ROOT / "configs" / "detection" / "yolo_configs" / "yolo_pipeline_config.yaml"
-    )
-    return safe_load_config(
-        config_path,
-        lambda p: ConfigLoader.load_pipeline_config(p, "detection"),
-    )

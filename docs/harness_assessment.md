@@ -620,7 +620,7 @@ Done:
 - Visualization is the existing FiftyOne upload (`Visualizer` for classification, `Detector` for detection), including the optional Label Studio fields on the detection file.
 - Registration still calls `ModelRegistrar.register_classifier` and `ModelRegistrar.register_detector`. The detector document is mapped onto the old `DetectorRegistrationConfig` shape so the metadata census reads does not change. `export_format: pt` returns the localizer weights path. A set `classifier_weights` is exported as torchscript unless `classifier_export_format` is set.
 - `ConfigType.DETECTOR_REGISTRATION` and `ConfigType.MODEL_REGISTRATION` both validate `DetectorRegistrationConfig`. A localizer-only document is rejected by those types.
-- `wildtrain config validate` validates an experiment, eval, visualization, or registration file. `--type` also accepts `pipeline`. Old eval, visualization, and registration YAML raises `ValueError`.
+- `wildtrain config validate` validates an experiment, eval, visualization, or registration file. Old eval, visualization, registration, and pipeline YAML raises `ValueError`.
 - Shipped eval, visualization, and registration YAML uses the new layout and `${oc.env:...}` for `DATA_ROOT`, `CLASSIFIER_WEIGHTS`, `LOCALIZER_WEIGHTS`, `DETECTION_DATA_CFG`, and `MLFLOW_TRACKING_URI`.
 - `POST /evaluation/` and `POST /visualization/` replace the per-task routes. No registration HTTP route was added.
 - Census unwrap still works for a single-class localizer and for a localizer plus ROI classifier. `load_registered_model` joins the download path with `str(version)` because MLflow can return the version as an int. The metadata keys are unchanged. The alias is still set by the caller. Registration does not set one.
@@ -628,8 +628,7 @@ Done:
 Not in this slice:
 
 - A shared Lightning trainer and shared DVC tracking.
-- Pipeline YAML stays the pipeline schema (`train.config`, `eval.config`). It was not folded into `eval.enabled`.
-- `wildtrain evaluate` on a full experiment uses `model.weights` unless a checkpoint is passed in. It does not train first.
+- Follow-up on this phase: registration sets an MLflow alias (default `demo`). `wildtrain evaluate` never trains; a missing checkpoint says to train first or set `model.weights`. Pipeline YAML, `wildtrain pipeline`, and `POST /pipeline/*` are removed. Train-then-eval is `eval.enabled: true` on one experiment. `ClassifierHead` with `num_layers: 1` projects `input_dim` to the classes. `num_layers: 2` checkpoints still load. A checkpoint saved when `num_layers: 1` skipped that projection does not.
 
 ### Phase 5 — What is left
 
@@ -692,4 +691,6 @@ Phases 0 through 4, plus eval, visualization, and registration, are the current 
 - `ClassificationTask` and `DetectionTask` still construct today's trainers. There is no shared Lightning trainer and no shared DVC tracker.
 - `ModelMetadata.to_dict()` writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`. Census reads `batch`, then tile size from `tilesize` or `imgsz`, and unwraps to `Detector`.
 - `DETECTOR_REGISTRATION` validates `DetectorRegistrationConfig`, not the localizer schema. `wildtrain config validate` checks the new documents.
-- The per-task pipeline modules, the per-task sweepers, and `utils/registry.py` are gone. `GenericClassifier`, `yolo_utils.py`, `shared/models.py`, and the census load path remain. Pipeline YAML is still the pipeline schema.
+- Registration sets the MLflow alias and does not add it to the census metadata keys.
+- `wildtrain pipeline` and `POST /pipeline/*` are removed. `eval.enabled: true` is train-then-eval.
+- The per-task pipeline modules, the per-task sweepers, and `utils/registry.py` are gone. `GenericClassifier`, `yolo_utils.py`, `shared/models.py`, and the census load path remain.

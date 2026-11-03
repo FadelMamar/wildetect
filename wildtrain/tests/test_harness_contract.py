@@ -129,6 +129,12 @@ def test_config_loader_dispatch_is_frozen(
     """
     path = tmp_path / "config.yaml"
     path.write_text("{}", encoding="utf-8")
+    for config_type in (
+        ConfigType.CLASSIFICATION_PIPELINE,
+        ConfigType.DETECTION_PIPELINE,
+    ):
+        with pytest.raises(ConfigValidationError, match="eval.enabled"):
+            ConfigLoader.validate_config_file(path, config_type)
     called: list[str] = []
 
     def _record(name: str):
@@ -158,7 +164,6 @@ def test_config_loader_dispatch_is_frozen(
         "load_detection_visualization_config",
         _record("detection_visualization"),
     )
-    monkeypatch.setattr(ConfigLoader, "load_pipeline_config", _record("pipeline"))
     monkeypatch.setattr(
         ConfigLoader,
         "load_localizer_registration_config",
@@ -182,8 +187,6 @@ def test_config_loader_dispatch_is_frozen(
         ConfigType.DETECTION_EVAL: "detection_eval",
         ConfigType.CLASSIFICATION_VISUALIZATION: "classification_visualization",
         ConfigType.DETECTION_VISUALIZATION: "detection_visualization",
-        ConfigType.CLASSIFICATION_PIPELINE: "pipeline",
-        ConfigType.DETECTION_PIPELINE: "pipeline",
         ConfigType.DETECTOR_REGISTRATION: "detector_registration",
         ConfigType.CLASSIFIER_REGISTRATION: "classifier_registration",
         ConfigType.MODEL_REGISTRATION: "detector_registration",

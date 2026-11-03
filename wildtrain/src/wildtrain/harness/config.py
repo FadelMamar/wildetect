@@ -65,6 +65,14 @@ _LEGACY_SWEEP = (
     "Run it with wildtrain sweep -c experiment.yaml."
 )
 
+_LEGACY_PIPELINE = (
+    "This file is the old pipeline config (train.config and eval.config) "
+    "and is no longer accepted. Train then evaluate with one experiment: "
+    "set eval.enabled: true and run wildtrain run -c experiment.yaml. "
+    "wildtrain pipeline classification, wildtrain pipeline detection, "
+    "POST /pipeline/classification, and POST /pipeline/detection have been removed."
+)
+
 _LEGACY_NESTED = (
     "Nested classification: or detection: blocks are not the experiment schema. "
     "Use top-level data, model, and train. data.format is roi or yolo. "
@@ -460,6 +468,8 @@ def _transforms_or_none(transforms: TransformsConfig):
 
 
 def _legacy_message(payload: Mapping[str, Any]) -> Optional[str]:
+    if _is_pipeline_payload(payload):
+        return _LEGACY_PIPELINE
     if "base_config" in payload and "parameters" in payload:
         return _LEGACY_SWEEP
     if isinstance(payload.get("classification"), dict) or isinstance(
@@ -474,6 +484,19 @@ def _legacy_message(payload: Mapping[str, Any]) -> Optional[str]:
     if "mlflow" in payload and "tracking" not in payload:
         return _LEGACY_TRAINING
     return None
+
+
+def _is_pipeline_payload(payload: Mapping[str, Any]) -> bool:
+    train = payload.get("train")
+    evaluation = payload.get("eval")
+    if (
+        isinstance(train, dict)
+        and "config" in train
+        and isinstance(evaluation, dict)
+        and "config" in evaluation
+    ):
+        return True
+    return "disable_train" in payload or "disable_eval" in payload
 
 
 def _old_dataset(dataset: Mapping[str, Any]) -> bool:

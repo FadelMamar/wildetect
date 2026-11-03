@@ -1,9 +1,4 @@
-"""Train-then-eval pipeline.
+"""Train-then-eval is an experiment with ``eval.enabled: true``.
 
-The implementation is :class:`wildtrain.harness.pipeline.ExperimentPipeline`.
-The per-task pipeline modules are gone.
+``wildtrain pipeline`` and the pipeline YAML schema have been removed.
 """
-
-from ..harness.pipeline import ExperimentPipeline
-
-__all__ = ["ExperimentPipeline"]

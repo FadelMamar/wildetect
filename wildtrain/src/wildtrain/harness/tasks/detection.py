@@ -65,12 +65,11 @@ class DetectionTask:
         )
         from ...shared.schemas.yolo import YoloDatasetConfig
         from ..config import DetectionExperiment
+        from ..ops import resolve_checkpoint
 
         if config.task != self.name:
             raise ValueError(f"{self.name} task received a {config.task} document")
-        localizer = weights or _detection_weights(config)
-        if not localizer:
-            raise ValueError("detection eval needs localizer weights")
+        localizer = resolve_checkpoint(config, weights or _detection_weights(config))
         from pathlib import Path as _Path
         eval_block = config.eval
         if isinstance(config, DetectionExperiment):
@@ -233,6 +232,8 @@ class DetectionTask:
             yaml.safe_dump(validated.model_dump(mode="json"), handle)
             path = Path(handle.name)
         try:
-            ModelRegistrar(config.mlflow_tracking_uri).register_detector(path)
+            ModelRegistrar(config.mlflow_tracking_uri).register_detector(
+                path, alias=config.alias
+            )
         finally:
             path.unlink(missing_ok=True)

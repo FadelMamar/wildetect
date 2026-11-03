@@ -24,10 +24,7 @@ def validate(
         None,
         "--type",
         "-t",
-        help=(
-            "Optional kind: experiment, eval, visualization, "
-            "registration, or pipeline"
-        ),
+        help="Optional kind: experiment, eval, visualization, or registration",
     ),
 ) -> None:
     """Validate an experiment, eval, visualization, or registration file."""

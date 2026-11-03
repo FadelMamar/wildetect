@@ -33,7 +33,7 @@ wildtrain sweep -c configs/detection/detection_sweep.yaml
 
 Set `DATA_ROOT` for the classification dataset root and `DETECTION_DATA_CFG` for the YOLO data yaml. Those files are not required to exist until training starts.
 
-`tracking.dvc.enabled` is recorded; the shared DVC tracker is not wired yet. Set `eval.enabled: true` and `wildtrain run -c` scores the best checkpoint after training. `eval.enabled` defaults to false, so a train file that only records an `eval` block does not evaluate.
+`tracking.dvc.enabled` is recorded; the shared DVC tracker is not wired yet. Set `eval.enabled: true` and `wildtrain run -c` trains, then scores the best checkpoint. `eval.enabled` defaults to false. `wildtrain evaluate -c` scores an existing checkpoint and does not train. `wildtrain pipeline` has been removed.
 
 ## Classification
 
@@ -174,14 +174,14 @@ wildtrain register -c configs/registration/detector_registration_example.yaml
 wildtrain config validate configs/classification/classification_train.yaml
 ```
 
-`wildtrain evaluate -c` takes a standalone eval file (`task`, `weights`, `data`, `eval`) or a full experiment. A full experiment is scored from `model.weights` or the checkpoint passed after training. `wildtrain run` calls the same task method when `eval.enabled` is true.
+`wildtrain evaluate -c` takes a standalone eval file (`task`, `weights`, `data`, `eval`) or a full experiment. It scores `model.weights`, the eval file's `weights`, or a checkpoint already on disk. If none of those exist it errors and tells you to train first or set the weights. It never trains. `wildtrain run` calls the same task method after training when `eval.enabled` is true. That replaces `wildtrain pipeline`.
 
 Classification eval uses `build_classification_metrics`. Detection eval uses the supervision metrics in `build_detection_metrics`. Paths in the shipped files use `${oc.env:DATA_ROOT,.}`, `${oc.env:CLASSIFIER_WEIGHTS,...}`, `${oc.env:LOCALIZER_WEIGHTS,...}`, and `${oc.env:DETECTION_DATA_CFG,...}`.
 
 `wildtrain visualize -c` uploads predictions for the task in the file (FiftyOne, and the optional Label Studio fields on the detection file). `wildtrain register -c` registers that task. A detector file sets `localizer.weights` and, for the two-stage model, `classifier_weights`. `export_format: pt` keeps the localizer `.pt` file. A classifier checkpoint is exported as torchscript unless `classifier_export_format` is set.
 
-Registration still writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`. Census reads `batch`, then tile size from `tilesize` or `imgsz`, and unwraps the pyfunc to `Detector` for both the single-class localizer and the localizer plus ROI classifier.
+Registration still writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`. It also sets the MLflow alias on the new version (`alias`, default `demo`) so census can load by alias. Census reads `batch`, then tile size from `tilesize` or `imgsz`, and unwraps the pyfunc to `Detector` for both the single-class localizer and the localizer plus ROI classifier. The alias is not one of those metadata keys.
 
-`POST /evaluation/` and `POST /visualization/` take `{config, debug}` and dispatch on `task`. There is no registration HTTP route. `POST /evaluation/classifier`, `POST /evaluation/detector`, `POST /visualization/classifier`, and `POST /visualization/detector` are removed. `wildtrain config validate` checks the experiment, eval, visualization, and registration documents. `--type` accepts `experiment`, `eval`, `visualization`, `registration`, or `pipeline`.
+`POST /evaluation/` and `POST /visualization/` take `{config, debug}` and dispatch on `task`. There is no registration HTTP route. `POST /evaluation/classifier`, `POST /evaluation/detector`, `POST /visualization/classifier`, and `POST /visualization/detector` are removed. `wildtrain config validate` checks the experiment, eval, visualization, and registration documents. `--type` accepts `experiment`, `eval`, `visualization`, or `registration`.
 
 Old eval, visualization, and registration YAML raises `ValueError` and names the replacement fields. `wildtrain evaluate classifier`, `wildtrain evaluate detector`, `wildtrain evaluate yolo-model`, `wildtrain register classifier`, `wildtrain register detector`, `wildtrain visualize classifier-predictions`, and `wildtrain visualize detector-predictions` are removed.

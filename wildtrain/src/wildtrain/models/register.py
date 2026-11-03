@@ -196,7 +196,7 @@ class ModelRegistrar:
         """
         self.mlflow_tracking_uri = mlflow_tracking_uri
 
-    def register_detector(self, config_path: Path) -> None:
+    def register_detector(self, config_path: Path, alias: str | None = None) -> None:
         """Register a YOLO detection model to MLflow Model Registry."""
         from wildtrain.shared.config_loader import ConfigLoader  # avoid curcular import
 
@@ -260,6 +260,7 @@ class ModelRegistrar:
             name=config.processing.name,
             model=DetectorWrapper(),
             signature=signature,
+            alias=alias,
         )
 
         logger.info(f"Successfully registered detector model: {config.processing.name}")
@@ -270,6 +271,7 @@ class ModelRegistrar:
         name: str = "classifier",
         export_format: str = "torchscript",
         batch_size: int = 8,
+        alias: str | None = None,
     ) -> None:
         """Register a classification model to MLflow Model Registry."""
         model_path = Path(weights)
@@ -306,6 +308,7 @@ class ModelRegistrar:
             model=ClassifierWrapper(),
             signature=signature,
             artifacts=artifacts,
+            alias=alias,
         )
 
         logger.info(f"Successfully registered classifier model: {name}")
@@ -354,6 +357,7 @@ class ModelRegistrar:
         model: Union[torch.nn.Module, mlflow.pyfunc.PythonModel],
         artifacts: Optional[Dict[str, str]] = None,
         signature: Optional[ModelSignature] = None,
+        alias: str | None = None,
     ) -> None:
         """Register a model to MLflow Model Registry."""
         mlflow.set_tracking_uri(self.mlflow_tracking_uri)
@@ -362,7 +366,7 @@ class ModelRegistrar:
 
         with mlflow.start_run(experiment_id=exp_id):
             if isinstance(model, mlflow.pyfunc.PythonModel):
-                mlflow.pyfunc.log_model(
+                logged = mlflow.pyfunc.log_model(
                     python_model=model,
                     artifact_path="model",
                     pip_requirements=read_dependencies(),
@@ -372,7 +376,7 @@ class ModelRegistrar:
                     artifacts=artifacts,
                 )
             elif isinstance(model, torch.nn.Module):
-                mlflow.pytorch.log_model(
+                logged = mlflow.pytorch.log_model(
                     pytorch_model=model,
                     artifact_path="model",
                     pip_requirements=read_dependencies(),
@@ -383,3 +387,10 @@ class ModelRegistrar:
                 )
             else:
                 raise ValueError(f"Model type {type(model)} not supported")
+        if alias:
+            version = getattr(logged, "registered_model_version", None)
+            client = mlflow.MlflowClient()
+            if version is None:
+                versions = client.search_model_versions(f"name='{name}'")
+                version = max(int(item.version) for item in versions)
+            client.set_registered_model_alias(name, alias, str(version))

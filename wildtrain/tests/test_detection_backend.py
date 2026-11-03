@@ -402,7 +402,6 @@ def test_tiny_ultralytics_run(tmp_path: Path) -> None:
         )
     )
     mlflow.set_tracking_uri(uri)
-    mlflow.MlflowClient().set_registered_model_alias("localizer", "demo", "1")
     detector = load_registered_model(
         "demo",
         "localizer",
@@ -472,7 +471,6 @@ def test_tiny_ultralytics_run(tmp_path: Path) -> None:
             classifier_weights=str(classifier_path),
         )
     )
-    mlflow.MlflowClient().set_registered_model_alias("two-stage", "demo", "1")
     two_stage = load_registered_model(
         "demo",
         "two-stage",

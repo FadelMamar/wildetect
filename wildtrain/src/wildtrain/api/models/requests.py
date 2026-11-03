@@ -7,10 +7,8 @@ from pydantic import Field
 
 from ...cli.models import (
     ClassificationEvalConfig,
-    ClassificationPipelineConfig,
     ClassificationVisualizationConfig,
     DetectionEvalConfig,
-    DetectionPipelineConfig,
     DetectionVisualizationConfig,
 )
 from .common import BaseRequest
@@ -49,18 +47,6 @@ class DetectionEvalRequest(BaseRequest):
     config: DetectionEvalConfig = Field(description="Evaluation configuration")
     debug: bool = Field(default=False, description="Debug mode")
     model_type: str = Field(default="yolo", description="Model type")
-
-
-class ClassificationPipelineRequest(BaseRequest):
-    """Request model for classification pipeline."""
-
-    config: ClassificationPipelineConfig = Field(description="Pipeline configuration")
-
-
-class DetectionPipelineRequest(BaseRequest):
-    """Request model for detection pipeline."""
-
-    config: DetectionPipelineConfig = Field(description="Pipeline configuration")
 
 
 class ClassificationVisualizationRequest(BaseRequest):

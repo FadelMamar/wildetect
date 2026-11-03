@@ -12,11 +12,7 @@ import streamlit as st
 import yaml
 
 # Add the src directory to the path so we can import wildtrain modules
-from wildtrain.cli import (
-    get_dataset_stats,
-    run_classification_pipeline,
-    run_detection_pipeline,
-)
+from wildtrain.cli import get_dataset_stats
 from wildtrain.cli.commands.evaluate import evaluate as evaluate_document
 from wildtrain.cli.commands.visualize import visualize as visualize_document
 from wildtrain.utils.logging import ROOT
@@ -158,20 +154,30 @@ def home_page():
     # st.code(file_path, language="text")
 
 
+def run_experiment_file(path: Path):
+    """Train the experiment. Evaluation runs when eval.enabled is true."""
+    from wildtrain.harness.config import load_experiment
+    from wildtrain.harness.runner import run_experiment
+
+    return run_experiment(load_experiment(path))
+
+
 def training_page():
     """Training page for model training."""
     st.title("🏋️ Training")
+    st.caption(
+        "Train-then-eval is one experiment file with eval.enabled: true. "
+        "wildtrain pipeline has been removed."
+    )
 
-    tab1, tab2 = st.tabs(["Detection Pipeline", "Classification Pipeline"])
+    tab1, tab2 = st.tabs(["Detection", "Classification"])
 
     with tab1:
         st.subheader("Detection Pipeline")
 
         # Get available detection configs
         detection_configs = [
-            f.as_posix()
-            for f in (ROOT / "pipelines").iterdir()
-            if f.is_file() and f.suffix == ".yaml"
+            (ROOT / "configs/detection/yolo_configs/yolo.yaml").as_posix()
         ]
 
         if detection_configs:
@@ -189,7 +195,7 @@ def training_page():
                     )
 
                     success, message, result = run_command_with_progress(
-                        run_detection_pipeline, Path(selected_config)
+                        run_experiment_file, Path(selected_config)
                     )
 
                     if success:
@@ -205,9 +211,7 @@ def training_page():
 
         # Get available classification configs
         classification_configs = [
-            f.as_posix()
-            for f in (ROOT / "pipelines").iterdir()
-            if f.is_file() and f.suffix == ".yaml"
+            (ROOT / "configs/classification/classification_train.yaml").as_posix()
         ]
 
         if classification_configs:
@@ -221,11 +225,12 @@ def training_page():
             if st.button("🚀 Start Classification Pipeline", type="primary"):
                 if selected_config:
                     st.info(
-                        f"Starting classification pipeline with config: {selected_config}"
+                        "Starting classification training with "
+                        f"config: {selected_config}"
                     )
 
                     success, message, result = run_command_with_progress(
-                        run_classification_pipeline, Path(selected_config)
+                        run_experiment_file, Path(selected_config)
                     )
 
                     if success:
@@ -479,13 +484,6 @@ def configuration_page():
     st.subheader("Available Configuration Files")
 
     config_files = get_config_files()
-
-    pipeline_files = [
-        f.as_posix()
-        for i, f in enumerate((ROOT / "pipelines").iterdir())
-        if f.is_file() and f.suffix == ".yaml"
-    ]
-    config_files["pipelines"] = pipeline_files
 
     for category, files in config_files.items():
         if files:

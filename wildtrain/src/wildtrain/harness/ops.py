@@ -121,6 +121,7 @@ class RegistrationDocument(BaseConfig):
     imgsz: Optional[int] = None
     export_format: str = "pt"
     classifier_export_format: Optional[str] = None
+    alias: str = "demo"
     weights: Optional[str] = None
     localizer: Optional[LocalizerSpec] = None
     classifier_weights: Optional[str] = None
@@ -132,6 +133,36 @@ class RegistrationDocument(BaseConfig):
         if self.task == "detection" and self.localizer is None:
             raise ValueError("detection registration needs localizer.weights")
         return self
+
+
+def resolve_checkpoint(config, weights: str | None = None) -> str:
+    """Checkpoint for evaluation. Never starts training.
+
+    Uses the weights just produced by a train call, then ``model.weights`` or
+    the eval document's ``weights``, then a checkpoint file that is already
+    on disk. An empty experiment fails and tells the caller to train first
+    or set the weights.
+    """
+    if weights:
+        return str(weights)
+    model = getattr(config, "model", None)
+    model_weights = getattr(model, "weights", None) if model is not None else None
+    if model_weights:
+        return str(model_weights)
+    document_weights = getattr(config, "weights", None)
+    if document_weights:
+        return str(document_weights)
+    checkpoint = getattr(config, "checkpoint", None)
+    if checkpoint is not None:
+        directory = Path(checkpoint.dirpath)
+        filename = str(getattr(checkpoint, "filename", "best"))
+        for candidate in (directory / f"{filename}.ckpt", directory / filename):
+            if candidate.is_file():
+                return str(candidate)
+    raise ValueError(
+        "No checkpoint to evaluate. Train first with wildtrain run -c, "
+        "or set model.weights. wildtrain evaluate does not train."
+    )
 
 
 def load_yaml(path: Path | str) -> dict:
@@ -195,24 +226,21 @@ def visualization_from_mapping(payload: Mapping[str, Any]) -> VisualizationDocum
 
 
 def validate_kind(path: Path | str, kind: str) -> str:
-    """Validate experiment, eval, visualization, registration, or pipeline."""
-    from ..shared.config_loader import ConfigLoader
-    from .config import load_experiment
+    """Validate experiment, eval, visualization, or registration."""
+    from .config import _LEGACY_PIPELINE, load_experiment
 
-    def _pipeline(config_path: Path | str) -> None:
-        ConfigLoader.load_pipeline_config(Path(config_path), "classification")
-
+    if kind == "pipeline":
+        raise ValueError(_LEGACY_PIPELINE)
     loaders = {
         "experiment": load_experiment,
         "eval": load_eval_document,
         "visualization": load_visualization_document,
         "registration": load_registration_document,
-        "pipeline": _pipeline,
     }
     if kind not in loaders:
         raise ValueError(
             f"Unknown config type {kind!r}. "
-            "Use experiment, eval, visualization, registration, or pipeline."
+            "Use experiment, eval, visualization, or registration."
         )
     loaders[kind](path)
     return kind
@@ -223,9 +251,11 @@ def validate_harness_file(path: Path | str) -> str:
 
     Returns the document kind.
     """
-    from .config import experiment_from_mapping
+    from .config import _LEGACY_PIPELINE, _is_pipeline_payload, experiment_from_mapping
 
     payload = load_yaml(path)
+    if _is_pipeline_payload(payload):
+        raise ValueError(_LEGACY_PIPELINE)
     for checker in (_legacy_eval, _legacy_visualization, _legacy_registration):
         message = checker(payload)
         if message and _is_old_shape(payload):

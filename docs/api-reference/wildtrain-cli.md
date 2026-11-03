@@ -90,47 +90,9 @@ See [Registration Config](../configs/wildtrain/registration.md).
 
 ---
 
-## `pipeline` — Pipeline Commands
+## `pipeline` — removed
 
-Run full train + eval pipelines in a single command.
-
-### `pipeline detection`
-
-Run the full detection pipeline (train + evaluate).
-
-```bash
-wildtrain pipeline detection [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `None` | Path to unified detection pipeline YAML config |
-
-**Example:**
-
-```bash
-wildtrain pipeline detection -c configs/detection/detection_sweep.yaml
-```
-
----
-
-### `pipeline classification`
-
-Run the full classification pipeline (train + evaluate).
-
-```bash
-wildtrain pipeline classification [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `None` | Path to unified classification pipeline YAML config |
-
-**Example:**
-
-```bash
-wildtrain pipeline classification -c configs/classification/classification_pipeline_config.yaml
-```
+Train-then-eval is one experiment. Set `eval.enabled: true` and run `wildtrain run -c experiment.yaml`. `wildtrain pipeline classification` and `wildtrain pipeline detection` exit with that message. An old pipeline file (`train.config` and `eval.config`) raises the same error.
 
 ---
 
@@ -149,7 +111,7 @@ wildtrain config validate CONFIG_PATH [OPTIONS]
 | Argument / Option | Type | Default | Description |
 |-------------------|------|---------|-------------|
 | `CONFIG_PATH` | `PATH` | *(required)* | Path to configuration file |
-| `-t`, `--type` | `str` | auto | `experiment`, `eval`, `visualization`, `registration`, or `pipeline` |
+| `-t`, `--type` | `str` | auto | `experiment`, `eval`, `visualization`, or `registration` |
 
 With no `--type`, the file is detected from its keys. Old trainer types such as `classification` are not accepted.
 
@@ -266,8 +228,7 @@ wildtrain run-server --port 4141 -w 2
 | `wildtrain sweep -c CONFIG` | Optuna sweep for either task |
 | `wildtrain evaluate -c CONFIG` | Evaluate an experiment or eval document |
 | `wildtrain register -c CONFIG` | Register a classifier or detector |
-| `wildtrain pipeline detection -c CONFIG` | Full detection pipeline |
-| `wildtrain pipeline classification -c CONFIG` | Full classification pipeline |
+| `wildtrain run -c CONFIG` with `eval.enabled: true` | Train, then evaluate |
 | `wildtrain config validate CONFIG` | Validate an experiment, eval, visualization, or registration file |
 | `wildtrain config template TYPE` | Generate config template |
 | `wildtrain dataset stats DATA_DIR` | Compute dataset stats |

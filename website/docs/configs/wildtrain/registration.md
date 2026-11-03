@@ -27,6 +27,7 @@ The old `processing` / `localizer.yolo` files are rejected. Registered metadata 
 | `batch` | Batch size written to metadata and used for export |
 | `mlflow_tracking_uri` | Tracking URI. `${oc.env:MLFLOW_TRACKING_URI,...}` |
 | `export_format` | `torchscript` or `onnx` |
+| `alias` | MLflow alias set on the new version. Default `demo` |
 
 ```yaml
 task: classification
@@ -35,6 +36,7 @@ weights: ${oc.env:CLASSIFIER_WEIGHTS,checkpoints/classification/best.ckpt}
 batch: 8
 mlflow_tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://127.0.0.1:5000}
 export_format: torchscript
+alias: demo
 ```
 
 ---

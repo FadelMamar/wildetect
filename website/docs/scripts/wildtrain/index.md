@@ -15,8 +15,8 @@ All scripts are located in `wildtrain/scripts/` directory.
 | [eval_detector.bat](#eval_detectorbat) | Evaluate detector | Various detector configs |
 | [train_yolo.bat](#train_yolobat) | Train YOLO localizer | `configs/detection/yolo_configs/yolo.yaml` |
 | [register_model.bat](#register_modelbat) | Register model to MLflow | `configs/registration/*.yaml` |
-| [run_classification_pipeline.bat](#run_classification_pipelinebat) | Full classification pipeline | `configs/classification/classification_pipeline_config.yaml` |
-| [run_detection_pipeline.bat](#run_detection_pipelinebat) | Full detection pipeline | `configs/detection/yolo_configs/yolo_pipeline_config.yaml` |
+| [run_classification_pipeline.bat](#run_classification_pipelinebat) | Train the classification experiment | `configs/classification/classification_train.yaml` |
+| [run_detection_pipeline.bat](#run_detection_pipelinebat) | Train the detection experiment | `configs/detection/yolo_configs/yolo.yaml` |
 | [run_server.bat](#run_serverbat) | Run inference server | `configs/inference.yaml` |
 | [visualize_predictions.bat](#visualize_predictionsbat) | Visualize predictions | Various configs |
 
@@ -253,11 +253,11 @@ scripts\eval_detector.bat
 
 ### run_classification_pipeline.bat
 
-**Purpose**: Run complete classification training pipeline.
+**Purpose**: Train the classification experiment. Set `eval.enabled: true` to evaluate after training.
 
 **Location**: `wildtrain/scripts/run_classification_pipeline.bat`
 
-**Configuration**: `wildtrain/configs/classification/classification_pipeline_config.yaml`
+**Configuration**: `wildtrain/configs/classification/classification_train.yaml`
 
 **Pipeline Steps**:
 1. Data validation
@@ -296,11 +296,11 @@ export:
 
 ### run_detection_pipeline.bat
 
-**Purpose**: Run complete detection training pipeline.
+**Purpose**: Train the detection experiment. Set `eval.enabled: true` to evaluate after training.
 
 **Location**: `wildtrain/scripts/run_detection_pipeline.bat`
 
-**Configuration**: `wildtrain/configs/detection/yolo_configs/yolo_pipeline_config.yaml`
+**Configuration**: `wildtrain/configs/detection/yolo_configs/yolo.yaml`
 
 **Pipeline Includes**:
 - Data preparation

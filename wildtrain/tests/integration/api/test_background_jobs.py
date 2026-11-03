@@ -53,23 +53,18 @@ class TestBackgroundJobManagement:
     ):
         """Test job creation and status tracking functionality."""
         with patch("uuid.uuid4", return_value=mock_job_id):
-            # Test job creation
-            response = client.post("/training/jobs", json=sample_job_config)
-            assert response.status_code in [
-                200,
-                201,
-                202,
-            ]  # Accept various success codes
+            response = client.post(
+                "/experiments",
+                json={"config": sample_job_config, "debug": True},
+            )
+            assert response.status_code in [200, 201, 202]
 
-            # Test job status retrieval
-            response = client.get(f"/training/jobs/{mock_job_id}")
-            assert response.status_code in [200, 404]  # 404 if job doesn't exist yet
-
-            if response.status_code == 200:
-                job_data = response.json()
-                assert "status" in job_data
-                assert "job_id" in job_data
-                assert job_data["job_id"] == mock_job_id
+            response = client.get(f"/training/status/{mock_job_id}")
+            assert response.status_code == 200
+            job_data = response.json()
+            assert "status" in job_data
+            assert "job_id" in job_data
+            assert job_data["job_id"] == mock_job_id
 
     def test_job_cancellation_works_correctly(self, client, mock_job_id):
         """Test that job cancellation works correctly."""
@@ -132,26 +127,27 @@ class TestBackgroundJobManagement:
         job_ids = []
         responses = []
 
-        # Submit multiple jobs
         for i in range(3):
-            job_config = sample_job_config.copy()
-            job_config["parameters"]["batch_size"] = 4 + i
-
-            response = client.post("/training/jobs", json=job_config)
+            job_config = {
+                "config": sample_job_config,
+                "debug": True,
+                "verbose": i == 0,
+            }
+            response = client.post("/experiments", json=job_config)
             responses.append(response)
 
-            if response.status_code in [200, 201, 202]:
-                job_data = response.json()
-                if "job_id" in job_data:
-                    job_ids.append(job_data["job_id"])
+            assert response.status_code in [200, 201, 202]
+            job_data = response.json()
+            assert "job_id" in job_data
+            job_ids.append(job_data["job_id"])
 
-        # Verify that multiple jobs can be created
-        assert len(job_ids) > 0, "At least one job should be created"
+        assert len(job_ids) == 3, "Each POST /experiments creates a job"
+        assert len(set(job_ids)) == 3
 
-        # Check status of all jobs
         for job_id in job_ids:
-            response = client.get(f"/training/jobs/{job_id}")
-            assert response.status_code in [200, 404]
+            response = client.get(f"/training/status/{job_id}")
+            assert response.status_code == 200
+            assert response.json()["job_id"] == job_id
 
     def test_job_status_transitions(self, client, mock_job_id):
         """Test that job status transitions work correctly."""

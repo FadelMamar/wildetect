@@ -174,6 +174,26 @@ def test_enable_false_is_identity(tmp_path: Path) -> None:
     assert list(module.class_mapping.values()) == ["background", "zebra", "elephant"]
 
 
+def test_single_layer_head_projects_backbone_features() -> None:
+    from wildtrain.models.classifier import ClassifierHead
+
+    single = ClassifierHead(
+        input_dim=192, num_classes=3, hidden_dim=16, num_layers=1, dropout=0.0
+    )
+    assert single(torch.randn(2, 192)).shape == (2, 3)
+    assert single.fc[0].in_features == 192
+
+    stacked = ClassifierHead(
+        input_dim=192, num_classes=3, hidden_dim=16, num_layers=2, dropout=0.0
+    )
+    restored = ClassifierHead(
+        input_dim=192, num_classes=3, hidden_dim=16, num_layers=2, dropout=0.0
+    )
+    restored.load_state_dict(stacked.state_dict())
+    assert stacked.fc[0][0].in_features == 192
+    assert restored(torch.randn(2, 192)).shape == (2, 3)
+
+
 def test_train_and_eval_metrics_match() -> None:
     probs = torch.softmax(torch.randn(8, 3), dim=1)
     target = torch.tensor([0, 1, 2, 0, 1, 2, 0, 1])
@@ -268,7 +288,6 @@ def test_multiclass_roi_trains_and_evaluates(tmp_path: Path, monkeypatch) -> Non
         )
     )
     mlflow.set_tracking_uri(uri)
-    mlflow.MlflowClient().set_registered_model_alias("roi-classifier", "demo", "1")
     loaded = load_registered_model(
         "demo",
         "roi-classifier",

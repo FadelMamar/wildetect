@@ -40,6 +40,56 @@ def test_shipped_files_match_their_kinds() -> None:
         assert validate_harness_file(path) == kind
 
 
+def test_evaluate_refuses_to_train_when_weights_are_missing() -> None:
+    experiment = load_experiment(
+        CONFIGS / "classification" / "classification_train.yaml"
+    )
+    experiment.model.weights = None
+    experiment.checkpoint.dirpath = str(CONFIGS / "missing-checkpoints")
+    called = {"run": False}
+
+    def fail_run(self, config, debug: bool = False):
+        called["run"] = True
+        raise AssertionError("evaluate started training")
+
+    monkeypatch_run = ClassificationTask.run
+    ClassificationTask.run = fail_run
+    try:
+        try:
+            ClassificationTask().evaluate(experiment)
+        except ValueError as exc:
+            assert "Train first" in str(exc)
+            assert "model.weights" in str(exc)
+        else:
+            raise AssertionError("missing weights were accepted")
+    finally:
+        ClassificationTask.run = monkeypatch_run
+    assert called["run"] is False
+
+
+def test_old_pipeline_yaml_names_eval_enabled(tmp_path: Path) -> None:
+    path = tmp_path / "pipeline.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "disable_train": False,
+                "train": {"config": "configs/classification/classification_train.yaml"},
+                "disable_eval": False,
+                "eval": {"config": "configs/classification/classification_eval.yaml"},
+                "results_dir": "results/classification",
+            }
+        ),
+        encoding="utf-8",
+    )
+    try:
+        validate_harness_file(path)
+    except ValueError as exc:
+        assert "eval.enabled" in str(exc)
+        assert "wildtrain run -c" in str(exc)
+    else:
+        raise AssertionError("old pipeline file was accepted")
+
+
 def test_old_eval_yaml_explains_the_replacement(tmp_path: Path) -> None:
     path = tmp_path / "old.yaml"
     path.write_text(

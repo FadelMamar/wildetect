@@ -27,11 +27,18 @@ async def validate_config(request: ConfigValidationRequest) -> ConfigValidationR
         "eval",
         "visualization",
         "registration",
-        "pipeline",
     }
     retired = {item.value for item in ConfigType}
     try:
         logger.info(f"Validating configuration file: {request.config_path}")
+        if kind == "pipeline":
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Pipeline configs have been removed. Set eval.enabled: true "
+                    "on an experiment and use POST /experiments."
+                ),
+            )
         if kind in harness_kinds:
             from ...harness.ops import validate_kind
 
@@ -49,7 +56,7 @@ async def validate_config(request: ConfigValidationRequest) -> ConfigValidationR
                 status_code=422,
                 detail=(
                     f"Unknown config type {kind!r}. "
-                    "Use experiment, eval, visualization, registration, or pipeline."
+                    "Use experiment, eval, visualization, or registration."
                 ),
             )
         return ConfigValidationResponse(
@@ -90,11 +97,6 @@ async def get_config_types() -> Dict[str, Any]:
         {
             "name": "registration",
             "description": "MLflow registration document",
-            "file_extension": ".yaml",
-        },
-        {
-            "name": "pipeline",
-            "description": "Train-then-eval pipeline configuration",
             "file_extension": ".yaml",
         },
     ]

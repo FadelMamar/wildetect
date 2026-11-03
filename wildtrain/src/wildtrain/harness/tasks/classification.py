@@ -94,10 +94,12 @@ class ClassificationTask:
             ClassificationEvalDatasetConfig,
         )
         from ...shared.schemas.common import SingleClassConfig
+        from ..ops import resolve_checkpoint
+
         if config.task != self.name:
             raise ValueError(f"{self.name} task received a {config.task} document")
         checkpoint, root, policy, split, device, batch_size, transforms, metrics = (
-            _classification_eval_parts(config, weights)
+            _classification_eval_parts(config, resolve_checkpoint(config, weights))
         )
         mapped = SingleClassConfig(
             mode=policy.mode,
@@ -159,4 +161,5 @@ class ClassificationTask:
             name=config.name,
             export_format=config.export_format,
             batch_size=config.batch,
+            alias=config.alias,
         )
