@@ -44,20 +44,11 @@ The published architecture does not match the code:
 What runs today:
 
 ```text
-wildtrain run -c <ExperimentConfig>
-wildtrain train classifier -c <flat YAML or ExperimentConfig>
+wildtrain run -c <experiment YAML>
     -> run_experiment
-        -> ClassificationTask
-            -> ClassifierTrainer.run
-                -> ClassificationDataModule (ROI crops)
-                -> lightning.Trainer.fit(ClassifierModule)
-
-wildtrain train detector -c <flat YAML or ExperimentConfig>
-    -> run_experiment
-        -> DetectionTask
-            -> UltralyticsDetectionTrainer.run
-                -> optional pretrain, optional curriculum ratios
-                -> ultralytics.YOLO.train(**train_cfg)     # or CustomYOLO
+        -> ClassificationTask or DetectionTask
+            -> trainer_config() maps data.format / label_policy / train.batch_size
+            -> ClassifierTrainer or UltralyticsDetectionTrainer
 
 wildtrain evaluate classifier | detector
     -> ClassificationEvaluator | UltralyticsEvaluator
@@ -607,24 +598,23 @@ Left for a later phase, same as classification:
 
 ### Phase 4 — One schema, one sweep, one API
 
-Landed in this slice. The task bodies are still `ClassificationConfig` and `DetectionConfig`. The renamed fields in section 5.3 (`data.format`, `label_policy.positive_name`, and the rest of that sketch) are not this schema.
+Landed. Fadel's follow-up on this phase removed the compatibility window and adopted the section 5.3 field names.
 
 Done:
 
-- `ExperimentConfig` is one model. `task` is `classification` or `detection`. Shared blocks are `tracking.mlflow`, `run` (name, project, output directory, recorded seed), and an optional `sweep`. Exactly one of `classification` or `detection` is set.
-- Flat training YAML still loads. OmegaConf resolves interpolations first. A missing `task` is inferred, or taken from `train classifier` / `train detector`. The loader copies MLflow onto `tracking` and the run name, project, and checkpoint directory onto `run`. `trainer_config()` copies those shared fields back onto the body the existing trainers already accept. On that copy, explicit `run` values win.
-- `wildtrain run -c` and `wildtrain train classifier` / `train detector` both call `run_experiment`, which looks the task up in the registry.
-- One Optuna runner, `ExperimentSweeper`. `sweep.parameters` maps a dotted path (`train.lr`, `model.backbone`, `train.lr0`) to a list of choices. `wildtrain sweep -c` accepts that block, or a legacy `base_config` sweep file. `ClassifierSweeper` and `DetectionSweeper` are adapters over the same runner. Classification score is `FitResult.best_score`. A detection objective of `fitness` uses that score too. Any other objective is looked up on the Ultralytics metrics dict, as the old detection sweeper did.
-- `POST /training/experiments` and `POST /experiments` dispatch through the registry. `POST /training/classifier` and `POST /training/detector` wrap a flat document and call the same service. Those routes no longer call the CLI with `template=False`, which the CLI functions do not accept.
-- `ExperimentPipeline` is the train-then-eval path. `pipeline/classification_pipeline.py` and `pipeline/detection_pipeline.py` are deleted. `wildtrain pipeline classification` and `wildtrain pipeline detection` call the one class. The pipeline YAML shape is unchanged.
-- `utils/registry.py` is deleted. Nothing constructed it. `shared/models.py` stays, because callers still import it.
+- The user-facing document is `task`, `name`, `seed`, `tracking`, `data`, `model`, `train`, and optional `checkpoint`, `eval`, and `sweep`. Classification uses `data.format: roi` and `data.label_policy` (`mode`, `positive_name`, `background_name`, `discard`). Detection uses `data.format: yolo`, `model.backend` (`ultralytics` or `custom_yolo`), and `train.batch_size`. An omitted label policy is `identity`. The shipped classification file sets `collapse`.
+- `trainer_config()` maps that document onto `ClassificationConfig` or `DetectionConfig`. The trainers are unchanged. Dataset roots are not required to exist until that mapping runs at training time.
+- Flat training YAML, nested `classification:` / `detection:` bodies, and `base_config` sweep files raise `ValueError` and name the replacement fields. `wildtrain train classifier` and `wildtrain train detector` are removed. `ClassifierSweeper` and `DetectionSweeper` are removed.
+- `wildtrain run -c` and `wildtrain sweep -c` call `run_experiment`. The only training HTTP route is `POST /experiments`.
+- A detection sweep objective is looked up verbatim. Common Ultralytics keys are `metrics/precision(B)`, `metrics/recall(B)`, `metrics/mAP50(B)`, `metrics/mAP50-95(B)`, and `fitness`. `map_50` is not translated. `f1_score` and `fitness` use `FitResult.best_score`.
+- `ExperimentPipeline` is the train-then-eval path. `utils/registry.py` is deleted. `shared/models.py` stays.
+- Shipped train and sweep YAML, the README, and the training docs use the new layout. Eval, visualization, and registration YAML and commands are unchanged. Registration still writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`.
 
 Not in this slice, on purpose:
 
-- A shared Lightning trainer, and shared DVC tracking. Both stay inside the existing trainers.
-- The `ConfigType` ladder for eval, visualization, and registration. `DETECTOR_REGISTRATION` still validates the localizer schema. The characterization test freezes that quirk. Training dispatch does not go through it.
-- `run.seed` is stored and is not applied to Lightning or Ultralytics. The sweep sampler uses `sweep.seed`.
-- Sweep choices are categorical lists, which is what today's sweep YAML contains. Ranges (`suggest_float`) are not in this runner.
+- A shared Lightning trainer, and shared DVC tracking. `tracking.dvc.enabled` is stored and does not start that tracker.
+- Moving eval, visualization, or registration onto the harness. That is the next pull request. `DETECTOR_REGISTRATION` still validates the localizer schema.
+- `seed` is stored. The sweep sampler uses `sweep.seed`. The trainers are not reseeded from the experiment seed beyond the detection train seed that Ultralytics already accepted.
 
 Exit: a new training task is a registry entry plus a task body on `ExperimentConfig`. It does not need a new Typer training command or a new training router. Eval and registration commands are still per type.
 
@@ -665,15 +655,15 @@ Still open:
 
 3. **Custom YOLO.** Should `custom_yolo` (count, area, FP/TP, DINOv2 encoder) stay a supported backend, or is it an experiment that can freeze on the current Ultralytics pin and stay out of the default path forever?
 5. **Segmentation.** `ModelTask.SEGMENT` and `DetectionEvalParamsConfig.task` already allow the string. Is segmentation in scope after the harness exists, or should those enums stay unused?
-6. **Compatibility window.** How long must `wildtrain train detector`, `POST /training/detector`, and the legacy sweep YAML (`base_config` plus `parameters`) keep working? Phase 4 keeps them as adapters. Say if they can be removed, or if they must stay indefinitely.
-7. **Configs in git.** The committed YAMLs point at `D:\PhD\workspace\...`. Are those personal run files that should become fixtures with relative paths, or are they the source of truth for experiments? The existence validator makes the first option necessary for CI. Phase 0 tests rewrite the classification root to a temp directory and do not change the files.
+6. **Compatibility window.** Answered: remove it now. Flat training YAML, `train classifier` / `train detector`, the old sweep files, and `POST /training/classifier` / `POST /training/detector` are gone.
+7. **Configs in git.** The shipped training files no longer use `D:\PhD\...`. Classification root is `${oc.env:DATA_ROOT,.}` and the detection data yaml is `${oc.env:DETECTION_DATA_CFG,...}`. Eval YAML was not part of this change and can still contain machine paths.
 8. **Native loop vs delegated loop.** Is it acceptable that YOLO training stays inside Ultralytics permanently, with the harness owning only config, data prep, tracking, and eval? A shared Lightning detection loop is much larger than this migration.
 9. **Registry contract.** Can new MLflow metadata keys be added as long as `batch`, `imgsz`, `task`, `model_type`, and the unwrap-to-`Detector` behavior stay? Census reads `batch`, then tile size from `tilesize` or `imgsz`, plus `set_device` and `predict`.
 10. **Who the harness is for.** Same conservation workflow, with cleaner extension points, or a library other projects import? A subpackage of `wildtrain` fits the first. A fourth workspace package, stable public API, and entry-point plugins fit the second, and they are extra scope.
-11. **Schema shape.** Phase 4 wraps the existing classification and detection configs. It does not rename fields to the section 5.3 sketch (`data.format`, `label_policy.positive_name`). Is the wrapped form the schema to keep?
-12. **HTTP path.** Both `POST /training/experiments` and `POST /experiments` call the same function. Which one should stay?
-13. **Sweep objective keys.** A detection sweep whose objective is not `fitness` looks up that string on the Ultralytics metrics dict. If the installed build only publishes keys such as `metrics/mAP50(B)`, those trials prune. That matches the old sweeper. Should the runner translate `map_50` to the Ultralytics key?
-14. **Registration dispatch.** Eval, visualization, and registration still use the `ConfigType` ladder, including the detector/localizer mix-up. Should that move to the harness registry in a later change, or stay as it is?
+11. **Schema shape.** Answered: the section 5.3 names are the YAML. `trainer_config()` maps them onto the existing trainer objects.
+12. **HTTP path.** Answered: only `POST /experiments`.
+13. **Sweep objective keys.** Answered: no translation. Use an Ultralytics key such as `metrics/mAP50(B)` or `fitness`.
+14. **Registration dispatch.** Left for the next pull request. Eval, visualization, and registration stay on `ConfigType`. Census metadata keys are unchanged.
 
 ---
 
@@ -681,9 +671,9 @@ Still open:
 
 Phases 0 through 4 are the current code.
 
-- Characterization tests cover the shipped classification and detection YAMLs, `ConfigLoader` dispatch, `ModelMetadata.to_dict()` keys, and the census tile-size fallback from `imgsz` with `tilesize` still winning when present.
-- `ExperimentConfig` is one model: `task`, `tracking`, `run`, optional `sweep`, and one task body. Flat YAML and the old sweep YAML convert into it.
-- `wildtrain run -c`, `wildtrain sweep -c`, and the `train classifier` / `train detector` adapters call `run_experiment`. The API routes `POST /experiments`, `POST /training/experiments`, `POST /training/classifier`, and `POST /training/detector` do too.
+- The experiment YAML uses `data.format`, `data.label_policy.positive_name`, `model.backend`, and `train.batch_size`. `trainer_config()` maps that onto the existing trainer configs.
+- Old flat training files and `base_config` sweep files raise `ValueError`. `wildtrain train classifier` and `wildtrain train detector` are removed. Training HTTP is `POST /experiments` only.
+- A detection sweep objective is an Ultralytics metrics key, verbatim. Examples: `metrics/mAP50(B)` and `fitness`.
 - `ClassificationTask` and `DetectionTask` still construct today's trainers. There is no shared Lightning trainer and no shared DVC tracker.
-- The per-task pipeline modules and `utils/registry.py` are gone. `GenericClassifier`, `yolo_utils.py`, `shared/models.py`, and the census load path remain.
-- The section 5.3 field names (`data.format`, `label_policy.positive_name`) are not the schema in the tree. The task body is the existing training config.
+- Eval, visualization, and registration are not on the harness yet. `ModelMetadata.to_dict()` still writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`. Census still reads `batch`, then tile size from `tilesize` or `imgsz`.
+- The per-task pipeline modules, the per-task sweepers, and `utils/registry.py` are gone. `GenericClassifier`, `yolo_utils.py`, `shared/models.py`, and the census load path remain.

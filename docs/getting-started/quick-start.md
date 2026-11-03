@@ -81,13 +81,13 @@ scripts\launch_fiftyone.bat
 
 ```bash
 cd wildtrain
-wildtrain train classifier -c configs/classification/classification_train.yaml
+wildtrain run -c configs/classification/classification_train.yaml
 ```
 
 ### Train a Detector (YOLO)
 
 ```bash
-wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
+wildtrain run -c configs/detection/yolo_configs/yolo.yaml
 ```
 
 ## Using the Web UI
@@ -216,7 +216,7 @@ wildata export-dataset augmented_data --format yolo
 ```bash
 # 1. Train model
 cd wildtrain
-wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
+wildtrain run -c configs/detection/yolo_configs/yolo.yaml
 
 # 2. Evaluate model
 scripts\eval_detector.bat
@@ -329,10 +329,10 @@ wildata create-roi annotations.json --format coco
 
 ```bash
 # Train classifier
-wildtrain train classifier -c config.yaml
+wildtrain run -c config.yaml
 
 # Train detector
-wildtrain train detector -c config.yaml
+wildtrain run -c config.yaml
 
 # Evaluate
 wildtrain eval classifier -c config.yaml

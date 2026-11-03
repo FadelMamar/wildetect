@@ -20,9 +20,8 @@ def run_experiment_command(
         "--config",
         "-c",
         help=(
-            "Experiment YAML. Canonical form has tracking/run blocks plus "
-            "classification or detection. A flat training YAML with task: "
-            "also loads."
+            "Experiment YAML with task, tracking, data, model, and train. "
+            "See the WildTrain README for a full example."
         ),
         exists=True,
         dir_okay=False,

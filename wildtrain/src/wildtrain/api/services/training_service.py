@@ -1,7 +1,7 @@
 """Training service for integrating the harness with the API."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from ...harness.config import experiment_from_mapping
 from ...harness.runner import run_experiment
@@ -17,29 +17,16 @@ class TrainingService:
     @staticmethod
     def train_experiment(
         config: Dict[str, Any],
-        task: Optional[str] = None,
         debug: bool = False,
     ):
-        """Train whichever task the document names, or ``task`` when it does not."""
+        """Train the task named in the experiment document."""
         try:
-            experiment = experiment_from_mapping(config, task=task)
+            experiment = experiment_from_mapping(config)
             logger.info("Starting %s training", experiment.task)
             return run_experiment(experiment, debug=debug)
         except Exception as exc:
             logger.error("Training failed: %s", exc)
             raise
-
-    @staticmethod
-    def train_classifier(config: Dict[str, Any], debug: bool = False):
-        """Train a classification model. Flat YAML is still accepted."""
-        return TrainingService.train_experiment(
-            config, task="classification", debug=debug
-        )
-
-    @staticmethod
-    def train_detector(config: Dict[str, Any], debug: bool = False):
-        """Train a detection model. Flat YAML is still accepted."""
-        return TrainingService.train_experiment(config, task="detection", debug=debug)
 
     @staticmethod
     def generate_classification_train_template() -> str:

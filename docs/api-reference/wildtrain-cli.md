@@ -18,89 +18,38 @@ wildtrain [COMMAND_GROUP] [COMMAND] [OPTIONS]
 
 ---
 
-## `train` — Training Commands
+## `run` — Train an experiment
 
-Train detection and classification models.
-
-### `train classifier`
-
-Train a classification model using PyTorch Lightning.
+Train the task named in the experiment file. `wildtrain train classifier` and `wildtrain train detector` have been removed. `wildtrain train` prints that message and exits.
 
 ```bash
-wildtrain train classifier [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `""` | Path to training configuration YAML file |
-
-**Example:**
-
-```bash
-wildtrain train classifier -c configs/classification/classification_train.yaml
-```
-
-See [Classification Training Config](../configs/wildtrain/classification-train.md) for config details.
-
----
-
-### `train detector`
-
-Train an object detection model (YOLO via Ultralytics).
-
-```bash
-wildtrain train detector [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `""` | Path to training configuration YAML file |
-
-**Example:**
-
-```bash
-wildtrain train detector -c configs/detection/yolo_configs/yolo_train.yaml
-```
-
-See [Detection Training Config](../configs/wildtrain/detection-train.md) for config details.
-
-Both commands accept today's flat YAML. They wrap it as an experiment and dispatch through the harness registry. A file that already has `task:` must name the same task as the command.
-
----
-
-### `run`
-
-Train the task named by an experiment file.
-
-```bash
-wildtrain run -c path/to/experiment.yaml
+wildtrain run -c configs/classification/classification_train.yaml
+wildtrain run -c configs/detection/yolo_configs/yolo.yaml
 wildtrain run -c path/to/experiment.yaml --debug
 ```
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `-c`, `--config` | `PATH` | Canonical experiment YAML, or a flat training YAML with `task:` |
+| `-c`, `--config` | `PATH` | Experiment YAML (`task`, `tracking`, `data`, `model`, `train`) |
 | `--debug` | flag | Short debug training pass |
 
-The canonical file has `tracking`, `run`, an optional `sweep`, and one of `classification` or `detection`. Flat training YAML with a top-level `task` key still loads.
+Classification uses `data.format: roi` and `data.label_policy` (`mode`, `positive_name`, `background_name`, `discard`). Detection uses `data.format: yolo`, `model.backend` (`ultralytics` or `custom_yolo`), and `train.batch_size`. An old flat training file is rejected with the field names to change. Full examples are in the WildTrain README.
 
 ---
 
-### `sweep`
-
-Run one Optuna study for either task.
+## `sweep` — One Optuna study
 
 ```bash
-wildtrain sweep -c path/to/experiment.yaml
 wildtrain sweep -c configs/classification/classification_sweep.yaml
+wildtrain sweep -c configs/detection/detection_sweep.yaml
 ```
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `-c`, `--config` | `PATH` | Experiment file with a `sweep` block, or a legacy `base_config` sweep file |
+| `-c`, `--config` | `PATH` | Experiment file that includes a `sweep` block |
 | `--debug` | flag | Short debug training trials |
 
-`sweep.parameters` is a map of dotted paths to lists of choices (`train.lr`, `model.backbone`, `train.lr0`). Legacy sweep YAML is converted to that map.
+`sweep.parameters` maps a dotted path to a list of choices (`train.lr`, `model.backbone`, `train.lr0`, `train.batch_size`). A detection `objective` must match an Ultralytics metrics key exactly. Examples: `metrics/precision(B)`, `metrics/recall(B)`, `metrics/mAP50(B)`, `metrics/mAP50-95(B)`, `fitness`. `map_50` is not translated. Classification `f1_score` uses the validation F1 on the training result.
 
 ---
 
@@ -422,8 +371,6 @@ wildtrain run-server --port 4141 -w 2
 |---------|-------------|
 | `wildtrain run -c CONFIG` | Train the task named in an experiment file |
 | `wildtrain sweep -c CONFIG` | Optuna sweep for either task |
-| `wildtrain train classifier -c CONFIG` | Train a classifier (legacy YAML adapter) |
-| `wildtrain train detector -c CONFIG` | Train a YOLO detector (legacy YAML adapter) |
 | `wildtrain evaluate classifier -c CONFIG` | Evaluate a classifier |
 | `wildtrain evaluate detector -c CONFIG` | Evaluate a detector |
 | `wildtrain register classifier -c CONFIG` | Register classifier to MLflow |

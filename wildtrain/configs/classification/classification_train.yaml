@@ -1,35 +1,38 @@
-# Unified Classification Configuration
-# This config demonstrates how to use the unified ClassificationDataModule
-# with both ROI and crop dataset types
+# Classification experiment. ROI crops, collapsed to wildlife vs background.
+# Set DATA_ROOT to the dataset root. The default "." only lets the file parse.
 
-dataset:
-  root_data_directory: D:\PhD\workspace\data
-  
-  # Dataset type: "roi" for pre-computed crops, "crop" for dynamic crop extraction
-  dataset_type: "roi"  # or "crop" or "roi" 
+task: classification
+name: base_dinov2
+seed: 41
 
-  curriculum_config:
+tracking:
+  mlflow:
+    experiment_name: wildtrain_classification
+    run_name: base_dinov2
+    log_model: true
+  dvc:
     enabled: false
-    type: "difficulty"
-    difficulty_strategy: "linear"
-    start_difficulty: 0.0
-    end_difficulty: 1.0
-    warmup_epochs: 0
-    log_frequency: 1
-  
+
+data:
+  format: roi
+  root: ${oc.env:DATA_ROOT,.}
+  batch_size: 64
+  num_workers: 4
+  input_size: 384
+  rebalance: true
+  label_policy:
+    mode: collapse
+    positive_name: wildlife
+    background_name: background
+    discard: ["rocks", "vegetation", "other", "termite mound"]
   stats:
     mean: [0.554, 0.469, 0.348]
     std: [0.203, 0.173, 0.144]
-  
-  input_size: 384
-
-  batch_size: 64
-
   transforms:
     train:
       - name: Resize
         params:
-          size: ${dataset.input_size}
+          size: ${data.input_size}
       - name: RandomHorizontalFlip
         params:
           p: 0.5
@@ -41,61 +44,41 @@ dataset:
       - name: RandomRotation
         params:
           degrees: 45
-    
     val:
       - name: Resize
         params:
-          size: ${dataset.input_size}
-  
-  # ROI dataset parameters (used when dataset_type = "roi")
-  # Label policy. collapse is the class-agnostic localizer + ROI classifier product.
-  # Set mode: identity (or enable: false) to train one label per species.
-  single_class:
-    mode: collapse
-    enable: true
-    background_class_name: "background"
-    single_class_name: "wildlife"
-    keep_classes: null
-    discard_classes: ["rocks","vegetation","other","termite mound"]
-  
-  # Rebalancing
-  rebalance: true # rebalance class distribution
-  
-  # Crop dataset parameters (used when dataset_type = "crop")
-  crop_size: ${dataset.input_size}
+          size: ${data.input_size}
+  curriculum:
+    enabled: false
+    type: difficulty
+    difficulty_strategy: linear
+    start_difficulty: 0.0
+    end_difficulty: 1.0
+    warmup_epochs: 0
+    log_frequency: 1
+  crop_size: ${data.input_size}
   max_tn_crops: 1
   p_draw_annotations: 0.2
-  
-  # Curriculum parameters (used when dataset_type = "crop")
   compute_difficulties: true
   preserve_aspect_ratio: true
 
-mlflow:
-  experiment_name: wildtrain_classification
-  run_name: "base_dinov2"
-  log_model: true
-
-
 model:
+  backend: timm
   backbone: timm/vit_base_patch14_reg4_dinov2.lvd142m
   pretrained: true
-  backbone_source: timm
   dropout: 0.2
   freeze_backbone: true
-  input_size: ${dataset.input_size}
-  mean: ${dataset.stats.mean}
-  std: ${dataset.stats.std}
   hidden_dim: 128
   num_layers: 2
-  weights: checkpoints\classification\base_dinov2\best-v3.ckpt
+  weights: checkpoints/classification/base_dinov2/best-v3.ckpt
 
 train:
-  batch_size: ${dataset.batch_size}
   epochs: 20
-  lr: 1e-3
+  lr: 1.0e-3
+  lrf: 1.0e-2
   label_smoothing: 0.0
-  weight_decay: 1e-3
-  lrf: 1e-2
+  weight_decay: 1.0e-3
+  batch_size: ${data.batch_size}
   precision: bf16-mixed
   accelerator: auto
   num_workers: 4
@@ -103,15 +86,16 @@ train:
 
 checkpoint:
   monitor: val_f1score
-  save_top_k: 1
   mode: max
-  save_last: true
+  patience: 10
   dirpath: checkpoints/classification
-  patience: 10 # for early stopping based on val_f1score
+  save_top_k: 1
+  save_last: true
   save_weights_only: true
-  filename: "best" # "{epoch:02d}-{val_f1score:.2f}"
+  filename: best
   min_delta: 0.001
 
-# DVC dataset tracking configuration
-# track_dataset: false
-# dataset_name: "roi-demo"
+# wildtrain evaluate still reads classification_eval.yaml. This block is recorded only.
+eval:
+  split: val
+  metrics: [accuracy, precision, recall, f1, auroc]

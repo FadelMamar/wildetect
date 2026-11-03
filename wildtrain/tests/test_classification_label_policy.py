@@ -60,9 +60,16 @@ def _synthetic_roi(root: Path) -> None:
 
 
 def _payload(root: Path, checkpoint_dir: Path, mlflow_uri: str, policy: dict) -> dict:
-    """Canonical experiment with shared tracking and run blocks."""
+    """Experiment document. ``policy`` uses mode, and may set positive_name."""
+    label_policy = {
+        "positive_name": "wildlife",
+        "background_name": "background",
+    }
+    label_policy.update(policy)
     return {
         "task": "classification",
+        "name": "epoch1",
+        "seed": 0,
         "tracking": {
             "mlflow": {
                 "experiment_name": "roi-species-smoke",
@@ -71,59 +78,43 @@ def _payload(root: Path, checkpoint_dir: Path, mlflow_uri: str, policy: dict) ->
                 "tracking_uri": mlflow_uri,
             }
         },
-        "run": {
-            "name": "epoch1",
-            "project": "roi-species-smoke",
-            "output_dir": str(checkpoint_dir),
-            "seed": 0,
+        "data": {
+            "format": "roi",
+            "root": str(root),
+            "input_size": 32,
+            "batch_size": 2,
+            "num_workers": 0,
+            "rebalance": False,
+            "stats": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
+            "label_policy": label_policy,
         },
-        "classification": {
-            "dataset": {
-                "root_data_directory": str(root),
-                "dataset_type": "roi",
-                "input_size": 32,
-                "batch_size": 2,
-                "num_workers": 0,
-                "stats": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
-                "rebalance": False,
-                "label_policy": policy,
-            },
-            "model": {
-                "backbone": "vit_tiny_patch16_224",
-                "pretrained": False,
-                "backbone_source": "timm",
-                "dropout": 0.0,
-                "freeze_backbone": True,
-                "input_size": 32,
-                "mean": [0.5, 0.5, 0.5],
-                "std": [0.5, 0.5, 0.5],
-                "hidden_dim": 16,
-                "num_layers": 2,
-                "weights": None,
-            },
-            "train": {
-                "batch_size": 2,
-                "epochs": 1,
-                "lr": 1e-3,
-                "label_smoothing": 0.0,
-                "weight_decay": 0.0,
-                "lrf": 0.1,
-                "precision": "32",
-                "accelerator": "cpu",
-                "num_workers": 0,
-                "val_check_interval": 1,
-            },
-            "checkpoint": {
-                "monitor": "val_f1score",
-                "save_top_k": 1,
-                "mode": "max",
-                "save_last": False,
-                "dirpath": str(checkpoint_dir),
-                "patience": 10,
-                "save_weights_only": True,
-                "filename": "best",
-                "min_delta": 0.0,
-            },
+        "model": {
+            "backend": "timm",
+            "backbone": "vit_tiny_patch16_224",
+            "pretrained": False,
+            "dropout": 0.0,
+            "freeze_backbone": True,
+            "hidden_dim": 16,
+            "num_layers": 2,
+        },
+        "train": {
+            "batch_size": 2,
+            "epochs": 1,
+            "lr": 1e-3,
+            "label_smoothing": 0.0,
+            "weight_decay": 0.0,
+            "lrf": 0.1,
+            "precision": "32",
+            "accelerator": "cpu",
+            "num_workers": 0,
+        },
+        "checkpoint": {
+            "monitor": "val_f1score",
+            "mode": "max",
+            "save_last": False,
+            "dirpath": str(checkpoint_dir),
+            "filename": "best",
+            "min_delta": 0.0,
         },
     }
 

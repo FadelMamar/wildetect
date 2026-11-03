@@ -42,7 +42,12 @@ class ExperimentPipeline:
 
     def train(self):
         logger.info("[Pipeline] Starting %s training...", self.task)
-        experiment = load_experiment(self.config.train.config, task=self.task)
+        experiment = load_experiment(self.config.train.config)
+        if experiment.task != self.task:
+            raise ValueError(
+                f"Pipeline is {self.task}, but {self.config.train.config} "
+                f"is task {experiment.task}"
+            )
         result = run_experiment(experiment, debug=self.config.train.debug)
         self.best_model_path = result.best_path
         self.run_name = experiment.run.name

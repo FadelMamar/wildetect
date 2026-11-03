@@ -5,12 +5,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 
 from ..dependencies import get_logger
-from ..models.requests import (
-    ClassificationTrainingRequest,
-    DetectionTrainingRequest,
-    ExperimentTrainingRequest,
-    JobCancelRequest,
-)
+from ..models.requests import ExperimentTrainingRequest, JobCancelRequest
 from ..models.responses import JobDetailResponse, JobListResponse, TrainingResponse
 from ..services.training_service import TrainingService
 from ..utils.background_tasks import JobStatus, create_background_job, job_manager
@@ -21,9 +16,11 @@ logger = get_logger("training")
 router = APIRouter()
 
 
-@router.post("/experiments", response_model=TrainingResponse)
 async def train_experiment(request: ExperimentTrainingRequest) -> TrainingResponse:
-    """Train the task named in the experiment document."""
+    """Train the task named in the experiment document.
+
+    Mounted only at ``POST /experiments``.
+    """
 
     try:
         job_id = create_background_job(
@@ -44,66 +41,6 @@ async def train_experiment(request: ExperimentTrainingRequest) -> TrainingRespon
         )
     except Exception as e:
         logger.error(f"Failed to create experiment training job: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/classifier", response_model=TrainingResponse)
-async def train_classifier(request: ClassificationTrainingRequest) -> TrainingResponse:
-    """Train a classification model."""
-
-    try:
-        # Create background job for training
-        job_id = create_background_job(
-            task_func=_train_classifier_task,
-            config=request.config,
-            debug=request.debug,
-            metadata={
-                "task_type": "classification_training",
-                "model_type": "classifier",
-                "config": request.config,
-            },
-        )
-
-        return TrainingResponse(
-            success=True,
-            message="Classification training job created",
-            job_id=job_id,
-            status="pending",
-            progress=0.0,
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to create classification training job: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/detector", response_model=TrainingResponse)
-async def train_detector(request: DetectionTrainingRequest) -> TrainingResponse:
-    """Train a detection model."""
-
-    try:
-        # Create background job for training
-        job_id = create_background_job(
-            task_func=_train_detector_task,
-            config=request.config,
-            debug=request.debug,
-            metadata={
-                "task_type": "detection_training",
-                "model_type": "detector",
-                "config": request.config,
-            },
-        )
-
-        return TrainingResponse(
-            success=True,
-            message="Detection training job created",
-            job_id=job_id,
-            status="pending",
-            progress=0.0,
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to create detection training job: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -220,23 +157,3 @@ def _train_experiment_task(config: Any, debug: bool = False) -> None:
         raise
 
 
-def _train_classifier_task(config: Any, debug: bool = False) -> None:
-    """Background task for the classification adapter."""
-    logger.info("Starting classifier training task")
-    try:
-        TrainingService.train_classifier(config, debug=debug)
-        logger.info("Classifier training completed successfully")
-    except Exception as e:
-        logger.error(f"Classifier training failed: {e}")
-        raise
-
-
-def _train_detector_task(config: Any, debug: bool = False) -> None:
-    """Background task for the detection adapter."""
-    logger.info("Starting detector training task")
-    try:
-        TrainingService.train_detector(config, debug=debug)
-        logger.info("Detector training completed successfully")
-    except Exception as e:
-        logger.error(f"Detector training failed: {e}")
-        raise

@@ -31,7 +31,7 @@ class DetectionTask:
                     f"{self.name} task received a {config.task} experiment"
                 )
             trainer_config = config.trainer_config()
-            debug = debug or config.run.debug
+            debug = debug or config.debug
         trainer = UltralyticsDetectionTrainer(trainer_config)
         trainer.run(debug=debug)
         score = trainer.best_model_score

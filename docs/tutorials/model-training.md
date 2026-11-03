@@ -53,7 +53,7 @@ Keep `train.single_cls: true`. That trains the class-agnostic localizer the ROI 
 ### Step 3: Train
 
 ```bash
-wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
+wildtrain run -c configs/detection/yolo_configs/yolo.yaml
 ```
 
 Or use the provided script:
@@ -113,59 +113,54 @@ Use the computed mean and std in your training config.
 Create or edit `configs/classification/classification_train.yaml`:
 
 ```yaml
-dataset:
-  root_data_directory: D:/data
-  dataset_type: "roi"
+task: classification
+name: baseline_dinov2
+tracking:
+  mlflow:
+    experiment_name: wildtrain_classification
+    run_name: baseline_dinov2
+    log_model: true
+data:
+  format: roi
+  root: ${oc.env:DATA_ROOT,.}
   input_size: 384
   batch_size: 64
   rebalance: true
+  label_policy:
+    mode: collapse
+    positive_name: wildlife
+    background_name: background
+    discard: ["rocks", "vegetation", "other"]
   stats:
-    mean: [0.554, 0.469, 0.348]   # From step 2
+    mean: [0.554, 0.469, 0.348]
     std: [0.203, 0.173, 0.144]
   transforms:
     train:
       - name: Resize
-        params: { size: ${dataset.input_size} }
+        params: { size: ${data.input_size} }
       - name: RandomHorizontalFlip
         params: { p: 0.5 }
     val:
       - name: Resize
-        params: { size: ${dataset.input_size} }
-  single_class:
-    enable: true
-    background_class_name: "background"
-    single_class_name: "wildlife"
-    discard_classes: ["rocks", "vegetation", "other"]
-
+        params: { size: ${data.input_size} }
 model:
+  backend: timm
   backbone: timm/vit_base_patch14_reg4_dinov2.lvd142m
   pretrained: true
-  backbone_source: timm
   dropout: 0.2
   freeze_backbone: true
-  hidden_dim: 128
-  num_layers: 2
-
-mlflow:
-  experiment_name: wildtrain_classification
-  run_name: "baseline_dinov2"
-  log_model: true
-
 train:
   epochs: 20
   lr: 1e-3
   weight_decay: 1e-3
   precision: bf16-mixed
   accelerator: auto
-  num_workers: 4
-
 checkpoint:
   monitor: val_f1score
-  save_top_k: 1
   mode: max
   patience: 10
   dirpath: checkpoints/classification
-  filename: "best"
+  filename: best
 ```
 
 See [Classification Training Config Reference](../configs/wildtrain/classification-train.md) for all fields.
@@ -173,7 +168,7 @@ See [Classification Training Config Reference](../configs/wildtrain/classificati
 ### Step 4: Train
 
 ```bash
-wildtrain train classifier -c configs/classification/classification_train.yaml
+wildtrain run -c configs/classification/classification_train.yaml
 ```
 
 ### Step 5: Evaluate

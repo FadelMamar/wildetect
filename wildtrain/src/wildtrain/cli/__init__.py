@@ -9,10 +9,6 @@ from .commands.evaluate import classifier as evaluate_classifier
 from .commands.evaluate import detector as evaluate_detector
 from .commands.pipeline import classification as run_classification_pipeline
 from .commands.pipeline import detection as run_detection_pipeline
-
-# Import individual commands for backward compatibility
-from .commands.train import classifier as train_classifier
-from .commands.train import detector as train_detector
 from .commands.visualize import (
     classifier_predictions as visualize_classifier_predictions,
 )
@@ -20,9 +16,6 @@ from .commands.visualize import detector_predictions as visualize_detector_predi
 
 __all__ = [
     "app",
-    # Backward compatibility exports
-    "train_classifier",
-    "train_detector",
     "get_dataset_stats",
     "run_detection_pipeline",
     "run_classification_pipeline",

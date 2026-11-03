@@ -426,7 +426,7 @@ wildata import-dataset test_annotations.json --format coco --name test_dataset
 ```bash
 # Test training setup
 cd wildtrain
-wildtrain train classifier -c configs/classification/classification_train.yaml --dry-run
+wildtrain run -c configs/classification/classification_train.yaml --dry-run
 ```
 
 ## IDE Setup

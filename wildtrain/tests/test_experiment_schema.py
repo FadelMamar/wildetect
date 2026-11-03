@@ -1,19 +1,21 @@
-"""Schema, legacy YAML, sweep, and API/CLI dispatch for the unified experiment."""
+"""New experiment schema, rejected legacy files, sweep, and API dispatch."""
 
 from pathlib import Path
 
 import pytest
 import yaml
 from fastapi.testclient import TestClient
-from omegaconf import OmegaConf
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from wildtrain.cli.cli import app
-from wildtrain.harness.config import SweepBlock, load_experiment
+from wildtrain.harness.config import (
+    SweepBlock,
+    experiment_from_mapping,
+    load_experiment,
+)
 from wildtrain.harness.result import FitResult
 from wildtrain.harness.sweep import ExperimentSweeper, load_sweep
-from wildtrain.trainers.sweepers import ClassifierSweeper, DetectionSweeper
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLASSIFICATION_YAML = (
@@ -22,21 +24,42 @@ CLASSIFICATION_YAML = (
 DETECTION_YAML = (
     REPO_ROOT / "wildtrain" / "configs" / "detection" / "yolo_configs" / "yolo.yaml"
 )
+CLASSIFICATION_SWEEP = (
+    REPO_ROOT / "wildtrain" / "configs" / "classification" / "classification_sweep.yaml"
+)
+DETECTION_SWEEP = (
+    REPO_ROOT / "wildtrain" / "configs" / "detection" / "detection_sweep.yaml"
+)
 RUNNER = CliRunner()
 
 
-def _resolved(path: Path) -> dict:
-    payload = OmegaConf.to_container(OmegaConf.load(path), resolve=True)
-    assert isinstance(payload, dict)
-    return payload
-
-
-def _classification_file(tmp_path: Path) -> Path:
-    text = CLASSIFICATION_YAML.read_text(encoding="utf-8")
-    text = text.replace(r"D:\PhD\workspace\data", tmp_path.as_posix())
-    path = tmp_path / "classification.yaml"
-    path.write_text(text, encoding="utf-8")
-    return path
+def _minimal_classification(root: Path) -> dict:
+    return {
+        "task": "classification",
+        "name": "unit",
+        "seed": 1,
+        "tracking": {
+            "mlflow": {
+                "experiment_name": "unit",
+                "run_name": "unit",
+                "log_model": False,
+            }
+        },
+        "data": {
+            "format": "roi",
+            "root": str(root),
+            "input_size": 32,
+            "batch_size": 2,
+            "stats": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
+        },
+        "model": {
+            "backend": "timm",
+            "backbone": "vit_tiny_patch16_224",
+            "dropout": 0.1,
+        },
+        "train": {"epochs": 1, "lr": 0.001},
+        "checkpoint": {"dirpath": str(root / "checkpoints")},
+    }
 
 
 def _write(path: Path, payload: dict) -> Path:
@@ -44,251 +67,148 @@ def _write(path: Path, payload: dict) -> Path:
     return path
 
 
-def test_legacy_yaml_converts_for_both_tasks(tmp_path: Path) -> None:
-    classification = load_experiment(_classification_file(tmp_path))
+def test_omitted_label_policy_is_identity(tmp_path: Path) -> None:
+    experiment = experiment_from_mapping(_minimal_classification(tmp_path))
+    assert experiment.data.label_policy.mode == "identity"
+    mapped = experiment.trainer_config()
+    assert mapped.dataset.label_policy.mode == "identity"
+    assert mapped.dataset.label_policy.enable is False
+
+
+def test_trainer_mapping_renames_public_fields(tmp_path: Path) -> None:
+    payload = _minimal_classification(tmp_path)
+    payload["data"]["label_policy"] = {
+        "mode": "collapse",
+        "positive_name": "wildlife",
+        "background_name": "background",
+        "discard": ["rocks"],
+    }
+    payload["name"] = "mapped-run"
+    payload["tracking"]["mlflow"].pop("run_name")
+    experiment = experiment_from_mapping(payload)
+    mapped = experiment.trainer_config()
+    assert mapped.dataset.single_class.single_class_name == "wildlife"
+    assert mapped.dataset.single_class.discard_classes == ["rocks"]
+    assert mapped.mlflow.run_name == "mapped-run"
+    assert mapped.checkpoint.dirpath == str(tmp_path / "checkpoints")
+
     detection = load_experiment(DETECTION_YAML)
-
-    assert classification.task == "classification"
-    assert classification.dataset.dataset_type == "roi"
-    assert classification.body.model.input_size == classification.dataset.input_size
-    trainer = classification.trainer_config()
-    assert trainer.checkpoint.dirpath == classification.run.output_dir
-    assert trainer.mlflow.experiment_name == (
-        classification.tracking.mlflow.experiment_name
-    )
-
-    assert detection.task == "detection"
-    assert detection.train.single_cls is True
-    assert detection.trainer_config().project == detection.run.project
-    assert detection.trainer_config().name == detection.run.name
+    assert detection.trainer_config().train.batch == detection.train.batch_size
+    assert detection.trainer_config().use_custom_yolo is False
 
 
-def test_canonical_schema_validates_both_tasks(tmp_path: Path) -> None:
-    classification = _resolved(_classification_file(tmp_path))
-    canonical_classification = {
-        "task": "classification",
-        "tracking": {"mlflow": classification.pop("mlflow")},
-        "run": {
-            "name": "canonical-cls",
-            "project": "wildtrain",
-            "output_dir": classification["checkpoint"]["dirpath"],
+def test_legacy_files_explain_the_replacement(tmp_path: Path) -> None:
+    flat = _write(
+        tmp_path / "flat.yaml",
+        {
+            "dataset": {
+                "root_data_directory": str(tmp_path),
+                "dataset_type": "roi",
+                "single_class": {"single_class_name": "wildlife"},
+            }
         },
-        "classification": classification,
-    }
-    loaded = load_experiment(
-        _write(tmp_path / "canonical-cls.yaml", canonical_classification)
     )
-    assert loaded.task == "classification"
-    assert loaded.trainer_config().mlflow.run_name == "canonical-cls"
-    assert loaded.dataset.dataset_type == "roi"
-
-    detection = _resolved(DETECTION_YAML)
-    canonical_detection = {
-        "task": "detection",
-        "tracking": {"mlflow": detection.pop("mlflow")},
-        "run": {
-            "name": detection.pop("name"),
-            "project": detection.pop("project"),
-            "output_dir": "runs/detection",
-        },
-        "detection": detection,
-    }
-    loaded_detection = load_experiment(
-        _write(tmp_path / "canonical-det.yaml", canonical_detection)
+    sweep = _write(
+        tmp_path / "sweep.yaml",
+        {"base_config": str(flat), "parameters": {"train": {"lr": [0.001]}}},
     )
-    assert loaded_detection.task == "detection"
-    assert loaded_detection.train.single_cls is True
-    assert loaded_detection.trainer_config().name == canonical_detection["run"]["name"]
+    nested = _write(
+        tmp_path / "nested.yaml",
+        {"task": "classification", "classification": {"dataset": {}}},
+    )
+
+    with pytest.raises(ValueError, match="data.label_policy.positive_name"):
+        load_experiment(flat)
+    with pytest.raises(ValueError, match="metrics/mAP50\\(B\\)"):
+        load_experiment(sweep)
+    with pytest.raises(ValueError, match="data.format"):
+        load_experiment(nested)
 
 
-def test_unknown_task_and_two_bodies_are_rejected(tmp_path: Path) -> None:
-    detection = _resolved(DETECTION_YAML)
-    detection["task"] = "segmentation"
+def test_unknown_task_is_rejected(tmp_path: Path) -> None:
+    payload = _minimal_classification(tmp_path)
+    payload["task"] = "segmentation"
     with pytest.raises(ValidationError):
-        load_experiment(_write(tmp_path / "bad.yaml", detection))
-
-    classification = _resolved(_classification_file(tmp_path))
-    both = {
-        "task": "classification",
-        "tracking": {"mlflow": classification["mlflow"]},
-        "classification": classification,
-        "detection": detection,
-    }
-    with pytest.raises(ValueError, match="only one"):
-        load_experiment(_write(tmp_path / "both.yaml", both))
+        experiment_from_mapping(payload)
 
 
-def test_sweep_applies_dotted_choices_for_each_task(tmp_path: Path) -> None:
-    classification = load_experiment(_classification_file(tmp_path))
-    original_lr = classification.train.lr
+def test_sweep_applies_new_field_paths(tmp_path: Path) -> None:
+    classification = experiment_from_mapping(_minimal_classification(tmp_path))
+    original = classification.train.lr
     classification.sweep = SweepBlock(
         n_trials=1,
         seed=1,
-        name="cls",
         objective="f1_score",
         parameters={"model.dropout": [0.4], "train.lr": [0.0007]},
     )
-    seen: dict = {}
+    seen = {}
 
     def classification_objective(config):
-        seen["dropout"] = config.classification.model.dropout
+        seen["dropout"] = config.model.dropout
         seen["lr"] = config.train.lr
         return 0.8
 
     study = ExperimentSweeper(classification, objective=classification_objective).run()
     assert seen == {"dropout": 0.4, "lr": 0.0007}
     assert study.best_value == 0.8
-    assert classification.train.lr == original_lr
+    assert classification.train.lr == original
 
     detection = load_experiment(DETECTION_YAML)
     detection.sweep = SweepBlock(
         n_trials=1,
         seed=2,
-        direction="maximize",
-        objective="map_50",
-        parameters={"train.lr0": [0.02], "train.imgsz": [320]},
+        objective="metrics/mAP50(B)",
+        parameters={"train.lr0": [0.02], "train.batch_size": [4]},
     )
 
     def detection_objective(config):
-        seen["lr0"] = config.detection.train.lr0
-        seen["imgsz"] = config.train.imgsz
+        seen["lr0"] = config.train.lr0
+        seen["batch"] = config.trainer_config().train.batch
         return 0.3
 
-    detection_study = ExperimentSweeper(
-        detection, objective=detection_objective
-    ).run()
+    assert (
+        ExperimentSweeper(detection, objective=detection_objective).run().best_value
+        == 0.3
+    )
     assert seen["lr0"] == 0.02
-    assert seen["imgsz"] == 320
-    assert detection_study.best_value == 0.3
+    assert seen["batch"] == 4
 
 
-def test_legacy_sweep_yaml_uses_the_same_runner(tmp_path: Path) -> None:
-    base = _classification_file(tmp_path)
-    sweep_path = _write(
-        tmp_path / "classification_sweep.yaml",
-        {
-            "base_config": str(base),
-            "parameters": {
-                "model": {"backbone": ["timm/resnet18.a1_in1k"], "dropout": [0.1]},
-                "train": {
-                    "lr": [0.0004],
-                    "lrf": [0.1],
-                    "label_smoothing": [0.0],
-                    "weight_decay": [0.0],
-                    "batch_size": [2],
-                    "epochs": [1],
-                },
-            },
-            "sweep_name": "classification-unit",
-            "n_trials": 3,
-            "seed": 7,
-        },
-    )
-    experiment = load_sweep(sweep_path)
-    assert experiment.task == "classification"
-    assert experiment.sweep is not None
-    assert experiment.sweep.parameters["model.backbone"] == ["timm/resnet18.a1_in1k"]
-    assert experiment.sweep.direction == "maximize"
-    experiment.sweep.n_trials = 1
-    experiment.sweep.storage = None
-
-    def objective(config):
-        assert config.body.model.backbone == "timm/resnet18.a1_in1k"
-        assert config.train.epochs == 1
-        return 0.6
-
-    assert ExperimentSweeper(experiment, objective=objective).run().best_value == 0.6
-
-    detection_base = tmp_path / "detection.yaml"
-    detection_base.write_text(
-        DETECTION_YAML.read_text(encoding="utf-8"), encoding="utf-8"
-    )
-    detection_sweep = _write(
-        tmp_path / "detection_sweep.yaml",
-        {
-            "base_config": str(detection_base),
-            "parameters": {
-                "model": None,
-                "train": {
-                    "lr0": [0.01],
-                    "lrf": [0.1],
-                    "batch": [2],
-                    "epochs": [1],
-                    "imgsz": [64],
-                    "optimizer": ["AdamW"],
-                    "weight_decay": [0.0],
-                },
-            },
-            "sweep_name": "detection-unit",
-            "n_trials": 4,
-            "seed": 3,
-            "objective": "fitness",
-            "direction": "maximize",
-        },
-    )
-    sweeper = DetectionSweeper(str(detection_sweep))
-    sweeper._runner.config.sweep.n_trials = 1
-    sweeper._runner.config.sweep.storage = None
-    sweeper._runner.objective = lambda config: (
-        0.5 if config.train.imgsz == 64 and config.train.lr0 == 0.01 else 0.0
-    )
-    study = sweeper.run()
-    assert study.best_value == 0.5
-
-    classifier = ClassifierSweeper(str(sweep_path))
-    classifier._runner.config.sweep.n_trials = 1
-    classifier._runner.config.sweep.storage = None
-    classifier._runner.objective = lambda config: 0.25
-    assert classifier.run().best_value == 0.25
+def test_shipped_sweep_files_load() -> None:
+    classification = load_sweep(CLASSIFICATION_SWEEP)
+    detection = load_sweep(DETECTION_SWEEP)
+    assert classification.task == "classification"
+    assert classification.sweep.objective == "f1_score"
+    assert "model.backbone" in classification.sweep.parameters
+    assert detection.sweep.objective == "metrics/mAP50(B)"
+    assert "map_50" not in detection.sweep.objective
 
 
-def test_cli_sweep_dispatches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    base = _classification_file(tmp_path)
-    sweep_path = _write(
-        tmp_path / "sweep.yaml",
-        {
-            "base_config": str(base),
-            "parameters": {
-                "model": {"backbone": ["timm/resnet18.a1_in1k"], "dropout": [0.0]},
-                "train": {
-                    "lr": [0.001],
-                    "lrf": [0.1],
-                    "label_smoothing": [0.0],
-                    "weight_decay": [0.0],
-                    "batch_size": [2],
-                    "epochs": [1],
-                },
-            },
-            "sweep_name": "cli-sweep",
-            "n_trials": 1,
-            "seed": 1,
-        },
-    )
-    seen: dict = {}
+def test_cli_sweep_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = {}
 
     class FakeSweeper:
         def __init__(self, config, objective=None, debug: bool = False):
             seen["task"] = config.task
+            seen["objective"] = config.sweep.objective
             seen["debug"] = debug
 
         def run(self):
-            trial = type("Trial", (), {"value": 0.9, "params": {"train.lr": 0.001}})()
+            trial = type("Trial", (), {"value": 0.9, "params": {}})()
             return type("Study", (), {"best_trial": trial})()
 
     monkeypatch.setattr("wildtrain.cli.commands.sweep.ExperimentSweeper", FakeSweeper)
-    result = RUNNER.invoke(app, ["sweep", "-c", str(sweep_path), "--debug"])
+    result = RUNNER.invoke(app, ["sweep", "-c", str(CLASSIFICATION_SWEEP), "--debug"])
     assert result.exit_code == 0, result.output
-    assert seen == {"task": "classification", "debug": True}
+    assert seen == {"task": "classification", "objective": "f1_score", "debug": True}
 
 
-def test_api_routes_dispatch_through_the_registry(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    seen: list[str] = []
+def test_api_only_exposes_post_experiments(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = []
 
     def fake_run(config, debug: bool = False, registry=None) -> FitResult:
         seen.append(config.task)
-        return FitResult(best_path="best.pt", best_score=0.2, score_name="score")
+        return FitResult(best_path="best.pt", best_score=0.2, score_name="fitness")
 
     def inline(task_func, *args, metadata=None, **kwargs):
         task_func(*args, **kwargs)
@@ -302,14 +222,18 @@ def test_api_routes_dispatch_through_the_registry(
     from wildtrain.api.main import fastapi_app
 
     client = TestClient(fastapi_app)
-    detection = _resolved(DETECTION_YAML)
-    created = client.post("/training/experiments", json={"config": detection})
+    detection = load_experiment(DETECTION_YAML).model_dump(
+        mode="json", exclude_none=True
+    )
+    created = client.post("/experiments", json={"config": detection})
     assert created.status_code == 200, created.text
     assert created.json()["job_id"] == "job-1"
-
-    aliased = client.post("/experiments", json={"config": detection})
-    assert aliased.status_code == 200, aliased.text
-
-    adapted = client.post("/training/detector", json={"config": detection})
-    assert adapted.status_code == 200, adapted.text
-    assert seen == ["detection", "detection", "detection"]
+    removed = (
+        "/training/experiments",
+        "/training/classifier",
+        "/training/detector",
+    )
+    for route in removed:
+        response = client.post(route, json={"config": detection})
+        assert response.status_code == 404
+    assert seen == ["detection"]

@@ -39,7 +39,11 @@ def main(
 
 # Add command groups
 app.add_typer(config.config_app, name="config", help="Configuration management")
-app.add_typer(train.train_app, name="train", help="Training commands")
+app.add_typer(
+    train.train_app,
+    name="train",
+    help="Removed. Use wildtrain run -c experiment.yaml.",
+)
 app.add_typer(evaluate.evaluate_app, name="evaluate", help="Evaluation commands")
 app.add_typer(
     register.register_app, name="register", help="Model registration commands"
