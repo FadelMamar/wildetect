@@ -47,6 +47,7 @@ class ROIDataset(Dataset):
             "label",
         ],
         resample_function: Optional[Callable] = None,
+        remap_contiguous: bool = False,
     ):
         self.dataset_name = dataset_name
         self.split = split
@@ -58,6 +59,7 @@ class ROIDataset(Dataset):
         self.background_class_name = background_class_name
         self.keep_classes = keep_classes
         self.discard_classes = discard_classes
+        self.remap_contiguous = remap_contiguous
         self._single_class_mapping = {
             1: self.single_class_name,
             0: self.background_class_name,
@@ -105,6 +107,15 @@ class ROIDataset(Dataset):
                 label_info["class_id"] = self._multi_class_single_class_mapping[
                     label_info["class_id"]
                 ]
+        elif self.remap_contiguous:
+            ordered = sorted(self._class_mapping)
+            id_map = {old: new for new, old in enumerate(ordered)}
+            self._class_mapping = {
+                id_map[class_id]: name
+                for class_id, name in self._class_mapping.items()
+            }
+            for label_info in updated_roi_labels:
+                label_info["class_id"] = id_map[int(label_info["class_id"])]
 
         self.load_image = Compose([PILToTensor(), ToDtype(torch.float32, scale=True)])
 
@@ -200,6 +211,7 @@ def load_all_roi_datasets(
     keep_classes: Optional[list[str]] = None,
     discard_classes: Optional[list[str]] = None,
     resample_function: Optional[Callable] = None,
+    remap_contiguous: bool = False,
 ) -> dict[str, ROIDataset] | ConcatDataset:
     """
     Load all available ROI datasets for a given split.
@@ -239,6 +251,7 @@ def load_all_roi_datasets(
                 keep_classes=keep_classes,
                 discard_classes=discard_classes,
                 resample_function=resample_function,
+                remap_contiguous=remap_contiguous,
             )
             roi_datasets[dataset_name] = ds
         except Exception:
@@ -276,6 +289,7 @@ def load_all_splits_concatenated(
     keep_classes: Optional[list[str]] = None,
     discard_classes: Optional[list[str]] = None,
     resample_function: Optional[Callable] = None,
+    remap_contiguous: bool = False,
 ) -> Dict[str, ConcatDataset] | Dict[str, ROIDataset]:
     """
     Load and concatenate all available ROI datasets for each split.
@@ -296,6 +310,7 @@ def load_all_splits_concatenated(
             keep_classes=keep_classes,
             discard_classes=discard_classes,
             resample_function=resample_function,
+            remap_contiguous=remap_contiguous,
         )
         if not concat_dataset:
             continue

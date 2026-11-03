@@ -559,17 +559,24 @@ Shipped as a thin envelope, not the full target schema in section 5.3. `Experime
 
 Exit: both existing example configs still validate under the old models, and the same documents plus `task` validate as `ExperimentConfig` and take the wrapper path. Unknown `task` values fail at the registry.
 
-### Phase 2 — Classification stays ROI, but the loop lives in the task
+### Phase 2 — Classification stays ROI, but labels are a policy
 
-Deprioritized relative to the skeleton. When it happens, the only dataset is ROI crops.
+In progress on the classification branch. ROI crops remain the only classification format. Detection and census are unchanged.
 
-- Move the Lightning loop into the task. Keep `load_as_single_class` working for the shipped wildlife config.
-- Do not add image-folder, CSV, Hugging Face, or Label Studio loaders.
-- Implement `label_policy` only if it preserves today's ROI collapse (background vs wildlife, current discard list spelled out in the example YAML). Removing the implicit discard default is a behavior change and needs a histogram check on a real ROI split first.
-- One metric spec shared by `ClassifierModule` and `ClassificationEvaluator`.
-- Route DVC and MLflow artifact logging through `Tracker`.
+Done:
 
-Exit: the existing ROI config still trains, and a one-epoch smoke run does not require any new dataset layout. Image-folder support is optional and out of scope unless a later decision adds it.
+- `single_class` / `label_policy` is an explicit policy. `mode: collapse` (the default, also `enable: true`) still maps every non-background class to `wildlife`. `mode: identity` (or `enable: false`) keeps species labels. The assertion that required `load_as_single_class` is gone.
+- The shipped classification YAML sets `mode: collapse` and the existing discard list, so that run stays the wildlife product.
+- Identity mode remaps ROI class ids to `0..N-1` for cross-entropy. Collapse still uses background `0` and wildlife `1`, which is what registered classifiers expect.
+- `build_classification_metrics` is the only classification metric factory. The Lightning module and `ClassificationEvaluator` both call it. Training still logs `val_f1score` so existing checkpoint configs keep their monitor.
+- A one-epoch CPU smoke run goes through `wildtrain.harness` on a synthetic ROI dataset.
+
+Not in this change:
+
+- The Lightning `Trainer` still lives in `ClassifierTrainer`. The harness task still calls that trainer.
+- No image-folder, CSV, Hugging Face, or Label Studio loader.
+- DVC logging is not in the shared tracker yet.
+- The implicit `ROIDataset` discard-list default is unchanged for callers that omit the argument. Training configs pass the policy lists explicitly.
 
 ### Phase 3 — Detection backend boundary
 

@@ -80,11 +80,28 @@ class CurriculumConfig(BaseConfig):
 
 
 class SingleClassConfig(BaseConfig):
-    """Single class configuration for evaluation."""
+    """ROI label policy.
 
-    enable: bool = Field(description="Whether to enable single class mode")
-    background_class_name: str = Field(description="Name of the background class")
-    single_class_name: str = Field(description="Name of the single class")
+    ``mode: collapse`` maps every non-background class to ``single_class_name``
+    (the wildlife localizer-plus-classifier product). ``mode: identity`` keeps
+    one label per species. ``enable`` is the older switch: true means collapse
+    and false means identity. ``mode`` wins when it is set.
+    """
+
+    mode: Optional[Literal["collapse", "identity"]] = Field(
+        default=None,
+        description="collapse to one foreground class, or identity to keep species",
+    )
+    enable: bool = Field(
+        default=True,
+        description="True collapses to single_class_name. False keeps species labels.",
+    )
+    background_class_name: str = Field(
+        default="background", description="Name of the background class"
+    )
+    single_class_name: str = Field(
+        default="wildlife", description="Name of the collapsed foreground class"
+    )
     keep_classes: Optional[List[str]] = Field(
         default=None, description="Classes to keep (if None, all classes kept)"
     )
