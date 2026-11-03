@@ -16,11 +16,11 @@ from lightning.pytorch.callbacks import (
 )
 from lightning.pytorch.loggers import MLFlowLogger
 from omegaconf import DictConfig, OmegaConf
-from torchmetrics.classification import AUROC, Accuracy, F1Score, Precision, Recall
 from wildata.pipeline import PathManager
 
 from ..data import ClassificationDataModule
 from ..data.curriculum import CurriculumCallback
+from ..evaluators.classification_metrics import build_classification_metrics
 from ..models.classifier import GenericClassifier
 from ..utils.dvc_tracker import DVCTracker
 from ..utils.logging import ENV_FILE, ROOT, get_logger
@@ -82,20 +82,7 @@ class ClassifierModule(L.LightningModule):
         self.mlflow_run_id = None
         self.mlflow_experiment_id = None
 
-        # metrics
-        cfg = {"task": "multiclass", "num_classes": self.num_classes, "average": None}
-        self.accuracy = Accuracy(**cfg)
-        self.precision = Precision(**cfg)
-        self.recall = Recall(**cfg)
-        self.f1score = F1Score(**cfg)
-        self.ap = AUROC(**cfg)
-
-        self.metrics = {
-            "accuracy": self.accuracy,
-            "precision": self.precision,
-            "recall": self.recall,
-            "f1score": self.f1score,
-        }
+        self.metrics = build_classification_metrics(self.num_classes)
 
         self.label_smoothing = label_smoothing
 
@@ -154,9 +141,13 @@ class ClassifierModule(L.LightningModule):
         for name, metric in self.metrics.items():
             score = metric.compute().cpu()
             self.log(f"val_{name}", score.mean())
-            for i, score in enumerate(score):
+            if name == "f1":
+                # Existing configs monitor this name.
+                self.log("val_f1score", score.mean())
+            for i, class_score in enumerate(score):
                 cls_name = self.label_to_class_map.get(i, i)
-                self.log(f"val_{name}_class_{cls_name}", score)
+                self.log(f"val_{name}_class_{cls_name}", class_score)
+            metric.reset()
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(

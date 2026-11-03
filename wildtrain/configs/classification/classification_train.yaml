@@ -48,7 +48,10 @@ dataset:
           size: ${dataset.input_size}
   
   # ROI dataset parameters (used when dataset_type = "roi")
+  # Label policy. collapse is the class-agnostic localizer + ROI classifier product.
+  # Set mode: identity (or enable: false) to train one label per species.
   single_class:
+    mode: collapse
     enable: true
     background_class_name: "background"
     single_class_name: "wildlife"

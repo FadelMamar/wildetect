@@ -3,21 +3,15 @@ import traceback
 from typing import Optional
 
 import torch
-from torchmetrics.classification import (
-    AUROC,
-    Accuracy,
-    AveragePrecision,
-    F1Score,
-    Precision,
-    Recall,
-)
 from tqdm import tqdm
 
 from wildtrain.data import ClassificationDataModule
+from wildtrain.data.label_policy import resolve_label_policy
 from wildtrain.models.classifier import GenericClassifier
 from wildtrain.utils.logging import get_logger
 
 from ..shared.models import ClassificationEvalConfig
+from .classification_metrics import build_classification_metrics
 
 logger = get_logger(__name__)
 
@@ -34,15 +28,20 @@ class ClassificationEvaluator:
         return model
 
     def _load_data(self):
+        policy = resolve_label_policy(
+            single_class=self.config.dataset.single_class,
+            label_policy=getattr(self.config.dataset, "label_policy", None),
+        )
         datamodule = ClassificationDataModule(
             root_data_directory=self.config.dataset.root_data_directory,
             batch_size=self.config.batch_size,
             transforms=self.config.transforms,
-            load_as_single_class=self.config.dataset.single_class.enable,
-            background_class_name=self.config.dataset.single_class.background_class_name,
-            single_class_name=self.config.dataset.single_class.single_class_name,
-            keep_classes=self.config.dataset.single_class.keep_classes,
-            discard_classes=self.config.dataset.single_class.discard_classes,
+            load_as_single_class=policy.collapse,
+            remap_contiguous=not policy.collapse,
+            background_class_name=policy.background_class_name,
+            single_class_name=policy.single_class_name,
+            keep_classes=policy.keep_classes,
+            discard_classes=policy.discard_classes,
         )
         datamodule.setup(stage="test" if self.config.split == "test" else "validate")
         if self.config.split == "test":
@@ -55,23 +54,7 @@ class ClassificationEvaluator:
         dataloader = self._load_data()
         num_classes = len(model.label_to_class_map)
         logger.info(f"Number of classes: {num_classes}")
-        metrics = {
-            "accuracy": Accuracy(
-                task="multiclass",
-                num_classes=num_classes,
-            ),
-            "precision": Precision(
-                task="multiclass",
-                num_classes=num_classes,
-                average=None,
-            ),
-            "recall": Recall(task="multiclass", num_classes=num_classes, average=None),
-            "f1": F1Score(task="multiclass", num_classes=num_classes, average=None),
-            "auroc": AUROC(task="multiclass", num_classes=num_classes, average=None),
-            "average_precision": AveragePrecision(
-                task="multiclass", num_classes=num_classes, average=None
-            ),
-        }
+        metrics = build_classification_metrics(num_classes)
         for metric in metrics.values():
             metric.to(self.config.device)
 

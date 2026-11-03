@@ -14,8 +14,30 @@ from ..utils.transforms import create_transforms
 from .curriculum.dataset import CurriculumDetectionDataset, PatchDataset
 from .curriculum.mixins import CurriculumDataModuleMixin
 from .filters import ClassificationRebalanceFilter
+from .label_policy import as_plain, resolve_label_policy
 
 logger = get_logger(__name__)
+
+
+def _prepare_transforms(transforms: Any) -> Optional[dict[str, Any]]:
+    """Turn a config section into torchvision callables, or leave callables alone."""
+    if transforms is None:
+        return None
+    plain = as_plain(transforms)
+    if isinstance(plain, dict):
+        train = plain.get("train") or []
+        val = plain.get("val") or []
+        if train or val:
+            if train and not isinstance(train, list):
+                return plain
+            if val and not isinstance(val, list):
+                return plain
+            if (train and isinstance(train[0], dict)) or (
+                val and isinstance(val[0], dict)
+            ):
+                return create_transforms(plain)
+        return None
+    return transforms
 
 
 def compute_dataset_stats(
@@ -137,7 +159,8 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         rebalance_exclude_extremes: bool = True,
         rebalance: bool = False,
         # ROI dataset parameters
-        load_as_single_class: bool = False,
+        load_as_single_class: bool = True,
+        remap_contiguous: bool = False,
         background_class_name: str = "background",
         single_class_name: str = "wildlife",
         keep_classes: Optional[list[str]] = None,
@@ -172,11 +195,8 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         self.batch_size = batch_size
         self.root_data_directory = Path(root_data_directory).resolve()
         self.dataset_type = dataset_type
-
-        if not load_as_single_class:
-            raise ValueError("Current workflow does not support multi-class datasets")
-
         self.num_workers = num_workers
+        self.remap_contiguous = remap_contiguous and not load_as_single_class
 
         # ROI dataset configuration
         self.single_class_config = {
@@ -199,7 +219,7 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         self.compute_difficulties = compute_difficulties
         self.preserve_aspect_ratio = preserve_aspect_ratio
 
-        self.transforms = transforms
+        self.transforms = _prepare_transforms(transforms)
 
         # Initialize datasets
         self.train_dataset: Optional[Union[ROIDataset, ConcatDataset, PatchDataset]] = (
@@ -259,12 +279,10 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         Returns:
             ClassificationDataModule instance
         """
-        dataset_config = config.dataset
-
-        # Extract parameters using helper method
+        dataset_config = as_plain(config.dataset) or {}
         params = cls._extract_config_params(dataset_config)
-
-        params["num_workers"] = config.train.num_workers
+        train_config = as_plain(getattr(config, "train", None)) or {}
+        params["num_workers"] = train_config.get("num_workers", 0)
 
         return cls(**params)
 
@@ -279,35 +297,30 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
         Returns:
             Dictionary of parameters for ClassificationDataModule constructor
         """
+        dataset_config = as_plain(dataset_config) or {}
+
         # Extract basic parameters
-        root_data_directory = dataset_config.root_data_directory
+        root_data_directory = dataset_config["root_data_directory"]
         batch_size = dataset_config.get("batch_size", 8)
         dataset_type = dataset_config.get("dataset_type", "roi")
 
         # Handle transforms - convert to dict if it's a ListConfig
         transforms = dataset_config.get("transforms")
         if transforms is not None:
-            # Convert ListConfig to dict if needed
+            transforms = as_plain(transforms)
             if hasattr(transforms, "_content"):
                 transforms = dict(transforms)
-            # Process transforms using the create_transforms function
             transforms = create_transforms(transforms)
 
-        # ROI dataset parameters
-        single_class_config = dataset_config.get("single_class", {})
-        load_as_single_class = single_class_config.get("enable", False)
-        background_class_name = single_class_config.get(
-            "background_class_name", "background"
+        policy = resolve_label_policy(
+            single_class=dataset_config.get("single_class"),
+            label_policy=dataset_config.get("label_policy"),
         )
-        single_class_name = single_class_config.get("single_class_name", "wildlife")
-        keep_classes = single_class_config.get("keep_classes")
-        discard_classes = single_class_config.get("discard_classes")
-
-        # Convert to proper types if needed
-        if keep_classes is not None and not isinstance(keep_classes, list):
-            keep_classes = [keep_classes] if keep_classes else None
-        if discard_classes is not None and not isinstance(discard_classes, list):
-            discard_classes = [discard_classes] if discard_classes else None
+        load_as_single_class = policy.collapse
+        background_class_name = policy.background_class_name
+        single_class_name = policy.single_class_name
+        keep_classes = policy.keep_classes
+        discard_classes = policy.discard_classes
 
         # Rebalancing
         rebalance = dataset_config.get("rebalance", False)
@@ -331,6 +344,7 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
             "single_class_name": single_class_name,
             "keep_classes": keep_classes,
             "discard_classes": discard_classes,
+            "remap_contiguous": not policy.collapse,
             "rebalance": rebalance,
             "crop_size": crop_size,
             "max_tn_crops": max_tn_crops,
@@ -381,6 +395,7 @@ class ClassificationDataModule(L.LightningDataModule, CurriculumDataModuleMixin)
             single_class_name=str(self.single_class_config["single_class_name"]),
             keep_classes=keep_classes,
             discard_classes=discard_classes,
+            remap_contiguous=self.remap_contiguous,
         )
 
     def _load_crop_dataset(self, split: str) -> PatchDataset:
