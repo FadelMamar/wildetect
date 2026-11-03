@@ -1,10 +1,7 @@
 @echo off
-REM Example script to run the classification pipeline using WildTrain CLI
+REM Train then evaluate one experiment. Set eval.enabled: true in the file.
 call cd /d %~dp0 && cd ..
 
-REM Set example config path
-set CONFIG_PATH=configs\classification\classification_pipeline_config.yaml
+set CONFIG_PATH=configs\classification\classification_train.yaml
 
-REM Run the run_classification_pipeline CLI command
-call uv run wildtrain pipeline classification ^
-    -c %CONFIG_PATH% 
+call uv run wildtrain run -c %CONFIG_PATH%

@@ -1,106 +1,22 @@
-"""Pipeline-related CLI commands."""
-
-import traceback
-from pathlib import Path
+"""The old pipeline commands have been removed."""
 
 import typer
 
-from ...harness.pipeline import ExperimentPipeline
-from ...shared.config_loader import ConfigLoader
-from ...shared.validation import (
-    ConfigFileNotFoundError,
-    ConfigParseError,
-    ConfigValidationError,
+from .utils import console
+
+pipeline_app = typer.Typer(
+    name="pipeline",
+    help="Removed. Set eval.enabled and use wildtrain run -c.",
+    invoke_without_command=True,
 )
-from .utils import console, log_file_path, setup_logging
-
-pipeline_app = typer.Typer(name="pipeline", help="Pipeline commands")
 
 
-@pipeline_app.command()
-def detection(
-    config: Path = typer.Option(
-        None, "--config", "-c", help="Path to unified detection pipeline YAML config"
-    ),
-) -> None:
-    """Run the full detection pipeline (train + eval) for object detection."""
-
+@pipeline_app.callback()
+def pipeline_removed() -> None:
+    """Train-then-eval is an experiment with eval.enabled."""
+    console.print("[bold red]wildtrain pipeline has been removed.[/bold red]")
     console.print(
-        f"[bold green]Running detection pipeline with config:[/bold green] {config}"
+        "Train then evaluate with one experiment file: set eval.enabled: true "
+        "and run [bold]wildtrain run -c experiment.yaml[/bold]."
     )
-
-    log_file = log_file_path("run_detection_pipeline")
-    setup_logging(log_file=log_file)
-
-    try:
-        # Load and validate configuration using Pydantic
-        cfg = ConfigLoader.load_pipeline_config(config, pipeline_type="detection")
-        console.print(
-            "[bold green]✓[/bold green] Detection pipeline configuration validated successfully"
-        )
-
-        # Convert validated config back to DictConfig for backward compatibility
-        console.print("cfg:", cfg)
-
-        pipeline = ExperimentPipeline(str(config), task="detection")
-        results = pipeline.run()
-        console.print(
-            "\n[bold blue]Detection pipeline completed. Evaluation results:[/bold blue]"
-        )
-        console.print(results)
-
-    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError):
-        console.print(
-            f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}"
-        )
-        raise typer.Exit(1)
-    except Exception:
-        console.print(
-            f"[bold red]✗[/bold red] Pipeline failed: {traceback.format_exc()}"
-        )
-        raise typer.Exit(1)
-
-
-@pipeline_app.command()
-def classification(
-    config: Path = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="Path to unified classification pipeline YAML config",
-    ),
-) -> None:
-    """Run the full classification pipeline (train + eval) for image classification."""
-
-    console.print(
-        f"[bold green]Running classification pipeline with config:[/bold green] {config}"
-    )
-
-    log_file = log_file_path("run_classification_pipeline")
-    setup_logging(log_file=log_file)
-
-    try:
-        # Load and validate configuration using Pydantic
-        cfg = ConfigLoader.load_pipeline_config(config, pipeline_type="classification")
-        console.print(
-            "[bold green]✓[/bold green] Classification pipeline configuration validated successfully"
-        )
-        console.print("cfg:", cfg)
-
-        pipeline = ExperimentPipeline(str(config), task="classification")
-        results = pipeline.run()
-        console.print(
-            "\n[bold blue]Classification pipeline completed. Evaluation results:[/bold blue]"
-        )
-        console.print(results)
-
-    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError):
-        console.print(
-            f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}"
-        )
-        raise typer.Exit(1)
-    except Exception:
-        console.print(
-            f"[bold red]✗[/bold red] Pipeline failed: {traceback.format_exc()}"
-        )
-        raise typer.Exit(1)
+    raise typer.Exit(1)

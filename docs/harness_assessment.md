@@ -494,7 +494,7 @@ class DetectorBackend(Protocol):
 
 The Lightning module logs the same spec objects it is evaluated with, so `val_f1` during training and `f1` in the report are one computation. Detection training may still log Ultralytics box/cls/dfl loss as backend metrics; the harness report does not parse Ultralytics' CSV to invent mAP.
 
-`evaluate yolo_model` (raw `YOLO.val`) stays available as a backend debug command. It is not the harness eval.
+`evaluate yolo-model` (raw `YOLO.val`) was removed when evaluation moved onto the harness. Detection eval is the supervision report from `UltralyticsEvaluator`.
 
 Sweeps: one runner, the current `Sweeper` study loop. The task writes `trial.suggest_*` onto a copy of `ExperimentConfig`. Objectives are the metric specs above (`SweepObjectiveTypes` already lists both `f1_score` and `map_50`). Per-task sweeper classes go away.
 
@@ -504,26 +504,17 @@ Target commands, with the task taken from the file:
 
 ```text
 wildtrain run -c experiment.yaml
-wildtrain eval -c experiment.yaml
+wildtrain evaluate -c experiment.yaml
 wildtrain sweep -c sweep.yaml
 wildtrain register -c registration.yaml
-wildtrain run -c experiment.yaml --set train.epochs=1 --set train.lr=0.0003
+wildtrain visualize -c visualize.yaml
 ```
 
-`--set` is a small OmegaConf override list. That replaces the Hydra story in the docs without adopting Hydra.
+`--set` was a proposed OmegaConf override list. It is not implemented.
 
-Compatibility shims, kept until Fadel drops them:
+The compatibility shims were removed. `wildtrain train classifier`, `wildtrain train detector`, `wildtrain evaluate classifier`, `wildtrain evaluate detector`, `wildtrain evaluate yolo-model`, `wildtrain register classifier`, `wildtrain register detector`, `wildtrain visualize classifier-predictions`, and `wildtrain visualize detector-predictions` are gone. Old YAML raises `ValueError` and names the replacement fields.
 
-```text
-wildtrain train classifier -c old_classification.yaml   # adapter -> ExperimentConfig
-wildtrain train detector  -c old_detection.yaml
-wildtrain evaluate classifier -c ...
-wildtrain evaluate detector -c ...
-```
-
-The adapter knows the old shapes (`dataset.root_data_directory`, `train.single_cls`, `model.architecture_file`). New configs do not go through the adapter.
-
-API: `POST /experiments` with the same document. `POST /training/classifier` and `POST /training/detector` call the adapter. Job status routes stay; they are already task-agnostic.
+API: `POST /experiments` trains. `POST /evaluation/` and `POST /visualization/` take the same `{config, debug}` body and dispatch on `task`. There is no registration route. Job status routes stay.
 
 Inference server stays detection-specific in this design. A general predict command is `wildtrain predict -c ...` dispatching on `model_type` in the checkpoint metadata, and it is a later milestone, not a requirement for the harness. Census continues to call `Detector`.
 
@@ -608,15 +599,36 @@ Done:
 - `wildtrain run -c` and `wildtrain sweep -c` call `run_experiment`. The only training HTTP route is `POST /experiments`.
 - A detection sweep objective is looked up verbatim. Common Ultralytics keys are `metrics/precision(B)`, `metrics/recall(B)`, `metrics/mAP50(B)`, `metrics/mAP50-95(B)`, and `fitness`. `map_50` is not translated. `f1_score` and `fitness` use `FitResult.best_score`.
 - `ExperimentPipeline` is the train-then-eval path. `utils/registry.py` is deleted. `shared/models.py` stays.
-- Shipped train and sweep YAML, the README, and the training docs use the new layout. Eval, visualization, and registration YAML and commands are unchanged. Registration still writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`.
+- Shipped train and sweep YAML, the README, and the training docs use the new layout. Registration still writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`.
 
 Not in this slice, on purpose:
 
 - A shared Lightning trainer, and shared DVC tracking. `tracking.dvc.enabled` is stored and does not start that tracker.
-- Moving eval, visualization, or registration onto the harness. That is the next pull request. `DETECTOR_REGISTRATION` still validates the localizer schema.
+- Eval, visualization, and registration. Those landed in the next phase.
 - `seed` is stored. The sweep sampler uses `sweep.seed`. The trainers are not reseeded from the experiment seed beyond the detection train seed that Ultralytics already accepted.
 
-Exit: a new training task is a registry entry plus a task body on `ExperimentConfig`. It does not need a new Typer training command or a new training router. Eval and registration commands are still per type.
+Exit: a new training task is a registry entry plus a task body on `ExperimentConfig`. It does not need a new Typer training command or a new training router.
+
+### Eval, visualization, and registration
+
+Landed on the harness. `ClassificationTask` and `DetectionTask` implement `evaluate`, `visualize`, and `register`. The CLI is `wildtrain evaluate -c`, `wildtrain visualize -c`, and `wildtrain register -c`. Each command loads one document and calls `default_registry().get(task)`.
+
+Done:
+
+- `wildtrain run` calls `task.evaluate` after training when `eval.enabled` is true. The default is false, so shipped train files do not evaluate. `wildtrain evaluate -c` accepts that experiment or a standalone eval document (`task`, `weights`, `data`, `eval`).
+- Classification eval uses `build_classification_metrics`. Detection eval builds a `DetectionEvalConfig` and calls `UltralyticsEvaluator` (supervision metrics).
+- Visualization is the existing FiftyOne upload (`Visualizer` for classification, `Detector` for detection), including the optional Label Studio fields on the detection file.
+- Registration still calls `ModelRegistrar.register_classifier` and `ModelRegistrar.register_detector`. The detector document is mapped onto the old `DetectorRegistrationConfig` shape so the metadata census reads does not change. `export_format: pt` returns the localizer weights path. A set `classifier_weights` is exported as torchscript unless `classifier_export_format` is set.
+- `ConfigType.DETECTOR_REGISTRATION` and `ConfigType.MODEL_REGISTRATION` both validate `DetectorRegistrationConfig`. A localizer-only document is rejected by those types.
+- `wildtrain config validate` validates an experiment, eval, visualization, or registration file. Old eval, visualization, registration, and pipeline YAML raises `ValueError`.
+- Shipped eval, visualization, and registration YAML uses the new layout and `${oc.env:...}` for `DATA_ROOT`, `CLASSIFIER_WEIGHTS`, `LOCALIZER_WEIGHTS`, `DETECTION_DATA_CFG`, and `MLFLOW_TRACKING_URI`.
+- `POST /evaluation/` and `POST /visualization/` replace the per-task routes. No registration HTTP route was added.
+- Census unwrap still works for a single-class localizer and for a localizer plus ROI classifier. `load_registered_model` joins the download path with `str(version)` because MLflow can return the version as an int. The metadata keys are unchanged. The alias is still set by the caller. Registration does not set one.
+
+Not in this slice:
+
+- A shared Lightning trainer and shared DVC tracking.
+- Follow-up on this phase: registration sets an MLflow alias (default `demo`). `wildtrain evaluate` never trains; a missing checkpoint says to train first or set `model.weights`. Pipeline YAML, `wildtrain pipeline`, and `POST /pipeline/*` are removed. Train-then-eval is `eval.enabled: true` on one experiment. `ClassifierHead` with `num_layers: 1` projects `input_dim` to the classes. `num_layers: 2` checkpoints still load. A checkpoint saved when `num_layers: 1` skipped that projection does not.
 
 ### Phase 5 — What is left
 
@@ -656,24 +668,29 @@ Still open:
 3. **Custom YOLO.** Should `custom_yolo` (count, area, FP/TP, DINOv2 encoder) stay a supported backend, or is it an experiment that can freeze on the current Ultralytics pin and stay out of the default path forever?
 5. **Segmentation.** `ModelTask.SEGMENT` and `DetectionEvalParamsConfig.task` already allow the string. Is segmentation in scope after the harness exists, or should those enums stay unused?
 6. **Compatibility window.** Answered: remove it now. Flat training YAML, `train classifier` / `train detector`, the old sweep files, and `POST /training/classifier` / `POST /training/detector` are gone.
-7. **Configs in git.** The shipped training files no longer use `D:\PhD\...`. Classification root is `${oc.env:DATA_ROOT,.}` and the detection data yaml is `${oc.env:DETECTION_DATA_CFG,...}`. Eval YAML was not part of this change and can still contain machine paths.
+7. **Configs in git.** Shipped train, eval, visualization, and registration files use `${oc.env:DATA_ROOT,.}`, `${oc.env:CLASSIFIER_WEIGHTS,...}`, `${oc.env:LOCALIZER_WEIGHTS,...}`, `${oc.env:DETECTION_DATA_CFG,...}`, and `${oc.env:MLFLOW_TRACKING_URI,...}`. Pipeline YAML still points at those files with its own schema.
 8. **Native loop vs delegated loop.** Is it acceptable that YOLO training stays inside Ultralytics permanently, with the harness owning only config, data prep, tracking, and eval? A shared Lightning detection loop is much larger than this migration.
 9. **Registry contract.** Can new MLflow metadata keys be added as long as `batch`, `imgsz`, `task`, `model_type`, and the unwrap-to-`Detector` behavior stay? Census reads `batch`, then tile size from `tilesize` or `imgsz`, plus `set_device` and `predict`.
 10. **Who the harness is for.** Same conservation workflow, with cleaner extension points, or a library other projects import? A subpackage of `wildtrain` fits the first. A fourth workspace package, stable public API, and entry-point plugins fit the second, and they are extra scope.
 11. **Schema shape.** Answered: the section 5.3 names are the YAML. `trainer_config()` maps them onto the existing trainer objects.
 12. **HTTP path.** Answered: only `POST /experiments`.
 13. **Sweep objective keys.** Answered: no translation. Use an Ultralytics key such as `metrics/mAP50(B)` or `fitness`.
-14. **Registration dispatch.** Left for the next pull request. Eval, visualization, and registration stay on `ConfigType`. Census metadata keys are unchanged.
+14. **Registration dispatch.** Answered in the eval phase. `DETECTOR_REGISTRATION` and `MODEL_REGISTRATION` validate `DetectorRegistrationConfig`. Census metadata keys are unchanged.
 
 ---
 
 ## 9. Current code
 
-Phases 0 through 4 are the current code.
+Phases 0 through 4, plus eval, visualization, and registration, are the current code.
 
 - The experiment YAML uses `data.format`, `data.label_policy.positive_name`, `model.backend`, and `train.batch_size`. `trainer_config()` maps that onto the existing trainer configs.
-- Old flat training files and `base_config` sweep files raise `ValueError`. `wildtrain train classifier` and `wildtrain train detector` are removed. Training HTTP is `POST /experiments` only.
+- Old flat training files, old eval, visualization, and registration files, and `base_config` sweep files raise `ValueError`. The per-task train, evaluate, register, and visualize commands are removed.
+- Training HTTP is `POST /experiments`. Evaluation HTTP is `POST /evaluation/`. Visualization HTTP is `POST /visualization/`. There is no registration route.
+- `wildtrain run` evaluates after training only when `eval.enabled` is true. `wildtrain evaluate -c`, `wildtrain visualize -c`, and `wildtrain register -c` dispatch through the task registry.
 - A detection sweep objective is an Ultralytics metrics key, verbatim. Examples: `metrics/mAP50(B)` and `fitness`.
 - `ClassificationTask` and `DetectionTask` still construct today's trainers. There is no shared Lightning trainer and no shared DVC tracker.
-- Eval, visualization, and registration are not on the harness yet. `ModelMetadata.to_dict()` still writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`. Census still reads `batch`, then tile size from `tilesize` or `imgsz`.
+- `ModelMetadata.to_dict()` writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`. Census reads `batch`, then tile size from `tilesize` or `imgsz`, and unwraps to `Detector`.
+- `DETECTOR_REGISTRATION` validates `DetectorRegistrationConfig`, not the localizer schema. `wildtrain config validate` checks the new documents.
+- Registration sets the MLflow alias and does not add it to the census metadata keys.
+- `wildtrain pipeline` and `POST /pipeline/*` are removed. `eval.enabled: true` is train-then-eval.
 - The per-task pipeline modules, the per-task sweepers, and `utils/registry.py` are gone. `GenericClassifier`, `yolo_utils.py`, `shared/models.py`, and the census load path remain.

@@ -22,4 +22,10 @@ def run_experiment(
     """Run the task named by ``config.task``."""
     active = registry if registry is not None else default_registry()
     task = active.get(config.task)
-    return task.run(config, debug=debug or config.debug)
+    result = task.run(config, debug=debug or config.debug)
+    if config.eval is not None and config.eval.enabled:
+        report = task.evaluate(config, weights=result.best_path, debug=debug)
+        merged = dict(result.metrics or {})
+        merged["eval"] = report
+        result.metrics = merged
+    return result

@@ -56,12 +56,21 @@ class TestAPIHealthAndBasicFunctionality:
         assert "text/html" in response.headers.get("content-type", "")
 
     def test_cors_headers_are_present(self, client):
-        """Test that CORS headers are present in responses."""
-        response = client.get("/health")
-        assert "access-control-allow-origin" in response.headers
-        assert "access-control-allow-credentials" in response.headers
-        assert "access-control-allow-methods" in response.headers
-        assert "access-control-allow-headers" in response.headers
+        """CORS headers are returned for a browser origin."""
+        response = client.get("/health", headers={"Origin": "http://localhost:3000"})
+        assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+        assert response.headers["access-control-allow-credentials"] == "true"
+        preflight = client.options(
+            "/health",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+        assert preflight.headers["access-control-allow-origin"] == "http://localhost:3000"
+        assert "GET" in preflight.headers["access-control-allow-methods"]
+        assert "content-type" in preflight.headers["access-control-allow-headers"]
 
     def test_root_endpoint_returns_api_info(self, client):
         """Test that root endpoint returns API information."""
@@ -83,21 +92,22 @@ class TestAPIHealthAndBasicFunctionality:
         assert app is not None
         assert hasattr(app, "routes")
 
-        # Test that all expected routers are included
-        routes = [route.path for route in app.routes]
+        # Included routers are not APIRoute objects on this FastAPI version.
+        paths = set(app.openapi()["paths"])
         expected_prefixes = [
+            "/experiments",
             "/training",
             "/evaluation",
-            "/pipeline",
             "/visualization",
             "/dataset",
             "/config",
         ]
-
         for prefix in expected_prefixes:
-            assert any(route.startswith(prefix) for route in routes), (
+            assert any(path.startswith(prefix) for path in paths), (
                 f"Missing router with prefix {prefix}"
             )
+        assert "/pipeline/classification" not in paths
+        assert "/pipeline/detection" not in paths
 
     def test_basic_request_response_flow(self, client):
         """Test basic request/response flow for all endpoints."""
@@ -105,7 +115,6 @@ class TestAPIHealthAndBasicFunctionality:
         endpoints_to_test = [
             "/training/status",
             "/evaluation/status",
-            "/pipeline/status",
             "/visualization/status",
             "/dataset/status",
             "/config/status",
@@ -170,22 +179,18 @@ class TestAPIHealthAndBasicFunctionality:
 
         # Check that all expected routers are included
         expected_routers = [
-            "training",
-            "evaluation",
-            "pipeline",
-            "visualization",
-            "dataset",
-            "config",
+            "/training/",
+            "/evaluation/",
+            "/experiments",
+            "/visualization/",
+            "/dataset/",
+            "/config/",
         ]
-
-        for router_name in expected_routers:
-            # Check if router endpoints exist
-            router_found = False
-            for route in app.routes:
-                if hasattr(route, "prefix") and router_name in route.prefix:
-                    router_found = True
-                    break
-            assert router_found, f"Router {router_name} not found in app routes"
+        paths = set(app.openapi()["paths"])
+        for prefix in expected_routers:
+            assert any(path.startswith(prefix) for path in paths), (
+                f"Router {prefix} not found in app routes"
+            )
 
     def test_api_metadata(self, client):
         """Test that API metadata is correctly set."""

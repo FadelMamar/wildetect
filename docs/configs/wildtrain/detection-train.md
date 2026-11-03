@@ -44,4 +44,4 @@ wildtrain sweep -c configs/detection/detection_sweep.yaml
 
 ## Evaluate and register
 
-`wildtrain evaluate detector` still uses `configs/detection/yolo_configs/yolo_eval.yaml`. Registration still writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format` for census.
+`wildtrain evaluate -c configs/detection/yolo_configs/yolo_eval.yaml` scores that eval document. Registration still writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format` for census.

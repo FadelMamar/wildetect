@@ -97,5 +97,6 @@ checkpoint:
 
 # wildtrain evaluate still reads classification_eval.yaml. This block is recorded only.
 eval:
+  enabled: false
   split: val
   metrics: [accuracy, precision, recall, f1, auroc]

@@ -17,7 +17,7 @@ The script automatically:
 ## Command Executed
 
 ```batch
-uv run wildtrain register detector config/detector_registration.yaml
+uv run wildtrain register -c config/detector_registration.yaml
 ```
 
 Note: This script registers a **detector** model. For classifier registration, modify the script or use the CLI directly.
@@ -111,7 +111,7 @@ model:
 To register a classifier instead of detector, modify the script or use CLI directly:
 
 ```batch
-uv run wildtrain register classifier config/detector_registration.yaml
+uv run wildtrain register -c config/detector_registration.yaml
 ```
 
 Ensure config has `classifier` section configured.

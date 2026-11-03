@@ -11,12 +11,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from wildtrain.api.main import fastapi_app as app
+from wildtrain.cli.config_loader import ROOT
 
-# Valid classification config
-VALID_CLASSIFICATION_CONFIG = Path(r"configs\classification\classification_train.yaml")
-
-# Valid detection config
-VALID_DETECTION_CONFIG = Path(r"configs\detection\yolo_configs\yolo.yaml")
+TRAIN = ROOT / "configs" / "classification" / "classification_train.yaml"
+EVAL = ROOT / "configs" / "classification" / "classification_eval.yaml"
+REGISTER = (
+    ROOT / "configs" / "registration" / "classifier_registration_example.yaml"
+)
 
 
 @pytest.mark.config
@@ -33,8 +34,8 @@ class TestConfigurationEndpoints:
         response = client.post(
             "/config/validate",
             json={
-                "config_path": str(VALID_CLASSIFICATION_CONFIG),
-                "config_type": "classification",
+                "config_path": str(TRAIN),
+                "config_type": "experiment",
             },
         )
 
@@ -66,19 +67,22 @@ class TestConfigurationEndpoints:
 
     def test_config_validation_with_different_types(self, client):
         """Test config validation with different config types."""
-        config_types = ["classification", "detection", "classification_eval"]
+        cases = [
+            ("experiment", TRAIN),
+            ("eval", EVAL),
+            ("registration", REGISTER),
+        ]
 
-        for config_type in config_types:
+        for config_type, path in cases:
             response = client.post(
                 "/config/validate",
                 json={
-                    "config_path": str(VALID_CLASSIFICATION_CONFIG),
+                    "config_path": str(path),
                     "config_type": config_type,
                 },
             )
 
-            # Should handle different config types gracefully
-            assert response.status_code in [200, 201, 202]
+            assert response.status_code == 200, response.text
 
     def test_config_validation_with_nonexistent_files(self, client):
         """Test config validation with non-existent files."""
@@ -110,7 +114,7 @@ class TestConfigurationEndpoints:
                 "/config/validate",
                 json={
                     "config_path": str(malformed_config),
-                    "config_type": "classification",
+                    "config_type": "experiment",
                 },
             )
 
@@ -126,12 +130,12 @@ class TestConfigurationEndpoints:
                 "config_type": "classification",
             },  # config_path should be string
             {
-                "config_path": str(VALID_CLASSIFICATION_CONFIG),
+                "config_path": str(TRAIN),
                 "config_type": 456,
             },  # config_type should be string
-            {"config_path": "", "config_type": "classification"},  # empty config_path
+            {"config_path": "", "config_type": "experiment"},  # empty config_path
             {
-                "config_path": str(VALID_CLASSIFICATION_CONFIG),
+                "config_path": str(TRAIN),
                 "config_type": "",
             },  # empty config_type
         ]

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import supervision as sv
+import torch
 import yaml
 from PIL import Image
 
@@ -355,3 +356,130 @@ def test_tiny_ultralytics_run(tmp_path: Path) -> None:
     assert result.best_path
     assert Path(result.best_path).exists()
     assert result.score_name == "fitness"
+
+    from unittest.mock import patch
+
+    from wildtrain.harness.tasks.detection import DetectionTask
+
+    captured = {}
+
+    class FakeEvaluator:
+        def __init__(self, config, disable_detection_filtering: bool = False):
+            captured["config"] = config
+
+        def evaluate(self, debug: bool = False, save_path=None, load_path=None):
+            return {"mAP": 0.0}
+
+    with patch(
+        "wildtrain.evaluators.ultralytics.UltralyticsEvaluator", FakeEvaluator
+    ):
+        report = DetectionTask().evaluate(
+            experiment, weights=result.best_path, debug=True
+        )
+    assert report["mAP"] == 0.0
+    assert captured["config"].weights.localizer == result.best_path
+    assert captured["config"].eval.single_cls is True
+    assert captured["config"].dataset.data_cfg
+
+    import mlflow
+    from wildetect.core.detectors.base import tile_size_from_metadata
+
+    from wildtrain.harness.ops import LocalizerSpec, RegistrationDocument
+    from wildtrain.utils.mlflow import load_registered_model
+
+    uri = f"sqlite:///{(tmp_path / 'registry.db').as_posix()}"
+    DetectionTask().register(
+        RegistrationDocument(
+            task="detection",
+            name="localizer",
+            batch=2,
+            imgsz=64,
+            mlflow_tracking_uri=uri,
+            export_format="pt",
+            localizer=LocalizerSpec(
+                weights=result.best_path, imgsz=64, device="cpu"
+            ),
+        )
+    )
+    mlflow.set_tracking_uri(uri)
+    detector = load_registered_model(
+        "demo",
+        "localizer",
+        mlflow_tracking_url=uri,
+        load_unwrapped=True,
+        dwnd_location=tmp_path / "models",
+    )
+    assert {
+        "batch",
+        "imgsz",
+        "task",
+        "num_classes",
+        "model_type",
+        "cls_export_format",
+    } <= set(detector.metadata)
+    assert detector.metadata["model_type"] == "detector"
+    assert detector.metadata["imgsz"] == 64
+    assert detector.metadata["cls_export_format"] == "pt"
+    assert tile_size_from_metadata(detector.metadata) == 64
+    assert hasattr(detector, "set_device") and hasattr(detector, "predict")
+    assert detector.classifier is None
+
+    from wildtrain.models.classifier import GenericClassifier
+
+    classifier_path = tmp_path / "classifier.ckpt"
+    classifier = GenericClassifier(
+        label_to_class_map={0: "background", 1: "wildlife"},
+        backbone="vit_tiny_patch16_224",
+        pretrained=False,
+        input_size=32,
+        dropout=0.0,
+        freeze_backbone=True,
+        hidden_dim=16,
+        num_layers=2,
+    )
+    torch.save(
+        {
+            "state_dict": {
+                f"model.{key}": value for key, value in classifier.state_dict().items()
+            },
+            "hyper_parameters": {
+                "label_to_class_map": {0: "background", 1: "wildlife"},
+                "backbone": "vit_tiny_patch16_224",
+                "backbone_source": "timm",
+                "input_size": 32,
+                "dropout": 0.0,
+                "freeze_backbone": True,
+                "mean": classifier.mean.tolist(),
+                "std": classifier.std.tolist(),
+                "num_layers": 2,
+                "hidden_dim": 16,
+            },
+        },
+        classifier_path,
+    )
+    DetectionTask().register(
+        RegistrationDocument(
+            task="detection",
+            name="two-stage",
+            batch=2,
+            imgsz=64,
+            mlflow_tracking_uri=uri,
+            export_format="pt",
+            localizer=LocalizerSpec(
+                weights=result.best_path, imgsz=64, device="cpu"
+            ),
+            classifier_weights=str(classifier_path),
+        )
+    )
+    two_stage = load_registered_model(
+        "demo",
+        "two-stage",
+        mlflow_tracking_url=uri,
+        load_unwrapped=True,
+        dwnd_location=tmp_path / "two-stage-models",
+    )
+    assert two_stage.metadata["model_type"] == "detector"
+    assert two_stage.metadata["cls_export_format"] == "torchscript"
+    assert two_stage.classifier is not None
+    assert hasattr(two_stage, "set_device") and hasattr(two_stage, "predict")
+    assert tile_size_from_metadata(two_stage.metadata) == 64

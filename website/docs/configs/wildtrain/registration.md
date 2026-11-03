@@ -9,107 +9,62 @@ Registration configs control how trained models are registered to the [MLflow Mo
 **Usage:**
 
 ```bash
-# Register classifier
-wildtrain register classifier -c configs/registration/classifier_registration_example.yaml
+wildtrain register -c configs/registration/classifier_registration_example.yaml
+wildtrain register -c configs/registration/detector_registration_example.yaml
+```
 
-# Register detector
-wildtrain register detector configs/registration/detector_registration_example.yaml
+The old `processing` / `localizer.yolo` files are rejected. Registered metadata stays `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`.
+
+---
+
+## Classifier registration
+
+| Field | Description |
+|-------|-------------|
+| `task` | `classification` |
+| `name` | MLflow registered model name |
+| `weights` | Classifier checkpoint. `${oc.env:CLASSIFIER_WEIGHTS,...}` in the shipped file |
+| `batch` | Batch size written to metadata and used for export |
+| `mlflow_tracking_uri` | Tracking URI. `${oc.env:MLFLOW_TRACKING_URI,...}` |
+| `export_format` | `torchscript` or `onnx` |
+| `alias` | MLflow alias set on the new version. Default `demo` |
+
+```yaml
+task: classification
+name: classifier
+weights: ${oc.env:CLASSIFIER_WEIGHTS,checkpoints/classification/best.ckpt}
+batch: 8
+mlflow_tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://127.0.0.1:5000}
+export_format: torchscript
+alias: demo
 ```
 
 ---
 
-## Classifier Registration
+## Detector registration
 
-### Configuration Fields
+A localizer-only file registers the single-class detector. Set `classifier_weights` for the two-stage localizer plus ROI classifier. `export_format: pt` keeps the YOLO `.pt` file. The classifier is exported as torchscript unless `classifier_export_format` is set.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `weights` | `str` | — | Path to the classifier checkpoint file (`.ckpt`) |
-| `processing.name` | `str` | `classifier` | Model name in MLflow registry |
-| `processing.batch_size` | `int` | `8` | Batch size for inference (used in export) |
-| `processing.mlflow_tracking_uri` | `str` | `http://localhost:5000` | MLflow tracking server URI |
-| `processing.export_format` | `str` | `torchscript` | Export format: `torchscript` or `onnx` |
-| `processing.dynamic` | `bool` | `true` | Use dynamic axes for ONNX export |
-
-### Example
+| Field | Description |
+|-------|-------------|
+| `task` | `detection` |
+| `name` | MLflow registered model name |
+| `batch` | Batch size written as `batch` |
+| `localizer.weights` | YOLO weights. `${oc.env:LOCALIZER_WEIGHTS,...}` |
+| `localizer.imgsz` | Tile size written as `imgsz` |
+| `classifier_weights` | Optional ROI classifier checkpoint |
 
 ```yaml
-weights: checkpoints/classification/best.ckpt
-
-processing:
-  name: "classifier"
-  batch_size: 8
-  mlflow_tracking_uri: "http://localhost:5000"
-  export_format: "torchscript"
-  dynamic: true
-```
-
----
-
-## Detector Registration
-
-The detector registration config supports a two-model architecture (localizer + classifier).
-
-### Configuration Fields
-
-#### Classifier Section
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `classifier.weights` | `str` | Path to classifier checkpoint |
-| `classifier.processing.batch_size` | `int` | Batch size for export |
-| `classifier.processing.export_format` | `str` | Export format: `torchscript` or `onnx` |
-
-#### Localizer Section
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `localizer.yolo.weights` | `str` | Path to YOLO weights file (`.pt`) |
-| `localizer.yolo.imgsz` | `int` | Input image size |
-| `localizer.yolo.device` | `str` | Device: `cuda` or `cpu` |
-| `localizer.yolo.conf_thres` | `float` | Confidence threshold |
-| `localizer.yolo.iou_thres` | `float` | NMS IoU threshold |
-| `localizer.yolo.max_det` | `int` | Maximum detections per image |
-| `localizer.yolo.overlap_metric` | `str` | Overlap metric: `IOU` |
-| `localizer.yolo.task` | `str` | YOLO task: `detect` or `obb` |
-| `localizer.processing.export_format` | `str` | Export format: `pt` |
-| `localizer.processing.batch_size` | `int` | Batch size for export |
-| `localizer.processing.dynamic` | `bool` | Dynamic axes (ONNX) |
-
-#### Processing Section
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `processing.name` | `str` | Model name in MLflow registry |
-| `processing.mlflow_tracking_uri` | `str` | MLflow tracking server URI |
-
-### Example
-
-```yaml
-classifier:
-  weights: "checkpoints/classification/best.ckpt"
-  processing:
-    batch_size: 8
-    export_format: "torchscript"
-
+task: detection
+name: detector
+batch: 8
+mlflow_tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://127.0.0.1:5000}
+export_format: pt
 localizer:
-  yolo:
-    weights: "runs/detect/train/weights/best.pt"
-    imgsz: 800
-    device: "cuda"
-    conf_thres: 0.1
-    iou_thres: 0.3
-    max_det: 300
-    overlap_metric: "IOU"
-    task: "detect"
-  processing:
-    export_format: "pt"
-    batch_size: 32
-    dynamic: false
-
-processing:
-  name: "detector"
-  mlflow_tracking_uri: "http://localhost:5000"
+  weights: ${oc.env:LOCALIZER_WEIGHTS,models/best.pt}
+  imgsz: 800
+  device: cpu
+classifier_weights: ${oc.env:CLASSIFIER_WEIGHTS,checkpoints/classification/best.ckpt}
 ```
 
 ---

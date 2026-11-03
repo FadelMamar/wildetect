@@ -49,6 +49,15 @@ class BackboneNormalize(nn.Module):
 
 
 class ClassifierHead(nn.Module):
+    """Map backbone features to class logits.
+
+    ``num_layers`` counts linear layers. ``1`` is a single projection from
+    ``input_dim`` to ``num_classes``. ``2`` and above project to ``hidden_dim``
+    first, then to the classes. Checkpoints trained with ``num_layers: 2``
+    still load. A checkpoint saved when ``num_layers: 1`` skipped the feature
+    projection (it used ``hidden_dim`` as the input size) will not load.
+    """
+
     def __init__(
         self,
         input_dim: int,
@@ -58,17 +67,20 @@ class ClassifierHead(nn.Module):
         num_layers: int = 2,
     ):
         super().__init__()
+        if num_layers < 1:
+            raise ValueError(f"num_layers must be at least 1, got {num_layers}")
         layers = []
-        for i in range(num_layers - 1):
-            if i == 0:
-                layers.append(
-                    nn.Sequential(
-                        nn.Linear(input_dim, hidden_dim),
-                        nn.ReLU(),
-                        nn.Dropout(p=dropout),
-                    )
+        if num_layers == 1:
+            layers.append(nn.Linear(input_dim, num_classes))
+        else:
+            layers.append(
+                nn.Sequential(
+                    nn.Linear(input_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(p=dropout),
                 )
-            else:
+            )
+            for _ in range(num_layers - 2):
                 layers.append(
                     nn.Sequential(
                         nn.Linear(hidden_dim, hidden_dim),
@@ -76,7 +88,7 @@ class ClassifierHead(nn.Module):
                         nn.Dropout(p=dropout),
                     )
                 )
-        layers.append(nn.Linear(hidden_dim, num_classes))
+            layers.append(nn.Linear(hidden_dim, num_classes))
         self.fc = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -367,6 +379,7 @@ class GenericClassifier(nn.Module):
                 label_to_class_map=hparams["label_to_class_map"],
                 backbone=hparams["backbone"],
                 backbone_source=hparams["backbone_source"],
+                pretrained=False,
                 input_size=hparams["input_size"],
                 mean=hparams["mean"],
                 std=hparams["std"],

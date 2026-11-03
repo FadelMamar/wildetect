@@ -3,7 +3,7 @@
 import json
 import traceback
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Optional, Type, TypeVar
 
 import yaml
 from omegaconf import OmegaConf
@@ -15,12 +15,10 @@ from .config_types import ConfigType
 from .models import (
     ClassificationConfig,
     ClassificationEvalConfig,
-    ClassificationPipelineConfig,
     ClassificationVisualizationConfig,
     ClassifierRegistrationConfig,
     DetectionConfig,
     DetectionEvalConfig,
-    DetectionPipelineConfig,
     DetectionVisualizationConfig,
     DetectorRegistrationConfig,
     LocalizerRegistrationConfig,
@@ -57,7 +55,7 @@ class ConfigLoader:
             ConfigParseError: If config file cannot be parsed
             ConfigValidationError: If config fails validation
         """
-        # Check if file exists
+        config_path = Path(config_path)
         if not config_path.exists():
             raise ConfigFileNotFoundError(
                 f"{config_name} file not found: {config_path}"
@@ -192,20 +190,13 @@ class ConfigLoader:
     @staticmethod
     def load_pipeline_config(
         config_path: Path, pipeline_type: str = "classification"
-    ) -> Union[ClassificationPipelineConfig, DetectionPipelineConfig]:
-        """Load and validate pipeline configuration."""
-        if pipeline_type == "classification":
-            return ConfigLoader.load_and_validate(
-                config_path,
-                ClassificationPipelineConfig,
-                "Classification pipeline configuration",
-            )
-        elif pipeline_type == "detection":
-            return ConfigLoader.load_and_validate(
-                config_path, DetectionPipelineConfig, "Detection pipeline configuration"
-            )
-        else:
-            raise ValueError(f"Unknown pipeline type: {pipeline_type}")
+    ):
+        """Pipeline YAML has been removed."""
+        raise ValueError(
+            "Pipeline configs have been removed. Set eval.enabled: true on an "
+            "experiment and run wildtrain run -c experiment.yaml. "
+            f"Ignored {pipeline_type} file {config_path}."
+        )
 
     @staticmethod
     def validate_config_file(config_path: Path, config_type: ConfigType) -> bool:
@@ -223,14 +214,17 @@ class ConfigLoader:
                 ConfigLoader.load_classification_visualization_config(config_path)
             elif config_type == ConfigType.DETECTION_VISUALIZATION:
                 ConfigLoader.load_detection_visualization_config(config_path)
-            elif config_type == ConfigType.CLASSIFICATION_PIPELINE:
-                ConfigLoader.load_pipeline_config(config_path, "classification")
-            elif config_type == ConfigType.DETECTION_PIPELINE:
-                ConfigLoader.load_pipeline_config(config_path, "detection")
+            elif config_type in (
+                ConfigType.CLASSIFICATION_PIPELINE,
+                ConfigType.DETECTION_PIPELINE,
+            ):
+                ConfigLoader.load_pipeline_config(config_path, config_type.value)
             elif config_type == ConfigType.DETECTOR_REGISTRATION:
-                ConfigLoader.load_localizer_registration_config(config_path)
+                ConfigLoader.load_detector_registration_config(config_path)
             elif config_type == ConfigType.CLASSIFIER_REGISTRATION:
                 ConfigLoader.load_classifier_registration_config(config_path)
+            elif config_type == ConfigType.MODEL_REGISTRATION:
+                ConfigLoader.load_detector_registration_config(config_path)
             else:
                 raise ValueError(f"Unknown config type: {config_type}")
             return True
@@ -268,6 +262,14 @@ class ConfigLoader:
         assert isinstance(config_type, ConfigType), (
             f"config_type must be a ConfigType enum, got: {config_type}"
         )
+        if config_type in (
+            ConfigType.CLASSIFICATION_PIPELINE,
+            ConfigType.DETECTION_PIPELINE,
+        ):
+            raise ValueError(
+                "Pipeline configs have been removed. Set eval.enabled: true on an "
+                "experiment and run wildtrain run -c experiment.yaml."
+            )
 
         # Map config types to their corresponding Pydantic model classes
         config_class_map = {
@@ -277,9 +279,7 @@ class ConfigLoader:
             ConfigType.DETECTION_EVAL: DetectionEvalConfig,
             ConfigType.CLASSIFICATION_VISUALIZATION: ClassificationVisualizationConfig,
             ConfigType.DETECTION_VISUALIZATION: DetectionVisualizationConfig,
-            ConfigType.CLASSIFICATION_PIPELINE: ClassificationPipelineConfig,
-            ConfigType.DETECTION_PIPELINE: DetectionPipelineConfig,
-            ConfigType.DETECTOR_REGISTRATION: LocalizerRegistrationConfig,
+            ConfigType.DETECTOR_REGISTRATION: DetectorRegistrationConfig,
             ConfigType.CLASSIFIER_REGISTRATION: ClassifierRegistrationConfig,
             ConfigType.MODEL_REGISTRATION: DetectorRegistrationConfig,
         }

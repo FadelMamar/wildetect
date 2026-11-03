@@ -1,10 +1,7 @@
-# Example classifier registration configuration
-
-processing:
-  name: "classifier"
-  batch_size: 8
-  mlflow_tracking_uri: "http://localhost:5000"
-  export_format: "torchscript" # torchscript, onnx
-  dynamic: true # used for onnx export
-
-weights: checkpoints/classification/unified_classifier/best.ckpt
+task: classification
+name: classifier
+weights: ${oc.env:CLASSIFIER_WEIGHTS,checkpoints/classification/best.ckpt}
+batch: 8
+mlflow_tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://127.0.0.1:5000}
+export_format: torchscript
+alias: demo

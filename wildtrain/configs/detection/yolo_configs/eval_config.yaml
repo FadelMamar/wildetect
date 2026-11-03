@@ -1,17 +1,20 @@
-model: "C:/Users/Machine Learning/Desktop/workspace-wildAI/datalabeling/runs/mlflow/140168774036374062/a59eda79d9444ff4befc561ac21da6b4/artifacts/weights/best.pt"
+# Same layout as yolo_eval.yaml. The raw Ultralytics model/data/epochs file is gone.
 
-data: D:\PhD\Data per camp\IdentificationDataset\continuous_learning\train_ratio_7.5-seed_41.yaml
+task: detection
+name: detection-eval
+weights: ${oc.env:LOCALIZER_WEIGHTS,models/best.pt}
 
-batch: 32
-imgsz: 800
-iou: 0.7
-conf: 0.25
+data:
+  format: yolo
+  root: ${oc.env:DATA_ROOT,.}
+  data_cfg: ${oc.env:DETECTION_DATA_CFG,configs/detection/yolo_configs/data/demo.yaml}
 
-max_det: 100
-half: true
-device: cuda:0
-split: "val"
-
-name: "debugging-val"
-workers: 8
-single_cls: true
+eval:
+  split: val
+  device: cpu
+  batch_size: 8
+  imgsz: 800
+  iou: 0.7
+  conf: 0.25
+  single_cls: true
+  results_dir: results/eval

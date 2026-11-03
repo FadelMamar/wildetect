@@ -65,19 +65,15 @@ wildtrain\scripts\train_detector.bat
 ### Step 4: Evaluate
 
 ```bash
-wildtrain evaluate detector -c configs/detection/yolo_configs/yolo_eval.yaml
+wildtrain evaluate -c configs/detection/yolo_configs/yolo_eval.yaml
 ```
 
-You can also run direct Ultralytics evaluation:
-
-```bash
-wildtrain evaluate yolo-model -c configs/detection/yolo_configs/eval_config.yaml
-```
+`configs/detection/yolo_configs/eval_config.yaml` is the same eval document. `wildtrain evaluate yolo-model` has been removed.
 
 ### Step 5: Register Model to MLflow
 
 ```bash
-wildtrain register detector configs/registration/detector_registration_example.yaml
+wildtrain register -c configs/registration/detector_registration_example.yaml
 ```
 
 See [Registration Config Reference](../configs/wildtrain/registration.md) for config details.
@@ -174,13 +170,13 @@ wildtrain run -c configs/classification/classification_train.yaml
 ### Step 5: Evaluate
 
 ```bash
-wildtrain evaluate classifier -c configs/classification/classification_eval.yaml
+wildtrain evaluate -c configs/classification/classification_eval.yaml
 ```
 
 ### Step 6: Register Model to MLflow
 
 ```bash
-wildtrain register classifier -c configs/registration/classifier_registration_example.yaml
+wildtrain register -c configs/registration/classifier_registration_example.yaml
 ```
 
 ---

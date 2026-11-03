@@ -10,7 +10,6 @@ All models have been reorganized into the schemas package:
 - wildtrain.shared.schemas.yolo - YOLO-specific configs
 - wildtrain.shared.schemas.detection - Detection configs
 - wildtrain.shared.schemas.sweep - Hyperparameter sweep configs
-- wildtrain.shared.schemas.pipeline - Pipeline configs
 - wildtrain.shared.schemas.visualization - Visualization configs
 - wildtrain.shared.schemas.registration - Model registration configs
 """

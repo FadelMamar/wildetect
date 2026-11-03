@@ -15,6 +15,7 @@ from wildtrain.harness.result import FitResult
 from wildtrain.models.register import ModelMetadata, ModelTask, ModelType
 from wildtrain.shared.config_loader import ConfigLoader
 from wildtrain.shared.config_types import ConfigType
+from wildtrain.shared.validation import ConfigValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLASSIFICATION_YAML = (
@@ -122,9 +123,18 @@ def test_registry_dispatches_known_tasks_only() -> None:
 def test_config_loader_dispatch_is_frozen(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Freeze which loader each ConfigType calls, including the registration quirk."""
+    """Freeze which loader each ConfigType calls.
+
+    DETECTOR_REGISTRATION and MODEL_REGISTRATION both use the detector schema.
+    """
     path = tmp_path / "config.yaml"
     path.write_text("{}", encoding="utf-8")
+    for config_type in (
+        ConfigType.CLASSIFICATION_PIPELINE,
+        ConfigType.DETECTION_PIPELINE,
+    ):
+        with pytest.raises(ConfigValidationError, match="eval.enabled"):
+            ConfigLoader.validate_config_file(path, config_type)
     called: list[str] = []
 
     def _record(name: str):
@@ -154,7 +164,6 @@ def test_config_loader_dispatch_is_frozen(
         "load_detection_visualization_config",
         _record("detection_visualization"),
     )
-    monkeypatch.setattr(ConfigLoader, "load_pipeline_config", _record("pipeline"))
     monkeypatch.setattr(
         ConfigLoader,
         "load_localizer_registration_config",
@@ -178,19 +187,14 @@ def test_config_loader_dispatch_is_frozen(
         ConfigType.DETECTION_EVAL: "detection_eval",
         ConfigType.CLASSIFICATION_VISUALIZATION: "classification_visualization",
         ConfigType.DETECTION_VISUALIZATION: "detection_visualization",
-        ConfigType.CLASSIFICATION_PIPELINE: "pipeline",
-        ConfigType.DETECTION_PIPELINE: "pipeline",
-        # Current behavior: detector registration validates the localizer schema.
-        ConfigType.DETECTOR_REGISTRATION: "localizer_registration",
+        ConfigType.DETECTOR_REGISTRATION: "detector_registration",
         ConfigType.CLASSIFIER_REGISTRATION: "classifier_registration",
+        ConfigType.MODEL_REGISTRATION: "detector_registration",
     }
     for config_type, loader_name in expected.items():
         called.clear()
         assert ConfigLoader.validate_config_file(path, config_type) is True
         assert called == [loader_name]
-
-    with pytest.raises(Exception, match="Unknown config type"):
-        ConfigLoader.validate_config_file(path, ConfigType.MODEL_REGISTRATION)
 
 
 def test_registered_model_metadata_keys() -> None:
@@ -305,6 +309,46 @@ def test_removed_train_subcommands_do_not_train() -> None:
 
     assert classification.exit_code != 0
     assert detection.exit_code != 0
+
+
+def test_detector_registration_type_uses_the_detector_schema(tmp_path: Path) -> None:
+    localizer_only = tmp_path / "localizer.yaml"
+    localizer_only.write_text(
+        yaml.safe_dump(
+            {
+                "yolo": {"imgsz": 64, "weights": "best.pt"},
+                "processing": {"batch_size": 2, "name": "localizer"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigValidationError):
+        ConfigLoader.validate_config_file(
+            localizer_only, ConfigType.DETECTOR_REGISTRATION
+        )
+
+    detector = tmp_path / "detector.yaml"
+    detector.write_text(
+        yaml.safe_dump(
+            {
+                "localizer": {
+                    "yolo": {"imgsz": 64, "weights": "best.pt"},
+                    "processing": {"batch_size": 2},
+                },
+                "classifier": {"weights": None, "processing": {"batch_size": 2}},
+                "processing": {"name": "detector", "batch_size": 2},
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        ConfigLoader.validate_config_file(detector, ConfigType.DETECTOR_REGISTRATION)
+        is True
+    )
+    assert (
+        ConfigLoader.validate_config_file(detector, ConfigType.MODEL_REGISTRATION)
+        is True
+    )
 
 
 def test_hydra_and_openmim_are_not_dependencies() -> None:

@@ -1,114 +1,55 @@
-"""Evaluation-related CLI commands."""
+"""Evaluate through the harness registry."""
 
 import traceback
 from pathlib import Path
-from typing import Any, Dict
-import yaml
 
 import typer
+from pydantic import ValidationError
 
-from ...evaluators.classification import ClassificationEvaluator
-from ...evaluators.ultralytics import UltralyticsEvaluator
-from ...shared.config_loader import ConfigLoader
-from ...shared.validation import (
-    ConfigFileNotFoundError,
-    ConfigParseError,
-    ConfigValidationError,
-)
+from ...harness.config import experiment_from_mapping
+from ...harness.ops import load_eval_document, load_yaml
+from ...harness.runner import default_registry
 from .utils import console, log_file_path, setup_logging
 
-evaluate_app = typer.Typer(name="evaluate", help="Evaluation commands")
+evaluate_app = typer.Typer(
+    name="evaluate",
+    help="Evaluate an experiment or a standalone eval file",
+    invoke_without_command=True,
+)
 
-@evaluate_app.command()
-def yolo_model(config: Path = typer.Option(
-        "", "--config", "-c", help="Path to YOLO evaluation YAML config file"
-    ),):
-    from ultralytics import YOLO
-    console.print(
-        f"[bold green]Running YOLO model evaluation with Ultralytics. config:[/bold green] {config}"
-    )
 
-    with open(config) as f:
-        config = yaml.safe_load(f)    
-    model = YOLO(config.pop('model'))   
-    model.val(**config)
-    
-
-@evaluate_app.command()
-def classifier(
+@evaluate_app.callback(invoke_without_command=True)
+def evaluate(
     config: Path = typer.Option(
-        "", "--config", "-c", help="Path to classification evaluation YAML config file"
+        ...,
+        "--config",
+        "-c",
+        help="Experiment YAML or a standalone eval document",
+        exists=True,
+        dir_okay=False,
     ),
-    debug: bool = typer.Option(False, "--debug", help="Enable debug mode"),
-) -> Dict[str, Any]:
-    """Evaluate a classifier using a YAML config file."""
-
-    console.print(
-        f"[bold green]Running classifier evaluation with config:[/bold green] {config}"
-    )
-    log_file = log_file_path("evaluate_classifier")
-    setup_logging(log_file=log_file)
+    debug: bool = typer.Option(False, "--debug", help="Score a few batches only"),
+) -> None:
+    """Evaluate the task named in the file."""
+    console.print(f"[bold green]Evaluating:[/bold green] {config}")
+    setup_logging(log_file=log_file_path("evaluate"))
     try:
-        # Load and validate configuration using Pydantic
-        validated_config = ConfigLoader.load_classification_eval_config(config)
-        console.print(
-            "[bold green]✓[/bold green] Classification evaluation configuration validated successfully"
-        )
-
-        console.print("cfg:", validated_config)
-
-        evaluator = ClassificationEvaluator(config=validated_config)
-        results = evaluator.evaluate(debug=debug)
-        console.print("\n[bold blue]Classifier Evaluation Results:[/bold blue]")
-        console.print(results)
-
-    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError):
-        console.print(
-            f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}"
-        )
+        target = _load_target(config)
+        task = default_registry().get(target.task)
+        report = task.evaluate(target, debug=debug)
+        console.print(report)
+    except (FileNotFoundError, ValidationError, KeyError, ValueError) as exc:
+        console.print(f"[bold red]✗[/bold red] {exc}")
         raise typer.Exit(1)
     except Exception:
         console.print(
-            f"[bold red]✗[/bold red] Evaluation failed: {traceback.format_exc()}"
+            f"[bold red]✗[/bold red] Evaluation failed:\n{traceback.format_exc()}"
         )
         raise typer.Exit(1)
 
-    return results
 
-
-@evaluate_app.command()
-def detector(
-    config: Path = typer.Option(
-        "", "--config", "-c", help="Path to YOLO evaluation YAML config file"
-    ),
-    debug: bool = typer.Option(False, "--debug", help="Enable debug mode"),
-) -> Dict[str, Any]:
-    """Evaluate a YOLO model using a YAML config file."""
-
-    log_file = log_file_path("evaluate_detector")
-    setup_logging(log_file=log_file)
-
-    try:
-        # Load and validate configuration using Pydantic
-        cfg = ConfigLoader.load_detection_eval_config(config)
-        console.print(
-            "[bold green]✓[/bold green] Detection evaluation configuration validated successfully"
-        )
-        console.print("cfg:", cfg)
-
-        evaluator = UltralyticsEvaluator(config=cfg)
-        results = evaluator.evaluate(debug=debug)
-        console.print(results)
-
-    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError):
-        console.print(
-            f"[bold red]✗[/bold red] Configuration error: {traceback.format_exc()}"
-        )
-        raise typer.Exit(1)
-    except Exception:
-        console.print(
-            f"[bold red]✗[/bold red] Evaluation failed: {traceback.format_exc()}"
-        )
-        raise typer.Exit(1)
-
-    return results
+def _load_target(path: Path):
+    payload = load_yaml(path)
+    if "train" in payload and "data" in payload:
+        return experiment_from_mapping(payload)
+    return load_eval_document(path)

@@ -53,165 +53,46 @@ wildtrain sweep -c configs/detection/detection_sweep.yaml
 
 ---
 
-## `evaluate` — Evaluation Commands
+## `evaluate` — Evaluation
 
-Evaluate trained models on test/validation datasets.
-
-### `evaluate classifier`
-
-Evaluate a classification model using a YAML config file.
+Score the task named in an experiment file or a standalone eval document.
 
 ```bash
-wildtrain evaluate classifier [OPTIONS]
+wildtrain evaluate -c configs/classification/classification_eval.yaml
+wildtrain evaluate -c configs/detection/yolo_configs/yolo_eval.yaml
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `""` | Path to classification evaluation YAML config |
-| `--debug` | `bool` | `false` | Enable debug mode |
+| Option | Type | Description |
+|--------|------|-------------|
+| `-c`, `--config` | `PATH` | Experiment YAML, or a standalone eval document |
+| `--debug` | flag | Score a few batches only |
 
-**Example:**
-
-```bash
-wildtrain evaluate classifier -c configs/classification/classification_eval.yaml
-```
+A standalone file has `task`, `weights`, `data`, and `eval`. An experiment is accepted too. `wildtrain run` evaluates after training when that experiment sets `eval.enabled: true`. `wildtrain evaluate classifier`, `wildtrain evaluate detector`, and `wildtrain evaluate yolo-model` are removed.
 
 ---
 
-### `evaluate detector`
+## `register` — Model registration
 
-Evaluate a YOLO detection model using a YAML config file.
-
-```bash
-wildtrain evaluate detector [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `""` | Path to YOLO evaluation YAML config |
-| `--debug` | `bool` | `false` | Enable debug mode |
-
-**Example:**
+Register the task named in a registration document to the MLflow Model Registry.
 
 ```bash
-wildtrain evaluate detector -c configs/detection/detection_sweep.yaml
+wildtrain register -c configs/registration/classifier_registration_example.yaml
+wildtrain register -c configs/registration/detector_registration_example.yaml
 ```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `-c`, `--config` | `PATH` | Registration document |
+
+The registered metadata is `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`. A detector document sets `localizer.weights`. Add `classifier_weights` for the two-stage localizer plus ROI classifier. `wildtrain register classifier` and `wildtrain register detector` are removed.
+
+See [Registration Config](../configs/wildtrain/registration.md).
 
 ---
 
-### `evaluate yolo-model`
+## `pipeline` — removed
 
-Run direct Ultralytics YOLO model validation (bypass WildTrain wrapper).
-
-```bash
-wildtrain evaluate yolo-model [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `""` | Path to YOLO evaluation YAML config |
-
-The config YAML should contain a `model` key (path to weights) plus any Ultralytics `val()` parameters.
-
----
-
-## `register` — Model Registration Commands
-
-Register trained models to the MLflow Model Registry.
-
-### `register classifier`
-
-Register a classification model to MLflow.
-
-```bash
-wildtrain register classifier [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `None` | Path to registration configuration file |
-| `--weights-path` | `PATH` | `None` | Path to model checkpoint file |
-| `-n`, `--name` | `str` | `classifier` | Model name for registration |
-| `-b`, `--batch-size` | `int` | `8` | Batch size for inference |
-| `--mlflow-uri` | `str` | `http://localhost:5000` | MLflow tracking server URI |
-
-You can use either `--config` or provide options directly. When using `--config`, don't provide other options.
-
-**Examples:**
-
-```bash
-# Using config file
-wildtrain register classifier -c configs/registration/classifier_registration_example.yaml
-
-# Using direct options
-wildtrain register classifier --weights-path model.ckpt --name my_classifier --mlflow-uri http://localhost:5000
-```
-
-See [Registration Config](../configs/wildtrain/registration.md) for config details.
-
----
-
-### `register detector`
-
-Register a detection model to MLflow.
-
-```bash
-wildtrain register detector CONFIG_PATH
-```
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `CONFIG_PATH` | `PATH` | Path to detector registration configuration file |
-
-**Example:**
-
-```bash
-wildtrain register detector configs/registration/detector_registration_example.yaml
-```
-
----
-
-## `pipeline` — Pipeline Commands
-
-Run full train + eval pipelines in a single command.
-
-### `pipeline detection`
-
-Run the full detection pipeline (train + evaluate).
-
-```bash
-wildtrain pipeline detection [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `None` | Path to unified detection pipeline YAML config |
-
-**Example:**
-
-```bash
-wildtrain pipeline detection -c configs/detection/detection_sweep.yaml
-```
-
----
-
-### `pipeline classification`
-
-Run the full classification pipeline (train + evaluate).
-
-```bash
-wildtrain pipeline classification [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `None` | Path to unified classification pipeline YAML config |
-
-**Example:**
-
-```bash
-wildtrain pipeline classification -c configs/classification/classification_pipeline_config.yaml
-```
+Train-then-eval is one experiment. Set `eval.enabled: true` and run `wildtrain run -c experiment.yaml`. `wildtrain pipeline classification` and `wildtrain pipeline detection` exit with that message. An old pipeline file (`train.config` and `eval.config`) raises the same error.
 
 ---
 
@@ -230,14 +111,15 @@ wildtrain config validate CONFIG_PATH [OPTIONS]
 | Argument / Option | Type | Default | Description |
 |-------------------|------|---------|-------------|
 | `CONFIG_PATH` | `PATH` | *(required)* | Path to configuration file |
-| `-t`, `--type` | `str` | `classification` | Config type (see below) |
+| `-t`, `--type` | `str` | auto | `experiment`, `eval`, `visualization`, or `registration` |
 
-**Supported config types:** `classification`, `detection`, `classification_eval`, `detection_eval`, `classification_visualization`, `detection_visualization`, `pipeline`, `detector_registration`, `classifier_registration`, `model_registration`
+With no `--type`, the file is detected from its keys. Old trainer types such as `classification` are not accepted.
 
 **Example:**
 
 ```bash
-wildtrain config validate configs/classification/classification_train.yaml --type classification
+wildtrain config validate configs/classification/classification_train.yaml
+wildtrain config validate configs/classification/classification_eval.yaml --type eval
 ```
 
 ---
@@ -293,47 +175,20 @@ wildtrain dataset stats D:/data/roi_dataset --split train -o stats.json
 
 ---
 
-## `visualize` — Visualization Commands
+## `visualize` — Visualization
 
-Upload model predictions to FiftyOne for interactive visualization.
-
-### `visualize classifier-predictions`
-
-Upload classifier predictions to a FiftyOne dataset.
+Upload predictions for the task named in the file. Classification and detection both go through FiftyOne. The detection file can also carry Label Studio fields.
 
 ```bash
-wildtrain visualize classifier-predictions [OPTIONS]
+wildtrain visualize -c configs/classification/classification_visualization.yaml
+wildtrain visualize -c configs/detection/visualization.yaml
 ```
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `""` | Path to classification visualization YAML config |
+| Option | Type | Description |
+|--------|------|-------------|
+| `-c`, `--config` | `PATH` | Visualization document (`task`, `dataset_name`, `weights`) |
 
-**Example:**
-
-```bash
-wildtrain visualize classifier-predictions -c configs/classification/classification_visualization.yaml
-```
-
----
-
-### `visualize detector-predictions`
-
-Upload detector predictions to a FiftyOne dataset.
-
-```bash
-wildtrain visualize detector-predictions [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `-c`, `--config` | `PATH` | `""` | Path to detection visualization YAML config |
-
-**Example:**
-
-```bash
-wildtrain visualize detector-predictions -c configs/detection/visualization.yaml
-```
+`wildtrain visualize classifier-predictions` and `wildtrain visualize detector-predictions` are removed.
 
 ---
 
@@ -371,17 +226,13 @@ wildtrain run-server --port 4141 -w 2
 |---------|-------------|
 | `wildtrain run -c CONFIG` | Train the task named in an experiment file |
 | `wildtrain sweep -c CONFIG` | Optuna sweep for either task |
-| `wildtrain evaluate classifier -c CONFIG` | Evaluate a classifier |
-| `wildtrain evaluate detector -c CONFIG` | Evaluate a detector |
-| `wildtrain register classifier -c CONFIG` | Register classifier to MLflow |
-| `wildtrain register detector CONFIG` | Register detector to MLflow |
-| `wildtrain pipeline detection -c CONFIG` | Full detection pipeline |
-| `wildtrain pipeline classification -c CONFIG` | Full classification pipeline |
-| `wildtrain config validate CONFIG --type TYPE` | Validate a config file |
+| `wildtrain evaluate -c CONFIG` | Evaluate an experiment or eval document |
+| `wildtrain register -c CONFIG` | Register a classifier or detector |
+| `wildtrain run -c CONFIG` with `eval.enabled: true` | Train, then evaluate |
+| `wildtrain config validate CONFIG` | Validate an experiment, eval, visualization, or registration file |
 | `wildtrain config template TYPE` | Generate config template |
 | `wildtrain dataset stats DATA_DIR` | Compute dataset stats |
-| `wildtrain visualize classifier-predictions -c CONFIG` | Visualize classifier predictions |
-| `wildtrain visualize detector-predictions -c CONFIG` | Visualize detector predictions |
+| `wildtrain visualize -c CONFIG` | Upload predictions for the task in the file |
 | `wildtrain run-server -c CONFIG` | Start inference server |
 
 ---

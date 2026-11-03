@@ -9,11 +9,9 @@ from PIL import Image
 
 from wildtrain.data.classification_datamodule import ClassificationDataModule
 from wildtrain.data.label_policy import resolve_label_policy
-from wildtrain.evaluators.classification import ClassificationEvaluator
 from wildtrain.evaluators.classification_metrics import build_classification_metrics
 from wildtrain.harness.config import load_experiment
 from wildtrain.harness.runner import run_experiment
-from wildtrain.shared.schemas.classification import ClassificationEvalConfig
 from wildtrain.trainers import classification_trainer as trainer_module
 
 # File order is not sorted by source id. Background is not first.
@@ -176,6 +174,26 @@ def test_enable_false_is_identity(tmp_path: Path) -> None:
     assert list(module.class_mapping.values()) == ["background", "zebra", "elephant"]
 
 
+def test_single_layer_head_projects_backbone_features() -> None:
+    from wildtrain.models.classifier import ClassifierHead
+
+    single = ClassifierHead(
+        input_dim=192, num_classes=3, hidden_dim=16, num_layers=1, dropout=0.0
+    )
+    assert single(torch.randn(2, 192)).shape == (2, 3)
+    assert single.fc[0].in_features == 192
+
+    stacked = ClassifierHead(
+        input_dim=192, num_classes=3, hidden_dim=16, num_layers=2, dropout=0.0
+    )
+    restored = ClassifierHead(
+        input_dim=192, num_classes=3, hidden_dim=16, num_layers=2, dropout=0.0
+    )
+    restored.load_state_dict(stacked.state_dict())
+    assert stacked.fc[0][0].in_features == 192
+    assert restored(torch.randn(2, 192)).shape == (2, 3)
+
+
 def test_train_and_eval_metrics_match() -> None:
     probs = torch.softmax(torch.randn(8, 3), dim=1)
     target = torch.tensor([0, 1, 2, 0, 1, 2, 0, 1])
@@ -220,18 +238,20 @@ def test_multiclass_roi_trains_and_evaluates(tmp_path: Path, monkeypatch) -> Non
 
     eval_path = tmp_path / "eval.yaml"
     eval_payload = {
-        "classifier": result.best_path,
-        "split": "val",
-        "device": "cpu",
-        "batch_size": 2,
-        "dataset": {
-            "root_data_directory": str(tmp_path),
+        "task": "classification",
+        "weights": result.best_path,
+        "data": {
+            "format": "roi",
+            "root": str(tmp_path),
             "label_policy": {"mode": "identity"},
         },
+        "eval": {"split": "val", "device": "cpu", "batch_size": 2, "enabled": True},
     }
     eval_path.write_text(yaml.safe_dump(eval_payload), encoding="utf-8")
-    evaluator = ClassificationEvaluator(ClassificationEvalConfig.from_yaml(eval_path))
-    report = evaluator.evaluate()
+    from wildtrain.harness.ops import load_eval_document
+    from wildtrain.harness.tasks.classification import ClassificationTask
+
+    report = ClassificationTask().evaluate(load_eval_document(eval_path), debug=True)
 
     assert set(build_classification_metrics(3)) <= set(report)
     assert "f1_class_elephant" in report
@@ -247,3 +267,42 @@ def test_multiclass_roi_trains_and_evaluates(tmp_path: Path, monkeypatch) -> Non
     for index in range(len(saved)):
         names.append(saved[index] if index in saved else saved[str(index)])
     assert names == ["background", "zebra", "elephant"]
+
+    import mlflow
+
+    from wildtrain.harness.ops import RegistrationDocument
+    from wildtrain.harness.tasks.classification import ClassificationTask
+    from wildtrain.utils.mlflow import load_registered_model
+    from wildetect.core.detectors.base import tile_size_from_metadata
+
+    registry = tmp_path / "registry.db"
+    uri = f"sqlite:///{registry.as_posix()}"
+    ClassificationTask().register(
+        RegistrationDocument(
+            task="classification",
+            name="roi-classifier",
+            weights=result.best_path,
+            batch=2,
+            mlflow_tracking_uri=uri,
+            export_format="torchscript",
+        )
+    )
+    mlflow.set_tracking_uri(uri)
+    loaded = load_registered_model(
+        "demo",
+        "roi-classifier",
+        mlflow_tracking_url=uri,
+        load_unwrapped=True,
+        dwnd_location=tmp_path / "models",
+    )
+    assert {
+        "batch",
+        "imgsz",
+        "task",
+        "num_classes",
+        "model_type",
+        "cls_export_format",
+    } <= set(loaded.metadata)
+    assert loaded.metadata["model_type"] == "classifier"
+    assert loaded.metadata["task"] == "classify"
+    assert tile_size_from_metadata(loaded.metadata) == loaded.metadata["imgsz"]

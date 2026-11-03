@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from wildtrain.cli.config_loader import ROOT, ConfigLoader
+from wildtrain.cli.config_loader import ROOT
 from wildtrain.harness.config import load_experiment
 
 from wildtrain.api.main import fastapi_app as app
@@ -60,67 +60,43 @@ def detection_config():
     return load_experiment(config_path).model_dump(mode="json", exclude_none=True)
 
 
+def _document(loader, config_path: Path) -> dict:
+    return loader(config_path).model_dump(mode="json")
+
+
 @pytest.fixture
 def classification_eval_config():
-    """Load real classification evaluation config for testing."""
-    config_path = ROOT / "configs" / "classification" / "classification_eval.yaml"
-    return safe_load_config(
-        config_path,
-        ConfigLoader.load_classification_eval_config,
-    )
+    """Shipped classification eval document."""
+    from wildtrain.harness.ops import load_eval_document
+
+    path = ROOT / "configs" / "classification" / "classification_eval.yaml"
+    return _document(load_eval_document, path)
 
 
 @pytest.fixture
 def detection_eval_config():
-    """Load real detection evaluation config for testing."""
-    config_path = ROOT / "configs" / "detection" / "yolo_configs" / "yolo_eval.yaml"
-    return safe_load_config(
-        config_path,
-        ConfigLoader.load_detection_eval_config,
-    )
+    """Shipped detection eval document."""
+    from wildtrain.harness.ops import load_eval_document
+
+    path = ROOT / "configs" / "detection" / "yolo_configs" / "yolo_eval.yaml"
+    return _document(load_eval_document, path)
 
 
 @pytest.fixture
 def classification_visualization_config():
-    """Load real classification visualization config for testing."""
-    config_path = (
-        ROOT / "configs" / "classification" / "classification_visualization.yaml"
-    )
-    return safe_load_config(
-        config_path,
-        ConfigLoader.load_classification_visualization_config,
-    )
+    """Shipped classification visualization document."""
+    from wildtrain.harness.ops import load_visualization_document
+
+    path = ROOT / "configs" / "classification" / "classification_visualization.yaml"
+    return _document(load_visualization_document, path)
 
 
 @pytest.fixture
 def detection_visualization_config():
-    """Load real detection visualization config for testing."""
-    config_path = ROOT / "configs" / "detection" / "visualization.yaml"
-    return safe_load_config(
-        config_path,
-        ConfigLoader.load_detection_visualization_config,
-    )
+    """Shipped detection visualization document."""
+    from wildtrain.harness.ops import load_visualization_document
+
+    path = ROOT / "configs" / "detection" / "visualization.yaml"
+    return _document(load_visualization_document, path)
 
 
-@pytest.fixture
-def classification_pipeline_config():
-    """Load real classification pipeline config for testing."""
-    config_path = (
-        ROOT / "configs" / "classification" / "classification_pipeline_config.yaml"
-    )
-    return safe_load_config(
-        config_path,
-        lambda p: ConfigLoader.load_pipeline_config(p, "classification"),
-    )
-
-
-@pytest.fixture
-def detection_pipeline_config():
-    """Load real detection pipeline config for testing."""
-    config_path = (
-        ROOT / "configs" / "detection" / "yolo_configs" / "yolo_pipeline_config.yaml"
-    )
-    return safe_load_config(
-        config_path,
-        lambda p: ConfigLoader.load_pipeline_config(p, "detection"),
-    )

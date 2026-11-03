@@ -53,15 +53,6 @@ from .detection import (
     DetectionWeightsConfig,
 )
 
-# Pipeline configurations
-from .pipeline import (
-    ClassificationPipelineConfig,
-    DetectionPipelineConfig,
-    EvalPipelineConfig,
-    PipelineConfig,
-    TrainPipelineConfig,
-)
-
 # Registration configurations
 from .registration import (
     ClassifierRegistrationConfig,
@@ -137,12 +128,6 @@ __all__ = [
     # Calibrator
     "CalibrationParametersConfig",
     "CalibrationConfig",
-    # Pipeline
-    "TrainPipelineConfig",
-    "EvalPipelineConfig",
-    "PipelineConfig",
-    "ClassificationPipelineConfig",
-    "DetectionPipelineConfig",
     # Visualization
     "LabelStudioConfig",
     "FiftyOneConfig",

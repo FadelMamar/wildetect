@@ -1,10 +1,8 @@
 @echo off
-REM Example script to run the detection pipeline using WildTrain CLI
+REM Train then evaluate one experiment. Set eval.enabled: true in the file.
 
 call cd /d %~dp0 && cd ..
 
-REM Set example config path
-set CONFIG_PATH=configs\detection\yolo_configs\yolo_pipeline_config.yaml
+set CONFIG_PATH=configs\detection\yolo_configs\yolo.yaml
 
-REM Run the run_detection_pipeline CLI command
-call uv run wildtrain pipeline detection -c %CONFIG_PATH% 
+call uv run wildtrain run -c %CONFIG_PATH%
