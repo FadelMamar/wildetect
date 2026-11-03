@@ -74,26 +74,6 @@ This guide will help you install all three packages in the WildDetect monorepo: 
     uv pip install -e .
     ```
 
-    ### 5. Install MMDetection (Optional)
-    
-    If you want to use MMDetection framework:
-    ```bash
-    # Install OpenMMLab dependencies
-    uv pip install -U openmim
-    uv run mim install mmengine
-    
-    # Install MMCV (choose based on your setup)
-    # For CPU:
-    uv pip install mmcv==2.0.1 -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html
-    
-    # For CUDA 11.8:
-    uv pip install mmcv==2.0.1 -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.1/index.html
-    
-    # Install MMDetection
-    uv run mim install mmdet
-    uv pip install numpy==1.26.4
-    ```
-
 === "Method 2: Install from GitHub"
 
     You can install packages directly from GitHub:
@@ -221,14 +201,6 @@ If you have an NVIDIA GPU, ensure CUDA is properly installed:
       batch_size: 16  # Reduce from 32
       tile_size: 640  # Reduce from 800
     ```
-
-??? question "MMDetection installation fails"
-    
-    Install dependencies in this order:
-    1. PyTorch
-    2. MMCV (matching your CUDA version)
-    3. MMEngine
-    4. MMDetection
 
 ??? question "uv command not found"
     

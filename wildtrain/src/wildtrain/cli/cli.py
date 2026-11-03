@@ -9,6 +9,7 @@ import typer
 from ..server import run_inference_server
 from ..shared.models import InferenceConfig
 from .commands import config, dataset, evaluate, pipeline, register, train, visualize
+from .commands.run import run_app
 from .commands.utils import display_welcome_message
 
 # Create Typer app
@@ -45,6 +46,7 @@ app.add_typer(
 app.add_typer(pipeline.pipeline_app, name="pipeline", help="Pipeline commands")
 app.add_typer(visualize.visualize_app, name="visualize", help="Visualization commands")
 app.add_typer(dataset.dataset_app, name="dataset", help="Dataset commands")
+app.add_typer(run_app, name="run", help="Run an experiment file")
 
 
 @app.command()

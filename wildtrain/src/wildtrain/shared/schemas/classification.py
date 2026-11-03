@@ -28,8 +28,16 @@ class ClassificationDatasetConfig(BaseConfig):
     curriculum_config: Optional[CurriculumConfig] = Field(
         default=None, description="Curriculum configuration"
     )
+    label_policy: Optional[SingleClassConfig] = Field(
+        default=None,
+        description=(
+            "How ROI labels are mapped. collapse is the wildlife default. "
+            "identity keeps species. Overrides single_class when set."
+        ),
+    )
     single_class: Optional[SingleClassConfig] = Field(
-        default=None, description="Single class configuration"
+        default=None,
+        description="Alias of label_policy kept for existing configs.",
     )
     rebalance: bool = Field(default=False, description="Enable dataset rebalancing")
 
@@ -161,8 +169,13 @@ class ClassificationEvalDatasetConfig(BaseConfig):
     root_data_directory: str = Field(
         description="Root directory containing the dataset"
     )
+    label_policy: Optional[SingleClassConfig] = Field(
+        default=None,
+        description="How ROI labels are mapped. Overrides single_class when set.",
+    )
     single_class: Optional[SingleClassConfig] = Field(
-        default=None, description="Single class configuration"
+        default=None,
+        description="Alias of label_policy kept for existing configs.",
     )
 
     @field_validator("root_data_directory")

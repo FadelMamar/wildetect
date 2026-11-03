@@ -9,10 +9,8 @@ readme = "README.md"
 requires-python = "~=3.11.0"
 dependencies = [
     "dvc[s3]",
-    "hydra-core",
     "lightning==2.3.3",
     "mlflow[extras]",
-    "openmim>=0.3.9",
     "python-dotenv",
     "rich>=14.0.0",
     "fiftyone==1.2.0",
