@@ -111,7 +111,9 @@ class UltralyticsLocalizer(ObjectLocalizer):
             self.merging_method = MergingMethodConfig(merging_method)
             self.disable_detection_filtering = disable_detection_filtering
 
-        self.class_agnostic = True  # single class detection is localization
+        # One class name is the wildlife localizer: class-agnostic NMS.
+        # Several names are a multi-class detector: suppress within each class.
+        self.class_agnostic = len(self.model.names) == 1
         self.overlap_metrics = {
             OverlapMetricConfig.IOU: sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
             OverlapMetricConfig.IOS: sv.detection.utils.iou_and_nms.OverlapMetric.IOS,
@@ -142,16 +144,20 @@ class UltralyticsLocalizer(ObjectLocalizer):
     ) -> sv.Detections:
         """Apply filtering to remove duplicate predictions."""
         detections = self._update_class_mapping(detections)
+        # Re-read names so a single-class weight file stays class-agnostic
+        # even if the attribute was set before the model was loaded.
+        class_agnostic = len(self.model.names) == 1
+        self.class_agnostic = class_agnostic
         if self.merging_method == MergingMethodConfig.NMS:
             return detections.with_nms(
                 threshold=self.iou_thres,
-                class_agnostic=self.class_agnostic,
+                class_agnostic=class_agnostic,
                 overlap_metric=self.overlap_metrics[self.overlap_metric],
             )
         elif self.merging_method == MergingMethodConfig.NMM:
             return detections.with_nmm(
                 threshold=self.iou_thres,
-                class_agnostic=self.class_agnostic,
+                class_agnostic=class_agnostic,
                 overlap_metric=self.overlap_metrics[self.overlap_metric],
             )
         elif self.merging_method == MergingMethodConfig.NONE:
@@ -225,6 +231,7 @@ class UltralyticsLocalizer(ObjectLocalizer):
             postprocess_type=str(self.merging_method).upper(),
             postprocess_match_threshold=self.iou_thres,
             postprocess_match_metric=str(self.overlap_metric).upper(),
+            postprocess_class_agnostic=len(self.model.names) == 1,
             verbose=0,
             batch_size=batch_size,
         )

@@ -18,6 +18,7 @@ from wildtrain.models.localizer import (
     apply_single_class_id_shift,
 )
 from wildtrain.shared.schemas.detection import DetectionConfig
+from wildtrain.shared.schemas.yolo import MergingMethodConfig, OverlapMetricConfig
 from wildtrain.trainers.detection_trainer import UltralyticsDetectionTrainer
 
 
@@ -208,6 +209,97 @@ def test_detection_metrics_score_a_perfect_box() -> None:
     metric.update(pred, target)
     score = metric.compute()
     assert float(score.map50) == 1.0
+
+
+def _at(result, low: str, high: str) -> tuple[float, float]:
+    return float(getattr(result, low)), float(getattr(result, high))
+
+
+def _scores(
+    pred: sv.Detections, target: sv.Detections
+) -> dict[str, tuple[float, float]]:
+    metrics = build_detection_metrics(class_agnostic=False, average="macro")
+    scores = {}
+    fields = {
+        "precision": ("precision_at_50", "precision_at_75"),
+        "recall": ("recall_at_50", "recall_at_75"),
+        "f1": ("f1_50", "f1_75"),
+    }
+    for name, (low, high) in fields.items():
+        metrics[name].update(pred, target)
+        scores[name] = _at(metrics[name].compute(), low, high)
+    return scores
+
+
+def test_precision_recall_f1_on_hand_checked_cases() -> None:
+    matched = _box()
+    perfect = _scores(matched, matched)
+    assert perfect == {
+        "precision": (1.0, 1.0),
+        "recall": (1.0, 1.0),
+        "f1": (1.0, 1.0),
+    }
+
+    missed = sv.Detections.empty()
+    only_false_positive = _scores(matched, missed)
+    assert only_false_positive["precision"] == (0.0, 0.0)
+    assert only_false_positive["recall"] == (0.0, 0.0)
+
+    only_miss = _scores(missed, matched)
+    assert only_miss["precision"] == (0.0, 0.0)
+    assert only_miss["recall"] == (0.0, 0.0)
+
+    # Intersection 50, union 100, IoU exactly 0.5. Counts at 0.5, not at 0.75.
+    half_overlap = sv.Detections(
+        xyxy=np.array([[0.0, 0.0, 10.0, 5.0]], dtype=np.float32),
+        confidence=np.array([0.8], dtype=np.float32),
+        class_id=np.array([0]),
+    )
+    edge = _scores(half_overlap, matched)
+    assert edge["precision"] == (1.0, 0.0)
+    assert edge["recall"] == (1.0, 0.0)
+    assert edge["f1"] == (1.0, 0.0)
+
+
+def _localizer(names: dict[int, str]) -> UltralyticsLocalizer:
+    localizer = object.__new__(UltralyticsLocalizer)
+    localizer.model = type("Model", (), {"names": names})()
+    localizer.iou_thres = 0.5
+    localizer.merging_method = MergingMethodConfig.NMS
+    localizer.overlap_metric = OverlapMetricConfig.IOU
+    localizer.overlap_metrics = {
+        OverlapMetricConfig.IOU: sv.detection.utils.iou_and_nms.OverlapMetric.IOU,
+    }
+    return localizer
+
+
+def _overlapping_pair(class_ids: list[int]) -> sv.Detections:
+    return sv.Detections(
+        xyxy=np.array(
+            [[0.0, 0.0, 10.0, 10.0], [0.0, 0.0, 10.0, 10.0]], dtype=np.float32
+        ),
+        confidence=np.array([0.95, 0.9], dtype=np.float32),
+        class_id=np.array(class_ids),
+    )
+
+
+def test_single_class_nms_stays_class_agnostic_and_shifts_ids() -> None:
+    localizer = _localizer({0: "wildlife"})
+    kept = localizer._apply_filtering(_overlapping_pair([0, 0]))
+    assert localizer.class_agnostic is True
+    assert len(kept) == 1
+    assert kept.class_id.tolist() == [1]
+    assert kept.metadata["class_mapping"] == {0: "wildlife"}
+
+
+def test_multi_class_nms_is_per_class_without_id_shift() -> None:
+    names = {0: "elephant", 1: "zebra"}
+    localizer = _localizer(names)
+    kept = localizer._apply_filtering(_overlapping_pair([0, 1]))
+    assert localizer.class_agnostic is False
+    assert len(kept) == 2
+    assert sorted(kept.class_id.tolist()) == [0, 1]
+    assert kept.metadata["class_mapping"] == names
 
 
 def test_tiny_ultralytics_run(tmp_path: Path) -> None:

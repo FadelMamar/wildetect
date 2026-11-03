@@ -587,7 +587,8 @@ Done in this phase:
 - `select_detection_backend` chooses `UltralyticsBackend` unless `use_custom_yolo` is true. The default import path does not load `yolo_utils.py`. `CustomYoloBackend` builds the same `CustomYOLO` fork, only when selected.
 - Dataset YAML merge/filter and the Ultralytics MLflow toggle live under `wildtrain.harness.detection`. The trainer calls them and still lets Ultralytics run the inner loop.
 - Supervision box metrics live in `build_detection_metrics`. `UltralyticsEvaluator` uses that factory.
-- `single_cls` defaults to true, including the shipped YAML. `single_cls: false` is forwarded to Ultralytics instead of raising. The localizer still shifts class ids by +1 when the weight file has a single class name.
+- `single_cls` defaults to true, including the shipped YAML. `single_cls: false` is forwarded to Ultralytics instead of raising. A loaded single-class localizer still uses class-agnostic NMS and shifts class ids by +1. A loaded multi-class model uses per-class NMS, does not shift ids, and keeps the model's class names.
+- Detection precision, recall, and F1 use the installed supervision metrics. The old overrides called a private matcher that supervision 0.31 removed.
 
 Still owned by the trainer, on purpose:
 
