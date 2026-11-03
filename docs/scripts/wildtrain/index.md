@@ -102,7 +102,7 @@ scripts\train_classifier.bat
 
 **Command**:
 ```batch
-uv run wildtrain eval classifier -c configs\classification\classification_eval.yaml
+uv run wildtrain evaluate -c configs\classification\classification_eval.yaml
 ```
 
 **Configuration**: `wildtrain/configs/classification/classification_eval.yaml`
@@ -231,7 +231,7 @@ names: ['elephant', 'giraffe', 'zebra']
 
 **Command**:
 ```batch
-uv run wildtrain eval detector -c configs\detection\yolo_configs\yolo_eval.yaml
+uv run wildtrain evaluate -c configs\detection\yolo_configs\yolo_eval.yaml
 ```
 
 **Example Usage**:
@@ -322,7 +322,7 @@ export:
 
 **Command**:
 ```batch
-uv run wildtrain register <model_type> <config_file>
+uv run wildtrain register -c <config_file>
 ```
 
 **Example Configs**:

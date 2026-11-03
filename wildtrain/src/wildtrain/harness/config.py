@@ -125,12 +125,25 @@ class LabelPolicyConfig(BaseConfig):
 
 
 class EvalBlock(BaseConfig):
-    """Recorded eval header. wildtrain evaluate still uses its own YAML."""
+    """Evaluation settings.
 
+    ``enabled`` makes ``wildtrain run`` evaluate after training. ``wildtrain
+    evaluate -c`` always evaluates. ``metrics`` filters the report when set.
+    Detection metrics must be the names produced by the supervision report.
+    """
+
+    enabled: bool = False
     split: Literal["train", "val", "test"] = "val"
     metrics: List[str] = Field(default_factory=list)
+    device: str = "cpu"
+    batch_size: int = Field(default=8, gt=0)
+    imgsz: Optional[int] = None
     conf: Optional[float] = None
     iou: Optional[float] = None
+    single_cls: Optional[bool] = None
+    class_agnostic: bool = False
+    results_dir: str = "results/eval"
+    classifier: Optional[str] = None
 
 
 class ClassificationDataConfig(BaseConfig):

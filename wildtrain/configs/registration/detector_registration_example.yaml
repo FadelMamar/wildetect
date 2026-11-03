@@ -1,26 +1,13 @@
-
-classifier:
-  weights: null # "D:/PhD/workspace/wildetect/models-registry/detector/4/artifacts/best-v6.ckpt"
-  processing:
-    batch_size: 8 # used for onnx export
-    export_format: "torchscript" # torchscript or onnx
-
+task: detection
+name: detector
+batch: 8
+mlflow_tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://127.0.0.1:5000}
+export_format: pt
 localizer:
-  yolo:
-    weights: "/home/fadelmamar.seydou/workspace/wildetect/checkpoints/localizer.pt"
-    imgsz: 800
-    device: "cuda"
-    conf_thres: 0.703
-    iou_thres: 0.719
-    max_det: 100
-    overlap_metric: "IOU"
-    merging_method: "NMS"
-    task: "detect"
-  processing:
-    export_format: "pt"
-    batch_size: 32
-    dynamic: false
-
-processing:
-  name: "detector"
-  mlflow_tracking_uri: "http://localhost:5000"
+  weights: ${oc.env:LOCALIZER_WEIGHTS,models/best.pt}
+  imgsz: 800
+  device: cpu
+  conf_thres: 0.2
+  iou_thres: 0.3
+  max_det: 100
+  task: detect

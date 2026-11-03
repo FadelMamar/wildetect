@@ -3,11 +3,13 @@
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException
+from pydantic import ValidationError
 
+from ...harness.ops import eval_from_mapping
+from ...harness.runner import default_registry
 from ..dependencies import get_logger
-from ..models.requests import ClassificationEvalRequest, DetectionEvalRequest
+from ..models.requests import ExperimentTrainingRequest
 from ..models.responses import EvaluationResponse
-from ..services.evaluation_service import EvaluationService
 from ..utils.background_tasks import JobStatus, create_background_job, job_manager
 from ..utils.error_handling import JobNotFoundError
 
@@ -16,70 +18,31 @@ logger = get_logger("evaluation")
 router = APIRouter()
 
 
-@router.post("/classifier", response_model=EvaluationResponse)
-async def evaluate_classifier(request: ClassificationEvalRequest) -> EvaluationResponse:
-    """Evaluate a classification model."""
+@router.post("/", response_model=EvaluationResponse)
+async def evaluate_document(request: ExperimentTrainingRequest) -> EvaluationResponse:
+    """Evaluate the task named in an eval document or experiment."""
 
     try:
-        # Create background job for evaluation
-        config = request.config
+        eval_from_mapping(request.config)
         job_id = create_background_job(
-            task_func=_evaluate_classifier_task,
-            config=config,
+            task_func=_evaluate_document_task,
+            config=request.config,
             debug=request.debug,
-            metadata={
-                "task_type": "classification_evaluation",
-                "model_type": "classifier",
-                "config": config.model_dump(),
-            },
+            metadata={"task_type": "evaluation", "config": request.config},
         )
-
         return EvaluationResponse(
             success=True,
-            message="Classification evaluation job created",
-            metrics=dict(),
+            message="Evaluation job created",
+            metrics={},
             results_path=None,
             confusion_matrix=None,
             class_metrics=None,
             job_id=job_id,
         )
-
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except Exception as e:
-        logger.error(f"Failed to create classification evaluation job: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/detector", response_model=EvaluationResponse)
-async def evaluate_detector(request: DetectionEvalRequest) -> EvaluationResponse:
-    """Evaluate a detection model."""
-
-    try:
-        # Create background job for evaluation
-        config = request.config
-        job_id = create_background_job(
-            task_func=_evaluate_detector_task,
-            config=config,
-            debug=request.debug,
-            model_type=request.model_type,
-            metadata={
-                "task_type": "detection_evaluation",
-                "model_type": "detector",
-                "config": config.model_dump(),
-            },
-        )
-
-        return EvaluationResponse(
-            success=True,
-            message="Detection evaluation job created",
-            metrics=dict(),
-            results_path=None,
-            confusion_matrix=None,
-            class_metrics=None,
-            job_id=job_id,
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to create detection evaluation job: {e}")
+        logger.error(f"Failed to create evaluation job: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -155,32 +118,8 @@ async def list_evaluation_jobs(
     }
 
 
-# Background task functions
-def _evaluate_classifier_task(config: Any, debug: bool) -> Dict[str, Any]:
-    """Background task for classifier evaluation using actual CLI integration."""
-    logger.info("Starting classifier evaluation task with CLI integration")
-
-    try:
-        # Use the evaluation service to run actual CLI evaluation
-        results = EvaluationService.evaluate_classifier(config, debug)
-        logger.info("Classifier evaluation completed successfully")
-        return results
-    except Exception as e:
-        logger.error(f"Classifier evaluation failed: {e}")
-        raise
-
-
-def _evaluate_detector_task(
-    config: Any, model_type: str, debug: bool
-) -> Dict[str, Any]:
-    """Background task for detector evaluation using actual CLI integration."""
-    logger.info("Starting detector evaluation task with CLI integration")
-
-    try:
-        # Use the evaluation service to run actual CLI evaluation
-        results = EvaluationService.evaluate_detector(config, model_type, debug)
-        logger.info("Detector evaluation completed successfully")
-        return results
-    except Exception as e:
-        logger.error(f"Detector evaluation failed: {e}")
-        raise
+def _evaluate_document_task(config: dict, debug: bool = False) -> Dict[str, Any]:
+    """Background evaluation through the harness registry."""
+    target = eval_from_mapping(config)
+    task = default_registry().get(target.task)
+    return task.evaluate(target, debug=debug)

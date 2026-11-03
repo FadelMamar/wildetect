@@ -20,31 +20,39 @@ config_app = typer.Typer(name="config", help="Configuration management commands"
 @config_app.command()
 def validate(
     config: Path = typer.Argument(..., help="Path to configuration file"),
-    config_type: str = typer.Option(
-        "classification",
+    config_type: Optional[str] = typer.Option(
+        None,
         "--type",
         "-t",
-        help="Configuration type (classification, detection, classification_eval, detection_eval, classification_visualization, detection_visualization, pipeline, detector_registration, classifier_registration, model_registration)",
+        help=(
+            "Optional kind: experiment, eval, visualization, "
+            "registration, or pipeline"
+        ),
     ),
 ) -> None:
-    """Validate a configuration file using Pydantic models."""
-    console.print(
-        f"[bold green]Validating {config_type} configuration:[/bold green] {config}"
-    )
+    """Validate an experiment, eval, visualization, or registration file."""
+    from ...harness.ops import validate_harness_file
 
+    label = config_type or "harness document"
+    console.print(f"[bold green]Validating {label}:[/bold green] {config}")
     try:
-        is_valid = ConfigLoader.validate_config_file(config, ConfigType(config_type))
-        if is_valid:
-            console.print("[bold green]✓[/bold green] Configuration is valid!")
+        if config_type is None:
+            kind = validate_harness_file(config)
         else:
-            console.print("[bold red]✗[/bold red] Configuration validation failed!")
-            raise typer.Exit(1)
-    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
-        console.print(f"[bold red]✗[/bold red] {str(e)}")
+            kind = _validate_kind(config, config_type)
+        console.print(f"[bold green]✓[/bold green] Valid {kind} file")
+    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as exc:
+        console.print(f"[bold red]✗[/bold red] {exc}")
         raise typer.Exit(1)
-    except Exception as e:
-        console.print(f"[bold red]✗[/bold red] Unexpected error: {str(e)}")
+    except Exception as exc:
+        console.print(f"[bold red]✗[/bold red] {exc}")
         raise typer.Exit(1)
+
+
+def _validate_kind(config: Path, config_type: str) -> str:
+    from ...harness.ops import validate_kind
+
+    return validate_kind(config, config_type)
 
 
 @config_app.command()
@@ -71,7 +79,8 @@ def template(
             console.print(f"[bold green]✓[/bold green] Template saved to: {save_to}")
         else:
             console.print(
-                f"\n[bold blue]Default {config_type} configuration template:[/bold blue]"
+                "\n[bold blue]Default "
+                f"{config_type} configuration template:[/bold blue]"
             )
             console.print(f"\n```yaml\n{template}```")
 

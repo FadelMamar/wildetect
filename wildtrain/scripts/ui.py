@@ -13,14 +13,12 @@ import yaml
 
 # Add the src directory to the path so we can import wildtrain modules
 from wildtrain.cli import (
-    evaluate_classifier,
-    evaluate_detector,
     get_dataset_stats,
     run_classification_pipeline,
     run_detection_pipeline,
-    visualize_classifier_predictions,
-    visualize_detector_predictions,
 )
+from wildtrain.cli.commands.evaluate import evaluate as evaluate_document
+from wildtrain.cli.commands.visualize import visualize as visualize_document
 from wildtrain.utils.logging import ROOT
 
 
@@ -272,7 +270,7 @@ def evaluation_page():
                     )
 
                     success, message, result = run_command_with_progress(
-                        evaluate_classifier, Path(selected_config)
+                        evaluate_document, Path(selected_config)
                     )
 
                     if success:
@@ -307,7 +305,7 @@ def evaluation_page():
                     )
 
                     success, message, result = run_command_with_progress(
-                        evaluate_detector, Path(selected_config), model_type
+                        evaluate_document, Path(selected_config)
                     )
 
                     if success:
@@ -411,14 +409,24 @@ def visualization_page():
             if dataset_name and checkpoint_path:
                 st.info(f"Uploading predictions to FiftyOne dataset: {dataset_name}")
 
+                viz_path = Path("results") / "classifier_visualize.yaml"
+                viz_path.parent.mkdir(parents=True, exist_ok=True)
+                viz_path.write_text(
+                    yaml.safe_dump(
+                        {
+                            "task": "classification",
+                            "dataset_name": dataset_name,
+                            "weights": str(checkpoint_path),
+                            "prediction_field": prediction_field,
+                            "batch_size": batch_size,
+                            "device": device,
+                            "debug": debug,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
                 success, message, result = run_command_with_progress(
-                    visualize_classifier_predictions,
-                    dataset_name,
-                    Path(checkpoint_path),
-                    prediction_field,
-                    batch_size,
-                    device,
-                    debug,
+                    visualize_document, viz_path
                 )
 
                 if success:
@@ -452,7 +460,7 @@ def visualization_page():
                     st.info(f"Loading visualization config from: {selected_config}")
 
                     success, message, result = run_command_with_progress(
-                        visualize_detector_predictions, Path(selected_config)
+                        visualize_document, Path(selected_config)
                     )
 
                     if success:

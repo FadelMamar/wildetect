@@ -367,6 +367,7 @@ class GenericClassifier(nn.Module):
                 label_to_class_map=hparams["label_to_class_map"],
                 backbone=hparams["backbone"],
                 backbone_source=hparams["backbone_source"],
+                pretrained=False,
                 input_size=hparams["input_size"],
                 mean=hparams["mean"],
                 std=hparams["std"],

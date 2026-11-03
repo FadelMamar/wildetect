@@ -383,7 +383,7 @@ Use `curl` or any HTTP client to test the API.
 
 **Command**:
 ```batch
-uv run wildtrain register detector config/detector_registration.yaml
+uv run wildtrain register -c config/detector_registration.yaml
 ```
 
 **Configuration**: `config/detector_registration.yaml`

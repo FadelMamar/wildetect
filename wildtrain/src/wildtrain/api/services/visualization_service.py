@@ -1,84 +1,16 @@
-"""Visualization service for integrating CLI functionality with the API."""
+"""Visualization service for FiftyOne dataset lookups."""
 
 import logging
-import tempfile
-from pathlib import Path
 from typing import Any, Dict
 
-from omegaconf import OmegaConf
-
 from ...cli.config_loader import ConfigLoader
-from ...cli.models import (
-    ClassificationVisualizationConfig,
-    DetectionVisualizationConfig,
-)
 from ...shared.config_types import ConfigType
 
 logger = logging.getLogger(__name__)
 
 
 class VisualizationService:
-    """Service for handling visualization operations."""
-
-    @staticmethod
-    def visualize_classifier_predictions(
-        config: ClassificationVisualizationConfig,
-    ) -> None:
-        """Visualize classifier predictions using FiftyOne."""
-        try:
-            # Create a temporary config file
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".yaml", delete=False
-            ) as f:
-                config_dict = config.model_dump()
-                yaml_content = OmegaConf.to_yaml(OmegaConf.create(config_dict))
-                f.write(yaml_content)
-                temp_config_path = f.name
-
-            logger.debug(f"Created temporary config file: {temp_config_path}")
-
-            # Import and run the CLI command
-            from ...cli.commands.visualize import classifier_predictions
-
-            classifier_predictions(config=Path(temp_config_path), template=False)
-
-            # Clean up temporary file
-            Path(temp_config_path).unlink(missing_ok=True)
-
-            logger.info("Classifier visualization completed successfully")
-            return
-
-        except Exception as e:
-            raise Exception(f"Classifier visualization failed: {e}")
-
-    @staticmethod
-    def visualize_detector_predictions(config: DetectionVisualizationConfig) -> None:
-        """Visualize detector predictions using FiftyOne."""
-        try:
-            # Create a temporary config file
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".yaml", delete=False
-            ) as f:
-                config_dict = config.model_dump()
-                yaml_content = OmegaConf.to_yaml(OmegaConf.create(config_dict))
-                f.write(yaml_content)
-                temp_config_path = f.name
-
-            logger.info(f"Created temporary config file: {temp_config_path}")
-
-            # Import and run the CLI command
-            from ...cli.commands.visualize import detector_predictions
-
-            detector_predictions(config=Path(temp_config_path), template=False)
-
-            # Clean up temporary file
-            Path(temp_config_path).unlink(missing_ok=True)
-
-            logger.info("Detector visualization completed successfully")
-            return
-
-        except Exception as e:
-            raise Exception(f"Detector visualization failed: {e}")
+    """FiftyOne dataset lookups. Prediction upload goes through the harness."""
 
     @staticmethod
     def generate_classification_visualization_template() -> str:

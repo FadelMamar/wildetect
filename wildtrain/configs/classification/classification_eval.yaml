@@ -1,24 +1,23 @@
-# Example configuration for classifier evaluation
+# Standalone classification evaluation.
+# Set DATA_ROOT and CLASSIFIER_WEIGHTS. Paths are checked when evaluation starts.
 
-classifier: checkpoints\classification\unified_classifier\best.ckpt # Path to the best checkpoint
-split: val  # 'val' or 'test'
-device: cpu  # cpu, or 'cuda' if available
-batch_size: 8
+task: classification
+name: classification-eval
+weights: ${oc.env:CLASSIFIER_WEIGHTS,checkpoints/classification/best.ckpt}
 
-input_size: 384
+data:
+  format: roi
+  root: ${oc.env:DATA_ROOT,.}
+  input_size: 384
+  batch_size: 8
+  label_policy:
+    mode: collapse
+    positive_name: wildlife
+    background_name: background
+    discard: ["vegetation", "termite mound", "rocks", "other", "label", "detection"]
 
-dataset:
-  root_data_directory: D:\workspace\data\demo-dataset
-  single_class:
-    enable : true
-    background_class_name: "background"
-    single_class_name: "wildlife"
-    keep_classes: null
-    discard_classes: ["vegetation", "termite mound", "rocks", "other", "label","detection"]
-  
-  transforms:
-   val:
-      - name: Resize
-        params:
-          size: ${input_size}
-
+eval:
+  split: val
+  device: cpu
+  batch_size: 8
+  metrics: [accuracy, precision, recall, f1]

@@ -1,3 +1,4 @@
 call cd /d "%~dp0" && cd ..
 
-call uv run wildtrain evaluate yolo-model -c configs\detection\yolo_configs\eval_config.yaml
+REM yolo-model was removed. This file is the same detection eval document.
+call uv run wildtrain evaluate -c configs\detection\yolo_configs\eval_config.yaml

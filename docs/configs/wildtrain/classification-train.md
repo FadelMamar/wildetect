@@ -24,6 +24,6 @@ The file is an experiment document, not the old `dataset` / `single_class` confi
 | `checkpoint.dirpath` | Checkpoint directory |
 | `checkpoint.monitor` | `val_f1score` in the shipped file |
 
-`wildtrain evaluate classifier` still uses `classification_eval.yaml`. The `eval` block on the experiment is recorded only.
+`wildtrain evaluate -c configs/classification/classification_eval.yaml` scores a standalone eval file. On an experiment, evaluation runs after training only when `eval.enabled` is true.
 
 Sweep the same document with `wildtrain sweep -c configs/classification/classification_sweep.yaml`. `sweep.objective: f1_score` uses the validation F1 from training.

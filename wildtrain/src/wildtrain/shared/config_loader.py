@@ -57,7 +57,7 @@ class ConfigLoader:
             ConfigParseError: If config file cannot be parsed
             ConfigValidationError: If config fails validation
         """
-        # Check if file exists
+        config_path = Path(config_path)
         if not config_path.exists():
             raise ConfigFileNotFoundError(
                 f"{config_name} file not found: {config_path}"
@@ -228,9 +228,11 @@ class ConfigLoader:
             elif config_type == ConfigType.DETECTION_PIPELINE:
                 ConfigLoader.load_pipeline_config(config_path, "detection")
             elif config_type == ConfigType.DETECTOR_REGISTRATION:
-                ConfigLoader.load_localizer_registration_config(config_path)
+                ConfigLoader.load_detector_registration_config(config_path)
             elif config_type == ConfigType.CLASSIFIER_REGISTRATION:
                 ConfigLoader.load_classifier_registration_config(config_path)
+            elif config_type == ConfigType.MODEL_REGISTRATION:
+                ConfigLoader.load_detector_registration_config(config_path)
             else:
                 raise ValueError(f"Unknown config type: {config_type}")
             return True
@@ -279,7 +281,7 @@ class ConfigLoader:
             ConfigType.DETECTION_VISUALIZATION: DetectionVisualizationConfig,
             ConfigType.CLASSIFICATION_PIPELINE: ClassificationPipelineConfig,
             ConfigType.DETECTION_PIPELINE: DetectionPipelineConfig,
-            ConfigType.DETECTOR_REGISTRATION: LocalizerRegistrationConfig,
+            ConfigType.DETECTOR_REGISTRATION: DetectorRegistrationConfig,
             ConfigType.CLASSIFIER_REGISTRATION: ClassifierRegistrationConfig,
             ConfigType.MODEL_REGISTRATION: DetectorRegistrationConfig,
         }
