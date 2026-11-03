@@ -108,11 +108,23 @@ class ROIDataset(Dataset):
                     label_info["class_id"]
                 ]
         elif self.remap_contiguous:
-            ordered = sorted(self._class_mapping)
+            # class_mapping.json order, not sorted source ids. Background stays
+            # at 0 when it is still present, matching single-class collapse.
+            ordered = [
+                class_id
+                for class_id, name in self._class_mapping.items()
+                if name != self.background_class_name
+            ]
+            background_ids = [
+                class_id
+                for class_id, name in self._class_mapping.items()
+                if name == self.background_class_name
+            ]
+            if background_ids:
+                ordered = [background_ids[0], *ordered]
             id_map = {old: new for new, old in enumerate(ordered)}
             self._class_mapping = {
-                id_map[class_id]: name
-                for class_id, name in self._class_mapping.items()
+                id_map[class_id]: self._class_mapping[class_id] for class_id in ordered
             }
             for label_info in updated_roi_labels:
                 label_info["class_id"] = id_map[int(label_info["class_id"])]

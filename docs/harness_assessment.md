@@ -567,16 +567,16 @@ Done:
 
 - `single_class` / `label_policy` is an explicit policy. `mode: collapse` (the default, also `enable: true`) still maps every non-background class to `wildlife`. `mode: identity` (or `enable: false`) keeps species labels. The assertion that required `load_as_single_class` is gone.
 - The shipped classification YAML sets `mode: collapse` and the existing discard list, so that run stays the wildlife product.
-- Identity mode remaps ROI class ids to `0..N-1` for cross-entropy. Collapse still uses background `0` and wildlife `1`, which is what registered classifiers expect.
+- Identity mode remaps the classes that remain after keep/discard to `0..N-1` in `class_mapping.json` order, not sorted source id. If the background class is still present it stays index 0, as collapse already does; the other names follow the file. That ordered map is what the checkpoint stores for inference. Collapse itself is unchanged: background `0`, wildlife `1`.
 - `build_classification_metrics` is the only classification metric factory. The Lightning module and `ClassificationEvaluator` both call it. Training still logs `val_f1score` so existing checkpoint configs keep their monitor.
 - A one-epoch CPU smoke run goes through `wildtrain.harness` on a synthetic ROI dataset.
 
-Not in this change:
+Left for a later phase, per Fadel:
 
-- The Lightning `Trainer` still lives in `ClassifierTrainer`. The harness task still calls that trainer.
+- A shared Lightning `Trainer` owned by the harness. `ClassificationTask` still calls `ClassifierTrainer`, which owns the loop.
+- Shared MLflow/DVC tracking. Dataset provenance stays inside the classification trainer.
 - No image-folder, CSV, Hugging Face, or Label Studio loader.
-- DVC logging is not in the shared tracker yet.
-- The implicit `ROIDataset` discard-list default is unchanged for callers that omit the argument. Training configs pass the policy lists explicitly.
+- `ROIDataset`'s default `discard_classes` list stays as it is. Training configs pass keep/discard explicitly.
 
 ### Phase 3 — Detection backend boundary
 
