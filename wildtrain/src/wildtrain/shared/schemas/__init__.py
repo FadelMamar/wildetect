@@ -72,17 +72,7 @@ from .registration import (
 )
 
 # Sweep configurations
-from .sweep import (
-    ClassificationSweepConfig,
-    ClassificationSweepModelParametersConfig,
-    ClassificationSweepParametersConfig,
-    ClassificationSweepTrainParametersConfig,
-    DetectionSweepConfig,
-    DetectionSweepModelParametersConfig,
-    DetectionSweepParametersConfig,
-    DetectionSweepTrainParametersConfig,
-    SweepOutputConfig,
-)
+from .sweep import SweepOutputConfig
 
 # Visualization configurations
 from .visualization import (
@@ -144,14 +134,6 @@ __all__ = [
     "DetectionEvalConfig",
     # Sweep
     "SweepOutputConfig",
-    "ClassificationSweepModelParametersConfig",
-    "ClassificationSweepTrainParametersConfig",
-    "ClassificationSweepParametersConfig",
-    "ClassificationSweepConfig",
-    "DetectionSweepModelParametersConfig",
-    "DetectionSweepTrainParametersConfig",
-    "DetectionSweepParametersConfig",
-    "DetectionSweepConfig",
     # Calibrator
     "CalibrationParametersConfig",
     "CalibrationConfig",

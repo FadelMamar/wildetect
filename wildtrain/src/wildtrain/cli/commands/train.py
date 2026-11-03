@@ -1,80 +1,23 @@
-"""Training-related CLI commands."""
-
-import traceback
-from pathlib import Path
+"""The old train commands have been removed."""
 
 import typer
 
-from ...harness.tasks.classification import ClassificationTask
-from ...harness.tasks.detection import DetectionTask
-from ...shared.config_loader import ConfigLoader
-from ...shared.validation import (
-    ConfigFileNotFoundError,
-    ConfigParseError,
-    ConfigValidationError,
+from .utils import console
+
+train_app = typer.Typer(
+    name="train",
+    help="Removed. Use wildtrain run -c experiment.yaml.",
+    invoke_without_command=True,
 )
-from .utils import console, log_file_path, setup_logging
-
-train_app = typer.Typer(name="train", help="Training commands")
 
 
-@train_app.command()
-def classifier(
-    config: Path = typer.Option(
-        "", "--config", "-c", help="Path to training configuration file"
-    ),
-) -> None:
-    """Train a classification model."""
-
-    console.print(f"[bold green]Training classifier with config:[/bold green] {config}")
-    log_file = log_file_path("train_classifier")
-    setup_logging(log_file=log_file)
-
-    try:
-        # Load and validate configuration using Pydantic
-        cfg = ConfigLoader.load_classification_config(config)
-        console.print("[bold green]✓[/bold green] Configuration validated successfully")
-
-        # Convert validated config back to DictConfig for backward compatibility
-        console.print("cfg:", cfg)
-
-        ClassificationTask().run(cfg)
-
-    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
-        console.print(f"[bold red]✗[/bold red] Configuration error: {str(e)}")
-        raise typer.Exit(1)
-    except Exception as e:
-        console.print(f"[bold red]✗[/bold red] Training failed: {str(e)}")
-        raise typer.Exit(1)
-
-
-@train_app.command()
-def detector(
-    config: Path = typer.Option(
-        "", "--config", "-c", help="Path to training configuration file"
-    ),
-) -> None:
-    """Train a detection model."""
-
-    console.print(f"[bold green]Training detector with config:[/bold green] {config}")
-    log_file = log_file_path("train_detector")
-    setup_logging(log_file=log_file)
-
-    try:
-        # Load and validate configuration using Pydantic
-        cfg = ConfigLoader.load_detection_config(config)
-        console.print("[bold green]✓[/bold green] Configuration validated successfully")
-
-        # Convert validated config back to DictConfig for backward compatibility
-        console.print("cfg:", cfg)
-
-        DetectionTask().run(cfg)
-
-    except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
-        console.print(f"[bold red]✗[/bold red] Configuration error: {str(e)}")
-        traceback.print_exc()
-        raise typer.Exit(1)
-    except Exception as e:
-        console.print(f"[bold red]✗[/bold red] Training failed: {str(e)}")
-        traceback.print_exc()
-        raise typer.Exit(1)
+@train_app.callback()
+def train_removed() -> None:
+    """Tell callers to use wildtrain run."""
+    console.print(
+        "[bold red]wildtrain train classifier and wildtrain train detector "
+        "have been removed.[/bold red]"
+    )
+    console.print("Train with [bold]wildtrain run -c experiment.yaml[/bold].")
+    console.print("Sweep with [bold]wildtrain sweep -c experiment.yaml[/bold].")
+    raise typer.Exit(1)

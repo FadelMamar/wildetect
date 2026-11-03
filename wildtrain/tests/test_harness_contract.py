@@ -15,8 +15,6 @@ from wildtrain.harness.result import FitResult
 from wildtrain.models.register import ModelMetadata, ModelTask, ModelType
 from wildtrain.shared.config_loader import ConfigLoader
 from wildtrain.shared.config_types import ConfigType
-from wildtrain.shared.schemas.classification import ClassificationConfig
-from wildtrain.shared.schemas.detection import DetectionConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLASSIFICATION_YAML = (
@@ -36,68 +34,59 @@ def _resolved_mapping(path: Path) -> dict:
     return payload
 
 
-def test_shipped_classification_yaml_is_roi_single_class(tmp_path: Path) -> None:
-    """Shipped classifier config is the ROI wildlife setup once its root exists."""
-    payload = _resolved_mapping(CLASSIFICATION_YAML)
-    payload["dataset"]["root_data_directory"] = str(tmp_path)
+def test_shipped_classification_yaml_is_roi_collapse() -> None:
+    """Shipped classifier experiment collapses ROI labels to wildlife."""
+    config = load_experiment(CLASSIFICATION_YAML)
 
-    config = ClassificationConfig.model_validate(payload)
-
-    assert config.dataset.dataset_type == "roi"
-    assert config.dataset.single_class is not None
-    assert config.dataset.single_class.enable is True
-    assert config.dataset.single_class.single_class_name == "wildlife"
-    assert config.dataset.single_class.background_class_name == "background"
-    assert config.model.input_size == config.dataset.input_size
+    assert config.task == "classification"
+    assert config.data.format == "roi"
+    assert config.data.label_policy.mode == "collapse"
+    assert config.data.label_policy.positive_name == "wildlife"
+    assert config.data.label_policy.background_name == "background"
+    assert config.model.backend == "timm"
     assert config.checkpoint.monitor == "val_f1score"
-    assert set(payload) >= {"dataset", "model", "train", "checkpoint", "mlflow"}
+    mapped = config.trainer_config()
+    assert mapped.dataset.dataset_type == "roi"
+    assert mapped.dataset.single_class.single_class_name == "wildlife"
+    assert mapped.model.input_size == mapped.dataset.input_size
 
 
 def test_shipped_detection_yaml_is_single_class_localizer() -> None:
-    """The committed detector config trains a class-agnostic localizer."""
-    payload = _resolved_mapping(DETECTION_YAML)
-    config = DetectionConfig.model_validate(payload)
+    """The committed detector experiment trains a class-agnostic localizer."""
+    config = load_experiment(DETECTION_YAML)
 
+    assert config.task == "detection"
+    assert config.data.format == "yolo"
     assert config.train.single_cls is True
-    assert config.use_custom_yolo is False
+    assert config.model.backend == "ultralytics"
     assert config.model.weights == "yolo12s.pt"
-    assert config.dataset.discard_classes == [
+    assert config.data.discard == [
         "rocks",
         "vegetation",
         "other",
         "termite mound",
     ]
-    assert set(payload) >= {
-        "dataset",
-        "curriculum",
-        "pretraining",
-        "model",
-        "name",
-        "project",
-        "mlflow",
-        "train",
+    mapped = config.trainer_config()
+    assert mapped.use_custom_yolo is False
+    assert mapped.train.single_cls is True
+    assert mapped.train.batch == 32
+
+
+def test_old_training_yaml_is_rejected(tmp_path: Path) -> None:
+    payload = {
+        "task": "classification",
+        "dataset": {
+            "root_data_directory": str(tmp_path),
+            "dataset_type": "roi",
+            "single_class": {"single_class_name": "wildlife"},
+        },
+        "mlflow": {"experiment_name": "old"},
     }
+    path = tmp_path / "old.yaml"
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
-
-def test_experiment_envelope_reuses_existing_bodies(tmp_path: Path) -> None:
-    classification = _resolved_mapping(CLASSIFICATION_YAML)
-    classification["dataset"]["root_data_directory"] = str(tmp_path)
-    classification["task"] = "classification"
-    classification_path = tmp_path / "classification.yaml"
-    classification_path.write_text(yaml.safe_dump(classification), encoding="utf-8")
-
-    detection = _resolved_mapping(DETECTION_YAML)
-    detection["task"] = "detection"
-    detection_path = tmp_path / "detection.yaml"
-    detection_path.write_text(yaml.safe_dump(detection), encoding="utf-8")
-
-    classification_experiment = load_experiment(classification_path)
-    detection_experiment = load_experiment(detection_path)
-
-    assert classification_experiment.task == "classification"
-    assert classification_experiment.dataset.dataset_type == "roi"
-    assert detection_experiment.task == "detection"
-    assert detection_experiment.train.single_cls is True
+    with pytest.raises(ValueError, match="no longer accepted"):
+        load_experiment(path)
 
 
 def test_experiment_rejects_unknown_task(tmp_path: Path) -> None:
@@ -273,24 +262,23 @@ def test_wrapper_tasks_delegate_to_existing_trainers(
     )
 
 
-def test_run_command_help_and_old_train_commands() -> None:
+def test_run_command_help_and_removed_train_commands() -> None:
     run_help = RUNNER.invoke(app, ["run", "--help"])
     train_help = RUNNER.invoke(app, ["train", "--help"])
+    removed = RUNNER.invoke(app, ["train"])
 
     assert run_help.exit_code == 0
     assert "--config" in run_help.output
     assert train_help.exit_code == 0
-    assert "classifier" in train_help.output
-    assert "detector" in train_help.output
+    assert "wildtrain run" in train_help.output
+    assert removed.exit_code == 1
+    assert "removed" in removed.output.lower()
 
 
 def test_run_command_dispatches_without_training(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    payload = _resolved_mapping(DETECTION_YAML)
-    payload["task"] = "detection"
-    path = tmp_path / "experiment.yaml"
-    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    path = DETECTION_YAML
 
     seen: dict = {}
 
@@ -307,41 +295,16 @@ def test_run_command_dispatches_without_training(
     assert seen == {"task": "detection", "debug": True, "single_cls": True}
 
 
-def test_train_commands_call_wrapper_tasks(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    classification = _resolved_mapping(CLASSIFICATION_YAML)
-    classification["dataset"]["root_data_directory"] = str(tmp_path)
-    classification_path = tmp_path / "classification.yaml"
-    classification_path.write_text(yaml.safe_dump(classification), encoding="utf-8")
-
-    called: list[str] = []
-
-    class FakeClassification:
-        def run(self, config, debug: bool = False) -> FitResult:
-            called.append(f"classification:{config.dataset.dataset_type}")
-            return FitResult(best_path=None, best_score=None)
-
-    class FakeDetection:
-        def run(self, config, debug: bool = False) -> FitResult:
-            called.append(f"detection:{config.train.single_cls}")
-            return FitResult(best_path=None, best_score=None)
-
-    monkeypatch.setattr(
-        "wildtrain.cli.commands.train.ClassificationTask", FakeClassification
+def test_removed_train_subcommands_do_not_train() -> None:
+    classification = RUNNER.invoke(
+        app, ["train", "classifier", "--config", str(CLASSIFICATION_YAML)]
     )
-    monkeypatch.setattr("wildtrain.cli.commands.train.DetectionTask", FakeDetection)
-
-    classification_result = RUNNER.invoke(
-        app, ["train", "classifier", "--config", str(classification_path)]
-    )
-    detection_result = RUNNER.invoke(
+    detection = RUNNER.invoke(
         app, ["train", "detector", "--config", str(DETECTION_YAML)]
     )
 
-    assert classification_result.exit_code == 0, classification_result.output
-    assert detection_result.exit_code == 0, detection_result.output
-    assert called == ["classification:roi", "detection:True"]
+    assert classification.exit_code != 0
+    assert detection.exit_code != 0
 
 
 def test_hydra_and_openmim_are_not_dependencies() -> None:

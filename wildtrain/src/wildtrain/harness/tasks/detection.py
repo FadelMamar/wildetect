@@ -1,7 +1,7 @@
 """Detection wrapper around the existing Ultralytics trainer."""
 
-from ...shared.schemas.detection import DetectionConfig
 from ...trainers.detection_trainer import UltralyticsDetectionTrainer
+from ..config import ExperimentConfig
 from ..result import FitResult
 
 
@@ -23,14 +23,24 @@ class DetectionTask:
 
     name = "detection"
 
-    def run(self, config: DetectionConfig, debug: bool = False) -> FitResult:
-        trainer = UltralyticsDetectionTrainer(config)
+    def run(self, config, debug: bool = False) -> FitResult:
+        trainer_config = config
+        if isinstance(config, ExperimentConfig):
+            if config.task != self.name:
+                raise ValueError(
+                    f"{self.name} task received a {config.task} experiment"
+                )
+            trainer_config = config.trainer_config()
+            debug = debug or config.debug
+        trainer = UltralyticsDetectionTrainer(trainer_config)
         trainer.run(debug=debug)
         score = trainer.best_model_score
         if score is None:
             score = trainer.best_fitness
+        metrics = getattr(trainer, "metrics", None)
         return FitResult(
             best_path=trainer.best_model_path,
             best_score=_as_float(score),
             score_name="fitness",
+            metrics=dict(metrics) if isinstance(metrics, dict) else None,
         )

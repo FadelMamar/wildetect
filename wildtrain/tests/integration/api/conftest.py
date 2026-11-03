@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from wildtrain.cli.config_loader import ROOT, ConfigLoader
+from wildtrain.harness.config import load_experiment
 
 from wildtrain.api.main import fastapi_app as app
 
@@ -47,22 +48,16 @@ def client():
 
 @pytest.fixture
 def classification_config():
-    """Load real classification config for testing."""
+    """Load the shipped classification experiment."""
     config_path = ROOT / "configs" / "classification" / "classification_train.yaml"
-    return safe_load_config(
-        config_path,
-        ConfigLoader.load_classification_config,
-    )
+    return load_experiment(config_path).model_dump(mode="json", exclude_none=True)
 
 
 @pytest.fixture
 def detection_config():
-    """Load real detection config for testing."""
+    """Load the shipped detection experiment."""
     config_path = ROOT / "configs" / "detection" / "yolo_configs" / "yolo.yaml"
-    return safe_load_config(
-        config_path,
-        ConfigLoader.load_detection_config,
-    )
+    return load_experiment(config_path).model_dump(mode="json", exclude_none=True)
 
 
 @pytest.fixture

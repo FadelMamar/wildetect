@@ -234,13 +234,24 @@ The project uses various design patterns to ensure modularity and extensibility,
 Each package uses a hierarchical configuration system:
 
 ```yaml
-# wildtrain experiment file: a training YAML plus a task name
 task: detection
+name: yolo12s-d0
+project: wildai-localization
+data:
+  format: yolo
+  data_cfg: ${oc.env:DETECTION_DATA_CFG,configs/detection/yolo_configs/data/demo.yaml}
+model:
+  backend: ultralytics
+  weights: yolo12s.pt
+train:
+  single_cls: true
+  batch_size: 32
+  imgsz: 800
 ```
 
 ```bash
-wildtrain run -c path/to/experiment.yaml
-wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
+wildtrain run -c configs/detection/yolo_configs/yolo.yaml
+wildtrain sweep -c configs/detection/detection_sweep.yaml
 ```
 
 ### Configuration Sources

@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .dependencies import get_settings
+from .models.requests import ExperimentTrainingRequest
 from .routers import config, dataset, evaluation, pipeline, training, visualization
 from .utils.error_handling import WildTrainAPIException, wildtrain_exception_handler
 
@@ -45,6 +46,11 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(training.router, prefix="/training", tags=["Training"])
+
+    @app.post("/experiments", tags=["Training"])
+    async def train_experiment(request: ExperimentTrainingRequest):
+        """Train the task named in the experiment document."""
+        return await training.train_experiment(request)
     app.include_router(evaluation.router, prefix="/evaluation", tags=["Evaluation"])
     app.include_router(pipeline.router, prefix="/pipeline", tags=["Pipeline"])
     app.include_router(

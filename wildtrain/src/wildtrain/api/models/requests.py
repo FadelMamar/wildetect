@@ -28,6 +28,14 @@ class DetectionTrainingRequest(BaseRequest):
     config: Dict[str, Any] = Field(description="Training configuration")
 
 
+class ExperimentTrainingRequest(BaseRequest):
+    """Request model for a classification or detection experiment."""
+
+    config: Dict[str, Any] = Field(
+        description="Canonical experiment document or a legacy training config"
+    )
+
+
 class ClassificationEvalRequest(BaseRequest):
     """Request model for classifier evaluation."""
 

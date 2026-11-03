@@ -1,13 +1,13 @@
-from wildtrain.trainers.sweeps import ClassifierSweeper
+"""Run the classification sweep.
+
+Usage, from the wildtrain directory:
+
+    wildtrain sweep -c configs/classification/classification_sweep.yaml
+"""
 
 
-def main():
-
-    sweeper = ClassifierSweeper(
-        r"D:\workspace\repos\wildtrain\configs\classification\classification_sweep.yaml",
-        debug=True,
-    )
-    sweeper.run()
+def main() -> None:
+    print("Use: wildtrain sweep -c configs/classification/classification_sweep.yaml")
 
 
 if __name__ == "__main__":

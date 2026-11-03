@@ -60,30 +60,42 @@ def _synthetic_roi(root: Path) -> None:
 
 
 def _payload(root: Path, checkpoint_dir: Path, mlflow_uri: str, policy: dict) -> dict:
+    """Experiment document. ``policy`` uses mode, and may set positive_name."""
+    label_policy = {
+        "positive_name": "wildlife",
+        "background_name": "background",
+    }
+    label_policy.update(policy)
     return {
         "task": "classification",
-        "dataset": {
-            "root_data_directory": str(root),
-            "dataset_type": "roi",
+        "name": "epoch1",
+        "seed": 0,
+        "tracking": {
+            "mlflow": {
+                "experiment_name": "roi-species-smoke",
+                "run_name": "epoch1",
+                "log_model": False,
+                "tracking_uri": mlflow_uri,
+            }
+        },
+        "data": {
+            "format": "roi",
+            "root": str(root),
             "input_size": 32,
             "batch_size": 2,
             "num_workers": 0,
-            "stats": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
             "rebalance": False,
-            "label_policy": policy,
+            "stats": {"mean": [0.5, 0.5, 0.5], "std": [0.5, 0.5, 0.5]},
+            "label_policy": label_policy,
         },
         "model": {
+            "backend": "timm",
             "backbone": "vit_tiny_patch16_224",
             "pretrained": False,
-            "backbone_source": "timm",
             "dropout": 0.0,
             "freeze_backbone": True,
-            "input_size": 32,
-            "mean": [0.5, 0.5, 0.5],
-            "std": [0.5, 0.5, 0.5],
             "hidden_dim": 16,
             "num_layers": 2,
-            "weights": None,
         },
         "train": {
             "batch_size": 2,
@@ -95,24 +107,14 @@ def _payload(root: Path, checkpoint_dir: Path, mlflow_uri: str, policy: dict) ->
             "precision": "32",
             "accelerator": "cpu",
             "num_workers": 0,
-            "val_check_interval": 1,
         },
         "checkpoint": {
             "monitor": "val_f1score",
-            "save_top_k": 1,
             "mode": "max",
             "save_last": False,
             "dirpath": str(checkpoint_dir),
-            "patience": 10,
-            "save_weights_only": True,
             "filename": "best",
             "min_delta": 0.0,
-        },
-        "mlflow": {
-            "experiment_name": "roi-species-smoke",
-            "run_name": "epoch1",
-            "log_model": False,
-            "tracking_uri": mlflow_uri,
         },
     }
 
@@ -206,6 +208,10 @@ def test_multiclass_roi_trains_and_evaluates(tmp_path: Path, monkeypatch) -> Non
     )
     experiment_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
     experiment = load_experiment(experiment_path)
+    assert experiment.task == "classification"
+    assert experiment.tracking.mlflow.tracking_uri == mlflow_uri
+    checkpoint_dir = str(tmp_path / "checkpoints")
+    assert experiment.trainer_config().checkpoint.dirpath == checkpoint_dir
 
     result = run_experiment(experiment, debug=False)
 

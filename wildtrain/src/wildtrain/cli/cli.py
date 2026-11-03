@@ -10,6 +10,7 @@ from ..server import run_inference_server
 from ..shared.models import InferenceConfig
 from .commands import config, dataset, evaluate, pipeline, register, train, visualize
 from .commands.run import run_app
+from .commands.sweep import sweep_app
 from .commands.utils import display_welcome_message
 
 # Create Typer app
@@ -38,7 +39,11 @@ def main(
 
 # Add command groups
 app.add_typer(config.config_app, name="config", help="Configuration management")
-app.add_typer(train.train_app, name="train", help="Training commands")
+app.add_typer(
+    train.train_app,
+    name="train",
+    help="Removed. Use wildtrain run -c experiment.yaml.",
+)
 app.add_typer(evaluate.evaluate_app, name="evaluate", help="Evaluation commands")
 app.add_typer(
     register.register_app, name="register", help="Model registration commands"
@@ -47,6 +52,7 @@ app.add_typer(pipeline.pipeline_app, name="pipeline", help="Pipeline commands")
 app.add_typer(visualize.visualize_app, name="visualize", help="Visualization commands")
 app.add_typer(dataset.dataset_app, name="dataset", help="Dataset commands")
 app.add_typer(run_app, name="run", help="Run an experiment file")
+app.add_typer(sweep_app, name="sweep", help="Sweep an experiment file")
 
 
 @app.command()

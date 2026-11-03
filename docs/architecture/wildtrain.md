@@ -117,13 +117,17 @@ Models are automatically registered in the MLflow Model Registry, allowing for v
 
 Training configs are Pydantic models loaded from YAML. OmegaConf resolves `${...}` interpolations before validation. The CLI is Typer, not Hydra, and there is no `main.py` config group.
 
-`wildtrain train detector` and `wildtrain train classifier` take the existing files. `wildtrain run -c experiment.yaml` takes the same document plus a top-level `task: detection` or `task: classification`.
+`wildtrain run -c experiment.yaml` loads one experiment document: `task`, `name`, `tracking`, `data`, `model`, and `train`, plus optional `checkpoint`, `eval`, and `sweep`. Classification uses `data.format: roi` and `data.label_policy.positive_name`. Detection uses `data.format: yolo` and `model.backend: ultralytics` or `custom_yolo`. The trainers still receive their existing config objects through a mapping inside the harness.
+
+Flat training YAML is rejected. `wildtrain train classifier` and `wildtrain train detector` have been removed.
 
 ```bash
-wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
-wildtrain train classifier -c configs/classification/classification_train.yaml
-wildtrain run -c path/to/experiment.yaml
+wildtrain run -c configs/classification/classification_train.yaml
+wildtrain run -c configs/detection/yolo_configs/yolo.yaml
+wildtrain sweep -c configs/detection/detection_sweep.yaml
 ```
+
+A detection sweep `objective` must be an Ultralytics metrics key exactly, for example `metrics/mAP50(B)`, `metrics/mAP50-95(B)`, `metrics/precision(B)`, `metrics/recall(B)`, or `fitness`. Full examples are in the WildTrain README. `wildtrain evaluate` and `wildtrain register` are unchanged.
 
 ## CLI Interface
 

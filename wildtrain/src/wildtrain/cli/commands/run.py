@@ -1,4 +1,4 @@
-"""Run an experiment YAML (existing training config plus a task name)."""
+"""Run an experiment YAML through the harness registry."""
 
 import traceback
 from pathlib import Path
@@ -20,8 +20,8 @@ def run_experiment_command(
         "--config",
         "-c",
         help=(
-            "Experiment YAML. Same body as a training config, plus "
-            "task: classification|detection"
+            "Experiment YAML with task, tracking, data, model, and train. "
+            "See the WildTrain README for a full example."
         ),
         exists=True,
         dir_okay=False,

@@ -1,46 +1,71 @@
-base_config: D:\workspace\repos\wildetect\wildtrain\configs\classification\classification_train.yaml
+# Classification sweep. Same experiment as classification_train.yaml, plus a grid.
+# Objective f1_score uses the checkpoint monitor (val F1), not an Ultralytics key.
 
-parameters:
-  model:
-    backbone:
+task: classification
+name: classification_sweep
+seed: 42
+
+tracking:
+  mlflow:
+    experiment_name: classification_sweep
+    run_name: classification_sweep
+    log_model: false
+  dvc:
+    enabled: false
+
+data:
+  format: roi
+  root: ${oc.env:DATA_ROOT,.}
+  batch_size: 32
+  num_workers: 4
+  input_size: 384
+  rebalance: true
+  label_policy:
+    mode: collapse
+    positive_name: wildlife
+    background_name: background
+    discard: ["rocks", "vegetation", "other", "termite mound"]
+  stats:
+    mean: [0.554, 0.469, 0.348]
+    std: [0.203, 0.173, 0.144]
+
+model:
+  backend: timm
+  backbone: timm/vit_base_patch14_reg4_dinov2.lvd142m
+  pretrained: true
+  dropout: 0.2
+  freeze_backbone: true
+
+train:
+  epochs: 20
+  lr: 0.001
+  lrf: 0.01
+  label_smoothing: 0.0
+  weight_decay: 0.0001
+  precision: bf16-mixed
+  accelerator: auto
+  num_workers: 4
+
+checkpoint:
+  monitor: val_f1score
+  mode: max
+  patience: 10
+  dirpath: checkpoints/classification_sweeps
+
+sweep:
+  n_trials: 8
+  direction: maximize
+  objective: f1_score
+  seed: 42
+  name: classification_sweep
+  parameters:
+    model.backbone:
       - timm/vit_small_patch16_224.dino
       - timm/resnet18.a1_in1k
-    dropout:
-      - 0.0
-      - 0.2
-      - 0.4
-  train:
-    lr:
-      - 0.0003
-      - 0.003
-    lrf:
-      - 0.01
-      - 0.1
-      - 1.0
-    label_smoothing:
-      - 0.0
-      - 0.0001
-      - 0.001
-      - 0.01
-    weight_decay:
-      - 0.0001
-      - 0.001
-      - 0.01
-    batch_size:
-      - 32
-    epochs:
-      - 10
-      - 20
-      - 30
-
-sweep_name: classification_sweep
-n_trials: 8
-seed: 42
-epochs: 20
-
-output:
-  directory: results/sweeps/classification_sweep
-  save_results: true
-  save_plots: true
-  format: json  # json, csv, or both
-  include_optimization_history: true
+    model.dropout: [0.0, 0.2, 0.4]
+    train.lr: [0.0003, 0.003]
+    train.lrf: [0.01, 0.1, 1.0]
+    train.label_smoothing: [0.0, 0.0001, 0.001, 0.01]
+    train.weight_decay: [0.0001, 0.001, 0.01]
+    data.batch_size: [32]
+    train.epochs: [10, 20, 30]

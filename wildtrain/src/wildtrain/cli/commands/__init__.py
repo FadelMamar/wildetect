@@ -1,6 +1,16 @@
 """CLI commands package."""
 
-from . import config, dataset, evaluate, pipeline, register, train, utils, visualize
+from . import (
+    config,
+    dataset,
+    evaluate,
+    pipeline,
+    register,
+    sweep,
+    train,
+    utils,
+    visualize,
+)
 
 __all__ = [
     "config",
@@ -11,4 +21,5 @@ __all__ = [
     "visualize",
     "dataset",
     "utils",
+    "sweep",
 ]

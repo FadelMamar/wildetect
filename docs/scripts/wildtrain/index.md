@@ -32,10 +32,12 @@ All scripts are located in `wildtrain/scripts/` directory.
 
 **Command**:
 ```batch
-uv run wildtrain train classifier -c configs\classification\classification_train.yaml
+uv run wildtrain run -c configs\classification\classification_train.yaml
 ```
 
-**Configuration**: `wildtrain/configs/classification/classification_train.yaml`
+The same YAML also loads through `wildtrain run -c` once it has `task: classification`, or as a canonical experiment with `tracking`, `run`, and a `classification` body. See the WildTrain README.
+
+**Configuration**: `wildtrain/configs/classification/classification_train.yaml` (`task: classification`, `data.format: roi`, `data.label_policy`). The snippet below is not the file on disk.
 
 **Key Parameters**:
 ```yaml
@@ -148,7 +150,7 @@ scripts\eval_classifier.bat
 
 **Command**:
 ```batch
-uv run wildtrain train detector -c configs\detection\yolo_configs\yolo.yaml
+uv run wildtrain run -c configs\detection\yolo_configs\yolo.yaml
 ```
 
 **Configuration**: `wildtrain/configs/detection/yolo_configs/yolo.yaml`
