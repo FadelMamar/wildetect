@@ -2,15 +2,13 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import mlflow
-from ultralytics import YOLO, settings
-
-from ..data.filters.algorithms import FilterDataCfg
+from ..harness.detection.backends import select_detection_backend
+from ..harness.detection.data import resolve_detection_data_cfg
+from ..harness.detection.tracking import configure_detection_tracking
 from ..shared.models import DetectionConfig
 from ..utils.io import merge_data_cfg, remove_label_cache
 from ..utils.logging import ROOT, get_logger
 from .base import ModelTrainer
-from .yolo_utils import CustomYOLO
 
 logger = get_logger(__name__)
 
@@ -23,7 +21,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
 
     def __init__(self, config: DetectionConfig):
         super().__init__(config)
-        self.model: Optional[YOLO] = None
+        self.model = None
         self.save_dir = ROOT / "data" / "yolo_trainer"
         self.single_class_name = "wildlife"
         self.best_fitness: Optional[float] = None
@@ -32,34 +30,13 @@ class UltralyticsDetectionTrainer(ModelTrainer):
         self.best_model_score = None
 
         if not self.config.train.single_cls:
-            raise ValueError("Not supported. Current pipeline only trains a localizer.")
-
-        assert (self.config.dataset.root_data_directory is not None) ^ (
-            self.config.dataset.data_cfg is not None
-        ), "Either root_data_directory or data_cfg must be provided"
+            logger.info(
+                "single_cls is false. This optional path keeps dataset classes. "
+                "The default detector remains the class-agnostic localizer."
+            )
 
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        self._set_data_cfg()
-        self.filter = FilterDataCfg(
-            data_config_yaml=self.config.dataset.data_cfg,
-            keep_classes=self.config.dataset.keep_classes,
-            discard_classes=self.config.dataset.discard_classes,
-        )
-
-    def _set_data_cfg(self):
-        assert (self.config.dataset.data_cfg is not None) ^ (
-            self.config.dataset.root_data_directory is not None
-        ), "Either data_cfg or root_data_directory must be provided"
-
-        # updating data_cfg
-        if self.config.dataset.root_data_directory is not None:
-            data_cfg = self.save_dir / f"{self.config.name}_merged.yaml"
-            merge_data_cfg(
-                root_data_directory=self.config.dataset.root_data_directory,
-                output_path=data_cfg,
-                force_merge=self.config.dataset.force_merge,
-            )
-            self.config.dataset.data_cfg = data_cfg.as_posix()
+        self.filter = resolve_detection_data_cfg(self.config, self.save_dir)
 
     def validate_config(self) -> None:
         if (
@@ -164,26 +141,11 @@ class UltralyticsDetectionTrainer(ModelTrainer):
     def get_model(
         self,
     ):
-        """Returns a customized detection model instance configured with specified config and weights."""
-
-        # Load model
-        if self.config.use_custom_yolo:
-            model = CustomYOLO(
-                model=self.config.model.architecture_file or self.config.model.weights,
-                task="detect",
-                **self.config.custom_yolo_kwargs,
-            )
-        else:
-            model = YOLO(
-                model=self.config.model.architecture_file or self.config.model.weights,
-                task="detect",
-            )
-
+        """Build the model from the selected detection backend."""
+        backend = select_detection_backend(self.config)
+        logger.info(f"Detection backend: {backend.name}.")
+        model = backend.build(self.config)
         logger.info(f"Loading model of type: {model.__class__.__name__}.")
-
-        if self.config.model.weights is not None:
-            model.load(self.config.model.weights)
-
         return model
 
     def run(self, debug: bool = False) -> None:
@@ -200,10 +162,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
         """
         Run training phase for the model.
         """
-        mlflow.set_tracking_uri(self.config.mlflow.tracking_uri)
-
-        settings.update({"mlflow": True})
-
+        configure_detection_tracking(self.config.mlflow.tracking_uri)
         self.validate_config()
 
         # Load model
@@ -234,6 +193,7 @@ class UltralyticsDetectionTrainer(ModelTrainer):
             project=self.config.project,
             time=2 / 60 if debug else None,
             save=True,
+            pretrained=self.config.model.pretrained,
             **train_cfg,
         )
 

@@ -8,19 +8,15 @@ from typing import Any, Dict, Generator, List, Optional, Tuple
 import numpy as np
 import supervision as sv
 import torch
-from supervision.metrics import (
-    MeanAveragePrecision,
-    MeanAverageRecall,
-)
 from supervision.metrics.detection import ConfusionMatrix
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from ..data.utils import load_all_detection_datasets
+from ..harness.detection.metrics import build_detection_metrics
 from ..models.detector import Detector
 from ..shared.models import DetectionEvalConfig
 from ..utils.io import merge_data_cfg
-from .metrics import MyF1Score, MyPrecision, MyRecall
 
 logger = getLogger(__name__)
 
@@ -56,20 +52,9 @@ class UltralyticsEvaluator:
     def _get_metrics(
         self,
     ):
-        boxes = sv.metrics.core.MetricTarget.BOXES
-        average = getattr(
-            sv.metrics.core.AveragingMethod, self.config.metrics.average.upper()
-        )
-        return dict(
-            mAP=MeanAveragePrecision(
-                boxes,
-                class_agnostic=self.config.metrics.class_agnostic,
-                class_mapping=None,
-            ),
-            mAR=MeanAverageRecall(boxes),
-            precision=MyPrecision(boxes, averaging_method=average),
-            recall=MyRecall(boxes, averaging_method=average),
-            f1=MyF1Score(boxes, averaging_method=average),
+        return build_detection_metrics(
+            class_agnostic=self.config.metrics.class_agnostic,
+            average=self.config.metrics.average,
         )
 
     def evaluate(

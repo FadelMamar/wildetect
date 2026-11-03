@@ -561,7 +561,7 @@ Exit: both existing example configs still validate under the old models, and the
 
 ### Phase 2 — Classification stays ROI, but labels are a policy
 
-In progress on the classification branch. ROI crops remain the only classification format. Detection and census are unchanged.
+Landed in the merged classification pull request. ROI crops remain the only classification format.
 
 Done:
 
@@ -580,14 +580,25 @@ Left for a later phase, per Fadel:
 
 ### Phase 3 — Detection backend boundary
 
-The supported detector remains the class-agnostic localizer (`single_cls: true`). Multi-class YOLO is optional and not the goal of this phase.
+In progress on the detection branch. The product detector is still the class-agnostic localizer. Multi-class YOLO is optional. MMDetection is not a backend. Census metadata, the unwrap-to-`Detector` path, and the `tilesize`/`imgsz` fallback are unchanged.
 
-- Move `_train`, data-yaml merge, and `FilterDataCfg` behind `UltralyticsBackend`.
-- Move `yolo_utils.py` behind `CustomYoloBackend` and do not import it from the default path.
-- Keep the `single_cls` requirement until a separate decision says multi-class training is in scope. The wildlife YAML stays `single_cls: true`. Do not change the localizer's class-agnostic flag or the +1 class-id shift.
-- Run harness eval (supervision) after backend fit, and store Ultralytics fitness only as `FitResult.best_score` when that is what checkpointing monitors.
+Done in this phase:
 
-Exit: default detection runs still refuse multi-class the way they do today, `custom_yolo` still constructs `CustomYOLO` when selected, and default imports do not load `yolo_utils.py`. A later optional change can forward `single_cls: false` to Ultralytics without making that the primary path.
+- `select_detection_backend` chooses `UltralyticsBackend` unless `use_custom_yolo` is true. The default import path does not load `yolo_utils.py`. `CustomYoloBackend` builds the same `CustomYOLO` fork, only when selected.
+- Dataset YAML merge/filter and the Ultralytics MLflow toggle live under `wildtrain.harness.detection`. The trainer calls them and still lets Ultralytics run the inner loop.
+- Supervision box metrics live in `build_detection_metrics`. `UltralyticsEvaluator` uses that factory.
+- `single_cls` defaults to true, including the shipped YAML. `single_cls: false` is forwarded to Ultralytics instead of raising. A loaded single-class localizer still uses class-agnostic NMS and shifts class ids by +1. A loaded multi-class model uses per-class NMS, does not shift ids, and keeps the model's class names.
+- Detection precision, recall, and F1 use the installed supervision metrics. The old overrides called a private matcher that supervision 0.31 removed.
+
+Still owned by the trainer, on purpose:
+
+- The Ultralytics `train()` call, pretraining, and curriculum ratios.
+- Fitness reported as `FitResult.best_score`. Supervision metrics are the eval report, not a replacement for that fitness.
+
+Left for a later phase, same as classification:
+
+- A shared Lightning trainer. Detection does not move onto one.
+- Shared DVC tracking beyond the existing MLflow URI setup.
 
 ### Phase 4 — One schema, one sweep, one API
 
