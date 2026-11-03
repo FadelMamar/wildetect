@@ -1,6 +1,6 @@
 # WildTrain Architecture
 
-WildTrain is a modular training framework that supports both object detection (YOLO, MMDetection) and classification (PyTorch Lightning) with integrated experiment tracking and model management.
+WildTrain trains a class-agnostic Ultralytics YOLO localizer and an ROI classifier (PyTorch Lightning), then registers those models with MLflow for the census app. MMDetection is not a backend.
 
 ## Overview
 
@@ -18,8 +18,8 @@ WildTrain is a modular training framework that supports both object detection (Y
 ```mermaid
 graph TB
     subgraph "Configuration Layer"
-        A[Hydra Config]
-        B[YAML Files]
+        A[Pydantic YAML]
+        B[OmegaConf interpolation]
     end
     
     subgraph "Data Layer"
@@ -29,9 +29,9 @@ graph TB
     end
     
     subgraph "Model Layer"
-        F[YOLO Models]
-        G[MMDet Models]
-        H[Classification Models]
+        F[YOLO localizer]
+        G[ROI classifier]
+        H[Two-stage Detector]
     end
     
     subgraph "Training Layer"
@@ -79,10 +79,11 @@ graph TB
 ### 1. Model Architectures
 
 #### Supported Architectures
-WildTrain supports several model families out of the box:
-- **YOLO Detection**: Integrated Ultralytics YOLO models for fast and accurate object detection.
-- **MMDetection**: Support for advanced detection architectures including Faster R-CNN, Mask R-CNN, and Transformers.
-- **Classification Models**: PyTorch Lightning-based classifiers for species identification using standard backbones like ResNet, EfficientNet, and Vision Transformers.
+- **YOLO localizer**: Ultralytics YOLO trained as a single class (`single_cls: true`). This is the detection model the product uses.
+- **ROI classifier**: PyTorch Lightning classifier on crops cut from detection boxes, with a timm backbone.
+- **Two-stage detector**: inference composition of that localizer and classifier. Training them is two separate runs, not a third framework.
+
+MMDetection is not supported.
 
 ### 2. Data Modules
 
@@ -114,44 +115,14 @@ Models are automatically registered in the MLflow Model Registry, allowing for v
 
 ## Configuration System
 
-### Hydra Configuration
+Training configs are Pydantic models loaded from YAML. OmegaConf resolves `${...}` interpolations before validation. The CLI is Typer, not Hydra, and there is no `main.py` config group.
 
-WildTrain uses Hydra for flexible configuration management.
+`wildtrain train detector` and `wildtrain train classifier` take the existing files. `wildtrain run -c experiment.yaml` takes the same document plus a top-level `task: detection` or `task: classification`.
 
-WildTrain uses Hydra for flexible configuration management, enabling hierarchical YAML configurations and CLI-based overrides.
-
-### Configuration Structure
-
-```yaml
-# configs/main.yaml
-defaults:
-  - model: yolo
-  - data: detection
-  - training: default
-  - _self_
-
-experiment_name: wildlife_detection
-seed: 42
-
-# Override from CLI:
-# python main.py model=custom data.batch_size=64
-```
-
-### Model Configs
-
-```yaml
-# configs/detection/yolo.yaml
-model:
-  framework: "yolo"
-  size: "n"  # n, s, m, l, x
-  pretrained: true
-
-training:
-  epochs: 100
-  imgsz: 640
-  batch: 16
-  optimizer: "AdamW"
-  lr0: 0.001
+```bash
+wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
+wildtrain train classifier -c configs/classification/classification_train.yaml
+wildtrain run -c path/to/experiment.yaml
 ```
 
 ## CLI Interface

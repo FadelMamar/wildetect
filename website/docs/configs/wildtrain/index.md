@@ -149,24 +149,7 @@ nc: 3
 names: ['elephant', 'giraffe', 'zebra']
 ```
 
-### MMDetection Configuration
-
-**File**: `configs/detection/mmdet_configs/mmdet.yaml`
-
-```yaml
-model:
-  framework: "mmdet"
-  config_file: "configs/detection/mmdet_configs/faster_rcnn.py"
-
-data:
-  data_root: "D:/data/coco_format"
-  ann_file_train: "train.json"
-  ann_file_val: "val.json"
-
-training:
-  work_dir: "work_dirs/faster_rcnn"
-  max_epochs: 12
-```
+Detection training uses Ultralytics YOLO as a class-agnostic localizer. MMDetection is not supported.
 
 ---
 

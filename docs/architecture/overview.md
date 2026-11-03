@@ -111,8 +111,8 @@ src/package/
 **Purpose**: Modular training framework for detection and classification
 
 **Key Features**:
-- Multiple frameworks (YOLO, MMDetection, PyTorch Lightning)
-- Hydra configuration management
+- Ultralytics YOLO localizer and a PyTorch Lightning ROI classifier
+- Pydantic YAML configuration (OmegaConf for interpolation)
 - MLflow experiment tracking
 - Hyperparameter optimization (Optuna)
 - Model registration and versioning
@@ -194,8 +194,8 @@ A typical workflow involves preparing data with WilData, training a model with W
 |-----------|-----------|---------|
 | **Language** | Python 3.9+ | Primary language |
 | **CLI** | Typer | Command-line interfaces |
-| **Config** | Hydra/OmegaConf | Configuration management |
-| **Detection** | YOLO, MMDetection | Object detection |
+| **Config** | Pydantic + OmegaConf | Configuration management |
+| **Detection** | Ultralytics YOLO | Class-agnostic localizer |
 | **Training** | PyTorch Lightning | Model training |
 | **API** | FastAPI | REST API (WilData) |
 | **UI** | Streamlit | Web interfaces |
@@ -215,7 +215,6 @@ A typical workflow involves preparing data with WilData, training a model with W
 #### Machine Learning
 - **PyTorch**: Deep learning framework
 - **Ultralytics**: YOLO implementation
-- **MMDetection**: Detection framework
 - **Torchvision**: Vision utilities
 
 #### Utilities
@@ -235,14 +234,13 @@ The project uses various design patterns to ensure modularity and extensibility,
 Each package uses a hierarchical configuration system:
 
 ```yaml
-# configs/main.yaml
-defaults:
-  - model: yolo
-  - data: coco
-  - training: default
+# wildtrain experiment file: a training YAML plus a task name
+task: detection
+```
 
-# Override with CLI
-python main.py model=custom data.batch_size=64
+```bash
+wildtrain run -c path/to/experiment.yaml
+wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
 ```
 
 ### Configuration Sources
