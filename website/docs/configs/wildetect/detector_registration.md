@@ -25,7 +25,6 @@ localizer:
     max_det: 300
     overlap_metric: "IOU"
     task: "detect"
-  mmdet: null
   processing:
     export_format: "pt"
     batch_size: 128
@@ -46,7 +45,7 @@ Configuration for registering a classifier model.
 - **`processing.export_format`** (string): Target export format. Options: `torchscript`, `onnx`
 
 #### `localizer`
-Configuration for registering a detector/localizer model. Supports YOLO and MMDetection frameworks.
+Configuration for registering the Ultralytics YOLO localizer. MMDetection is not supported.
 
 - **`yolo.weights`** (string): Path to YOLO model weights file (`.pt` format)
 - **`yolo.imgsz`** (int): Input image size the model expects (pixels)
@@ -56,7 +55,6 @@ Configuration for registering a detector/localizer model. Supports YOLO and MMDe
 - **`yolo.max_det`** (int): Maximum detections per image
 - **`yolo.overlap_metric`** (string): Overlap metric used. Options: `IOU`, `DIOU`, `CIOU`
 - **`yolo.task`** (string): Model task type. Options: `detect`, `segment`, `classify`
-- **`mmdet`** (null or dict): MMDetection configuration (set to `null` if not using MMDetection)
 - **`processing.export_format`** (string): Export format for the model. Options: `pt`, `torchscript`, `onnx`
 - **`processing.batch_size`** (int): Batch size for processing
 - **`processing.dynamic`** (bool): Whether to use dynamic batch sizing
@@ -84,7 +82,6 @@ localizer:
     max_det: 300
     overlap_metric: "IOU"
     task: "detect"
-  mmdet: null
   processing:
     export_format: "pt"
     batch_size: 32

@@ -5,14 +5,14 @@ from pathlib import Path
 
 import typer
 
+from ...harness.tasks.classification import ClassificationTask
+from ...harness.tasks.detection import DetectionTask
 from ...shared.config_loader import ConfigLoader
 from ...shared.validation import (
     ConfigFileNotFoundError,
     ConfigParseError,
     ConfigValidationError,
 )
-from ...trainers.classification_trainer import ClassifierTrainer
-from ...trainers.detection_trainer import UltralyticsDetectionTrainer
 from .utils import console, log_file_path, setup_logging
 
 train_app = typer.Typer(name="train", help="Training commands")
@@ -38,7 +38,7 @@ def classifier(
         # Convert validated config back to DictConfig for backward compatibility
         console.print("cfg:", cfg)
 
-        ClassifierTrainer(cfg).run()
+        ClassificationTask().run(cfg)
 
     except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
         console.print(f"[bold red]✗[/bold red] Configuration error: {str(e)}")
@@ -68,7 +68,7 @@ def detector(
         # Convert validated config back to DictConfig for backward compatibility
         console.print("cfg:", cfg)
 
-        UltralyticsDetectionTrainer(cfg).run()
+        DetectionTask().run(cfg)
 
     except (ConfigFileNotFoundError, ConfigParseError, ConfigValidationError) as e:
         console.print(f"[bold red]✗[/bold red] Configuration error: {str(e)}")

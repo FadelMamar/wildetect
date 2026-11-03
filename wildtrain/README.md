@@ -1,66 +1,44 @@
-# WildTrain: Modular Computer Vision Framework
+# WildTrain
 
-## Overview
-WildTrain is a modular, scalable computer vision framework supporting object detection (YOLOv8, MMDetection) and image classification (PyTorch Lightning). It follows Clean Architecture, SOLID principles, and uses Hydra for configuration and MLflow for experiment tracking.
+WildTrain trains the two models the census app uses:
 
-## Project Structure
+- a class-agnostic Ultralytics YOLO localizer (`task: detection`, `train.single_cls: true`)
+- an ROI image classifier on crops from those boxes (`task: classification`, PyTorch Lightning + timm)
+
+Configs are YAML files validated with Pydantic. OmegaConf resolves interpolations such as `${dataset.input_size}`. Experiment tracking uses MLflow. There is no Hydra config group and no MMDetection backend.
+
+## Layout
+
 ```
-configs/         # Hydra/YAML configs for experiments
-models/          # Model definitions (detection/classification)
-tasks/           # Task logic (training, evaluation)
-trainers/        # Training loops and orchestration
-utils/           # Utilities, logging, registry, etc.
-data/            # Data modules, transforms, loaders
-scripts/         # Example scripts for training/eval
-main.py          # CLI entry point
-requirements.txt # Python dependencies
-pyproject.toml   # Project metadata
+configs/          # example YAML for classification, detection, eval, registration
+src/wildtrain/
+  harness/        # task registry and `wildtrain run`
+  trainers/       # ClassifierTrainer and UltralyticsDetectionTrainer
+  models/         # GenericClassifier, two-stage Detector, MLflow registration
+  cli/            # Typer commands
 ```
 
-## Features
-- Object Detection: YOLOv8, MMDetection
-- Image Classification: PyTorch Lightning
-- Hydra-configurable experiments
-- MLflow tracking
-- Optuna/Ray Tune hyperparameter tuning
-- Modular, extensible, type-annotated codebase
+## Train
 
-## Usage
-### Install MMDet
+From `wildtrain/` after `uv sync`:
+
 ```bash
-uv pip install torch==2.0.0 torchvision
-uv pip install -U openmim
-uv run mim install mmengine
+wildtrain train detector -c configs/detection/yolo_configs/yolo.yaml
+wildtrain train classifier -c configs/classification/classification_train.yaml
 ```
-- If CPU only:
-``uv pip install mmcv==2.0.1 -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html``
-- If CUDA
-``uv pip install mmcv==2.0.1 -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.1/index.html``
-- Mopre info at: https://mmcv.readthedocs.io/en/latest/get_started/installation.html#install-mmcv-lite
 
-- Install mmdet
-``uv run mim install mmdet``
-``uv pip install numpy==1.26.4``
+The same documents work with `wildtrain run` once they contain a top-level `task` key (`detection` or `classification`):
 
-
-### Train a model
 ```bash
-python main.py task=detection framework=yolov8
-python main.py task=classification
+wildtrain run -c path/to/experiment.yaml
 ```
 
-### Hyperparameter tuning
+`wildtrain train classifier` and `wildtrain train detector` stay the commands for the existing files, which do not have a `task` key.
+
+## Evaluate and register
+
 ```bash
-python main.py task=classification tune=true
+wildtrain evaluate detector -c configs/detection/yolo_configs/yolo_eval.yaml
+wildtrain evaluate classifier -c configs/classification/classification_eval.yaml
+wildtrain register detector configs/registration/detector_registration_example.yaml
 ```
-
-### Evaluate
-```bash
-python main.py task=detection mode=evaluate
-```
-
-## Configuration
-Edit configs in `configs/` or override via CLI using Hydra syntax.
-
-## Contributing
-PRs and issues welcome!

@@ -46,20 +46,9 @@ names: ['elephant', 'giraffe', 'zebra']
 
 ### Step 2: Configure Training
 
-Create or edit a YOLO training config (e.g., `configs/detection/yolo_configs/yolo.yaml`). The config follows the [Ultralytics format](https://docs.ultralytics.com/usage/cfg/):
+Edit `configs/detection/yolo_configs/yolo.yaml`. WildTrain validates that file as a `DetectionConfig` (dataset, model, train, curriculum, pretraining, mlflow). It is not a flat Ultralytics CLI yaml, and it is not an MMDetection config.
 
-```yaml
-model: yolo12n.pt        # Pretrained model
-data: configs/detection/yolo_configs/data/wildlife.yaml
-epochs: 100
-imgsz: 800
-batch: 16
-device: 0                # GPU index
-lr0: 0.001
-lrf: 0.01
-optimizer: AdamW
-weight_decay: 0.0005
-```
+Keep `train.single_cls: true`. That trains the class-agnostic localizer the ROI classifier and the census app expect. Multi-class YOLO is not the supported detector.
 
 ### Step 3: Train
 
