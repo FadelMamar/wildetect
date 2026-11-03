@@ -64,6 +64,8 @@ train:
   iou: 0.4
   imgsz: 800
 
+  # Product default: class-agnostic wildlife localizer. Set false only to
+  # keep dataset class ids. That path is optional and not the primary detector.
   single_cls: true
   
   # loss weights

@@ -15,6 +15,20 @@ from ..shared.schemas.yolo import (
 )
 
 
+def apply_single_class_id_shift(
+    detections: sv.Detections, class_names
+) -> sv.Detections:
+    """Shift ids by +1 when the localizer has a single class name.
+
+    Census treats that one name as a class-agnostic wildlife box and expects
+    the foreground id to be 1. Multi-class names are left unchanged.
+    """
+    detections.metadata["class_mapping"] = class_names
+    if len(class_names) == 1:
+        detections.class_id = detections.class_id + 1
+    return detections
+
+
 class ObjectLocalizer(ABC):
     """
     Abstract base class for object localizers.
@@ -118,12 +132,9 @@ class UltralyticsLocalizer(ObjectLocalizer):
     def from_config(cls, config: YoloInferenceConfig):
         return cls(config=config)
     
-    def _update_class_mapping(self, detections: sv.Detections)->sv.Detections:
+    def _update_class_mapping(self, detections: sv.Detections) -> sv.Detections:
         """Update metadata for detections."""
-        detections.metadata["class_mapping"] = self.model.names
-        if len(self.model.names) == 1:
-            detections.class_id = detections.class_id + 1
-        return detections
+        return apply_single_class_id_shift(detections, self.model.names)
 
     def _apply_filtering(
         self,

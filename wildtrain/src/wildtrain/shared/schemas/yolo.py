@@ -168,8 +168,14 @@ class YoloTrainConfig(BaseConfig):
     iou: float = Field(default=0.65, description="IoU threshold")
     imgsz: int = Field(description="Image size")
 
-    # Single class -> Train as localiser if True
-    single_cls: bool = Field(default=True, description="Single class")
+    # True trains the class-agnostic wildlife localizer. False is optional.
+    single_cls: bool = Field(
+        default=True,
+        description=(
+            "Train as one class. This is the product default. "
+            "False keeps dataset class ids and is not the primary detector."
+        ),
+    )
 
     # Loss weights
     box: float = Field(default=3.5, description="Box loss weight")
