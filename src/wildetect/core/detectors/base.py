@@ -23,6 +23,21 @@ from ..data.loader import DataLoader
 logger = logging.getLogger(__name__)
 
 
+def tile_size_from_metadata(metadata: Dict[str, Any]) -> Any:
+    """Tile size recorded on a registered model.
+
+    Registration stores the model input size as ``imgsz``. Some metadata also
+    sets ``tilesize``. An explicit ``tilesize`` wins so those payloads keep
+    their meaning. Otherwise census uses ``imgsz``, which is what models
+    already in the registry carry.
+    """
+    for key in ("tilesize", "imgsz"):
+        value = metadata.get(key)
+        if value is not None:
+            return value
+    return None
+
+
 class BaseDetectionPipeline(ABC):
     """Base detection pipeline."""
 
@@ -337,20 +352,20 @@ class BaseDetectionPipeline(ABC):
     def override_loading_config(
         self,
     ) -> None:
-        if self.metadata is not None:
-            if "batch" in self.metadata:
-                b = self.loader_config.batch_size
-                new_b = self.metadata.get("batch", b)
-                logger.info(f"Updating Loader Batch size: {b} -> {new_b}")
-                self.loader_config.batch_size = int(new_b)
+        if self.metadata is None:
+            return None
 
-            if "tilesize" in self.metadata:
-                tile_size = self.loader_config.tile_size
-                new_tile_size = self.metadata.get("tilesize", tile_size)
-                logger.info(
-                    f"Updating Loader Tile size: {tile_size} -> {new_tile_size}"
-                )
-                self.loader_config.tile_size = int(new_tile_size)
+        if self.metadata.get("batch") is not None:
+            b = self.loader_config.batch_size
+            new_b = self.metadata["batch"]
+            logger.info(f"Updating Loader Batch size: {b} -> {new_b}")
+            self.loader_config.batch_size = int(new_b)
+
+        new_tile_size = tile_size_from_metadata(self.metadata)
+        if new_tile_size is not None:
+            tile_size = self.loader_config.tile_size
+            logger.info(f"Updating Loader Tile size: {tile_size} -> {new_tile_size}")
+            self.loader_config.tile_size = int(new_tile_size)
         return None
 
 

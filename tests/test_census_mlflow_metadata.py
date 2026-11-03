@@ -1,8 +1,7 @@
-"""Freeze the MLflow metadata contract the census pipeline reads.
+"""MLflow metadata the census pipeline reads when overriding the loader.
 
-Registration writes ModelMetadata keys. After download, load_registered_model
-adds version, modeluri, and model_path, then copies MLflow metadata on top.
-Census only consults ``batch`` and ``tilesize`` when overriding the loader.
+Registration writes ``imgsz``, not ``tilesize``. Census uses ``imgsz`` as the
+tile size, and still prefers an explicit ``tilesize`` when that key is present.
 """
 
 from wildtrain.models.register import ModelMetadata, ModelTask, ModelType
@@ -25,13 +24,15 @@ def _apply(metadata: dict) -> _LoaderState:
     return state
 
 
-def test_census_overrides_batch_and_tilesize_only() -> None:
+def test_registered_imgsz_overrides_census_tile_size() -> None:
+    """Models already in the registry store input size as imgsz only."""
     registered = ModelMetadata(
         batch=16,
         imgsz=640,
         task=ModelTask.DETECT,
         model_type=ModelType.DETECTOR,
     ).to_dict()
+    assert "tilesize" not in registered
     # load_registered_model adds these before merging MLflow metadata.
     downloaded = {
         "version": "detector:1",
@@ -43,13 +44,19 @@ def test_census_overrides_batch_and_tilesize_only() -> None:
     pipeline = _apply(downloaded)
 
     assert pipeline.loader_config.batch_size == 16
-    # imgsz is not the census tile-size key, so the loader tile size stays put.
-    assert pipeline.loader_config.tile_size == 800
-    assert "tilesize" not in downloaded
+    assert pipeline.loader_config.tile_size == 640
 
 
-def test_census_tile_override_requires_tilesize_key() -> None:
+def test_explicit_tilesize_wins_over_registered_imgsz() -> None:
+    """Metadata that already sets tilesize keeps that value."""
     pipeline = _apply({"batch": 2, "tilesize": 512, "imgsz": 800})
 
     assert pipeline.loader_config.batch_size == 2
     assert pipeline.loader_config.tile_size == 512
+
+
+def test_missing_size_keys_leave_loader_tile_size() -> None:
+    pipeline = _apply({"batch": 2})
+
+    assert pipeline.loader_config.batch_size == 2
+    assert pipeline.loader_config.tile_size == 800

@@ -226,7 +226,7 @@ def test_registered_model_metadata_keys() -> None:
     }
     assert payload["task"] == "detect"
     assert payload["model_type"] == "detector"
-    # Census reads "tilesize". This payload does not set that key.
+    # Detector.input_shape reads imgsz. Census maps that key to tile size.
     assert "tilesize" not in payload
 
 

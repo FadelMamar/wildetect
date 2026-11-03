@@ -542,7 +542,7 @@ Each phase leaves `wildtrain train detector` and a census load working. No phase
 Done in the first slice, with one nuance recorded by the tests rather than "fixed":
 
 - `ModelMetadata.to_dict()` (`wildtrain/src/wildtrain/models/register.py`) writes `batch`, `imgsz`, `task`, `num_classes`, `model_type`, and `cls_export_format`. `load_registered_model` then adds `version`, `modeluri`, and `model_path` before unwrapping.
-- Census (`BaseDetectionPipeline.override_loading_config`) reads only `batch` and `tilesize`. It does not read `imgsz`. A registered detector therefore overrides loader batch size and does not override tile size unless some other writer adds `tilesize`. That mismatch is frozen, not changed.
+- Census (`BaseDetectionPipeline.override_loading_config`) overrides batch size from `batch`. Tile size comes from an explicit `tilesize` when that key is present, and otherwise from the registered `imgsz`. The writer still emits `imgsz` only, because `Detector.input_shape` and existing registry entries use that name.
 - Census also requires the unwrapped object to provide `set_device` and `predict`. Those calls stay where they are.
 - Characterization tests parse today's classification and detection YAMLs (classification root rewritten to a temp directory because the schema rejects a missing path) and freeze `ConfigLoader` dispatch, including the existing quirk that `DETECTOR_REGISTRATION` loads `LocalizerRegistrationConfig` and `MODEL_REGISTRATION` is rejected by `validate_config_file`.
 - Docs that promised Hydra or MMDetection are corrected. `openmim` is removed from `wildtrain/pyproject.toml`. `hydra-core` is removed as a direct WildTrain dependency. DVC still depends on it, so it stays in the lock as a transitive library and the training code still does not import it. OmegaConf stays; configs still interpolate with it.
@@ -631,7 +631,7 @@ Still open:
 6. **Compatibility window.** How long must `wildtrain train detector` and `POST /training/detector` keep accepting today's YAML? The plan keeps them as adapters through phase 4. Say if they can be removed sooner, or if they must stay indefinitely.
 7. **Configs in git.** The committed YAMLs point at `D:\PhD\workspace\...`. Are those personal run files that should become fixtures with relative paths, or are they the source of truth for experiments? The existence validator makes the first option necessary for CI. Phase 0 tests rewrite the classification root to a temp directory and do not change the files.
 8. **Native loop vs delegated loop.** Is it acceptable that YOLO training stays inside Ultralytics permanently, with the harness owning only config, data prep, tracking, and eval? A shared Lightning detection loop is much larger than this migration.
-9. **Registry contract.** Can new MLflow metadata keys be added as long as `batch`, `imgsz`, `task`, `model_type`, and the unwrap-to-`Detector` behavior stay? Census reads `batch` and `tilesize` (not `imgsz`) plus `set_device` and `predict`.
+9. **Registry contract.** Can new MLflow metadata keys be added as long as `batch`, `imgsz`, `task`, `model_type`, and the unwrap-to-`Detector` behavior stay? Census reads `batch`, then tile size from `tilesize` or `imgsz`, plus `set_device` and `predict`.
 10. **Who the harness is for.** Same conservation workflow, with cleaner extension points, or a library other projects import? A subpackage of `wildtrain` fits the first. A fourth workspace package, stable public API, and entry-point plugins fit the second, and they are extra scope.
 
 ---
@@ -640,7 +640,7 @@ Still open:
 
 Phase 0 and phase 1 are the current code, not a future suggestion.
 
-- Characterization tests cover the shipped classification and detection YAMLs, `ConfigLoader` dispatch, `ModelMetadata.to_dict()` keys, and the census reads of `batch` and `tilesize`.
+- Characterization tests cover the shipped classification and detection YAMLs, `ConfigLoader` dispatch, `ModelMetadata.to_dict()` keys, and the census tile-size fallback from `imgsz` with `tilesize` still winning when present.
 - `wildtrain.harness` adds `Task`, `TaskRegistry`, `ExperimentConfig` (discriminator `task`), `FitResult`, and `run_experiment`.
 - `ClassificationTask` and `DetectionTask` construct today's trainers. `wildtrain run -c` accepts the envelope. `wildtrain train classifier` and `wildtrain train detector` call those tasks with the old configs.
 - `GenericClassifier`, `yolo_utils.py`, pipeline classes, and the census load path are unchanged.
