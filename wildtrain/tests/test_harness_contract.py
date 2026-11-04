@@ -266,13 +266,20 @@ def test_wrapper_tasks_delegate_to_existing_trainers(
     )
 
 
+def _plain(text: str) -> str:
+    """Drop ANSI so option names stay intact. Rich styles each hyphen."""
+    import re
+
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
 def test_run_command_help_and_removed_train_commands() -> None:
     run_help = RUNNER.invoke(app, ["run", "--help"])
     train_help = RUNNER.invoke(app, ["train", "--help"])
     removed = RUNNER.invoke(app, ["train"])
 
     assert run_help.exit_code == 0
-    assert "--config" in run_help.output
+    assert "--config" in _plain(run_help.output)
     assert train_help.exit_code == 0
     assert "wildtrain run" in train_help.output
     assert removed.exit_code == 1

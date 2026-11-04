@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import pytest
 import torch
 import yaml
 from PIL import Image
@@ -209,6 +210,7 @@ def test_train_and_eval_metrics_match() -> None:
         assert torch.allclose(left, right, equal_nan=True)
 
 
+@pytest.mark.slow
 def test_multiclass_roi_trains_and_evaluates(tmp_path: Path, monkeypatch) -> None:
     _synthetic_roi(tmp_path)
     tracking = tmp_path / "mlflow.db"

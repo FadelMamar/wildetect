@@ -605,7 +605,7 @@ Not in this slice, on purpose:
 
 - A shared Lightning trainer, and shared DVC tracking. `tracking.dvc.enabled` is stored and does not start that tracker.
 - Eval, visualization, and registration. Those landed in the next phase.
-- `seed` is stored. The sweep sampler uses `sweep.seed`. The trainers are not reseeded from the experiment seed beyond the detection train seed that Ultralytics already accepted.
+- `seed` is applied at the start of `run_experiment` and at the start of a sweep. Classification calls Lightning `seed_everything`. Detection sets the Python, NumPy, and Torch seeds and passes `train.seed` through to Ultralytics. The Optuna sampler still uses `sweep.seed`.
 
 Exit: a new training task is a registry entry plus a task body on `ExperimentConfig`. It does not need a new Typer training command or a new training router.
 
@@ -668,7 +668,7 @@ Still open:
 3. **Custom YOLO.** Should `custom_yolo` (count, area, FP/TP, DINOv2 encoder) stay a supported backend, or is it an experiment that can freeze on the current Ultralytics pin and stay out of the default path forever?
 5. **Segmentation.** `ModelTask.SEGMENT` and `DetectionEvalParamsConfig.task` already allow the string. Is segmentation in scope after the harness exists, or should those enums stay unused?
 6. **Compatibility window.** Answered: remove it now. Flat training YAML, `train classifier` / `train detector`, the old sweep files, and `POST /training/classifier` / `POST /training/detector` are gone.
-7. **Configs in git.** Shipped train, eval, visualization, and registration files use `${oc.env:DATA_ROOT,.}`, `${oc.env:CLASSIFIER_WEIGHTS,...}`, `${oc.env:LOCALIZER_WEIGHTS,...}`, `${oc.env:DETECTION_DATA_CFG,...}`, and `${oc.env:MLFLOW_TRACKING_URI,...}`. Pipeline YAML still points at those files with its own schema.
+7. **Configs in git.** Shipped train, eval, visualization, and registration files use `${oc.env:DATA_ROOT,.}`, `${oc.env:CLASSIFIER_WEIGHTS,...}`, `${oc.env:LOCALIZER_WEIGHTS,...}`, `${oc.env:DETECTION_DATA_CFG,...}`, and `${oc.env:MLFLOW_TRACKING_URI,...}`. The pipeline YAML was removed.
 8. **Native loop vs delegated loop.** Is it acceptable that YOLO training stays inside Ultralytics permanently, with the harness owning only config, data prep, tracking, and eval? A shared Lightning detection loop is much larger than this migration.
 9. **Registry contract.** Can new MLflow metadata keys be added as long as `batch`, `imgsz`, `task`, `model_type`, and the unwrap-to-`Detector` behavior stay? Census reads `batch`, then tile size from `tilesize` or `imgsz`, plus `set_device` and `predict`.
 10. **Who the harness is for.** Same conservation workflow, with cleaner extension points, or a library other projects import? A subpackage of `wildtrain` fits the first. A fourth workspace package, stable public API, and entry-point plugins fit the second, and they are extra scope.
@@ -681,7 +681,7 @@ Still open:
 
 ## 9. Current code
 
-Phases 0 through 4, plus eval, visualization, and registration, are the current code.
+Phases 0 through 4, plus eval, visualization, registration, and the cleanup that seeds runs and adds CI, are the current code.
 
 - The experiment YAML uses `data.format`, `data.label_policy.positive_name`, `model.backend`, and `train.batch_size`. `trainer_config()` maps that onto the existing trainer configs.
 - Old flat training files, old eval, visualization, and registration files, and `base_config` sweep files raise `ValueError`. The per-task train, evaluate, register, and visualize commands are removed.
@@ -694,3 +694,5 @@ Phases 0 through 4, plus eval, visualization, and registration, are the current 
 - Registration sets the MLflow alias and does not add it to the census metadata keys.
 - `wildtrain pipeline` and `POST /pipeline/*` are removed. `eval.enabled: true` is train-then-eval.
 - The per-task pipeline modules, the per-task sweepers, and `utils/registry.py` are gone. `GenericClassifier`, `yolo_utils.py`, `shared/models.py`, and the census load path remain.
+- `run_experiment` and sweeps apply `seed` before training. `supervision` is pinned to `>=0.31,<0.32` (locked at 0.31.3). `uv.lock` is committed. GitHub Actions runs `uv sync --all-packages --frozen` and the wildtrain, API, and census tests on CPU for every pull request and every push to `main`. The one-epoch train tests are marked `slow` and are still part of that run. FiftyOne uses `FIFTYONE_DATABASE_URI` pointed at a MongoDB service.
+- Census tests no longer import `wildetect.core.detection_pipeline` or `load_image`, and they no longer require a Windows raster. `DetectionPipeline` is `wildetect.core.detectors.base.DetectionPipeline`. Images are loaded with `read_image`.

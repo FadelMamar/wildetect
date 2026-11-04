@@ -46,7 +46,7 @@ dependencies = [
     "pydantic-settings>=2.10.1",
     "aiohttp>=3.12.15",
     "tenacity>=9.1.2",
-    "supervision>=0.26.1",
+    "supervision>=0.31,<0.32",
     "label-studio-tools>=0.0.4",
     "optuna>=4.5.0",
     "rasterio>=1.4.3",
@@ -62,6 +62,11 @@ dependencies = [
     "datasets>=4.8.5",
     "sahi",
     "opencv-python-headless>=4.12.0.88",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: one-epoch training tests; still run in CI",
 ]
 
 [tool.ruff]

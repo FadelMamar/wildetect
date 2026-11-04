@@ -338,8 +338,9 @@ class BaseDetectionPipeline(ABC):
             "total_tiles": self.total_tiles,
         }
 
-        if self.detection_system:
-            info["detection_system"] = self.detection_system.get_model_info()
+        model_info = getattr(self.detection_system, "get_model_info", None)
+        if callable(model_info):
+            info["detection_system"] = model_info()
 
         if self.data_loader:
             info["data_loader"] = {
