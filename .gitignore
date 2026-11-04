@@ -55,8 +55,6 @@ results*
 *.db
 mlartifacts/
 
-uv.lock
-
 *visualization.html
 
 # PyInstaller
