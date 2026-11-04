@@ -15,7 +15,7 @@ dependencies = [
     "rich>=14.0.0",
     "fiftyone==1.2.0",
     "timm",
-    "supervision",
+    "supervision>=0.31,<0.32",
     "torch==2.6.0",
     "torchmetrics",
     "typer>=0.16.0",

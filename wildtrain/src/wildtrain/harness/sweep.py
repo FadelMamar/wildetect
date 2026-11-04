@@ -15,7 +15,7 @@ import optuna
 from ..utils.logging import get_logger
 from .config import ExperimentConfig, load_experiment
 from .result import FitResult
-from .runner import run_experiment
+from .runner import apply_experiment_seed, run_experiment
 
 logger = get_logger(__name__)
 
@@ -111,6 +111,7 @@ class ExperimentSweeper:
     def run(self) -> optuna.Study:
         sweep = self.config.sweep
         assert sweep is not None
+        apply_experiment_seed(self.config)
         study = optuna.create_study(
             direction=sweep.direction,
             study_name=sweep.name or f"{self.config.task}-sweep",

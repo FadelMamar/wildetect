@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 import supervision as sv
 import torch
 import yaml
@@ -305,6 +306,7 @@ def test_multi_class_nms_is_per_class_without_id_shift() -> None:
     assert kept.metadata["class_mapping"] == names
 
 
+@pytest.mark.slow
 def test_tiny_ultralytics_run(tmp_path: Path) -> None:
     config = _config(tmp_path)
     path = tmp_path / "experiment.yaml"

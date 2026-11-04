@@ -3,7 +3,6 @@ Test script for Tile and DroneImage functionality.
 """
 
 import logging
-import os
 import random
 import sys
 import tempfile
@@ -14,10 +13,11 @@ from typing import List
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from PIL import Image
 from wildetect.core.config import FlightSpecs
 from wildetect.core.data import DroneImage, Tile
 from wildetect.core.data.detection import Detection
-from wildetect.core.data.utils import load_image
+from wildetect.core.data.utils import read_image
 
 # Configure logging
 logging.basicConfig(
@@ -25,16 +25,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TEST_IMAGE_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
 FLIGHT_SPECS = FlightSpecs(sensor_height=24.0, focal_length=35.0, flight_height=180.0)
+_IMAGE_DIR = Path(tempfile.mkdtemp(prefix="wildetect-tiles-"))
 
 
 def create_test_image() -> str:
-    """Create a test image for testing."""
-
-    image_path = random.choice(os.listdir(TEST_IMAGE_DIR))
-    image_path = os.path.join(TEST_IMAGE_DIR, image_path)
-    return image_path
+    """Write a synthetic image. ``read_image`` is the current loader."""
+    image_path = _IMAGE_DIR / f"frame_{random.randrange(1_000_000)}.png"
+    Image.new("RGB", (800, 600), (30, 80, 120)).save(image_path)
+    return str(image_path)
 
 
 def create_test_detections(image_path: str) -> List[Detection]:
@@ -42,7 +41,7 @@ def create_test_detections(image_path: str) -> List[Detection]:
     detections = []
 
     # Load the image to get its dimensions
-    image = load_image(image_path)
+    image = read_image(image_path)
     img_width, img_height = image.size
 
     # Create some test detections within image boundaries

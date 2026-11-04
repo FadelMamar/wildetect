@@ -33,7 +33,7 @@ wildtrain sweep -c configs/detection/detection_sweep.yaml
 
 Set `DATA_ROOT` for the classification dataset root and `DETECTION_DATA_CFG` for the YOLO data yaml. Those files are not required to exist until training starts.
 
-`tracking.dvc.enabled` is recorded; the shared DVC tracker is not wired yet. Set `eval.enabled: true` and `wildtrain run -c` trains, then scores the best checkpoint. `eval.enabled` defaults to false. `wildtrain evaluate -c` scores an existing checkpoint and does not train. `wildtrain pipeline` has been removed.
+`tracking.dvc.enabled` is recorded; the shared DVC tracker is not wired yet. `seed` is applied before training: Lightning `seed_everything` for classification, and `train.seed` for Ultralytics. Set `eval.enabled: true` and `wildtrain run -c` trains, then scores the best checkpoint. `eval.enabled` defaults to false. `wildtrain evaluate -c` scores an existing checkpoint and does not train. `wildtrain pipeline` has been removed.
 
 ## Classification
 

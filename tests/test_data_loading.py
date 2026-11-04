@@ -1,245 +1,100 @@
-"""
-Test script for data loading functionality.
-"""
+"""Data loading on synthetic images and a small GeoTIFF."""
 
-import logging
-import os
-import traceback
 from pathlib import Path
-from typing import Dict, List
 
-from tqdm import tqdm
+import numpy as np
+import rasterio
+from PIL import Image
+from rasterio.transform import from_origin
+
 from wildetect.core.config import FlightSpecs, LoaderConfig
-
-# Add the project root to the Python path
 from wildetect.core.data import DataLoader, TileDataset, load_images_as_drone_images
-from wildetect.core.data.utils import get_images_paths
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
-
-IMAGES_DIR = r"D:\workspace\data\savmap_dataset_v2\raw\images"
-RASTER_PATH = r"C:\Users\FADELCO\Downloads\day5_ebenhazer_burnt_geier_merged_archive\transparent_day_5_ebenhazer_burnt_geier_merged_mosaic_group1.tif"
-
-if not os.path.exists(RASTER_PATH):
-    raise FileNotFoundError(f"Raster path {RASTER_PATH} does not exist")
-
-if not os.path.exists(IMAGES_DIR):
-    raise FileNotFoundError(f"Images directory {IMAGES_DIR} does not exist")
 
 
-def create_test_images(num_images: int = -1) -> List[str]:
-    """Create test images for testing.
-
-    Args:
-        test_dir (Path): Directory to create test images in
-        num_images (int): Number of test images to create
-
-    Returns:
-        List[str]: List of created image paths
-    """
-    image_paths = get_images_paths(IMAGES_DIR)
-    return image_paths[: min(num_images, len(image_paths))]
+def _images(directory: Path, count: int = 3) -> list[str]:
+    directory.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for index in range(count):
+        path = directory / f"frame_{index}.png"
+        Image.new("RGB", (96, 64), (20 * index, 40, 80)).save(path)
+        paths.append(str(path))
+    return paths
 
 
-def test_loader_config():
-    """Test LoaderConfig functionality."""
-    print("=" * 60)
-    print("TESTING LOADER CONFIG")
-    print("=" * 60)
+def _raster(path: Path) -> None:
+    data = np.zeros((3, 96, 96), dtype=np.uint8)
+    data[0] = 30
+    data[1] = 90
+    transform = from_origin(30.0, -20.0, 0.0001, 0.0001)
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=96,
+        width=96,
+        count=3,
+        dtype="uint8",
+        crs="EPSG:4326",
+        transform=transform,
+    ) as handle:
+        handle.write(data)
 
-    # Test basic config creation
+
+def test_loader_config() -> None:
     config = LoaderConfig(tile_size=640, overlap=0.2, batch_size=4, recursive=True)
-
-    print(f"Config created: tile_size={config.tile_size}, overlap={config.overlap}")
-    print(f"Batch size: {config.batch_size}, recursive: {config.recursive}")
-
-    # Test with flight specs
+    assert config.tile_size == 640
+    assert config.batch_size == 4
     flight_specs = FlightSpecs(
         sensor_height=24.0, focal_length=35.0, flight_height=180.0
     )
-
-    config_with_flight = LoaderConfig(
-        tile_size=640, overlap=0.2, flight_specs=flight_specs
-    )
-
-    assert config_with_flight.flight_specs is not None
-    print(f"Flight specs: {config_with_flight.flight_specs}")
-    print("✓ LoaderConfig test passed")
+    with_flight = LoaderConfig(tile_size=640, overlap=0.2, flight_specs=flight_specs)
+    assert with_flight.flight_specs is not None
 
 
-def test_image_tile_dataset():
-    """Test ImageTileDataset functionality."""
-    print("=" * 60)
-    print("TESTING IMAGE TILE DATASET")
-    print("=" * 60)
-
-    # Create test images
-    print("Creating test images...")
-    image_paths = create_test_images(num_images=3)
-    print(f"Created {len(image_paths)} test images")
-
-    # Create config
-    print("Creating config...")
-    config = LoaderConfig(
-        tile_size=320,  # Smaller tiles for testing
-        overlap=0.2,
-        batch_size=2,
-    )
-    print("Config created successfully")
-
-    # Create dataset
-    print("Creating dataset...")
-    try:
-        dataset = TileDataset(config=config, image_paths=image_paths)
-        print("Dataset created successfully")
-    except Exception as e:
-        logger.error(f"Failed to create dataset: {e}")
-        import traceback
-
-        traceback.print_exc()
-        raise
-
-    print(f"Dataset created with {len(dataset.tiles)} tiles")
-    print(f"Number of images: {len(dataset.image_paths)}")
-
-    # Test dataset iteration
-    print("Testing dataset iteration...")
-    for i in range(len(dataset)):
-        try:
-            item = dataset[i]
-            print(
-                f"Item {i}: tile_id={item['tile_id']}, shape={item['image'].shape if hasattr(item['image'], 'shape') else 'N/A'}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to get item {i}: {e}")
-            import traceback
-
-            traceback.print_exc()
-            raise
-
-    # Test dataset length
-    assert len(dataset) > 0, "Dataset should not be empty"
-    print(f"Dataset length: {len(dataset)}")
-    print("✓ TileDataset test passed")
+def test_image_tile_dataset(tmp_path: Path) -> None:
+    image_paths = _images(tmp_path / "images")
+    config = LoaderConfig(tile_size=32, overlap=0.0, batch_size=2)
+    dataset = TileDataset(config=config, image_paths=image_paths)
+    assert len(dataset) > 0
+    item = dataset[0]
+    assert "tile_id" in item
+    assert item["image"].shape[-2:] == (32, 32)
 
 
-def test_data_loader():
-    """Test DataLoader functionality."""
-    print("=" * 60)
-    print("TESTING DATA LOADER")
-    print("=" * 60)
-
-    # Create test images
-    image_paths = create_test_images(num_images=4)
-
-    # Create config
-    config = LoaderConfig(
-        tile_size=320,
-        overlap=0.2,
-        batch_size=2,
-        num_workers=0,  # Use 0 for testing
-    )
-
-    # Create data loader
+def test_data_loader(tmp_path: Path) -> None:
+    image_paths = _images(tmp_path / "images", count=4)
+    config = LoaderConfig(tile_size=32, overlap=0.0, batch_size=2, num_workers=0)
     dataloader = DataLoader(image_paths=image_paths, image_dir=None, config=config)
-
-    print(f"DataLoader created with {len(dataloader)} batches")
-
-    # Test batch iteration
-    batch_count = 0
+    batches = []
     for batch in dataloader:
-        batch_count += 1
-        print(f"Batch {batch_count}: {len(batch['tiles'])} tiles")
-
-        if batch_count >= 2:  # Test first 2 batches
+        batches.append(batch)
+        if len(batches) >= 2:
             break
+    assert batches
+    assert len(batches[0]["tiles"]) > 0
 
-    assert batch_count > 0, "Should have at least one batch"
-    print("✓ DataLoader test passed")
 
-
-def test_load_images_as_drone_images():
-    """Test load_images_as_drone_images function."""
-    print("=" * 60)
-    print("TESTING LOAD_IMAGES_AS_DRONE_IMAGES")
-    print("=" * 60)
-
-    # Create test images
-    image_paths = create_test_images(num_images=3)
-
-    # Create config
-    config = LoaderConfig(
-        tile_size=640,
-        overlap=0.2,
-        flight_specs=FlightSpecs(
-            sensor_height=24.0, focal_length=35.0, flight_height=180.0
-        ),
+def test_load_images_as_drone_images(tmp_path: Path) -> None:
+    image_paths = _images(tmp_path / "images")
+    flight_specs = FlightSpecs(
+        sensor_height=24.0, focal_length=35.0, flight_height=180.0
     )
-
-    # Load images as drone images
     drone_images = load_images_as_drone_images(
-        image_paths=image_paths, flight_specs=config.flight_specs
+        image_paths=image_paths, flight_specs=flight_specs
     )
-
-    print(f"Loaded {len(drone_images)} drone images")
-
-    # Test drone image properties
-    for i, drone_image in enumerate(drone_images):
-        print(f"DroneImage {i}: id={drone_image.id}, tiles={len(drone_image.tiles)}")
-        assert drone_image.id is not None, "DroneImage should have an ID"
-        assert len(drone_image.tiles) > 0, "DroneImage should have tiles"
-
-    print("✓ load_images_as_drone_images test passed")
+    assert len(drone_images) == len(image_paths)
+    for drone_image in drone_images:
+        assert drone_image.id is not None
+        assert len(drone_image.tiles) > 0
 
 
-def test_ortho_dataset():
-    """Test OrthoDataset functionality."""
-    print("=" * 60)
-    print("TESTING ORTHO DATASET")
-    print("=" * 60)
-
-    # Create config
-    config = LoaderConfig(
-        tile_size=800,
-        overlap=0.2,
-        batch_size=4,
-        num_workers=0,
-    )
-
-    # Create dataset
-    loader = DataLoader(raster_path=RASTER_PATH, config=config)
-    print(f"Dataset created with {len(loader)} tiles")
-    for batch in tqdm(loader, desc="Processing batch"):
-        pass
-
-    # Test dataset iteration
-
-
-def run_all_tests():
-    """Run all data loading tests."""
-    print("Starting data loading tests...")
-
-    try:
-        test_loader_config()
-        test_image_tile_dataset()
-        test_data_loader()
-        test_load_images_as_drone_images()
-        test_ortho_dataset()
-
-        print("=" * 60)
-        print("ALL DATA LOADING TESTS PASSED! ✓")
-        print("=" * 60)
-
-    except Exception as e:
-        logger.error(f"Test failed: {e}")
-
-        traceback.print_exc()
-        raise
-
-
-if __name__ == "__main__":
-    run_all_tests()
+def test_ortho_dataset(tmp_path: Path) -> None:
+    raster = tmp_path / "mosaic.tif"
+    _raster(raster)
+    config = LoaderConfig(tile_size=32, overlap=0.0, batch_size=2, num_workers=0)
+    loader = DataLoader(raster_path=str(raster), config=config)
+    assert len(loader) > 0
+    batch = next(iter(loader))
+    windows = batch[0]
+    assert windows.ndim == 4
+    assert windows.shape[1] == 3

@@ -1,0 +1,37 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: CPU tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CUDA_VISIBLE_DEVICES: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install the workspace
+        run: uv sync --frozen --all-packages
+
+      - name: Run wildtrain, API, and census tests
+        run: >
+          uv run pytest
+          wildtrain/tests
+          tests/test_census_mlflow_metadata.py
+          tests/test_data_loading.py
+          tests/test_detection_pipeline.py
+          tests/test_tile_and_drone_image.py
+          -q
+          --tb=short
