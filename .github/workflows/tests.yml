@@ -23,7 +23,7 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Install the workspace
-        run: uv sync --frozen --all-packages
+        run: uv sync --all-packages
 
       - name: Run wildtrain, API, and census tests
         run: >
